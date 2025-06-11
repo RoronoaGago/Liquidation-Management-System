@@ -3,15 +3,34 @@ __pycache__/
 *.pyc
 *.pyo 
 
+# Virtual environment
+.venv/
+venv/
+env/
+# These cover common virtual environment folder names. You only need the one you use.
+
 # Django specific files
 *.log 
 *.pot 
 db.sqlite3 # If you're using sqlite3
 /media/
 /staticfiles/ # Collected static files
+local_settings.py # If you have a separate local settings file for development
 
 # Environment variables
 .env # If you are using a .env file for sensitive information
 
 # IDE specific files
 .vscode/
+.idea/ # For PyCharm/IntelliJ IDEA users
+
+# Operating System Files
+.DS_Store # macOS specific
+Thumbs.db # Windows specific
+
+# Jupyter Notebook files (if applicable)
+.ipynb_checkpoints/
+
+# Test/Coverage files
+.coverage
+/htmlcov/
