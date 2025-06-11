@@ -1,4 +1,4 @@
-import React, {
+import {
   createContext,
   useContext,
   ReactNode,
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [user, setUser] = useState<UserData | null>(null); // Store user data
-  const [userRole, setUserRole] = useState<string>("admin"); // Default to admin
+  const [userRole] = useState<string>("schoolHead"); // Default to admin
   // Decode token and extract user info
   const decodeToken = (token: string): UserData => {
     try {
@@ -51,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         last_name: decoded.last_name,
         email: decoded.email,
       };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       throw new Error("Invalid token");
     }
@@ -131,6 +132,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
