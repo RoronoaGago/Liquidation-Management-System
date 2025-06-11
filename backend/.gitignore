@@ -1,0 +1,17 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo 
+
+# Django specific files
+*.log 
+*.pot 
+db.sqlite3 # If you're using sqlite3
+/media/
+/staticfiles/ # Collected static files
+
+# Environment variables
+.env # If you are using a .env file for sensitive information
+
+# IDE specific files
+.vscode/
