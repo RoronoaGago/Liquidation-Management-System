@@ -11,6 +11,7 @@ import { jwtDecode } from "jwt-decode";
 interface UserData {
   user_id: string | number;
   username: string;
+  role: string;
   first_name: string;
   last_name: string;
   phone_number?: string;
@@ -23,8 +24,6 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (userData: UserData, newToken?: string) => void; // Add this
-  //TODO - user roles
-  userRole: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: string;
         first_name: string;
         last_name: string;
+        role: string;
       }>(token);
       return {
         user_id: decoded.user_id,
@@ -50,6 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         first_name: decoded.first_name,
         last_name: decoded.last_name,
         email: decoded.email,
+        role: decoded.role,
       };
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
@@ -124,7 +125,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         updateUser,
-        userRole,
       }}
     >
       {children}
