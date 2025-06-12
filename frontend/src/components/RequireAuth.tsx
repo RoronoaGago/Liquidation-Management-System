@@ -7,7 +7,7 @@ interface RequireAuthProps {
 }
 
 const RequireAuth: React.FC<RequireAuthProps> = ({ allowedRoles }) => {
-  const { isAuthenticated, isLoading, user, userRole } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -23,7 +23,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({ allowedRoles }) => {
   }
 
   // If allowedRoles is provided, check if user has required role
-  if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
+  if (allowedRoles && (!user?.role || !allowedRoles.includes(user.role))) {
     // Redirect to not-authorized or home page
     // return <Navigate to="/not-authorized" state={{ from: location }} replace />;
     // Alternatively, you could redirect to home:

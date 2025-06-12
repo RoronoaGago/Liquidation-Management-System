@@ -41,10 +41,10 @@ class UserSerializer(serializers.ModelSerializer):
 
         # Only admins can create other admins
         request = self.context.get('request')
-        if request and request.user.role != 'admin' and data.get('role') == 'admin':
-            raise serializers.ValidationError(
-                "Only administrators can create admin users"
-            )
+        # if request and request.user.role != 'admin' and data.get('role') == 'admin':
+        #     raise serializers.ValidationError(
+        #         "Only administrators can create admin users"
+        #     )
 
         return data
 
@@ -101,6 +101,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
         token['username'] = user.username
+        token['role'] = user.role
         # Assuming these fields exist on your User model
         token['email'] = user.email
         return token

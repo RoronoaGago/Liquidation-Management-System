@@ -6,24 +6,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from django.db.models import Sum, Count
-from datetime import timedelta
-import pandas as pd
-from django.http import FileResponse
-from io import BytesIO
+from django.db.models import Q
 from .models import User
-from .serializers import (
-    UserSerializer,
-)
-# Add this import at the top of your file
-from django.db.models.functions import TruncDate
-from django.db.models import Max  # Add this with your other imports
-from django.contrib.auth import authenticate, login
+from .serializers import UserSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.permissions import IsAuthenticated
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,27 +32,57 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 @api_view(['GET', 'POST'])
 def user_list(request):
     """
-    List all users or create a new user
+    List all users or create a new user with enhanced filtering
     """
     if request.method == 'GET':
-        # Get filter parameter from query string
+        # Get filter parameters from query string
         show_archived = request.query_params.get(
             'archived', 'false').lower() == 'true'
+        role_filter = request.query_params.get('role', None)
+        school_filter = request.query_params.get('school', None)
+        search_term = request.query_params.get('search', None)
 
-        if show_archived:
-            # Only show archived users (is_active=False)
-            users = User.objects.filter(
-                is_active=False).order_by('-date_joined')
+        queryset = User.objects.all()
+
+        # Archive filter
+        if not show_archived:
+            queryset = queryset.filter(is_active=True)
         else:
-            # Only show active users (is_active=True)
-            users = User.objects.filter(
-                is_active=True).order_by('-date_joined')
+            queryset = queryset.filter(is_active=False)
 
-        serializer = UserSerializer(users, many=True)
+        # Role filter
+        if role_filter:
+            queryset = queryset.filter(role=role_filter)
+
+        # School filter
+        if school_filter:
+            queryset = queryset.filter(school__icontains=school_filter)
+
+        # Search filter
+        if search_term:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search_term) |
+                Q(last_name__icontains=search_term) |
+                Q(username__icontains=search_term) |
+                Q(email__icontains=search_term) |
+                Q(phone_number__icontains=search_term) |
+                Q(school__icontains=search_term)
+            )
+
+        queryset = queryset.order_by('-date_joined')
+        serializer = UserSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'POST':
-        serializer = UserSerializer(data=request.data)
+        # Only allow admins to create admin users
+        # if request.data.get('role') == 'admin' and not request.user.is_superuser:
+        #     return Response(
+        #         {'error': 'Only administrators can create admin users'},
+        #         status=status.HTTP_403_FORBIDDEN
+        #     )
+
+        serializer = UserSerializer(
+            data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -72,7 +92,7 @@ def user_list(request):
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def user_detail(request, pk):
     """
-    Retrieve, update or delete a user instance
+    Retrieve, update or delete a user instance with enhanced permissions
     """
     user = get_object_or_404(User, pk=pk)
 
@@ -81,12 +101,22 @@ def user_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
-        serializer = UserSerializer(user, data=request.data, partial=True)
+        # Prevent non-admins from making users admins
+        if (request.data.get('role') == 'admin' and
+            not request.user.is_superuser and
+                user.role != 'admin'):
+            return Response(
+                {'error': 'Only administrators can assign admin role'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = UserSerializer(
+            user, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if sensitive fields were modified
-        sensitive_fields = ['email', 'password', 'username']
+        sensitive_fields = ['email', 'password', 'username', 'role']
         needs_new_token = any(
             field in request.data for field in sensitive_fields)
 
@@ -97,11 +127,11 @@ def user_detail(request, pk):
         # Generate new token if needed
         if needs_new_token:
             refresh = RefreshToken.for_user(user)
-            # Add custom claims
             refresh['first_name'] = user.first_name
             refresh['last_name'] = user.last_name
             refresh['username'] = user.username
             refresh['email'] = user.email
+            refresh['role'] = user.role
 
             response_data['token'] = {
                 'access': str(refresh.access_token),
@@ -113,19 +143,32 @@ def user_detail(request, pk):
     elif request.method == 'PATCH':
         # Special handling for archive/unarchive
         if 'is_active' in request.data:
+            # Prevent users from archiving themselves
+            if user == request.user:
+                return Response(
+                    {'error': 'You cannot archive your own account'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
             user.is_active = request.data['is_active']
             user.save()
             serializer = UserSerializer(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         # For other PATCH operations
-        serializer = UserSerializer(user, data=request.data, partial=True)
+        serializer = UserSerializer(
+            user, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
+        # Prevent users from deleting themselves
+        if user == request.user:
+            return Response(
+                {'error': 'You cannot delete your own account'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         # Soft delete by archiving instead of hard delete
         user.is_active = False
         user.save()
