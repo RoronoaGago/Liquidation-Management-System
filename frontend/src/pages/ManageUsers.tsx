@@ -256,18 +256,16 @@ const ManageUsers = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // You can still set a preview if needed
       const reader = new FileReader();
       reader.onload = (event) => {
-        setPreviewImage(event.target?.result as string);
+        const base64String = event.target?.result as string;
+        setPreviewImage(base64String);
+        setFormData((prev) => ({
+          ...prev,
+          profile_picture_base64: base64String,
+        }));
       };
-      reader.readAsDataURL(file); // This is just for preview, not for sending
-
-      // Store the File object itself in your state or directly append to FormData
-      setFormData((prev) => ({
-        ...prev,
-        profile_picture: file, // Store the actual File object
-      }));
+      reader.readAsDataURL(file);
     }
   };
 
@@ -317,8 +315,9 @@ const ManageUsers = () => {
       console.log(formData);
       const response = await axios.post("http://127.0.0.1:8000/api/users/", {
         ...formData,
-        profile_picture: formData.profile_picture_base64,
-        headers: { "Content-Type": "mutipart/form-data" },
+        // profile_picture_base64 is already set in formData
+
+        headers: { "Content-Type": "application/json" }, // Correct headers placement
       });
       console.log(response.data);
       console.log(formData);
