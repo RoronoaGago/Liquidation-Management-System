@@ -82,6 +82,8 @@ export default function UserProfiles() {
           `http://127.0.0.1:8000/api/users/${user?.user_id}`
         );
         setDisplayUser(response.data);
+        console.log(response.data);
+        console.log("Hi");
         setEditUser({ ...response.data, password: "" }); // Initialize edit user with empty password
       } catch (err) {
         setError(err as Error);

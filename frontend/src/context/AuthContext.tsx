@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [user, setUser] = useState<UserData | null>(null); // Store user data
-  const [userRole] = useState<string>("schoolHead"); // Default to admin
+  const [userRole] = useState<string>("admin"); // Default to admin
   // Decode token and extract user info
   const decodeToken = (token: string): UserData => {
     try {
