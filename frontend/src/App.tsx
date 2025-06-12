@@ -47,7 +47,7 @@ const App = () => {
             </Route>
 
             {/* School Head-only routes */}
-            <Route element={<RequireAuth allowedRoles={["schoolHead"]} />}>
+            <Route element={<RequireAuth allowedRoles={["school_head"]} />}>
               <Route
                 path="/list-of-priorities"
                 element={<ListOfPrioritiesPage />}

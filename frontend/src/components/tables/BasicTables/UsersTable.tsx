@@ -1,4 +1,3 @@
-import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -38,14 +37,17 @@ import {
   Filter,
   SlidersHorizontal,
   Check,
+  EyeClosedIcon,
+  User as UserIcon,
 } from "lucide-react";
-import { EyeCloseIcon, CalenderIcon } from "@/icons";
+import { CalenderIcon } from "@/icons";
 import { User } from "@/lib/types";
 import Button from "@/components/ui/button/Button";
 import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
 import { calculateAge } from "@/lib/helpers";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type SortDirection = "asc" | "desc" | null;
 type SortableField = keyof Pick<
@@ -157,6 +159,16 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
     );
   }, [selectedUser, formErrors]);
 
+  const roleMap: Record<string, string> = {
+    admin: "Administrator",
+    school_head: "School Head",
+    school_admin: "School Admin",
+    district_admin: "District Admin",
+    superintendent: "Superintendent",
+    liquidator: "Liquidator",
+    accountant: "Accountant",
+  };
+
   // Fetch users with archive filter
   const fetchUsers = async () => {
     setLoading(true);
@@ -167,6 +179,8 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
         },
       });
       setUsers(response.data);
+      console.log(response.data);
+      // console.log("http://127.0.0.1:8000" + users[0].profile_picture);
       setFilteredUsers(response.data);
       setSortConfig({ key: "date_joined", direction: "desc" });
     } catch (err) {
@@ -698,14 +712,6 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
             {showArchived ? "View Active" : "View Archived"}
           </Button>
 
-          {/* <Button
-            variant={showFilters ? "primary" : "outline"}
-            onClick={() => setShowFilters(!showFilters)}
-            startIcon={<SlidersHorizontal className="size-4" />}
-          >
-            Filters
-          </Button> */}
-
           {selectedUsers.length > 0 && (
             <div className="flex gap-2">
               <Button
@@ -738,69 +744,6 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
           </select>
         </div>
       </div>
-
-      {/* Advanced Filters */}
-      {showFilters && (
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              {/* // <Label htmlFor="status-filter">Status</Label>
-              <select */}
-              {/* //   id="status-filter"
-              //   value={filterOptions.status}
-              //   onChange={(e) => handleFilterChange("status", e.target.value)}
-              // >
-              //   <option value="all">All Statuses</option>
-              //   <option value="active">Active Only</option>
-              //   <option value="archived">Archived Only</option>
-              // </select> */}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Date Joined</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label htmlFor="start-date" className="text-sm">
-                    From
-                  </Label>
-                  <Input
-                    type="date"
-                    id="start-date"
-                    value={filterOptions.dateRange.start}
-                    onChange={(e) =>
-                      handleDateRangeChange("start", e.target.value)
-                    }
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="end-date" className="text-sm">
-                    To
-                  </Label>
-                  <Input
-                    type="date"
-                    id="end-date"
-                    value={filterOptions.dateRange.end}
-                    onChange={(e) =>
-                      handleDateRangeChange("end", e.target.value)
-                    }
-                    min={filterOptions.dateRange.start}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-end gap-2">
-              <Button
-                variant="outline"
-                onClick={resetFilters}
-                className="w-full"
-              >
-                Reset Filters
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -853,11 +796,18 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
+                  Profile
+                </TableCell>
+
+                <TableCell
+                  isHeader
+                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+                >
                   <div
                     className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
                     onClick={() => requestSort("first_name")}
                   >
-                    User
+                    Name
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 transition-colors ${
@@ -883,79 +833,23 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
-                    onClick={() => requestSort("username")}
-                  >
-                    Username
-                    <span className="inline-flex flex-col ml-1">
-                      <ChevronUp
-                        className={`h-3 w-3 transition-colors ${
-                          sortConfig?.key === "username" &&
-                          sortConfig.direction === "asc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      />
-                      <ChevronDown
-                        className={`h-3 w-3 -mt-1 transition-colors ${
-                          sortConfig?.key === "username" &&
-                          sortConfig.direction === "desc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      />
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell
-                  isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-                >
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
-                    onClick={() => requestSort("email")}
-                  >
-                    Email
-                    <span className="inline-flex flex-col ml-1">
-                      <ChevronUp
-                        className={`h-3 w-3 transition-colors ${
-                          sortConfig?.key === "email" &&
-                          sortConfig.direction === "asc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      />
-                      <ChevronDown
-                        className={`h-3 w-3 -mt-1 transition-colors ${
-                          sortConfig?.key === "email" &&
-                          sortConfig.direction === "desc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      />
-                    </span>
-                  </div>
+                  Role
                 </TableCell>
 
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  Age
+                  School
                 </TableCell>
-                {/* <TableCell
-                  isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-                >
-                  Phone
-                </TableCell> */}
+
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
                   Status
                 </TableCell>
+
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -993,49 +887,36 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                       </div>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                      <div className="flex items-center gap-3">
-                        {/* <div
-                          className={`flex items-center justify-center w-10 h-10 rounded-full ${getAvatarColor(
-                            user.id,
-                            user.first_name,
-                            user.last_name
-                          )} text-white font-medium`}
-                        >
-                          {getUserInitials(user.first_name, user.last_name)}
-                        </div> */}
-                        <div className="w-10 h-10 overflow-hidden rounded-full object-cover">
+                      <div className="w-10 h-10 rounded-full overflow-hidden">
+                        {user.profile_picture ? (
                           <img
-                            className="object-cover w-full h-full"
-                            src={
-                              "https://www.usab.com/imgproxy/ziarB3UvXnVI_LC7nZ-bQGhvzCd55ihxL9jx7PNKzt4/rs:fit:3000:0:0/g:ce/q:90/aHR0cHM6Ly9zdG9yYWdlLmdvb2dsZWFwaXMuY29tL3VzYWItY29tLXByb2QvdXBsb2FkLzIwMjQvMDcvMDkvZGJkOTVjZWUtNDBlOS00MjBlLWEzZjAtMGI2M2Q3MDczMTk3LmpwZw.png"
-                            }
-                            alt={
-                              "https://res.cloudinary.com/usopc-prod/image/upload/v1713806010/TeamUSA%20Assets/Migration/Athlete%20Profiles/LeBron%20James%20908893/James_l_thumbnail_908893.jpg"
-                            }
+                            src={`http://127.0.0.1:8000${user.profile_picture}`}
+                            alt="Profile"
+                            className="w-full h-full object-cover"
                           />
-                        </div>
-                        <div>
-                          <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
-                            {user.first_name} {user.last_name}
-                          </span>
-                          <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                            School Head | Lingat Integrated School
-                          </span>
-                        </div>
+                        ) : (
+                          <div className="bg-gray-200 w-full h-full flex items-center justify-center">
+                            <UserIcon className="w-5 h-5 text-gray-500" />
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                      <div>
+                        <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
+                          {user.first_name} {user.last_name}
+                        </span>
+                        <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
+                          {user.email}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {user.username}
+                      {roleMap[user.role] || user.role}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {user.email}
+                      {user.school || "-"}
                     </TableCell>
-                    <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {calculateAge(user.date_of_birth)}
-                    </TableCell>
-                    {/* <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {user.phone_number}
-                    </TableCell> */}
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       <Badge color={user.is_active ? "success" : "error"}>
                         {user.is_active ? "Active" : "Archived"}
@@ -1269,7 +1150,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeCloseIcon className="h-5 w-5 text-gray-400" />
+                      <EyeClosedIcon className="h-5 w-5 text-gray-400" />
                     ) : (
                       <EyeIcon className="h-5 w-5 text-gray-400" />
                     )}
