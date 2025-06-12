@@ -101,6 +101,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
         token['username'] = user.username
+        token['role'] = user.role
         # Assuming these fields exist on your User model
         token['email'] = user.email
         return token
