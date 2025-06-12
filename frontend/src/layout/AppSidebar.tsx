@@ -185,6 +185,7 @@ const AppSidebar: React.FC = () => {
     setNavItems(filterItemsByRole(allNavItems));
     setFilteredOthersItems(filterItemsByRole(othersItems));
     console.log(user?.role);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
   const isActive = useCallback(

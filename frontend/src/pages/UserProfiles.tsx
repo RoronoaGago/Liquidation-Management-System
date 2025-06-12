@@ -71,6 +71,7 @@ export default function UserProfiles() {
         (field) => editUser[field as keyof User]?.toString().trim() !== ""
       ) && Object.keys(formErrors).length === 0
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editUser, formErrors]);
 
   // Fetch users
@@ -231,6 +232,7 @@ export default function UserProfiles() {
               last_name: response.data.last_name,
               email: response.data.email,
               phone_number: response.data.phone_number,
+              role: "",
             },
             response.data.token.access
           );
@@ -245,6 +247,7 @@ export default function UserProfiles() {
             last_name: response.data.last_name,
             email: response.data.email,
             phone_number: response.data.phone_number,
+            role: "",
           });
           toast.success("Profile updated!");
         }
@@ -316,6 +319,7 @@ export default function UserProfiles() {
       "bg-orange-500",
       "bg-indigo-500",
     ];
+    // eslint-disable-next-line prefer-const
     let stringId = displayUser.id.toString();
     const hash =
       displayUser.id && typeof stringId === "string"
