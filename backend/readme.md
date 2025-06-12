@@ -4,12 +4,50 @@ This guide will walk you through the steps to set up and run the backend of this
 
 ---
 
+### Database Setup and Sample User
+
+First, prepare your database and then add a sample user for testing.
+
+1.  **Create Database in phpMyAdmin**
+    Access your phpMyAdmin instance (or your preferred database management tool) and create a new database with the following name:
+
+    ```
+    db_liquidation_management_system
+    ```
+
+2.  **Create Sample User via API**
+    Once your backend server is running, use an API testing tool like Thunder Client (or Postman, Insomnia, etc.) to create a new user by making a **POST** request to the following endpoint:
+
+    **Endpoint:**
+
+    ```
+    [http://127.0.0.1:8000/api/users/](http://127.0.0.1:8000/api/users/)
+    ```
+
+    **Request Body (JSON):**
+    Use the following JSON payload for the user data:
+
+    ```json
+    {
+      "first_name": "John",
+      "last_name": "Doe",
+      "username": "johndoe",
+      "password": "SecurePass123!",
+      "date_of_birth": "1990-01-01",
+      "email": "john.doe@example.com",
+      "phone_number": "+1234567890",
+      "role": "admin"
+    }
+    ```
+
+---
+
 ### Setup Steps
 
-Follow these instructions to get your backend environment ready and the server running:
+After setting up your database, follow these instructions to get your backend environment ready and the server running:
 
 1.  **Navigate to the Backend Directory**
-    First, ensure you're in the root directory of your project, then change into the `backend` directory:
+    First, ensure you are in the root directory of your project, then change into the `backend` directory:
 
     ```bash
     cd backend
@@ -72,4 +110,4 @@ Follow these instructions to get your backend environment ready and the server r
 
 ---
 
-You should now have the backend server up and running!
+You should now have the backend server up and running with a sample user created for testing!
