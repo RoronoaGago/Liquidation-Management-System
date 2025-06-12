@@ -21,7 +21,7 @@ First, prepare your database and then add a sample user for testing.
     **Endpoint:**
 
     ```
-    [http://127.0.0.1:8000/api/users/](http://127.0.0.1:8000/api/users/)
+    http://127.0.0.1:8000/api/users/
     ```
 
     **Request Body (JSON):**
