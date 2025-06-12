@@ -180,6 +180,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
       });
       setUsers(response.data);
       console.log(response.data);
+      // console.log("http://127.0.0.1:8000" + users[0].profile_picture);
       setFilteredUsers(response.data);
       setSortConfig({ key: "date_joined", direction: "desc" });
     } catch (err) {
@@ -889,7 +890,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                       <div className="w-10 h-10 rounded-full overflow-hidden">
                         {user.profile_picture ? (
                           <img
-                            src={user.profile_picture}
+                            src={`http://127.0.0.1:8000${user.profile_picture}`}
                             alt="Profile"
                             className="w-full h-full object-cover"
                           />
