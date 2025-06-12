@@ -1,9 +1,9 @@
-import { useState, useCallback, FormEvent, ChangeEvent } from "react";
+import { useState, useCallback, ChangeEvent } from "react";
 import { useNavigate } from "react-router";
 import { EyeIcon, EyeClosedIcon } from "lucide-react";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
-import { Loading } from "../common/Loading";
+// import { Loading } from "../common/Loading";
 import bubbleMagicFacade from "../../images/bubble-magic/bubble-magic-facade.jpg";
 import { useAuth } from "@/context/AuthContext";
 
