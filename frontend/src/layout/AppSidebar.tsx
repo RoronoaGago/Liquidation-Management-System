@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
+// import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
 import desktopLogo from "../images/bubble-magic/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
@@ -9,10 +9,10 @@ import {
   GridIcon,
   HorizontaLDots,
   PieChartIcon,
-  PlugInIcon,
-  ReceiptIcon,
+  // PlugInIcon,
+  // ReceiptIcon,
   ReportIcon,
-  StatusIcon,
+  // StatusIcon,
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
@@ -26,13 +26,13 @@ const allNavItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
-    roles: ["admin", "schoolHead", "teacher"], // All roles can access
+    roles: ["admin", "school_head", "teacher"], // All roles can access
   },
   {
     icon: <UserCircleIcon />,
     name: "Manage Users",
     path: "/users",
-    roles: ["admin"], // Only admin
+    roles: ["admin", "school_admin"], // Only admin
   },
   {
     icon: <BanknoteIcon />,
@@ -50,20 +50,20 @@ const allNavItems: NavItem[] = [
   {
     icon: <PhilippinePeso />,
     name: "List of Priorities",
-    roles: ["schoolHead"], // Admin and school heads
+    roles: ["school_head"], // Admin and school heads
     path: "/list-of-priorities",
   },
   {
     icon: <ReceiptText />,
     name: "Liquidation",
     path: "/liquidation",
-    roles: ["schoolHead"], // Only admin
+    roles: ["school_head"], // Only admin
   },
 
   {
     icon: <ReportIcon />,
     name: "Generate Report",
-    roles: ["admin", "schoolHead"], // Admin and school heads
+    roles: ["admin", "school_head"], // Admin and school heads
     subItems: [
       {
         name: "Sales",
@@ -75,13 +75,13 @@ const allNavItems: NavItem[] = [
         name: "Customer Frequency",
         path: "/generate-report/customer-frequency",
         pro: false,
-        roles: ["admin", "schoolHead"],
+        roles: ["admin", "school_head"],
       },
       {
         name: "Student Performance",
         path: "/generate-report/student-performance",
         pro: false,
-        roles: ["schoolHead", "teacher"],
+        roles: ["school_head", "teacher"],
       },
     ],
   },
@@ -89,7 +89,7 @@ const allNavItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "User Profile",
     path: "/profile",
-    roles: ["admin", "schoolHead", "teacher"], // All roles
+    roles: ["admin", "school_head", "teacher"], // All roles
   },
   {
     icon: <UserCircleIcon />,
@@ -103,13 +103,13 @@ const othersItems: NavItem[] = [
   {
     icon: <PieChartIcon />,
     name: "Charts",
-    roles: ["admin", "schoolHead"],
+    roles: ["admin", "school_head"],
     subItems: [
       {
         name: "Line Chart",
         path: "/line-chart",
         pro: false,
-        roles: ["admin", "schoolHead"],
+        roles: ["admin", "school_head"],
       },
       { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
     ],
@@ -128,7 +128,7 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
-  const { userRole } = useAuth();
+  const { user } = useAuth();
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
     index: number;
@@ -146,8 +146,13 @@ const AppSidebar: React.FC = () => {
       .filter((item) => {
         // If no roles specified, show to everyone
         if (!item.roles) return true;
-        // Check if user has permission
-        return item.roles.includes(userRole);
+
+        // Type Guard: Check if user exists and has a role
+        if (user?.role) {
+          return item.roles.includes(user.role);
+        }
+        // If user is null/undefined or has no role, don't show subItems with roles
+        return false;
       })
       .map((item) => {
         // Filter subItems if they exist
@@ -156,7 +161,10 @@ const AppSidebar: React.FC = () => {
             ...item,
             subItems: item.subItems.filter((subItem) => {
               if (!subItem.roles) return true;
-              return subItem.roles.includes(userRole);
+              if (user?.role) {
+                return subItem.roles.includes(user.role);
+              }
+              return false;
             }),
           };
         }
@@ -176,7 +184,8 @@ const AppSidebar: React.FC = () => {
     // Filter items whenever userRole changes
     setNavItems(filterItemsByRole(allNavItems));
     setFilteredOthersItems(filterItemsByRole(othersItems));
-  }, [userRole]);
+    console.log(user?.role);
+  }, [user?.role]);
 
   const isActive = useCallback(
     (path: string) => location.pathname === path,
