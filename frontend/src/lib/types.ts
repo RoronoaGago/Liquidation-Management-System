@@ -7,9 +7,12 @@ export type User = {
     date_of_birth?: string;
     date_joined: string;
     phone_number: string;
+    role: string;
+    profile_picture: string;
     is_active: boolean;
     password: string;
     confirm_password?: string;
+    school: string;
 
 }
 
