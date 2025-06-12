@@ -1,17 +1,15 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
 from .models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
-
-
-from rest_framework import serializers
-from django.contrib.auth import get_user_model
-User = get_user_model()
+from django.core.files.base import ContentFile
+import base64
+import uuid
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_picture_base64 = serializers.CharField(
+        write_only=True, required=False)
+
     class Meta:
         model = User
         fields = [
@@ -20,56 +18,78 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "username",
             "password",
-            "date_of_birth",
             "email",
+            "role",
+            "school",
+            "date_of_birth",
             "phone_number",
+            "profile_picture",
+            "profile_picture_base64",
             "is_active",
         ]
         extra_kwargs = {
-            "password": {
-                "write_only": False,
-                "min_length": 8,  # Enforce minimum length
-                "style": {"input_type": "password"}  # Hide in browsable API
-            },
-            "email": {"required": True},  # Force email if needed
-            # Preserve whitespace if desired
-            "username": {"trim_whitespace": False}
+            "password": {"write_only": True},
+            "id": {"read_only": True},
         }
 
-    def validate_email(self, value):
-        value = value.lower().strip()  # Normalize email (lowercase + trim whitespace)
-
-        # Skip uniqueness check if email hasn't changed (only during updates)
-        if self.instance and self.instance.email.lower() == value:
-            return value
-
-        # Check for existing emails (case-insensitive)
-        if User.objects.filter(email__iexact=value).exists():
+    def validate(self, data):
+        # School validation for certain roles
+        if data.get('role') in ['school_head', 'school_admin'] and not data.get('school'):
             raise serializers.ValidationError(
-                "A user with this email already exists.")
+                "School is required for this role"
+            )
 
-        return value
+        # Only admins can create other admins
+        request = self.context.get('request')
+        if request and request.user.role != 'admin' and data.get('role') == 'admin':
+            raise serializers.ValidationError(
+                "Only administrators can create admin users"
+            )
+
+        return data
 
     def create(self, validated_data):
-        """Handle extra fields from custom User model"""
-        user = User.objects.create_user(
-            **validated_data,
-            # Auto-activate users (or set False for email verification)
-            is_active=True
-        )
-        return user
+        profile_picture_base64 = validated_data.pop(
+            'profile_picture_base64', None)
 
-    def update(self, instance, validated_data):
-        password = validated_data.pop('password', None)
-        user = super().update(instance, validated_data)
+        user = User.objects.create_user(**validated_data)
 
-        if password:
-            user.set_password(password)  # Hashes the new password
+        if profile_picture_base64:
+            # Handle base64 image upload
+            format, imgstr = profile_picture_base64.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(
+                base64.b64decode(imgstr),
+                name=f'{user.id}_{uuid.uuid4()}.{ext}'
+            )
+            user.profile_picture = data
             user.save()
 
         return user
 
-# this is for jwt authentication
+    def update(self, instance, validated_data):
+        profile_picture_base64 = validated_data.pop(
+            'profile_picture_base64', None)
+
+        password = validated_data.pop('password', None)
+        if password:
+            instance.set_password(password)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if profile_picture_base64:
+            # Handle base64 image update
+            format, imgstr = profile_picture_base64.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(
+                base64.b64decode(imgstr),
+                name=f'{instance.id}_{uuid.uuid4()}.{ext}'
+            )
+            instance.profile_picture = data
+
+        instance.save()
+        return instance
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
