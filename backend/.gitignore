@@ -14,7 +14,7 @@ env/
 *.pot 
 db.sqlite3 # If you're using sqlite3
 /media/
-/proj_backend/api/profile_pictures/
+/proj_backend/api/media/profile_pictures/
 /staticfiles/ # Collected static files
 local_settings.py # If you have a separate local settings file for development
 
