@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
+// import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
 import desktopLogo from "../images/bubble-magic/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
@@ -9,10 +9,10 @@ import {
   GridIcon,
   HorizontaLDots,
   PieChartIcon,
-  PlugInIcon,
-  ReceiptIcon,
+  // PlugInIcon,
+  // ReceiptIcon,
   ReportIcon,
-  StatusIcon,
+  // StatusIcon,
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
@@ -26,7 +26,7 @@ const allNavItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
-    roles: ["admin", "schoolHead", "teacher"], // All roles can access
+    roles: ["admin", "school_head", "teacher"], // All roles can access
   },
   {
     icon: <UserCircleIcon />,
@@ -57,13 +57,13 @@ const allNavItems: NavItem[] = [
     icon: <ReceiptText />,
     name: "Liquidation",
     path: "/liquidation",
-    roles: ["schoolHead"], // Only admin
+    roles: ["school_head"], // Only admin
   },
 
   {
     icon: <ReportIcon />,
     name: "Generate Report",
-    roles: ["admin", "schoolHead"], // Admin and school heads
+    roles: ["admin", "school_head"], // Admin and school heads
     subItems: [
       {
         name: "Sales",
@@ -75,13 +75,13 @@ const allNavItems: NavItem[] = [
         name: "Customer Frequency",
         path: "/generate-report/customer-frequency",
         pro: false,
-        roles: ["admin", "schoolHead"],
+        roles: ["admin", "school_head"],
       },
       {
         name: "Student Performance",
         path: "/generate-report/student-performance",
         pro: false,
-        roles: ["schoolHead", "teacher"],
+        roles: ["school_head", "teacher"],
       },
     ],
   },
@@ -89,7 +89,7 @@ const allNavItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "User Profile",
     path: "/profile",
-    roles: ["admin", "schoolHead", "teacher"], // All roles
+    roles: ["admin", "school_head", "teacher"], // All roles
   },
   {
     icon: <UserCircleIcon />,
@@ -103,13 +103,13 @@ const othersItems: NavItem[] = [
   {
     icon: <PieChartIcon />,
     name: "Charts",
-    roles: ["admin", "schoolHead"],
+    roles: ["admin", "school_head"],
     subItems: [
       {
         name: "Line Chart",
         path: "/line-chart",
         pro: false,
-        roles: ["admin", "schoolHead"],
+        roles: ["admin", "school_head"],
       },
       { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
     ],
