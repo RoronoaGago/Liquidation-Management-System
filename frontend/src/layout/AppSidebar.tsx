@@ -32,7 +32,7 @@ const allNavItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "Manage Users",
     path: "/users",
-    roles: ["admin"], // Only admin
+    roles: ["admin", "school_admin"], // Only admin
   },
   {
     icon: <BanknoteIcon />,
@@ -128,7 +128,7 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
-  const { userRole } = useAuth();
+  const { user } = useAuth();
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
     index: number;
@@ -146,8 +146,13 @@ const AppSidebar: React.FC = () => {
       .filter((item) => {
         // If no roles specified, show to everyone
         if (!item.roles) return true;
-        // Check if user has permission
-        return item.roles.includes(userRole);
+
+        // Type Guard: Check if user exists and has a role
+        if (user?.role) {
+          return item.roles.includes(user.role);
+        }
+        // If user is null/undefined or has no role, don't show subItems with roles
+        return false;
       })
       .map((item) => {
         // Filter subItems if they exist
@@ -156,7 +161,10 @@ const AppSidebar: React.FC = () => {
             ...item,
             subItems: item.subItems.filter((subItem) => {
               if (!subItem.roles) return true;
-              return subItem.roles.includes(userRole);
+              if (user?.role) {
+                return subItem.roles.includes(user.role);
+              }
+              return false;
             }),
           };
         }
@@ -176,7 +184,8 @@ const AppSidebar: React.FC = () => {
     // Filter items whenever userRole changes
     setNavItems(filterItemsByRole(allNavItems));
     setFilteredOthersItems(filterItemsByRole(othersItems));
-  }, [userRole]);
+    console.log(user?.role);
+  }, [user?.role]);
 
   const isActive = useCallback(
     (path: string) => location.pathname === path,
