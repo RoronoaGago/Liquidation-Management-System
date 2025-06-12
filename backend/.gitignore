@@ -16,6 +16,7 @@ env/
 db.sqlite3 # If you're using sqlite3
 /media/
 /proj_backend/media/profile_pictures/
+/profile_pictures/
 /staticfiles/ # Collected static files
 local_settings.py # If you have a separate local settings file for development
 
