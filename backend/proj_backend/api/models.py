@@ -76,7 +76,7 @@ class Requirement(models.Model):
     def __str__(self):
         return self.requirementTitle
 
-class listofPriority(models.Model):
+class ListOfPriority(models.Model):
     LOPID = models.AutoField(primary_key=True)
     expenseTitle = models.CharField(max_length=255)
     requirement = models.ManyToManyField(Requirement, related_name='priorities')
