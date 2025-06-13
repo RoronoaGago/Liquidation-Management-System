@@ -15,4 +15,14 @@ urlpatterns = [
          name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('protected/', ProtectedView.as_view(), name='protected'),
+
+    path('schools/', views.SchoolListCreateAPIView.as_view(), name='school-list-create'),
+    path('schools/<int:id>/', views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
+
+    path('requirements/', views.RequirementListCreateAPIView.as_view(), name='requirement-list-create'),
+    path('requirements/<int:requirementID>/', views.RequirementRetrieveUpdateDestroyAPIView.as_view(), name='requirement-detail'),
+
+    path('priorities/', views.ListOfPriorityListCreateAPIView.as_view(), name='priority-list-create'),
+    path('priorities/<int:LOPID>/', views.ListOfPriorityRetrieveUpdateDestroyAPIView.as_view(), name='priority-detail'),
+
 ]

@@ -4,11 +4,12 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import generics
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import User
-from .serializers import UserSerializer
+from .models import User, School, Requirement, listofPriority
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, listofPrioritySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated
@@ -173,3 +174,30 @@ def user_detail(request, pk):
         user.is_active = False
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class SchoolListCreateAPIView(generics.ListCreateAPIView):
+    queryset = School.objects.all()
+    serializer_class = SchoolSerializer
+
+class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = School.objects.all()
+    serializer_class = SchoolSerializer
+    lookup_field = 'id'
+
+class RequirementListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Requirement.objects.all()
+    serializer_class = RequirementSerializer
+
+class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Requirement.objects.all()
+    serializer_class = RequirementSerializer
+    lookup_field = 'requirementID'
+
+class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
+    queryset = listofPriority.objects.all()
+    serializer_class = listofPrioritySerializer
+
+class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = listofPriority.objects.all()
+    serializer_class = listofPrioritySerializer
+    lookup_field = 'LOPID'
