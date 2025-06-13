@@ -16,7 +16,7 @@ import Input from "@/components/form/input/InputField";
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
-import { EyeClosedIcon, EyeIcon, Loader2Icon } from "lucide-react";
+import { EyeClosedIcon, EyeIcon, Loader2Icon, XIcon } from "lucide-react";
 
 interface UserFormData {
   first_name: string;
@@ -55,7 +55,17 @@ const ManageUsers = () => {
     school: "",
     profile_picture_base64: "",
   });
+  // State
 
+  // Handler for removing image
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageRemove = () => {
+    setPreviewImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
   const roleOptions = [
     { value: "admin", label: "Administrator" },
     { value: "school_head", label: "School Head" },
@@ -419,11 +429,21 @@ const ManageUsers = () => {
                   </Label>
                   <div className="flex items-center gap-4">
                     {previewImage ? (
-                      <img
-                        src={previewImage}
-                        className="w-16 h-16 rounded-full object-cover"
-                        alt="Preview"
-                      />
+                      <div className="relative">
+                        <img
+                          src={previewImage}
+                          className="w-16 h-16 rounded-full object-cover"
+                          alt="Preview"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage(null)} // or handleImageRemove()
+                          className="absolute -top-1 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                          title="Remove image"
+                        >
+                          <XIcon />
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-gray-500" />
@@ -432,6 +452,7 @@ const ManageUsers = () => {
                     <input
                       type="file"
                       id="profile_picture"
+                      ref={fileInputRef}
                       accept="image/*"
                       onChange={handleImageUpload}
                       className="hidden"
@@ -440,7 +461,7 @@ const ManageUsers = () => {
                       htmlFor="profile_picture"
                       className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
                     >
-                      Upload Photo
+                      {previewImage ? "Change Photo" : "Upload Photo"}
                     </Label>
                   </div>
                 </div>
