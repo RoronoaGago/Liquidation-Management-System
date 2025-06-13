@@ -46,7 +46,12 @@ import Button from "@/components/ui/button/Button";
 import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
-import { calculateAge } from "@/lib/helpers";
+import {
+  calculateAge,
+  validateEmail,
+  validatePassword,
+  validatePhoneNumber,
+} from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type SortDirection = "asc" | "desc" | null;
@@ -66,9 +71,36 @@ type SortableField = keyof Pick<
 interface UsersTableProps {
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<any[]>>;
+  // Data display props
+  currentPage?: number; // Current pagination page
+  setCurrentPage?: (page: number) => void; // To handle page changes
+  itemsPerPage?: number; // Items per page setting
+  // setItemsPerPage: (count: number) => void; // To change items per page
+
+  sortedUsers: User[]; // The pre-filtered and sorted users to display
+  // Filtering/sorting controls
+  filterOptions: FilterOptions;
+  setFilterOptions: React.Dispatch<React.SetStateAction<FilterOptions>>;
+  sortConfig: {
+    key: SortableField;
+    direction: SortDirection;
+  } | null;
+  setSortConfig: React.Dispatch<
+    React.SetStateAction<{
+      key: SortableField;
+      direction: SortDirection;
+    } | null>
+  >;
+
+  // Archive controls
   showArchived: boolean;
   setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
-  fetchUsers: () => Promise<void>;
+
+  // Data operations
+  fetchUsers: () => Promise<void>; // For refreshing data
+
+  // Current user context (for excluding from operations)
+  currentUserId?: number;
 }
 
 interface FormErrors {
@@ -90,37 +122,20 @@ interface FilterOptions {
   searchTerm: string;
 }
 
-const validateEmail = (email: string) => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-};
-
-const validatePassword = (password: string) => {
-  const re = /^.{8,}$/;
-  return re.test(password);
-};
-
-const validatePhoneNumber = (phone: string) => {
-  const re = /^[+\d][\d\s]*$/;
-  return re.test(phone);
-};
-
 export default function UsersTable({
   users,
   setUsers,
   showArchived,
   setShowArchived,
   fetchUsers,
+  sortedUsers,
+  filterOptions,
+  setFilterOptions,
+  sortConfig,
+  setSortConfig,
 }: UsersTableProps) {
   const { user: currentUser } = useAuth();
   const [error, setError] = useState<Error | null>(null);
-  const [sortConfig, setSortConfig] = useState<{
-    key: SortableField;
-    direction: SortDirection;
-  } | null>({
-    key: "date_joined",
-    direction: "desc",
-  });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -128,14 +143,6 @@ export default function UsersTable({
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    status: "all",
-    dateRange: {
-      start: "",
-      end: "",
-    },
-    searchTerm: "",
-  });
 
   // Form state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -177,47 +184,6 @@ export default function UsersTable({
   };
 
   // Apply filters whenever filterOptions or users change
-  useEffect(() => {
-    const filtered = users.filter((user) => {
-      // Exclude current user
-      if (user.id === currentUser?.user_id) return false;
-
-      // Apply status filter
-      if (filterOptions.status === "active" && !user.is_active) return false;
-      if (filterOptions.status === "archived" && user.is_active) return false;
-
-      // Apply date range filter
-      if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
-        const userDate = new Date(user.date_joined);
-        const startDate = filterOptions.dateRange.start
-          ? new Date(filterOptions.dateRange.start)
-          : null;
-        const endDate = filterOptions.dateRange.end
-          ? new Date(filterOptions.dateRange.end)
-          : null;
-
-        if (startDate && userDate < startDate) return false;
-        if (endDate && userDate > endDate) return false;
-      }
-
-      // Apply search term filter
-      if (filterOptions.searchTerm) {
-        const term = filterOptions.searchTerm.toLowerCase();
-        return (
-          user.first_name.toLowerCase().includes(term) ||
-          user.last_name.toLowerCase().includes(term) ||
-          user.username.toLowerCase().includes(term) ||
-          user.email.toLowerCase().includes(term) ||
-          (user.phone_number && user.phone_number.includes(term))
-        );
-      }
-
-      return true;
-    });
-
-    setFilteredUsers(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [users, filterOptions, currentUser?.user_id]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -284,26 +250,6 @@ export default function UsersTable({
     const input = e.target as HTMLInputElement;
     input.value = input.value.replace(/[^0-9+]/g, "");
   };
-
-  // Sort users
-  const sortedUsers = useMemo(() => {
-    if (sortConfig !== null) {
-      return [...filteredUsers].sort((a, b) => {
-        if (sortConfig.key === "date_joined") {
-          const aDate = new Date(a.date_joined).getTime();
-          const bDate = new Date(b.date_joined).getTime();
-          return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
-        }
-
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-    return filteredUsers;
-  }, [filteredUsers, sortConfig]);
 
   const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
   const currentItems = useMemo(() => {
