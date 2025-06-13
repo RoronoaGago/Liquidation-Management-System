@@ -59,8 +59,8 @@ class User(AbstractUser):
         return f"{self.first_name} {self.last_name} ({self.username})"
 
 class School(models.Model):
-    schoolId = models.CharField(max_length=50, unique=True)
     district = models.CharField(max_length=100)
+    schoolId = models.CharField(max_length=50, unique=True)
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(max_length=100)
