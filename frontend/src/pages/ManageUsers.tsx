@@ -13,7 +13,7 @@ import Button from "../components/ui/button/Button";
 import { CalenderIcon, PlusIcon, UserIcon } from "../icons";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { EyeClosedIcon, EyeIcon, Loader2Icon } from "lucide-react";
@@ -23,6 +23,7 @@ import {
   validatePassword,
   validatePhoneNumber,
 } from "@/lib/helpers";
+import { User } from "@/lib/types";
 
 interface UserFormData {
   first_name: string;
@@ -37,7 +38,19 @@ interface UserFormData {
   school: string;
   profile_picture_base64: string;
 }
-
+type SortDirection = "asc" | "desc" | null;
+type SortableField = keyof Pick<
+  User,
+  | "id"
+  | "first_name"
+  | "last_name"
+  | "username"
+  | "email"
+  | "phone_number"
+  | "password"
+  | "is_active"
+  | "date_joined"
+>;
 const ManageUsers = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -48,7 +61,15 @@ const ManageUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-
+  const [filterOptions, setFilterOptions] = useState({
+    status: "all",
+    dateRange: { start: "", end: "" },
+    searchTerm: "",
+  });
+  const [sortConfig, setSortConfig] = useState<{
+    key: SortableField;
+    direction: SortDirection;
+  } | null>({ key: "date_joined", direction: "desc" });
   const [formData, setFormData] = useState<UserFormData>({
     first_name: "",
     last_name: "",
@@ -117,14 +138,68 @@ const ManageUsers = () => {
       });
     }
   };
+  // Add filtering and sorting logic
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      // Apply all filters here
+      if (user.id === currentUser?.user_id) return false;
+      // Apply status filter
+      if (filterOptions.status === "active" && !user.is_active) return false;
+      if (filterOptions.status === "archived" && user.is_active) return false;
 
+      // Apply date range filter
+      if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
+        const userDate = new Date(user.date_joined);
+        const startDate = filterOptions.dateRange.start
+          ? new Date(filterOptions.dateRange.start)
+          : null;
+        const endDate = filterOptions.dateRange.end
+          ? new Date(filterOptions.dateRange.end)
+          : null;
+
+        if (startDate && userDate < startDate) return false;
+        if (endDate && userDate > endDate) return false;
+      }
+
+      // Apply search term filter
+      if (filterOptions.searchTerm) {
+        const term = filterOptions.searchTerm.toLowerCase();
+        return (
+          user.first_name.toLowerCase().includes(term) ||
+          user.last_name.toLowerCase().includes(term) ||
+          user.username.toLowerCase().includes(term) ||
+          user.email.toLowerCase().includes(term) ||
+          (user.phone_number && user.phone_number.includes(term))
+        );
+      }
+      return true;
+      // ... rest of filtering logic
+    });
+  }, [users, filterOptions, currentUser?.user_id]);
   // Update useEffect to include showArchived as dependency
   useEffect(() => {
     fetchUsers();
   }, [users, showArchived]);
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const sortedUsers = useMemo(() => {
+    if (sortConfig !== null) {
+      return [...filteredUsers].sort((a, b) => {
+        if (sortConfig.key === "date_joined") {
+          const aDate = new Date(a.date_joined).getTime();
+          const bDate = new Date(b.date_joined).getTime();
+          return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
+        }
 
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return filteredUsers;
+  }, [filteredUsers, sortConfig]);
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -296,7 +371,7 @@ const ManageUsers = () => {
       });
       console.log(response.data);
       console.log(formData);
-      setUsers((prevUsers) => [...prevUsers, response.data]);
+      await fetchUsers(); // Explicitly refetch the latest list
 
       toast.success("User Added Successfully!", {
         position: "top-center",
@@ -720,6 +795,11 @@ const ManageUsers = () => {
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           fetchUsers={fetchUsers}
+          sortedUsers={sortedUsers}
+          filterOptions={filterOptions}
+          setFilterOptions={setFilterOptions}
+          sortConfig={sortConfig}
+          setSortConfig={setSortConfig}
         />
       </div>
       <ToastContainer
