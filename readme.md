@@ -13,5 +13,6 @@ papa
 mama
 
 sister
-brother
-lolo
+step-brother
+lulu
+lula
