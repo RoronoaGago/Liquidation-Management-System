@@ -185,6 +185,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
       setSortConfig({ key: "date_joined", direction: "desc" });
     } catch (err) {
       setError(err as Error);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -195,47 +196,47 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
   }, [showArchived]);
 
   // Apply filters whenever filterOptions or users change
-  useEffect(() => {
-    const filtered = users.filter((user) => {
-      // Exclude current user
-      if (user.id === currentUser?.user_id) return false;
+  // useEffect(() => {
+  //   const filtered = users.filter((user) => {
+  //     // Exclude current user
+  //     if (user.id === currentUser?.user_id) return false;
 
-      // Apply status filter
-      if (filterOptions.status === "active" && !user.is_active) return false;
-      if (filterOptions.status === "archived" && user.is_active) return false;
+  //     // Apply status filter
+  //     if (filterOptions.status === "active" && !user.is_active) return false;
+  //     if (filterOptions.status === "archived" && user.is_active) return false;
 
-      // Apply date range filter
-      if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
-        const userDate = new Date(user.date_joined);
-        const startDate = filterOptions.dateRange.start
-          ? new Date(filterOptions.dateRange.start)
-          : null;
-        const endDate = filterOptions.dateRange.end
-          ? new Date(filterOptions.dateRange.end)
-          : null;
+  //     // Apply date range filter
+  //     if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
+  //       const userDate = new Date(user.date_joined);
+  //       const startDate = filterOptions.dateRange.start
+  //         ? new Date(filterOptions.dateRange.start)
+  //         : null;
+  //       const endDate = filterOptions.dateRange.end
+  //         ? new Date(filterOptions.dateRange.end)
+  //         : null;
 
-        if (startDate && userDate < startDate) return false;
-        if (endDate && userDate > endDate) return false;
-      }
+  //       if (startDate && userDate < startDate) return false;
+  //       if (endDate && userDate > endDate) return false;
+  //     }
 
-      // Apply search term filter
-      if (filterOptions.searchTerm) {
-        const term = filterOptions.searchTerm.toLowerCase();
-        return (
-          user.first_name.toLowerCase().includes(term) ||
-          user.last_name.toLowerCase().includes(term) ||
-          user.username.toLowerCase().includes(term) ||
-          user.email.toLowerCase().includes(term) ||
-          (user.phone_number && user.phone_number.includes(term))
-        );
-      }
+  //     // Apply search term filter
+  //     if (filterOptions.searchTerm) {
+  //       const term = filterOptions.searchTerm.toLowerCase();
+  //       return (
+  //         user.first_name.toLowerCase().includes(term) ||
+  //         user.last_name.toLowerCase().includes(term) ||
+  //         user.username.toLowerCase().includes(term) ||
+  //         user.email.toLowerCase().includes(term) ||
+  //         (user.phone_number && user.phone_number.includes(term))
+  //       );
+  //     }
 
-      return true;
-    });
+  //     return true;
+  //   });
 
-    setFilteredUsers(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [users, filterOptions, currentUser?.user_id]);
+  //   setFilteredUsers(filtered);
+  //   setCurrentPage(1); // Reset to first page when filters change
+  // }, [users, filterOptions, currentUser?.user_id]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -1105,6 +1106,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                 <Input
                   type="text"
                   id="username"
+                  disabled
                   name="username"
                   value={selectedUser.username}
                   onChange={handleChange}
