@@ -66,6 +66,9 @@ type SortableField = keyof Pick<
 interface UsersTableProps {
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<any[]>>;
+  showArchived: boolean;
+  setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
+  fetchUsers: () => Promise<void>;
 }
 
 interface FormErrors {
@@ -102,9 +105,14 @@ const validatePhoneNumber = (phone: string) => {
   return re.test(phone);
 };
 
-export default function UsersTable({ users, setUsers }: UsersTableProps) {
+export default function UsersTable({
+  users,
+  setUsers,
+  showArchived,
+  setShowArchived,
+  fetchUsers,
+}: UsersTableProps) {
   const { user: currentUser } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [sortConfig, setSortConfig] = useState<{
     key: SortableField;
@@ -116,7 +124,6 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showArchived, setShowArchived] = useState(false);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -169,74 +176,48 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
     accountant: "Accountant",
   };
 
-  // Fetch users with archive filter
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get("http://127.0.0.1:8000/api/users/", {
-        params: {
-          archived: showArchived,
-        },
-      });
-      setUsers(response.data);
-      console.log(response.data);
-      // console.log("http://127.0.0.1:8000" + users[0].profile_picture);
-      setFilteredUsers(response.data);
-      setSortConfig({ key: "date_joined", direction: "desc" });
-    } catch (err) {
-      setError(err as Error);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, [showArchived]);
-
   // Apply filters whenever filterOptions or users change
-  // useEffect(() => {
-  //   const filtered = users.filter((user) => {
-  //     // Exclude current user
-  //     if (user.id === currentUser?.user_id) return false;
+  useEffect(() => {
+    const filtered = users.filter((user) => {
+      // Exclude current user
+      if (user.id === currentUser?.user_id) return false;
 
-  //     // Apply status filter
-  //     if (filterOptions.status === "active" && !user.is_active) return false;
-  //     if (filterOptions.status === "archived" && user.is_active) return false;
+      // Apply status filter
+      if (filterOptions.status === "active" && !user.is_active) return false;
+      if (filterOptions.status === "archived" && user.is_active) return false;
 
-  //     // Apply date range filter
-  //     if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
-  //       const userDate = new Date(user.date_joined);
-  //       const startDate = filterOptions.dateRange.start
-  //         ? new Date(filterOptions.dateRange.start)
-  //         : null;
-  //       const endDate = filterOptions.dateRange.end
-  //         ? new Date(filterOptions.dateRange.end)
-  //         : null;
+      // Apply date range filter
+      if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
+        const userDate = new Date(user.date_joined);
+        const startDate = filterOptions.dateRange.start
+          ? new Date(filterOptions.dateRange.start)
+          : null;
+        const endDate = filterOptions.dateRange.end
+          ? new Date(filterOptions.dateRange.end)
+          : null;
 
-  //       if (startDate && userDate < startDate) return false;
-  //       if (endDate && userDate > endDate) return false;
-  //     }
+        if (startDate && userDate < startDate) return false;
+        if (endDate && userDate > endDate) return false;
+      }
 
-  //     // Apply search term filter
-  //     if (filterOptions.searchTerm) {
-  //       const term = filterOptions.searchTerm.toLowerCase();
-  //       return (
-  //         user.first_name.toLowerCase().includes(term) ||
-  //         user.last_name.toLowerCase().includes(term) ||
-  //         user.username.toLowerCase().includes(term) ||
-  //         user.email.toLowerCase().includes(term) ||
-  //         (user.phone_number && user.phone_number.includes(term))
-  //       );
-  //     }
+      // Apply search term filter
+      if (filterOptions.searchTerm) {
+        const term = filterOptions.searchTerm.toLowerCase();
+        return (
+          user.first_name.toLowerCase().includes(term) ||
+          user.last_name.toLowerCase().includes(term) ||
+          user.username.toLowerCase().includes(term) ||
+          user.email.toLowerCase().includes(term) ||
+          (user.phone_number && user.phone_number.includes(term))
+        );
+      }
 
-  //     return true;
-  //   });
+      return true;
+    });
 
-  //   setFilteredUsers(filtered);
-  //   setCurrentPage(1); // Reset to first page when filters change
-  // }, [users, filterOptions, currentUser?.user_id]);
+    setFilteredUsers(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [users, filterOptions, currentUser?.user_id]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -675,7 +656,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
     setShowFilters(false);
   };
 
-  if (loading) return <Loading />;
+  // if (loading) return <Loading />;
   if (error) {
     return <div className="p-4 text-red-500">Error: {error.message}</div>;
   }
@@ -797,18 +778,11 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  Profile
-                </TableCell>
-
-                <TableCell
-                  isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-                >
                   <div
                     className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
                     onClick={() => requestSort("first_name")}
                   >
-                    Name
+                    User
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 transition-colors ${
@@ -887,29 +861,32 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                         </span>
                       </div>
                     </TableCell>
+
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                      <div className="w-10 h-10 rounded-full overflow-hidden">
-                        {user.profile_picture ? (
-                          <img
-                            src={`http://127.0.0.1:8000${user.profile_picture}`}
-                            alt="Profile"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="bg-gray-200 w-full h-full flex items-center justify-center">
-                            <UserIcon className="w-5 h-5 text-gray-500" />
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                      <div>
-                        <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
-                          {user.first_name} {user.last_name}
-                        </span>
-                        <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                          {user.email}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 overflow-hidden rounded-full">
+                          {user.profile_picture ? (
+                            <img
+                              src={`http://127.0.0.1:8000${user.profile_picture}`}
+                              alt="Profile"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="bg-gray-200 w-full h-full flex items-center justify-center">
+                              <UserIcon className="w-5 h-5 text-gray-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
+                            {user.first_name} {user.last_name}
+                          </span>
+                          <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
+                            {roleMap[user.role] || user.role}
+                            {user.school && ` | ${user.school}`}
+                          </span>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
@@ -1106,7 +1083,6 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                 <Input
                   type="text"
                   id="username"
-                  disabled
                   name="username"
                   value={selectedUser.username}
                   onChange={handleChange}

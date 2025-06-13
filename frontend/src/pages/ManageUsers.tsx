@@ -16,7 +16,13 @@ import Input from "@/components/form/input/InputField";
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
-import { EyeClosedIcon, EyeIcon, Loader2Icon, XIcon } from "lucide-react";
+import { EyeClosedIcon, EyeIcon, Loader2Icon } from "lucide-react";
+import {
+  validateDateOfBirth,
+  validateEmail,
+  validatePassword,
+  validatePhoneNumber,
+} from "@/lib/helpers";
 
 interface UserFormData {
   first_name: string;
@@ -33,6 +39,7 @@ interface UserFormData {
 }
 
 const ManageUsers = () => {
+  const [showArchived, setShowArchived] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -55,17 +62,7 @@ const ManageUsers = () => {
     school: "",
     profile_picture_base64: "",
   });
-  // State
 
-  // Handler for removing image
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImageRemove = () => {
-    setPreviewImage(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
   const roleOptions = [
     { value: "admin", label: "Administrator" },
     { value: "school_head", label: "School Head" },
@@ -95,68 +92,36 @@ const ManageUsers = () => {
       : formData.school.trim() !== "") &&
     Object.keys(errors).length === 0;
 
+  // Modify the fetchUsers function to handle archived status
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get("http://127.0.0.1:8000/api/users/", {
+        params: {
+          archived: showArchived,
+        },
+      });
+      setUsers(response.data);
+      console.log(response.data);
+    } catch (error) {
+      toast.error("Failed to fetch users", {
+        position: "top-center",
+        autoClose: 2000,
+        style: { fontFamily: "Outfit, sans-serif" },
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        transition: Bounce,
+      });
+    }
+  };
+
+  // Update useEffect to include showArchived as dependency
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await axios.get("http://127.0.0.1:8000/api/users/");
-        setUsers(response.data);
-      } catch (error) {
-        toast.error("Failed to fetch users", {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        });
-      }
-    };
-
     fetchUsers();
-  }, [users]);
-
-  const validateEmail = (email: string) => {
-    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-    return re.test(email);
-  };
-
-  const validatePassword = (password: string) => {
-    const re =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    return re.test(password);
-  };
-
-  const validatePhoneNumber = (phone: string) => {
-    const re = /^[+\d][\d\s-()]*\d$/;
-    return re.test(phone);
-  };
-
-  const validateDateOfBirth = (dateString: string) => {
-    if (!dateString) return "";
-    const birthDate = new Date(dateString);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (birthDate > today) {
-      return "Birthdate cannot be in the future.";
-    }
-
-    const minAgeDate = new Date(
-      today.getFullYear() - 18,
-      today.getMonth(),
-      today.getDate()
-    );
-
-    if (birthDate > minAgeDate) {
-      return "You must be at least 18 years old.";
-    }
-
-    return "";
-  };
+  }, [users, showArchived]);
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -429,21 +394,11 @@ const ManageUsers = () => {
                   </Label>
                   <div className="flex items-center gap-4">
                     {previewImage ? (
-                      <div className="relative">
-                        <img
-                          src={previewImage}
-                          className="w-16 h-16 rounded-full object-cover"
-                          alt="Preview"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setPreviewImage(null)} // or handleImageRemove()
-                          className="absolute -top-1 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
-                          title="Remove image"
-                        >
-                          <XIcon />
-                        </button>
-                      </div>
+                      <img
+                        src={previewImage}
+                        className="w-16 h-16 rounded-full object-cover"
+                        alt="Preview"
+                      />
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-gray-500" />
@@ -452,7 +407,6 @@ const ManageUsers = () => {
                     <input
                       type="file"
                       id="profile_picture"
-                      ref={fileInputRef}
                       accept="image/*"
                       onChange={handleImageUpload}
                       className="hidden"
@@ -461,7 +415,7 @@ const ManageUsers = () => {
                       htmlFor="profile_picture"
                       className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
                     >
-                      {previewImage ? "Change Photo" : "Upload Photo"}
+                      Upload Photo
                     </Label>
                   </div>
                 </div>
@@ -760,7 +714,13 @@ const ManageUsers = () => {
           </Dialog>
         </div>
 
-        <UsersTable users={users} setUsers={setUsers} />
+        <UsersTable
+          users={users}
+          setUsers={setUsers}
+          showArchived={showArchived}
+          setShowArchived={setShowArchived}
+          fetchUsers={fetchUsers}
+        />
       </div>
       <ToastContainer
         position="top-center"
