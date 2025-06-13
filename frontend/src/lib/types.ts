@@ -1,22 +1,44 @@
+export interface BaseUser {
+    id: number;
+    first_name: string;
+    last_name: string;
+    username: string;
+    email: string;
+    role: string;
+    is_active: boolean;
+    date_joined: string;
+    profile_picture?: string;  // For stored profile pictures (URL or path)
+}
+
 export type User = {
     id: number;
     first_name: string;
     last_name: string;
     username: string;
     email: string;
-    date_of_birth?: string;
+    date_of_birth: string;
     date_joined: string;
     phone_number: string;
     role: string;
     profile_picture: string;
     is_active: boolean;
     password: string;
-    confirm_password?: string;
+    confirm_password: string;
     school: string;
+    profile_picture_base64?: string;
 
 }
 
+export interface FormUser extends BaseUser {
+    password?: string;
+    confirm_password?: string;
+    profile_picture_base64?: string; // For image uploads
+    date_of_birth?: string;
+    phone_number?: string;
+    school?: string;
+}
 
+export type APIUser = Omit<FormUser, 'confirm_password' | 'profile_picture_base64'>;
 
 
 export type TransactionFormData = {
