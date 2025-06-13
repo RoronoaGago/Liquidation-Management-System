@@ -8,8 +8,8 @@ from rest_framework import generics
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import User, School, Requirement, listofPriority
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, listofPrioritySerializer
+from .models import User, School, Requirement, ListOfPriority
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated
@@ -194,10 +194,10 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
     lookup_field = 'requirementID'
 
 class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
-    queryset = listofPriority.objects.all()
-    serializer_class = listofPrioritySerializer
+    queryset = ListOfPriority.objects.all()
+    serializer_class = ListOfPrioritySerializer
 
 class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = listofPriority.objects.all()
-    serializer_class = listofPrioritySerializer
+    queryset = ListOfPriority.objects.all()
+    serializer_class = ListOfPrioritySerializer
     lookup_field = 'LOPID'
