@@ -66,6 +66,15 @@ export default function UserDropdown() {
     return colors[hash % colors.length];
   };
 
+  // Function to format role for display
+  const formatRole = (role: string) => {
+    if (!role) return "";
+    return role
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   return (
     <div className="relative">
       <button
@@ -119,6 +128,11 @@ export default function UserDropdown() {
             <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
               {user?.email}
             </span>
+            {user?.role && (
+              <span className="mt-1 inline-block px-2 py-0.5 rounded-full bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400 font-medium text-xs">
+                {formatRole(user.role)}
+              </span>
+            )}
           </div>
         </div>
 
