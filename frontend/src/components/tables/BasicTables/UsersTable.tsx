@@ -1106,6 +1106,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                 <Input
                   type="text"
                   id="username"
+                  disabled
                   name="username"
                   value={selectedUser.username}
                   onChange={handleChange}
