@@ -6,7 +6,7 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Bounce, ToastContainer, toast } from "react-toastify";
+import { Bounce, toast } from "react-toastify";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import UsersTable from "../components/tables/BasicTables/UsersTable";
 import Button from "../components/ui/button/Button";
@@ -23,7 +23,7 @@ import {
   validatePassword,
   validatePhoneNumber,
 } from "@/lib/helpers";
-import { User } from "@/lib/types";
+import { SortableField, SortDirection, User } from "@/lib/types";
 
 interface UserFormData {
   first_name: string;
@@ -38,19 +38,26 @@ interface UserFormData {
   school: string;
   profile_picture_base64: string;
 }
-export type SortDirection = "asc" | "desc" | null;
-export type SortableField = keyof Pick<
-  User,
-  | "id"
-  | "first_name"
-  | "last_name"
-  | "username"
-  | "email"
-  | "phone_number"
-  | "password"
-  | "is_active"
-  | "date_joined"
->;
+
+const roleOptions = [
+  { value: "admin", label: "Administrator" },
+  { value: "school_head", label: "School Head" },
+  { value: "school_admin", label: "School Admin Assistant" },
+  { value: "district_admin", label: "District Admin Assistant" },
+  { value: "superintendent", label: "Division Superintendent" },
+  { value: "liquidator", label: "Liquidator" },
+  { value: "accountant", label: "Division Accountant" },
+];
+
+const requiredFields = [
+  "first_name",
+  "last_name",
+  "username",
+  "password",
+  "confirm_password",
+  "email",
+  "role",
+];
 const ManageUsers = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -58,7 +65,7 @@ const ManageUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [filterOptions, setFilterOptions] = useState({
@@ -84,26 +91,6 @@ const ManageUsers = () => {
     profile_picture_base64: "",
   });
 
-  const roleOptions = [
-    { value: "admin", label: "Administrator" },
-    { value: "school_head", label: "School Head" },
-    { value: "school_admin", label: "School Admin Assistant" },
-    { value: "district_admin", label: "District Admin Assistant" },
-    { value: "superintendent", label: "Division Superintendent" },
-    { value: "liquidator", label: "Liquidator" },
-    { value: "accountant", label: "Division Accountant" },
-  ];
-
-  const requiredFields = [
-    "first_name",
-    "last_name",
-    "username",
-    "password",
-    "confirm_password",
-    "email",
-    "role",
-  ];
-
   const isFormValid =
     requiredFields.every(
       (field) => formData[field as keyof UserFormData]?.trim() !== ""
@@ -121,7 +108,7 @@ const ManageUsers = () => {
           archived: showArchived,
         },
       });
-      setUsers(response.data);
+      setAllUsers(response.data);
       console.log(response.data);
     } catch (error) {
       toast.error("Failed to fetch users", {
@@ -140,7 +127,7 @@ const ManageUsers = () => {
   };
   // Add filtering and sorting logic
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+    return allUsers.filter((user) => {
       // Apply all filters here
       if (user.id === currentUser?.user_id) return false;
       // Apply status filter
@@ -175,11 +162,11 @@ const ManageUsers = () => {
       return true;
       // ... rest of filtering logic
     });
-  }, [users, filterOptions, currentUser?.user_id]);
+  }, [allUsers, filterOptions, currentUser?.user_id]);
   // Update useEffect to include showArchived as dependency
   useEffect(() => {
     fetchUsers();
-  }, [users, showArchived]);
+  }, [showArchived]);
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   const sortedUsers = useMemo(() => {
@@ -798,8 +785,8 @@ const ManageUsers = () => {
         </div>
 
         <UsersTable
-          users={users}
-          setUsers={setUsers}
+          users={allUsers}
+          setUsers={setAllUsers}
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           fetchUsers={fetchUsers}
@@ -810,19 +797,6 @@ const ManageUsers = () => {
           currentSort={sortConfig} // Add this new prop
         />
       </div>
-      <ToastContainer
-        position="top-center"
-        autoClose={2000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick={false}
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-        transition={Bounce}
-      />
     </div>
   );
 };

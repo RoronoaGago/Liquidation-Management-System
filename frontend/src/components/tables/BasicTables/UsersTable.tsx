@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Bounce, ToastContainer, toast } from "react-toastify";
 import Label from "@/components/form/Label";
@@ -32,14 +31,11 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   SquarePenIcon,
-  Filter,
-  SlidersHorizontal,
-  Check,
   EyeClosedIcon,
   User as UserIcon,
 } from "lucide-react";
 import { CalenderIcon } from "@/icons";
-import { User } from "@/lib/types";
+import { SortableField, SortDirection, User } from "@/lib/types";
 import Button from "@/components/ui/button/Button";
 import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
@@ -51,7 +47,6 @@ import {
   validatePhoneNumber,
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SortableField, SortDirection } from "@/pages/ManageUsers";
 
 interface UsersTableProps {
   users: User[];
@@ -102,7 +97,6 @@ interface FilterOptions {
 }
 
 export default function UsersTable({
-  users,
   setUsers,
   showArchived,
   setShowArchived,
@@ -118,7 +112,6 @@ export default function UsersTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
