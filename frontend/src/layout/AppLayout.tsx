@@ -3,6 +3,7 @@ import { Outlet } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import ToastProvider from "@/components/ui/ToastProvider";
 
 // LayoutContent component
 const LayoutContent: React.FC<{ children?: React.ReactNode }> = ({
@@ -34,7 +35,10 @@ const LayoutContent: React.FC<{ children?: React.ReactNode }> = ({
 const AppLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   return (
     <SidebarProvider>
-      <LayoutContent>{children}</LayoutContent>
+      <LayoutContent>
+        {children}
+        <ToastProvider />
+      </LayoutContent>
     </SidebarProvider>
   );
 };
