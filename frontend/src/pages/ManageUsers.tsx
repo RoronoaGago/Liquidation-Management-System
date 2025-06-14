@@ -39,7 +39,6 @@ interface UserFormData {
   school: string;
   profile_picture_base64: string;
 }
-//TODO - exclude the current user
 //TODO - make the school search
 //TODO - make the profile picture optional??
 const roleOptions = [
@@ -329,6 +328,7 @@ const ManageUsers = () => {
     // Final validation check
     const finalErrors: Record<string, string> = {};
     requiredFields.forEach((field) => {
+      if (field === "profile_picture_base64") return;
       if (!formData[field as keyof UserFormData]?.trim()) {
         finalErrors[field] = "This field is required.";
       }
