@@ -5,7 +5,6 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import { Loading } from "@/components/common/Loading";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +16,6 @@ import {
 import { Bounce, ToastContainer, toast } from "react-toastify";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { cn } from "@/lib/utils";
 import {
   EyeIcon,
   ChevronUp,
@@ -53,20 +51,7 @@ import {
   validatePhoneNumber,
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
-
-type SortDirection = "asc" | "desc" | null;
-type SortableField = keyof Pick<
-  User,
-  | "id"
-  | "first_name"
-  | "last_name"
-  | "username"
-  | "email"
-  | "phone_number"
-  | "password"
-  | "is_active"
-  | "date_joined"
->;
+import { SortableField, SortDirection } from "@/pages/ManageUsers";
 
 interface UsersTableProps {
   users: User[];
@@ -81,21 +66,15 @@ interface UsersTableProps {
   // Filtering/sorting controls
   filterOptions: FilterOptions;
   setFilterOptions: React.Dispatch<React.SetStateAction<FilterOptions>>;
-  sortConfig: {
-    key: SortableField;
-    direction: SortDirection;
-  } | null;
-  setSortConfig: React.Dispatch<
-    React.SetStateAction<{
-      key: SortableField;
-      direction: SortDirection;
-    } | null>
-  >;
 
   // Archive controls
   showArchived: boolean;
   setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
-
+  onRequestSort: (key: SortableField) => void;
+  currentSort: {
+    key: SortableField;
+    direction: SortDirection;
+  } | null;
   // Data operations
   fetchUsers: () => Promise<void>; // For refreshing data
 
@@ -131,8 +110,8 @@ export default function UsersTable({
   sortedUsers,
   filterOptions,
   setFilterOptions,
-  sortConfig,
-  setSortConfig,
+  onRequestSort,
+  currentSort,
 }: UsersTableProps) {
   const { user: currentUser } = useAuth();
   const [error, setError] = useState<Error | null>(null);
@@ -332,14 +311,6 @@ export default function UsersTable({
       setIsSubmitting(false);
       setIsBulkArchiveDialogOpen(false);
     }
-  };
-
-  const requestSort = (key: SortableField) => {
-    let direction: SortDirection = "asc";
-    if (sortConfig && sortConfig.key === key) {
-      direction = sortConfig.direction === "asc" ? "desc" : null;
-    }
-    setSortConfig(direction ? { key, direction } : null);
   };
 
   const goToPage = (page: number) => {
@@ -696,22 +667,22 @@ export default function UsersTable({
                 >
                   <div
                     className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
-                    onClick={() => requestSort("id")}
+                    onClick={() => onRequestSort("id")}
                   >
                     ID
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 transition-colors ${
-                          sortConfig?.key === "id" &&
-                          sortConfig.direction === "asc"
+                          currentSort?.key === "id" &&
+                          currentSort.direction === "asc"
                             ? "text-primary-500 dark:text-primary-400"
                             : "text-gray-400 dark:text-gray-500"
                         }`}
                       />
                       <ChevronDown
                         className={`h-3 w-3 -mt-1 transition-colors ${
-                          sortConfig?.key === "id" &&
-                          sortConfig.direction === "desc"
+                          currentSort?.key === "id" &&
+                          currentSort.direction === "desc"
                             ? "text-primary-500 dark:text-primary-400"
                             : "text-gray-400 dark:text-gray-500"
                         }`}
@@ -726,22 +697,22 @@ export default function UsersTable({
                 >
                   <div
                     className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
-                    onClick={() => requestSort("first_name")}
+                    onClick={() => onRequestSort("first_name")}
                   >
                     User
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 transition-colors ${
-                          sortConfig?.key === "first_name" &&
-                          sortConfig.direction === "asc"
+                          currentSort?.key === "first_name" &&
+                          currentSort.direction === "asc"
                             ? "text-primary-500 dark:text-primary-400"
                             : "text-gray-400 dark:text-gray-500"
                         }`}
                       />
                       <ChevronDown
                         className={`h-3 w-3 -mt-1 transition-colors ${
-                          sortConfig?.key === "first_name" &&
-                          sortConfig.direction === "desc"
+                          currentSort?.key === "first_name" &&
+                          currentSort.direction === "desc"
                             ? "text-primary-500 dark:text-primary-400"
                             : "text-gray-400 dark:text-gray-500"
                         }`}
@@ -754,14 +725,60 @@ export default function UsersTable({
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  Role
+                  <div
+                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
+                    onClick={() => onRequestSort("username")}
+                  >
+                    Username
+                    <span className="inline-flex flex-col ml-1">
+                      <ChevronUp
+                        className={`h-3 w-3 transition-colors ${
+                          currentSort?.key === "username" &&
+                          currentSort.direction === "asc"
+                            ? "text-primary-500 dark:text-primary-400"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      />
+                      <ChevronDown
+                        className={`h-3 w-3 -mt-1 transition-colors ${
+                          currentSort?.key === "username" &&
+                          currentSort.direction === "desc"
+                            ? "text-primary-500 dark:text-primary-400"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      />
+                    </span>
+                  </div>
                 </TableCell>
 
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  School
+                  <div
+                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
+                    onClick={() => onRequestSort("email")}
+                  >
+                    Email
+                    <span className="inline-flex flex-col ml-1">
+                      <ChevronUp
+                        className={`h-3 w-3 transition-colors ${
+                          currentSort?.key === "email" &&
+                          currentSort.direction === "asc"
+                            ? "text-primary-500 dark:text-primary-400"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      />
+                      <ChevronDown
+                        className={`h-3 w-3 -mt-1 transition-colors ${
+                          currentSort?.key === "email" &&
+                          currentSort.direction === "desc"
+                            ? "text-primary-500 dark:text-primary-400"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      />
+                    </span>
+                  </div>
                 </TableCell>
 
                 <TableCell
@@ -836,10 +853,10 @@ export default function UsersTable({
                       </div>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {roleMap[user.role] || user.role}
+                      {user.username}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {user.school || "-"}
+                      {user.email}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       <Badge color={user.is_active ? "success" : "error"}>
