@@ -8,7 +8,10 @@ import uuid
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture_base64 = serializers.CharField(
-        write_only=True, required=False)
+        write_only=True,
+        required=False,
+        allow_blank=True,  # Explicitly allow empty strings ("")
+        allow_null=True, )
 
     class Meta:
         model = User
@@ -26,6 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
             "profile_picture",
             "profile_picture_base64",
             "is_active",
+            "date_joined"
         ]
         extra_kwargs = {
             "password": {"write_only": True},
@@ -38,7 +42,9 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "School is required for this role"
             )
-
+        if data.get('profile_picture_base64') == "":
+            data.pop('profile_picture_base64')  # Remove empty string
+        return super().validate(data)
         # Only admins can create other admins
         request = self.context.get('request')
         # if request and request.user.role != 'admin' and data.get('role') == 'admin':
@@ -97,13 +103,20 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
 
-        # Add custom claims
+        # Add custom claims (only serializable data)
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
         token['username'] = user.username
         token['role'] = user.role
-        # Assuming these fields exist on your User model
         token['email'] = user.email
+
+        # Add profile picture URL (not the ImageFieldFile object)
+        if user.profile_picture:
+            # Returns the file URL
+            token['profile_picture'] = user.profile_picture.url
+        else:
+            token['profile_picture'] = None
+
         return token
 
 class SchoolSerializer(serializers.ModelSerializer):

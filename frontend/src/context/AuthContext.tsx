@@ -16,6 +16,7 @@ interface UserData {
   last_name: string;
   phone_number?: string;
   email: string;
+  profile_picture?: string;
 }
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -43,6 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         first_name: string;
         last_name: string;
         role: string;
+        profile_picture: string;
       }>(token);
       return {
         user_id: decoded.user_id,
@@ -51,6 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         last_name: decoded.last_name,
         email: decoded.email,
         role: decoded.role,
+        profile_picture: decoded.profile_picture,
       };
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {

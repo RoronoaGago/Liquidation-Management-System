@@ -28,7 +28,33 @@ export type User = {
     profile_picture_base64?: string;
 
 }
+export type SortDirection = "asc" | "desc" | null;
+export type SortableField = keyof Pick<
+    User,
+    | "id"
+    | "first_name"
+    | "last_name"
+    | "username"
+    | "email"
+    | "phone_number"
+    | "password"
+    | "is_active"
+    | "date_joined"
+>;
+export type DialogState = {
+    edit: boolean;
+    view: boolean;
+    delete: boolean;
+    archive: boolean;
+    confirm: boolean;
+    bulkArchive: boolean;
+};
 
+export interface FilterOptions {
+    role: string;
+    dateRange: { start: string; end: string };
+    searchTerm: string;
+}
 export interface FormUser extends BaseUser {
     password?: string;
     confirm_password?: string;
