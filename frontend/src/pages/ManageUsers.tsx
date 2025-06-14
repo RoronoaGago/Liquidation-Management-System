@@ -16,7 +16,7 @@ import Input from "@/components/form/input/InputField";
 import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
-import { EyeClosedIcon, EyeIcon, Loader2Icon } from "lucide-react";
+import { EyeClosedIcon, EyeIcon, Loader2Icon, XIcon } from "lucide-react";
 import {
   validateDateOfBirth,
   validateEmail,
@@ -41,7 +41,7 @@ interface UserFormData {
 }
 //TODO - make the school search
 //TODO - make the profile picture optional??
-const roleOptions = [
+export const roleOptions = [
   { value: "admin", label: "Administrator" },
   { value: "school_head", label: "School Head" },
   { value: "school_admin", label: "School Admin Assistant" },
@@ -348,18 +348,7 @@ const ManageUsers = () => {
     setErrors(finalErrors);
 
     if (Object.keys(finalErrors).length > 0) {
-      toast.error("Please fill in all required fields correctly!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.error("Please fill in all required fields correctly!");
       return;
     }
 
@@ -455,7 +444,7 @@ const ManageUsers = () => {
                 Add New User
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar [&>button]:hidden">
               <DialogHeader className="mb-8">
                 <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
                   Add New User
@@ -473,11 +462,21 @@ const ManageUsers = () => {
                   </Label>
                   <div className="flex items-center gap-4">
                     {previewImage ? (
-                      <img
-                        src={previewImage}
-                        className="w-16 h-16 rounded-full object-cover"
-                        alt="Preview"
-                      />
+                      <div className="relative">
+                        <img
+                          src={previewImage}
+                          className="w-16 h-16 rounded-full object-cover"
+                          alt="Preview"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage(null)} // Clear the preview
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                          aria-label="Remove profile picture"
+                        >
+                          <XIcon />
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-gray-500" />
@@ -494,7 +493,7 @@ const ManageUsers = () => {
                       htmlFor="profile_picture"
                       className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
                     >
-                      Upload Photo
+                      {previewImage ? "Change Photo" : "Upload Photo"}
                     </Label>
                   </div>
                 </div>

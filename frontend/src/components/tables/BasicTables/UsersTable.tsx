@@ -34,6 +34,8 @@ import {
   EyeClosedIcon,
   User as UserIcon,
   Filter,
+  Loader2Icon,
+  XIcon,
 } from "lucide-react";
 import { CalenderIcon } from "@/icons";
 import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
@@ -43,11 +45,13 @@ import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
 import {
   calculateAge,
+  validateDateOfBirth,
   validateEmail,
   validatePassword,
   validatePhoneNumber,
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { roleOptions } from "@/pages/ManageUsers";
 
 interface UsersTableProps {
   users: User[];
@@ -86,6 +90,9 @@ interface FormErrors {
   password?: string;
   confirm_password?: string;
   phone_number?: string;
+  date_of_birth?: string;
+  role?: string;
+  school?: string;
 }
 
 export default function UsersTable({
@@ -109,6 +116,9 @@ export default function UsersTable({
   const [showFilters, setShowFilters] = useState(false);
 
   // Form state
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(
+    null
+  );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -129,11 +139,23 @@ export default function UsersTable({
 
   const isFormValid = useMemo(() => {
     if (!selectedUser) return false;
-    return (
-      requiredFields.every(
-        (field) => selectedUser[field as keyof User]?.toString().trim() !== ""
-      ) && Object.keys(formErrors).length === 0
+
+    // Check required fields are filled
+    const requiredValid = requiredFields.every(
+      (field) => selectedUser[field as keyof User]?.toString().trim() !== ""
     );
+
+    // Check role-specific requirements
+    const roleValid =
+      selectedUser.role === "school_head" ||
+      selectedUser.role === "school_admin"
+        ? selectedUser.school?.trim() !== ""
+        : true;
+
+    // Check no validation errors
+    const noErrors = Object.keys(formErrors).length === 0;
+
+    return requiredValid && roleValid && noErrors;
   }, [selectedUser, formErrors]);
 
   const roleMap: Record<string, string> = {
@@ -164,6 +186,7 @@ export default function UsersTable({
 
     debounceTimeout.current = setTimeout(() => {
       const newErrors = { ...formErrors };
+
       switch (name) {
         case "email":
           if (!validateEmail(value)) {
@@ -179,11 +202,37 @@ export default function UsersTable({
             delete newErrors.password;
           }
           break;
+        case "date_of_birth":
+          const dateError = validateDateOfBirth(value);
+          if (dateError) {
+            newErrors.date_of_birth = dateError;
+          } else {
+            delete newErrors.date_of_birth;
+          }
+          break;
         case "phone_number":
           if (value && !validatePhoneNumber(value)) {
             newErrors.phone_number = "Please enter a valid phone number";
           } else {
             delete newErrors.phone_number;
+          }
+          break;
+        case "role":
+          if (value === "admin" && currentUser?.role !== "admin") {
+            newErrors.role = "Only administrators can create admin users";
+          } else {
+            delete newErrors.role;
+          }
+          break;
+        case "school":
+          if (
+            (selectedUser.role === "school_head" ||
+              selectedUser.role === "school_admin") &&
+            !value.trim()
+          ) {
+            newErrors.school = "School is required for this role";
+          } else {
+            delete newErrors.school;
           }
           break;
         default:
@@ -193,6 +242,7 @@ export default function UsersTable({
             delete newErrors[name as keyof FormErrors];
           }
       }
+
       setFormErrors(newErrors);
     }, 500);
   };
@@ -318,14 +368,45 @@ export default function UsersTable({
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        ...selectedUser,
-        password: selectedUser.password || undefined,
-      };
+      const formData = new FormData();
+      // Basic info
+      formData.append("first_name", selectedUser.first_name);
+      formData.append("last_name", selectedUser.last_name);
+      formData.append("email", selectedUser.email);
+      formData.append("username", selectedUser.username); // Add this
+      formData.append("date_of_birth", selectedUser.date_of_birth || ""); // Handle null case
+
+      // Contact info
+      if (selectedUser.phone_number) {
+        formData.append("phone_number", selectedUser.phone_number);
+      } else {
+        formData.append("phone_number", ""); // Clear if removed
+      }
+
+      // Account info
+      formData.append("role", selectedUser.role);
+      if (selectedUser.school) {
+        formData.append("school", selectedUser.school);
+      }
+
+      // Password (only if changed)
+      if (selectedUser.password) {
+        formData.append("password", selectedUser.password);
+      }
+
+      // Profile picture handling
+      if (profilePictureFile) {
+        formData.append("profile_picture", profilePictureFile);
+      } else if (!selectedUser.profile_picture) {
+        formData.append("profile_picture", ""); // Clear existing picture
+      }
 
       await axios.put(
         `http://127.0.0.1:8000/api/users/${selectedUser.id}/`,
-        payload
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
       );
 
       toast.success("User updated successfully!");
@@ -365,6 +446,7 @@ export default function UsersTable({
     } finally {
       setIsSubmitting(false);
       setIsDeleteDialogOpen(false);
+      setProfilePictureFile(null);
       setUserToDelete(null);
     }
   };
@@ -944,7 +1026,7 @@ export default function UsersTable({
 
       {/* Edit User Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar [&>button]:hidden">
           <DialogHeader className="mb-8">
             <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
               Edit User
@@ -956,6 +1038,82 @@ export default function UsersTable({
 
           {selectedUser && (
             <form className="space-y-4" onSubmit={handleSubmit}>
+              {/* Profile Picture Upload */}
+              <div className="space-y-2">
+                <Label htmlFor="profile_picture" className="text-base">
+                  Profile Picture
+                </Label>
+                <div className="flex items-center gap-4">
+                  {selectedUser.profile_picture_base64 ||
+                  selectedUser.profile_picture ? (
+                    <div className="relative">
+                      <img
+                        src={
+                          selectedUser.profile_picture_base64 || // Show new upload preview first
+                          `http://127.0.0.1:8000${selectedUser.profile_picture}` // Fallback to existing image
+                        }
+                        className="w-16 h-16 rounded-full object-cover"
+                        alt="Preview"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUser((prev) => ({
+                            ...prev!,
+                            profile_picture: "",
+                            profile_picture_base64: "",
+                          }));
+                          setProfilePictureFile(null);
+                          // Clear the file input value too
+                          const fileInput = document.getElementById(
+                            "profile_picture"
+                          ) as HTMLInputElement;
+                          if (fileInput) fileInput.value = "";
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                        aria-label="Remove profile picture"
+                      >
+                        <XIcon />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                      <UserIcon className="w-8 h-8 text-gray-500" />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    id="profile_picture"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setProfilePictureFile(file);
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setSelectedUser((prev) => ({
+                            ...prev!,
+                            profile_picture_base64: event.target
+                              ?.result as string,
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <Label
+                    htmlFor="profile_picture"
+                    className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  >
+                    {selectedUser.profile_picture ||
+                    selectedUser.profile_picture_base64
+                      ? "Change Photo"
+                      : "Upload Photo"}
+                  </Label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="first_name" className="text-base">
@@ -965,9 +1123,10 @@ export default function UsersTable({
                     type="text"
                     id="first_name"
                     name="first_name"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="John"
                     value={selectedUser.first_name}
                     onChange={handleChange}
-                    className={formErrors.first_name ? "border-red-500" : ""}
                   />
                   {formErrors.first_name && (
                     <p className="text-red-500 text-sm">
@@ -983,9 +1142,10 @@ export default function UsersTable({
                     type="text"
                     id="last_name"
                     name="last_name"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="Doe"
                     value={selectedUser.last_name}
                     onChange={handleChange}
-                    className={formErrors.last_name ? "border-red-500" : ""}
                   />
                   {formErrors.last_name && (
                     <p className="text-red-500 text-sm">
@@ -1003,10 +1163,10 @@ export default function UsersTable({
                   type="text"
                   id="username"
                   name="username"
+                  placeholder="johndoe123"
                   value={selectedUser.username}
                   onChange={handleChange}
-                  className={formErrors.username ? "border-red-500" : ""}
-                  disabled
+                  disabled // Username shouldn't be editable
                 />
                 {formErrors.username && (
                   <p className="text-red-500 text-sm">{formErrors.username}</p>
@@ -1021,31 +1181,37 @@ export default function UsersTable({
                   type="email"
                   id="email"
                   name="email"
+                  className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                  placeholder="john@example.com"
                   value={selectedUser.email}
                   onChange={handleChange}
-                  className={formErrors.email ? "border-red-500" : ""}
                 />
                 {formErrors.email && (
                   <p className="text-red-500 text-sm">{formErrors.email}</p>
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-base">
-                  Password (leave blank to keep current)
+                  New Password (leave blank to keep current)
                 </Label>
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
                     id="password"
                     name="password"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="••••••••"
                     value={selectedUser.password || ""}
                     onChange={handleChange}
-                    className={formErrors.password ? "border-red-500" : ""}
                   />
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
                     onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showPassword ? (
                       <EyeClosedIcon className="h-5 w-5 text-gray-400" />
@@ -1058,6 +1224,94 @@ export default function UsersTable({
                   <p className="text-red-500 text-sm">{formErrors.password}</p>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm_password" className="text-base">
+                  Confirm New Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    id="confirm_password"
+                    name="confirm_password"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="••••••••"
+                    value={selectedUser.confirm_password || ""}
+                    onChange={handleChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                    aria-label={
+                      showConfirmPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showConfirmPassword ? (
+                      <EyeClosedIcon className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <EyeIcon className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+                {formErrors.confirm_password && (
+                  <p className="text-red-500 text-sm">
+                    {formErrors.confirm_password}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role" className="text-base">
+                  Role *
+                </Label>
+                <select
+                  id="role"
+                  name="role"
+                  value={selectedUser.role}
+                  onChange={handleChange}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  {roleOptions.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      className="text-gray-700"
+                      disabled={
+                        option.value === "admin" &&
+                        currentUser?.role !== "admin"
+                      }
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.role && (
+                  <p className="text-red-500 text-sm">{formErrors.role}</p>
+                )}
+              </div>
+
+              {(selectedUser.role === "school_head" ||
+                selectedUser.role === "school_admin") && (
+                <div className="space-y-2">
+                  <Label htmlFor="school" className="text-base">
+                    School *
+                  </Label>
+                  <Input
+                    type="text"
+                    id="school"
+                    name="school"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="Enter school name"
+                    value={selectedUser.school || ""}
+                    onChange={handleChange}
+                  />
+                  {formErrors.school && (
+                    <p className="text-red-500 text-sm">{formErrors.school}</p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="date_of_birth" className="text-base">
                   Birthdate
@@ -1068,7 +1322,7 @@ export default function UsersTable({
                     id="date_of_birth"
                     name="date_of_birth"
                     className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    value={selectedUser?.date_of_birth}
+                    value={selectedUser.date_of_birth || ""}
                     onChange={handleChange}
                     max={new Date().toISOString().split("T")[0]}
                   />
@@ -1076,6 +1330,11 @@ export default function UsersTable({
                     <CalenderIcon className="size-5" />
                   </span>
                 </div>
+                {formErrors.date_of_birth && (
+                  <p className="text-red-500 text-sm">
+                    {formErrors.date_of_birth}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -1086,10 +1345,11 @@ export default function UsersTable({
                   type="tel"
                   id="phone_number"
                   name="phone_number"
+                  className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                  placeholder="+1 (555) 123-4567"
                   value={selectedUser.phone_number || ""}
                   onChange={handleChange}
                   onInput={handlePhoneNumberInput}
-                  className={formErrors.phone_number ? "border-red-500" : ""}
                 />
                 {formErrors.phone_number && (
                   <p className="text-red-500 text-sm">
@@ -1106,6 +1366,7 @@ export default function UsersTable({
                     setIsDialogOpen(false);
                     setSelectedUser(null);
                     setFormErrors({});
+                    setProfilePictureFile(null);
                   }}
                   disabled={isSubmitting}
                 >
@@ -1118,7 +1379,7 @@ export default function UsersTable({
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
-                      <Loader2 className="animate-spin size-4" />
+                      <Loader2Icon className="animate-spin size-4" />
                       Saving...
                     </span>
                   ) : (
@@ -1176,55 +1437,158 @@ export default function UsersTable({
 
       {/* View User Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
-          <DialogHeader className="mb-8">
-            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              User Details
-            </DialogTitle>
-            <DialogDescription className="text-gray-600 dark:text-gray-400">
-              Detailed information about the user
-            </DialogDescription>
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-w-2xl [&>button]:hidden">
+          <DialogHeader className="mb-6">
+            <div className="flex items-center gap-4">
+              {userToView?.profile_picture ? (
+                <img
+                  src={`http://127.0.0.1:8000${userToView.profile_picture}`}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+                  alt="Profile"
+                />
+              ) : (
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold ${getAvatarColor(
+                    userToView?.id || 0,
+                    userToView?.first_name || "",
+                    userToView?.last_name || ""
+                  )}`}
+                >
+                  {getUserInitials(
+                    userToView?.first_name || "",
+                    userToView?.last_name || ""
+                  )}
+                </div>
+              )}
+              <div>
+                <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
+                  {userToView?.first_name} {userToView?.last_name}
+                </DialogTitle>
+                <DialogDescription className="text-gray-600 dark:text-gray-400">
+                  {roleMap[userToView?.role || ""]}{" "}
+                  {userToView?.school && `• ${userToView.school}`}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           {userToView && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">First Name</Label>
-                  <p className="text-gray-800 dark:text-gray-200">
-                    {userToView.first_name}
-                  </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
+                    Basic Information
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Username
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {userToView.username}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Email
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {userToView.email}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Phone
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {userToView.phone_number || "Not provided"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">Last Name</Label>
-                  <p className="text-gray-800 dark:text-gray-200">
-                    {userToView.last_name}
-                  </p>
+
+                {/* Additional Details */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
+                    Additional Details
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Role
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {roleMap[userToView.role]}
+                      </p>
+                    </div>
+                    {userToView.school && (
+                      <div>
+                        <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                          School
+                        </Label>
+                        <p className="text-gray-800 dark:text-gray-200 mt-1">
+                          {userToView.school}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Date of Birth
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {userToView.date_of_birth
+                          ? new Date(
+                              userToView.date_of_birth
+                            ).toLocaleDateString()
+                          : "Not provided"}
+                        {userToView.date_of_birth && (
+                          <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
+                            ({calculateAge(userToView.date_of_birth)} years old)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-none">
+                        Status
+                      </Label>
+                      <Badge color={userToView.is_active ? "success" : "error"}>
+                        {userToView.is_active ? "Active" : "Archived"}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-base font-medium">Username</Label>
-                <p className="text-gray-800 dark:text-gray-200">
-                  {userToView.username}
-                </p>
+              {/* Account Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
+                  Account Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Date Joined
+                    </Label>
+                    <p className="text-gray-800 dark:text-gray-200 mt-1">
+                      {new Date(userToView.date_joined).toLocaleString()}
+                    </p>
+                  </div>
+                  {/* <div>
+                    <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Last Login
+                    </Label>
+                    <p className="text-gray-800 dark:text-gray-200 mt-1">
+                      {userToView.last_login
+                        ? new Date(userToView.last_login).toLocaleString()
+                        : "Never logged in"}
+                    </p>
+                  </div> */}
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-base font-medium">Email</Label>
-                <p className="text-gray-800 dark:text-gray-200">
-                  {userToView.email}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-base font-medium">Phone Number</Label>
-                <p className="text-gray-800 dark:text-gray-200">
-                  {userToView.phone_number || "Not provided"}
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3 pt-6">
                 <Button
                   type="button"
                   variant="outline"
@@ -1232,6 +1596,16 @@ export default function UsersTable({
                 >
                   Close
                 </Button>
+                {/* <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => {
+                    setIsViewDialogOpen(false);
+                    handleEditUser(userToView);
+                  }}
+                >
+                  Edit User
+                </Button> */}
               </div>
             </div>
           )}

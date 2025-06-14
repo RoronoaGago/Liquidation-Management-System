@@ -29,6 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
             "profile_picture",
             "profile_picture_base64",
             "is_active",
+            "date_joined"
         ]
         extra_kwargs = {
             "password": {"write_only": True},
