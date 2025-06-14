@@ -49,6 +49,12 @@ export type DialogState = {
     confirm: boolean;
     bulkArchive: boolean;
 };
+
+export interface FilterOptions {
+    role: string;
+    dateRange: { start: string; end: string };
+    searchTerm: string;
+}
 export interface FormUser extends BaseUser {
     password?: string;
     confirm_password?: string;

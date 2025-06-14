@@ -4,6 +4,7 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import ToastProvider from "@/components/ui/ToastProvider";
+import { ToastContainer } from "react-toastify";
 
 // LayoutContent component
 const LayoutContent: React.FC<{ children?: React.ReactNode }> = ({
@@ -25,6 +26,7 @@ const LayoutContent: React.FC<{ children?: React.ReactNode }> = ({
         <AppHeader />
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
           {children || <Outlet />}
+          <ToastContainer />
         </div>
       </div>
     </div>
@@ -35,10 +37,7 @@ const LayoutContent: React.FC<{ children?: React.ReactNode }> = ({
 const AppLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   return (
     <SidebarProvider>
-      <LayoutContent>
-        {children}
-        <ToastProvider />
-      </LayoutContent>
+      <LayoutContent>{children}</LayoutContent>
     </SidebarProvider>
   );
 };
