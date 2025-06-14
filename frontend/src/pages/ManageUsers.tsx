@@ -24,6 +24,7 @@ import {
   validatePhoneNumber,
 } from "@/lib/helpers";
 import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
+import api from "@/api/axios";
 
 interface UserFormData {
   first_name: string;
@@ -38,7 +39,9 @@ interface UserFormData {
   school: string;
   profile_picture_base64: string;
 }
-
+//TODO - exclude the current user
+//TODO - make the school search
+//TODO - make the profile picture optional??
 const roleOptions = [
   { value: "admin", label: "Administrator" },
   { value: "school_head", label: "School Head" },
@@ -104,7 +107,7 @@ const ManageUsers = () => {
   // Modify the fetchUsers function to handle archived status
   const fetchUsers = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/users/", {
+      const response = await api.get("http://127.0.0.1:8000/api/users/", {
         params: {
           archived: showArchived, // This is now the single source of truth for archive status
           role: filterOptions.role || undefined,
@@ -114,6 +117,7 @@ const ManageUsers = () => {
         },
       });
       setAllUsers(response.data);
+      console.log(response);
     } catch (error) {
       toast.error("Failed to fetch users", {
         position: "top-center",

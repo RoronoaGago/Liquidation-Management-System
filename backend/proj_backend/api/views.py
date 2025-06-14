@@ -42,8 +42,7 @@ def user_list(request):
         school_filter = request.query_params.get('school', None)
         search_term = request.query_params.get('search', None)
 
-        queryset = User.objects.all()
-
+        queryset = User.objects.exclude(id=request.user.id)
         # Archive filter
         if not show_archived:
             queryset = queryset.filter(is_active=True)
