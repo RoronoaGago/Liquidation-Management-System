@@ -36,6 +36,8 @@ import {
   Filter,
   Loader2Icon,
   XIcon,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { CalenderIcon } from "@/icons";
 import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
@@ -52,6 +54,7 @@ import {
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { roleOptions } from "@/pages/ManageUsers";
+import SkeletonRow from "@/components/ui/skeleton";
 
 interface UsersTableProps {
   users: User[];
@@ -80,6 +83,8 @@ interface UsersTableProps {
 
   // Current user context (for excluding from operations)
   currentUserId?: number;
+  loading?: boolean;
+  error?: Error | null;
 }
 
 interface FormErrors {
@@ -105,9 +110,10 @@ export default function UsersTable({
   setFilterOptions,
   onRequestSort,
   currentSort,
+  loading,
+  error,
 }: UsersTableProps) {
   const { user: currentUser } = useAuth();
-  const [error, setError] = useState<Error | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -534,11 +540,6 @@ export default function UsersTable({
     setSearchTerm("");
   };
 
-  // if (loading) return <Loading />;
-  if (error) {
-    return <div className="p-4 text-red-500">Error: {error.message}</div>;
-  }
-
   return (
     <div className="space-y-4">
       {/* Filters and Search */}
@@ -836,7 +837,34 @@ export default function UsersTable({
             </TableHeader>
 
             <TableBody className="divide-y divide-gray-200 dark:divide-white/[0.05]">
-              {currentItems.length > 0 ? (
+              {loading ? (
+                <>
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                </>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <AlertTriangle className="h-8 w-8 text-red-500" />
+                      <span className="text-red-500">
+                        Failed to load users: {error.message}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fetchUsers()}
+                        startIcon={<RefreshCw className="h-4 w-4" />}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : currentItems.length > 0 ? (
                 currentItems.map((user) => (
                   <TableRow
                     key={user.id}
