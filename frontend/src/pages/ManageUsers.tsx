@@ -38,8 +38,8 @@ interface UserFormData {
   school: string;
   profile_picture_base64: string;
 }
-type SortDirection = "asc" | "desc" | null;
-type SortableField = keyof Pick<
+export type SortDirection = "asc" | "desc" | null;
+export type SortableField = keyof Pick<
   User,
   | "id"
   | "first_name"
@@ -200,6 +200,14 @@ const ManageUsers = () => {
     }
     return filteredUsers;
   }, [filteredUsers, sortConfig]);
+
+  const requestSort = (key: SortableField) => {
+    let direction: SortDirection = "asc";
+    if (sortConfig && sortConfig.key === key) {
+      direction = sortConfig.direction === "asc" ? "desc" : null;
+    }
+    setSortConfig(direction ? { key, direction } : null);
+  };
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -798,8 +806,8 @@ const ManageUsers = () => {
           sortedUsers={sortedUsers}
           filterOptions={filterOptions}
           setFilterOptions={setFilterOptions}
-          sortConfig={sortConfig}
-          setSortConfig={setSortConfig}
+          onRequestSort={requestSort} // Add this new prop
+          currentSort={sortConfig} // Add this new prop
         />
       </div>
       <ToastContainer
