@@ -15,6 +15,7 @@ const ToastProvider = () => {
       pauseOnHover
       theme="light"
       transition={Bounce}
+      style={{ fontFamily: "Outfit, sans-serif" }} // Fixed: Style should be an object
     />
   );
 };

@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Bounce, ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import {
@@ -258,19 +258,7 @@ export default function UsersTable({
       toast.success(
         `${selectedUsers.length} user${selectedUsers.length > 1 ? "s" : ""} ${
           archive ? "archived" : "restored"
-        } successfully!`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        }
+        } successfully!`
       );
 
       await fetchUsers();
@@ -278,19 +266,7 @@ export default function UsersTable({
       setSelectAll(false);
     } catch (error) {
       toast.error(
-        `Failed to ${archive ? "archive" : "restore"} users. Please try again.`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        }
+        `Failed to ${archive ? "archive" : "restore"} users. Please try again.`
       );
     } finally {
       setIsSubmitting(false);
@@ -330,18 +306,7 @@ export default function UsersTable({
     if (!selectedUser) return;
 
     if (!isFormValid) {
-      toast.error("Please fix the errors in the form", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.error("Please fix the errors in the form");
       return;
     }
 
@@ -363,18 +328,7 @@ export default function UsersTable({
         payload
       );
 
-      toast.success("User updated successfully!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.success("User updated successfully!");
 
       await fetchUsers();
       setIsDialogOpen(false);
@@ -390,18 +344,8 @@ export default function UsersTable({
           errorMessage = "Password doesn't meet requirements.";
         }
       }
-      toast.error(errorMessage, {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      console.error(error);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -413,33 +357,11 @@ export default function UsersTable({
 
     try {
       await axios.delete(`http://127.0.0.1:8000/api/users/${userToDelete.id}/`);
-      toast.success("User deleted successfully!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.success("User deleted successfully!");
 
       await fetchUsers();
     } catch (error) {
-      toast.error("Failed to delete user", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.error("Failed to delete user");
     } finally {
       setIsSubmitting(false);
       setIsDeleteDialogOpen(false);
@@ -461,37 +383,13 @@ export default function UsersTable({
       );
 
       toast.success(
-        `User ${newStatus ? "restored" : "archived"} successfully!`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        }
+        `User ${newStatus ? "restored" : "archived"} successfully!`
       );
 
       await fetchUsers();
     } catch (error) {
       toast.error(
-        `Failed to ${userToArchive.is_active ? "archive" : "restore"} user`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        }
+        `Failed to ${userToArchive.is_active ? "archive" : "restore"} user`
       );
     } finally {
       setIsSubmitting(false);
@@ -1108,6 +1006,7 @@ export default function UsersTable({
                   value={selectedUser.username}
                   onChange={handleChange}
                   className={formErrors.username ? "border-red-500" : ""}
+                  disabled
                 />
                 {formErrors.username && (
                   <p className="text-red-500 text-sm">{formErrors.username}</p>
@@ -1503,16 +1402,6 @@ export default function UsersTable({
           </div>
         </DialogContent>
       </Dialog>
-
-      <ToastContainer
-        position="top-center"
-        autoClose={2000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick={false}
-        rtl={false}
-        pauseOnFocusLoss
-      />
     </div>
   );
 }
