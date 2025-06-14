@@ -69,6 +69,8 @@ const ManageUsers = () => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   // Update the filterOptions state to include role and school
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     role: "",
@@ -104,6 +106,8 @@ const ManageUsers = () => {
 
   // Modify the fetchUsers function to handle archived status
   const fetchUsers = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const response = await api.get("http://127.0.0.1:8000/api/users/", {
         params: {
@@ -116,19 +120,12 @@ const ManageUsers = () => {
       });
       setAllUsers(response.data);
       console.log(response);
-    } catch (error) {
-      toast.error("Failed to fetch users", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+    } catch (err) {
+      const error =
+        err instanceof Error ? err : new Error("Failed to fetch users");
+      setError(error);
+    } finally {
+      setLoading(false);
     }
   };
   useEffect(() => {
@@ -819,6 +816,8 @@ const ManageUsers = () => {
           setFilterOptions={setFilterOptions}
           onRequestSort={requestSort} // Add this new prop
           currentSort={sortConfig} // Add this new prop
+          loading={loading}
+          error={error}
         />
       </div>
     </div>
