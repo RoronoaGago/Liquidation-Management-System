@@ -82,7 +82,7 @@ export default function UserDropdown() {
         className="flex items-center gap-2 text-gray-700 dropdown-toggle dark:text-gray-400"
       >
         <div
-          className={`flex items-center justify-center w-8 h-8 rounded-full ${getAvatarColor()} text-white font-medium`}
+          className={`flex items-center justify-center w-11 h-11 rounded-full ${getAvatarColor()} text-white font-medium`}
         >
           {user?.profile_picture ? (
             <img
