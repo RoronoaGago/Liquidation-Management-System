@@ -1437,7 +1437,7 @@ export default function UsersTable({
 
       {/* View User Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-w-2xl [&>button]:hidden">
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-w-2xl">
           <DialogHeader className="mb-6">
             <div className="flex items-center gap-4">
               {userToView?.profile_picture ? (

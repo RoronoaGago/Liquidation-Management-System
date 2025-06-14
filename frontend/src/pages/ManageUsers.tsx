@@ -40,7 +40,6 @@ interface UserFormData {
   profile_picture_base64: string;
 }
 //TODO - make the school search
-//TODO - make the profile picture optional??
 export const roleOptions = [
   { value: "admin", label: "Administrator" },
   { value: "school_head", label: "School Head" },
@@ -178,22 +177,39 @@ const ManageUsers = () => {
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   const sortedUsers = useMemo(() => {
-    if (sortConfig !== null) {
-      return [...filteredUsers].sort((a, b) => {
-        if (sortConfig.key === "date_joined") {
-          const aDate = new Date(a.date_joined).getTime();
-          const bDate = new Date(b.date_joined).getTime();
-          return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
-        }
+    // If no sort config, return with original order (or default sort)
+    if (!sortConfig) return filteredUsers;
 
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-    return filteredUsers;
+    return [...filteredUsers].sort((a, b) => {
+      // Handle date sorting
+      if (sortConfig.key === "date_joined") {
+        const aDate = new Date(a.date_joined).getTime();
+        const bDate = new Date(b.date_joined).getTime();
+
+        // Handle potential invalid dates
+        if (isNaN(aDate) || isNaN(bDate)) return 0;
+
+        return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
+      }
+
+      // Get values to compare
+      const aValue = a[sortConfig.key] ?? "";
+      const bValue = b[sortConfig.key] ?? "";
+
+      // Case-insensitive string comparison
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        const comparison = aValue.localeCompare(bValue, undefined, {
+          sensitivity: "base",
+        });
+        return sortConfig.direction === "asc" ? comparison : -comparison;
+      }
+
+      // Numeric comparison
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+
+      return 0;
+    });
   }, [filteredUsers, sortConfig]);
 
   const requestSort = (key: SortableField) => {
@@ -444,7 +460,7 @@ const ManageUsers = () => {
                 Add New User
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar [&>button]:hidden">
+            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
               <DialogHeader className="mb-8">
                 <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
                   Add New User
