@@ -33,9 +33,10 @@ import {
   SquarePenIcon,
   EyeClosedIcon,
   User as UserIcon,
+  Filter,
 } from "lucide-react";
 import { CalenderIcon } from "@/icons";
-import { SortableField, SortDirection, User } from "@/lib/types";
+import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
 import Button from "@/components/ui/button/Button";
 import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
@@ -87,15 +88,6 @@ interface FormErrors {
   phone_number?: string;
 }
 
-interface FilterOptions {
-  status: string;
-  dateRange: {
-    start: string;
-    end: string;
-  };
-  searchTerm: string;
-}
-
 export default function UsersTable({
   setUsers,
   showArchived,
@@ -131,7 +123,6 @@ export default function UsersTable({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const requiredFields = ["first_name", "last_name", "username", "email"];
@@ -213,6 +204,7 @@ export default function UsersTable({
       }
     };
   }, []);
+
   useEffect(() => {
     // Reset selected users when switching between active/archived views
     setSelectedUsers([]);
@@ -555,15 +547,11 @@ export default function UsersTable({
   };
   const resetFilters = () => {
     setFilterOptions({
-      status: "all",
-      dateRange: {
-        start: "",
-        end: "",
-      },
+      role: "",
+      dateRange: { start: "", end: "" },
       searchTerm: "",
     });
     setSearchTerm("");
-    setShowFilters(false);
   };
 
   // if (loading) return <Loading />;
@@ -574,67 +562,144 @@ export default function UsersTable({
   return (
     <div className="space-y-4">
       {/* Filters and Search */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-64">
-          <Input
-            type="text"
-            placeholder="Search users..."
-            value={filterOptions.searchTerm}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setSearchTerm(e.target.value);
-              handleFilterChange("searchTerm", e.target.value);
-            }}
-            className="pl-10"
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-64">
+            <Input
+              type="text"
+              placeholder="Search users..."
+              value={filterOptions.searchTerm}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setSearchTerm(e.target.value);
+                handleFilterChange("searchTerm", e.target.value);
+              }}
+              className="pl-10"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          </div>
+
+          <div className="flex gap-4 w-full md:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              startIcon={<Filter className="size-4" />}
+            >
+              Filters
+            </Button>
+
+            <Button
+              variant={showArchived ? "primary" : "outline"}
+              onClick={() => setShowArchived(!showArchived)}
+              startIcon={
+                showArchived ? (
+                  <ArchiveRestore className="size-4" />
+                ) : (
+                  <Archive className="size-4" />
+                )
+              }
+            >
+              {showArchived ? "View Active" : "View Archived"}
+            </Button>
+
+            {selectedUsers.length > 0 && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsBulkArchiveDialogOpen(true)}
+                  startIcon={
+                    showArchived ? (
+                      <ArchiveRestore className="size-4" />
+                    ) : (
+                      <Archive className="size-4" />
+                    )
+                  }
+                >
+                  {selectedUsers.length} Selected
+                </Button>
+              </div>
+            )}
+
+            <select
+              value={itemsPerPage.toString()}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                setItemsPerPage(Number(e.target.value))
+              }
+              className="min-w-[100px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+            >
+              <option value="5">5 per page</option>
+              <option value="10">10 per page</option>
+              <option value="20">20 per page</option>
+              <option value="50">50 per page</option>
+            </select>
+          </div>
         </div>
 
-        <div className="flex gap-4 w-full md:w-auto">
-          <Button
-            variant={showArchived ? "primary" : "outline"}
-            onClick={() => setShowArchived(!showArchived)}
-            startIcon={
-              showArchived ? (
-                <ArchiveRestore className="size-4" />
-              ) : (
-                <Archive className="size-4" />
-              )
-            }
-          >
-            {showArchived ? "View Active" : "View Archived"}
-          </Button>
+        {/* Filter section - visible when showFilters is true */}
+        {showFilters && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            <div className="space-y-2">
+              <Label htmlFor="role-filter" className="text-sm font-medium">
+                Role
+              </Label>
+              <select
+                id="role-filter"
+                value={filterOptions.role || ""}
+                onChange={(e) => handleFilterChange("role", e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="">All Roles</option>
+                {Object.entries(roleMap).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {selectedUsers.length > 0 && (
-            <div className="flex gap-2">
+            <div className="space-y-2">
+              <Label htmlFor="date-range-start" className="text-sm font-medium">
+                Date Joined Range
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <Input
+                    type="date"
+                    id="date-range-start"
+                    value={filterOptions.dateRange.start}
+                    onChange={(e) =>
+                      handleDateRangeChange("start", e.target.value)
+                    }
+                    className="w-full p-2 pr-8"
+                  />
+                  <CalenderIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+                <div className="relative">
+                  <Input
+                    type="date"
+                    id="date-range-end"
+                    value={filterOptions.dateRange.end}
+                    onChange={(e) =>
+                      handleDateRangeChange("end", e.target.value)
+                    }
+                    className="w-full p-2 pr-8"
+                  />
+                  <CalenderIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-3 flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => setIsBulkArchiveDialogOpen(true)}
-                startIcon={
-                  showArchived ? (
-                    <ArchiveRestore className="size-4" />
-                  ) : (
-                    <Archive className="size-4" />
-                  )
-                }
+                size="sm"
+                onClick={resetFilters}
+                startIcon={<X className="size-4" />}
               >
-                {selectedUsers.length} Selected
+                Clear Filters
               </Button>
             </div>
-          )}
-
-          <select
-            value={itemsPerPage.toString()}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              setItemsPerPage(Number(e.target.value))
-            }
-            className="min-w-[100px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
-          >
-            <option value="5">5 per page</option>
-            <option value="10">10 per page</option>
-            <option value="20">20 per page</option>
-            <option value="50">50 per page</option>
-          </select>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}

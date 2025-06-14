@@ -23,7 +23,7 @@ import {
   validatePassword,
   validatePhoneNumber,
 } from "@/lib/helpers";
-import { SortableField, SortDirection, User } from "@/lib/types";
+import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
 
 interface UserFormData {
   first_name: string;
@@ -68,8 +68,9 @@ const ManageUsers = () => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [filterOptions, setFilterOptions] = useState({
-    status: "all",
+  // Update the filterOptions state to include role and school
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    role: "",
     dateRange: { start: "", end: "" },
     searchTerm: "",
   });
@@ -105,11 +106,14 @@ const ManageUsers = () => {
     try {
       const response = await axios.get("http://127.0.0.1:8000/api/users/", {
         params: {
-          archived: showArchived,
+          archived: showArchived, // This is now the single source of truth for archive status
+          role: filterOptions.role || undefined,
+          search: filterOptions.searchTerm || undefined,
+          date_joined_after: filterOptions.dateRange.start || undefined,
+          date_joined_before: filterOptions.dateRange.end || undefined,
         },
       });
       setAllUsers(response.data);
-      console.log(response.data);
     } catch (error) {
       toast.error("Failed to fetch users", {
         position: "top-center",
@@ -125,14 +129,18 @@ const ManageUsers = () => {
       });
     }
   };
+  useEffect(() => {
+    fetchUsers();
+  }, [showArchived, filterOptions]);
+
   // Add filtering and sorting logic
   const filteredUsers = useMemo(() => {
     return allUsers.filter((user) => {
       // Apply all filters here
       if (user.id === currentUser?.user_id) return false;
       // Apply status filter
-      if (filterOptions.status === "active" && !user.is_active) return false;
-      if (filterOptions.status === "archived" && user.is_active) return false;
+      // if (filterOptions.status === "active" && !user.is_active) return false;
+      // if (filterOptions.status === "archived" && user.is_active) return false;
 
       // Apply date range filter
       if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
@@ -164,9 +172,6 @@ const ManageUsers = () => {
     });
   }, [allUsers, filterOptions, currentUser?.user_id]);
   // Update useEffect to include showArchived as dependency
-  useEffect(() => {
-    fetchUsers();
-  }, [showArchived]);
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   const sortedUsers = useMemo(() => {
