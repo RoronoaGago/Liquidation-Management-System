@@ -17,7 +17,12 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { NavItem } from "@/lib/types";
-import { BanknoteIcon, PhilippinePeso, ReceiptText } from "lucide-react";
+import {
+  BanknoteIcon,
+  PhilippinePeso,
+  ReceiptText,
+  SchoolIcon,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 // Define all possible navigation items with role permissions
@@ -32,6 +37,12 @@ const allNavItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "Manage Users",
     path: "/users",
+    roles: ["admin", "school_admin", "school_head"], // Only admin
+  },
+  {
+    icon: <SchoolIcon />,
+    name: "Manage Schools",
+    path: "/schools",
     roles: ["admin", "school_admin", "school_head"], // Only admin
   },
   {
