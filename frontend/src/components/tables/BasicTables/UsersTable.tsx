@@ -47,6 +47,8 @@ import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
 import {
   calculateAge,
+  getAvatarColor,
+  getUserInitials,
   validateDateOfBirth,
   validateEmail,
   validatePassword,
@@ -55,6 +57,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { roleOptions } from "@/pages/ManageUsers";
 import SkeletonRow from "@/components/ui/skeleton";
+import { roleMap } from "@/lib/constants";
 
 interface UsersTableProps {
   users: User[];
@@ -163,16 +166,6 @@ export default function UsersTable({
 
     return requiredValid && roleValid && noErrors;
   }, [selectedUser, formErrors]);
-
-  const roleMap: Record<string, string> = {
-    admin: "Administrator",
-    school_head: "School Head",
-    school_admin: "School Admin",
-    district_admin: "District Admin",
-    superintendent: "Superintendent",
-    liquidator: "Liquidator",
-    accountant: "Accountant",
-  };
 
   // Apply filters whenever filterOptions or users change
 
@@ -485,29 +478,6 @@ export default function UsersTable({
       setUserToArchive(null);
     }
   };
-  const getAvatarColor = (
-    userId: number,
-    first_name: string,
-    last_name: string
-  ) => {
-    if (!userId) return "bg-gray-500";
-    const colors = [
-      "bg-blue-500",
-      "bg-green-500",
-      "bg-purple-500",
-      "bg-pink-500",
-      "bg-orange-500",
-      "bg-indigo-500",
-    ];
-    let stringId = userId.toString();
-    const hash =
-      stringId && typeof stringId === "string"
-        ? stringId.charCodeAt(0) + stringId.charCodeAt(stringId.length - 1)
-        : (typeof first_name === "string" ? first_name.charCodeAt(0) : 0) +
-          (typeof last_name === "string" ? last_name.charCodeAt(0) : 0);
-
-    return colors[hash % colors.length];
-  };
 
   const handleFilterChange = (name: string, value: string) => {
     setFilterOptions((prev) => ({
@@ -525,12 +495,7 @@ export default function UsersTable({
       },
     }));
   };
-  const getUserInitials = (first_name: string, last_name: string) => {
-    if (!first_name || !last_name) return "U";
-    const firstNameChar = first_name?.charAt(0) || "";
-    const lastNameChar = last_name?.charAt(0) || "";
-    return `${firstNameChar}${lastNameChar}`.toUpperCase() || "U";
-  };
+
   const resetFilters = () => {
     setFilterOptions({
       role: "",
@@ -588,14 +553,19 @@ export default function UsersTable({
                   variant="outline"
                   onClick={() => setIsBulkArchiveDialogOpen(true)}
                   startIcon={
-                    showArchived ? (
+                    isSubmitting ? (
+                      <Loader2Icon className="h-4 w-4 animate-spin" />
+                    ) : showArchived ? (
                       <ArchiveRestore className="size-4" />
                     ) : (
                       <Archive className="size-4" />
                     )
                   }
+                  disabled={isSubmitting}
                 >
-                  {selectedUsers.length} Selected
+                  {isSubmitting
+                    ? "Processing..."
+                    : `${selectedUsers.length} Selected`}
                 </Button>
               </div>
             )}
