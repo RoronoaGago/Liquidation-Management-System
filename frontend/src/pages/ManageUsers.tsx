@@ -6,17 +6,25 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Bounce, ToastContainer, toast } from "react-toastify";
+import { Bounce, toast } from "react-toastify";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import UsersTable from "../components/tables/BasicTables/UsersTable";
 import Button from "../components/ui/button/Button";
 import { CalenderIcon, PlusIcon, UserIcon } from "../icons";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { EyeClosedIcon, EyeIcon, Loader2Icon, XIcon } from "lucide-react";
+import {
+  validateDateOfBirth,
+  validateEmail,
+  validatePassword,
+  validatePhoneNumber,
+} from "@/lib/helpers";
+import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
+import api from "@/api/axios";
 
 interface UserFormData {
   first_name: string;
@@ -31,17 +39,48 @@ interface UserFormData {
   school: string;
   profile_picture_base64: string;
 }
+//TODO - make the school search
+export const roleOptions = [
+  { value: "admin", label: "Administrator" },
+  { value: "school_head", label: "School Head" },
+  { value: "school_admin", label: "School Admin Assistant" },
+  { value: "district_admin", label: "District Admin Assistant" },
+  { value: "superintendent", label: "Division Superintendent" },
+  { value: "liquidator", label: "Liquidator" },
+  { value: "accountant", label: "Division Accountant" },
+];
 
+const requiredFields = [
+  "first_name",
+  "last_name",
+  "username",
+  "password",
+  "confirm_password",
+  "email",
+  "role",
+];
 const ManageUsers = () => {
+  const [showArchived, setShowArchived] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  // Update the filterOptions state to include role and school
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    role: "",
+    dateRange: { start: "", end: "" },
+    searchTerm: "",
+  });
+  const [sortConfig, setSortConfig] = useState<{
+    key: SortableField;
+    direction: SortDirection;
+  } | null>({ key: "date_joined", direction: "desc" });
   const [formData, setFormData] = useState<UserFormData>({
     first_name: "",
     last_name: "",
@@ -55,36 +94,6 @@ const ManageUsers = () => {
     school: "",
     profile_picture_base64: "",
   });
-  // State
-
-  // Handler for removing image
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImageRemove = () => {
-    setPreviewImage(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-  const roleOptions = [
-    { value: "admin", label: "Administrator" },
-    { value: "school_head", label: "School Head" },
-    { value: "school_admin", label: "School Admin Assistant" },
-    { value: "district_admin", label: "District Admin Assistant" },
-    { value: "superintendent", label: "Division Superintendent" },
-    { value: "liquidator", label: "Liquidator" },
-    { value: "accountant", label: "Division Accountant" },
-  ];
-
-  const requiredFields = [
-    "first_name",
-    "last_name",
-    "username",
-    "password",
-    "confirm_password",
-    "email",
-    "role",
-  ];
 
   const isFormValid =
     requiredFields.every(
@@ -95,71 +104,118 @@ const ManageUsers = () => {
       : formData.school.trim() !== "") &&
     Object.keys(errors).length === 0;
 
+  // Modify the fetchUsers function to handle archived status
+  const fetchUsers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get("http://127.0.0.1:8000/api/users/", {
+        params: {
+          archived: showArchived, // This is now the single source of truth for archive status
+          role: filterOptions.role || undefined,
+          search: filterOptions.searchTerm || undefined,
+          date_joined_after: filterOptions.dateRange.start || undefined,
+          date_joined_before: filterOptions.dateRange.end || undefined,
+        },
+      });
+      setAllUsers(response.data);
+      console.log(response);
+    } catch (err) {
+      const error =
+        err instanceof Error ? err : new Error("Failed to fetch users");
+      setError(error);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await axios.get("http://127.0.0.1:8000/api/users/");
-        setUsers(response.data);
-      } catch (error) {
-        toast.error("Failed to fetch users", {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        });
-      }
-    };
-
     fetchUsers();
-  }, [users]);
+  }, [showArchived, filterOptions]);
 
-  const validateEmail = (email: string) => {
-    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-    return re.test(email);
-  };
+  // Add filtering and sorting logic
+  const filteredUsers = useMemo(() => {
+    return allUsers.filter((user) => {
+      // Apply all filters here
+      if (user.id === currentUser?.user_id) return false;
+      // Apply status filter
+      // if (filterOptions.status === "active" && !user.is_active) return false;
+      // if (filterOptions.status === "archived" && user.is_active) return false;
 
-  const validatePassword = (password: string) => {
-    const re =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    return re.test(password);
-  };
+      // Apply date range filter
+      if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
+        const userDate = new Date(user.date_joined);
+        const startDate = filterOptions.dateRange.start
+          ? new Date(filterOptions.dateRange.start)
+          : null;
+        const endDate = filterOptions.dateRange.end
+          ? new Date(filterOptions.dateRange.end)
+          : null;
 
-  const validatePhoneNumber = (phone: string) => {
-    const re = /^[+\d][\d\s-()]*\d$/;
-    return re.test(phone);
-  };
+        if (startDate && userDate < startDate) return false;
+        if (endDate && userDate > endDate) return false;
+      }
 
-  const validateDateOfBirth = (dateString: string) => {
-    if (!dateString) return "";
-    const birthDate = new Date(dateString);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (birthDate > today) {
-      return "Birthdate cannot be in the future.";
-    }
-
-    const minAgeDate = new Date(
-      today.getFullYear() - 18,
-      today.getMonth(),
-      today.getDate()
-    );
-
-    if (birthDate > minAgeDate) {
-      return "You must be at least 18 years old.";
-    }
-
-    return "";
-  };
+      // Apply search term filter
+      if (filterOptions.searchTerm) {
+        const term = filterOptions.searchTerm.toLowerCase();
+        return (
+          user.first_name.toLowerCase().includes(term) ||
+          user.last_name.toLowerCase().includes(term) ||
+          user.username.toLowerCase().includes(term) ||
+          user.email.toLowerCase().includes(term) ||
+          (user.phone_number && user.phone_number.includes(term))
+        );
+      }
+      return true;
+      // ... rest of filtering logic
+    });
+  }, [allUsers, filterOptions, currentUser?.user_id]);
+  // Update useEffect to include showArchived as dependency
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const sortedUsers = useMemo(() => {
+    // If no sort config, return with original order (or default sort)
+    if (!sortConfig) return filteredUsers;
 
+    return [...filteredUsers].sort((a, b) => {
+      // Handle date sorting
+      if (sortConfig.key === "date_joined") {
+        const aDate = new Date(a.date_joined).getTime();
+        const bDate = new Date(b.date_joined).getTime();
+
+        // Handle potential invalid dates
+        if (isNaN(aDate) || isNaN(bDate)) return 0;
+
+        return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
+      }
+
+      // Get values to compare
+      const aValue = a[sortConfig.key] ?? "";
+      const bValue = b[sortConfig.key] ?? "";
+
+      // Case-insensitive string comparison
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        const comparison = aValue.localeCompare(bValue, undefined, {
+          sensitivity: "base",
+        });
+        return sortConfig.direction === "asc" ? comparison : -comparison;
+      }
+
+      // Numeric comparison
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+
+      return 0;
+    });
+  }, [filteredUsers, sortConfig]);
+
+  const requestSort = (key: SortableField) => {
+    let direction: SortDirection = "asc";
+    if (sortConfig && sortConfig.key === key) {
+      direction = sortConfig.direction === "asc" ? "desc" : null;
+    }
+    setSortConfig(direction ? { key, direction } : null);
+  };
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -285,6 +341,7 @@ const ManageUsers = () => {
     // Final validation check
     const finalErrors: Record<string, string> = {};
     requiredFields.forEach((field) => {
+      if (field === "profile_picture_base64") return;
       if (!formData[field as keyof UserFormData]?.trim()) {
         finalErrors[field] = "This field is required.";
       }
@@ -304,18 +361,7 @@ const ManageUsers = () => {
     setErrors(finalErrors);
 
     if (Object.keys(finalErrors).length > 0) {
-      toast.error("Please fill in all required fields correctly!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.error("Please fill in all required fields correctly!");
       return;
     }
 
@@ -323,7 +369,7 @@ const ManageUsers = () => {
 
     try {
       console.log(formData);
-      const response = await axios.post("http://127.0.0.1:8000/api/users/", {
+      const response = await api.post("http://127.0.0.1:8000/api/users/", {
         ...formData,
         // profile_picture_base64 is already set in formData
 
@@ -331,7 +377,7 @@ const ManageUsers = () => {
       });
       console.log(response.data);
       console.log(formData);
-      setUsers((prevUsers) => [...prevUsers, response.data]);
+      await fetchUsers(); // Explicitly refetch the latest list
 
       toast.success("User Added Successfully!", {
         position: "top-center",
@@ -411,7 +457,7 @@ const ManageUsers = () => {
                 Add New User
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
               <DialogHeader className="mb-8">
                 <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
                   Add New User
@@ -437,9 +483,9 @@ const ManageUsers = () => {
                         />
                         <button
                           type="button"
-                          onClick={() => setPreviewImage(null)} // or handleImageRemove()
-                          className="absolute -top-1 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
-                          title="Remove image"
+                          onClick={() => setPreviewImage(null)} // Clear the preview
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                          aria-label="Remove profile picture"
                         >
                           <XIcon />
                         </button>
@@ -452,7 +498,6 @@ const ManageUsers = () => {
                     <input
                       type="file"
                       id="profile_picture"
-                      ref={fileInputRef}
                       accept="image/*"
                       onChange={handleImageUpload}
                       className="hidden"
@@ -760,21 +805,21 @@ const ManageUsers = () => {
           </Dialog>
         </div>
 
-        <UsersTable users={users} setUsers={setUsers} />
+        <UsersTable
+          users={allUsers}
+          setUsers={setAllUsers}
+          showArchived={showArchived}
+          setShowArchived={setShowArchived}
+          fetchUsers={fetchUsers}
+          sortedUsers={sortedUsers}
+          filterOptions={filterOptions}
+          setFilterOptions={setFilterOptions}
+          onRequestSort={requestSort} // Add this new prop
+          currentSort={sortConfig} // Add this new prop
+          loading={loading}
+          error={error}
+        />
       </div>
-      <ToastContainer
-        position="top-center"
-        autoClose={2000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick={false}
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-        transition={Bounce}
-      />
     </div>
   );
 };

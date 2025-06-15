@@ -1,13 +1,13 @@
-import { cn } from "@/lib/utils"
+import { TableCell, TableRow } from "./table";
 
-function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="skeleton"
-      className={cn("tw-bg-neutral-100 tw-animate-pulse tw-rounded-md dark:tw-bg-neutral-800", className)}
-      {...props}
-    />
-  )
-}
+const SkeletonRow = () => (
+  <TableRow>
+    {[...Array(9)].map((_, i) => (
+      <TableCell key={i} className="px-6 py-4">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+      </TableCell>
+    ))}
+  </TableRow>
+);
 
-export { Skeleton }
+export default SkeletonRow;
