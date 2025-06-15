@@ -38,6 +38,7 @@ const ManageUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [users, setUsers] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -60,6 +61,7 @@ const ManageUsers = () => {
   // Handler for removing image
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleImageRemove = () => {
     setPreviewImage(null);
     if (fileInputRef.current) {
@@ -100,6 +102,7 @@ const ManageUsers = () => {
       try {
         const response = await axios.get("http://127.0.0.1:8000/api/users/");
         setUsers(response.data);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         toast.error("Failed to fetch users", {
           position: "top-center",
@@ -220,6 +223,7 @@ const ManageUsers = () => {
           }
           break;
         case "date_of_birth":
+          // eslint-disable-next-line no-case-declarations
           const dateError = validateDateOfBirth(value);
           if (dateError) {
             newErrors.date_of_birth = dateError;
@@ -363,6 +367,7 @@ const ManageUsers = () => {
       setPreviewImage(null);
       setErrors({});
       setIsDialogOpen(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       let errorMessage = "Failed to add user. Please try again.";
       console.error(error);
