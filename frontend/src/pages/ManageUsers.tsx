@@ -26,6 +26,7 @@ import {
 } from "@/lib/helpers";
 import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
 import api from "@/api/axios";
+import SchoolSelect from "@/components/form/SchoolSelect";
 
 interface UserFormData {
   first_name: string;
@@ -299,7 +300,7 @@ const ManageUsers = () => {
               formData.role === "school_admin") &&
             !value.trim()
           ) {
-            newErrors.school = "School is required for this role.";
+            newErrors.school = "Please select a school from the list.";
           } else {
             delete newErrors.school;
           }
@@ -697,23 +698,17 @@ const ManageUsers = () => {
 
                 {(formData.role === "school_head" ||
                   formData.role === "school_admin") && (
-                  <div className="space-y-2">
-                    <Label htmlFor="school" className="text-base">
-                      School *
-                    </Label>
-                    <Input
-                      type="text"
-                      id="school"
-                      name="school"
-                      className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                      placeholder="Enter school name"
-                      value={formData.school}
-                      onChange={handleChange}
-                    />
-                    {errors.school && (
-                      <p className="text-red-500 text-sm">{errors.school}</p>
-                    )}
-                  </div>
+                  <SchoolSelect
+                    value={formData.school}
+                    onChange={(value) => {
+                      setFormData((prev) => ({ ...prev, school: value }));
+                      if (errors.school) {
+                        setErrors((prev) => ({ ...prev, school: "" }));
+                      }
+                    }}
+                    required
+                    error={errors.school}
+                  />
                 )}
 
                 <div className="space-y-2">
