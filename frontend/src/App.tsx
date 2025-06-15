@@ -39,7 +39,7 @@ const App = () => {
 
             {/* Admin-only routes */}
             <Route element={<RequireAuth allowedRoles={["admin"]} />}>
-              <Route path="/users" element={<ManageUsers />} />
+              {/* <Route path="/users" element={<ManageUsers />} /> */}
               <Route
                 path="/expense-accounts"
                 element={<ManageExpenseAccounts />}
@@ -77,8 +77,9 @@ const App = () => {
 
             {/* Shared routes for multiple roles */}
             <Route
-              element={<RequireAuth allowedRoles={["admin", "schoolHead"]} />}
+              element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
             >
+              <Route path="/users" element={<ManageUsers />} />
               <Route
                 path="/fund-requests/:id"
                 element={<RequestDetailPage />}
