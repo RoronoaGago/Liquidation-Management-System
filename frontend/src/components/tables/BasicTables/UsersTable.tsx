@@ -59,6 +59,7 @@ import { roleOptions } from "@/pages/ManageUsers";
 import SkeletonRow from "@/components/ui/skeleton";
 import { roleMap } from "@/lib/constants";
 import api from "@/api/axios";
+import SchoolSelect from "@/components/form/SchoolSelect";
 
 interface UsersTableProps {
   users: User[];
@@ -175,6 +176,7 @@ export default function UsersTable({
   ) => {
     if (!selectedUser) return;
     const { name, value } = e.target;
+
     setSelectedUser((prev) => ({
       ...prev!,
       [name]: value,
@@ -223,16 +225,12 @@ export default function UsersTable({
           } else {
             delete newErrors.role;
           }
-          break;
-        case "school":
+          // When role changes, validate school if needed
           if (
-            (selectedUser.role === "school_head" ||
-              selectedUser.role === "school_admin") &&
-            !value.trim()
+            (value === "school_head" || value === "school_admin") &&
+            !selectedUser.school?.trim()
           ) {
             newErrors.school = "School is required for this role";
-          } else {
-            delete newErrors.school;
           }
           break;
         default:
@@ -350,7 +348,27 @@ export default function UsersTable({
     setUserToArchive(user);
     setIsArchiveDialogOpen(true);
   };
+  const handleSchoolChange = (schoolName: string) => {
+    if (!selectedUser) return;
 
+    setSelectedUser((prev) => ({
+      ...prev!,
+      school: schoolName,
+    }));
+
+    // Handle validation specifically for school
+    const newErrors = { ...formErrors };
+    if (
+      (selectedUser.role === "school_head" ||
+        selectedUser.role === "school_admin") &&
+      !schoolName.trim()
+    ) {
+      newErrors.school = "School is required for this role";
+    } else {
+      delete newErrors.school;
+    }
+    setFormErrors(newErrors);
+  };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -836,7 +854,7 @@ export default function UsersTable({
                 currentItems.map((user) => (
                   <TableRow
                     key={user.id}
-                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => handleViewUser(user)}
                   >
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
@@ -1306,6 +1324,16 @@ export default function UsersTable({
                     <p className="text-red-500 text-sm">{formErrors.school}</p>
                   )}
                 </div>
+              )}
+
+              {(selectedUser.role === "school_head" ||
+                selectedUser.role === "school_admin") && (
+                <SchoolSelect
+                  value={selectedUser.school}
+                  onChange={handleSchoolChange}
+                  required
+                  error={formErrors.school}
+                />
               )}
 
               <div className="space-y-2">
