@@ -44,7 +44,35 @@ export const validateDateOfBirth = (dateString: string) => {
   return "";
 };
 
+export const getAvatarColor = (
+  userId: number,
+  first_name: string,
+  last_name: string
+) => {
+  if (!userId) return "bg-gray-500";
+  const colors = [
+    "bg-blue-500",
+    "bg-green-500",
+    "bg-purple-500",
+    "bg-pink-500",
+    "bg-orange-500",
+    "bg-indigo-500",
+  ];
+  let stringId = userId.toString();
+  const hash =
+    stringId && typeof stringId === "string"
+      ? stringId.charCodeAt(0) + stringId.charCodeAt(stringId.length - 1)
+      : (typeof first_name === "string" ? first_name.charCodeAt(0) : 0) +
+      (typeof last_name === "string" ? last_name.charCodeAt(0) : 0);
 
+  return colors[hash % colors.length];
+};
+export const getUserInitials = (first_name: string, last_name: string) => {
+  if (!first_name || !last_name) return "U";
+  const firstNameChar = first_name?.charAt(0) || "";
+  const lastNameChar = last_name?.charAt(0) || "";
+  return `${firstNameChar}${lastNameChar}`.toUpperCase() || "U";
+};
 export const calculateAge = (dateOfBirth: string | undefined) => {
   if (!dateOfBirth) return null; // Handle case where dateOfBirth is not provided
 

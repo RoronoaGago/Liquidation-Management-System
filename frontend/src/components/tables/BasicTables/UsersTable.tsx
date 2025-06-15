@@ -5,19 +5,16 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import { Loading } from "@/components/common/Loading";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Bounce, ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { cn } from "@/lib/utils";
 import {
   EyeIcon,
   ChevronUp,
@@ -34,38 +31,64 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   SquarePenIcon,
-  Filter,
-  SlidersHorizontal,
-  Check,
   EyeClosedIcon,
   User as UserIcon,
+  Filter,
+  Loader2Icon,
+  XIcon,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { CalenderIcon } from "@/icons";
-import { User } from "@/lib/types";
+import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
 import Button from "@/components/ui/button/Button";
 import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
-import { calculateAge } from "@/lib/helpers";
+import {
+  calculateAge,
+  getAvatarColor,
+  getUserInitials,
+  validateDateOfBirth,
+  validateEmail,
+  validatePassword,
+  validatePhoneNumber,
+} from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
-
-type SortDirection = "asc" | "desc" | null;
-type SortableField = keyof Pick<
-  User,
-  | "id"
-  | "first_name"
-  | "last_name"
-  | "username"
-  | "email"
-  | "phone_number"
-  | "password"
-  | "is_active"
-  | "date_joined"
->;
+import { roleOptions } from "@/pages/ManageUsers";
+import SkeletonRow from "@/components/ui/skeleton";
+import { roleMap } from "@/lib/constants";
+import api from "@/api/axios";
 
 interface UsersTableProps {
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<any[]>>;
+  // Data display props
+  currentPage?: number; // Current pagination page
+  setCurrentPage?: (page: number) => void; // To handle page changes
+  itemsPerPage?: number; // Items per page setting
+  // setItemsPerPage: (count: number) => void; // To change items per page
+
+  sortedUsers: User[]; // The pre-filtered and sorted users to display
+  // Filtering/sorting controls
+  filterOptions: FilterOptions;
+  setFilterOptions: React.Dispatch<React.SetStateAction<FilterOptions>>;
+
+  // Archive controls
+  showArchived: boolean;
+  setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
+  onRequestSort: (key: SortableField) => void;
+  currentSort: {
+    key: SortableField;
+    direction: SortDirection;
+  } | null;
+  // Data operations
+  fetchUsers: () => Promise<void>; // For refreshing data
+
+  // Current user context (for excluding from operations)
+  currentUserId?: number;
+  loading?: boolean;
+  error?: Error | null;
 }
 
 interface FormErrors {
@@ -76,61 +99,36 @@ interface FormErrors {
   password?: string;
   confirm_password?: string;
   phone_number?: string;
+  date_of_birth?: string;
+  role?: string;
+  school?: string;
 }
 
-interface FilterOptions {
-  status: string;
-  dateRange: {
-    start: string;
-    end: string;
-  };
-  searchTerm: string;
-}
-
-const validateEmail = (email: string) => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-};
-
-const validatePassword = (password: string) => {
-  const re = /^.{8,}$/;
-  return re.test(password);
-};
-
-const validatePhoneNumber = (phone: string) => {
-  const re = /^[+\d][\d\s]*$/;
-  return re.test(phone);
-};
-
-export default function UsersTable({ users, setUsers }: UsersTableProps) {
+export default function UsersTable({
+  setUsers,
+  showArchived,
+  setShowArchived,
+  fetchUsers,
+  sortedUsers,
+  filterOptions,
+  setFilterOptions,
+  onRequestSort,
+  currentSort,
+  loading,
+  error,
+}: UsersTableProps) {
   const { user: currentUser } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [sortConfig, setSortConfig] = useState<{
-    key: SortableField;
-    direction: SortDirection;
-  } | null>({
-    key: "date_joined",
-    direction: "desc",
-  });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showArchived, setShowArchived] = useState(false);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    status: "all",
-    dateRange: {
-      start: "",
-      end: "",
-    },
-    searchTerm: "",
-  });
 
   // Form state
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(
+    null
+  );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -145,98 +143,32 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const requiredFields = ["first_name", "last_name", "username", "email"];
 
   const isFormValid = useMemo(() => {
     if (!selectedUser) return false;
-    return (
-      requiredFields.every(
-        (field) => selectedUser[field as keyof User]?.toString().trim() !== ""
-      ) && Object.keys(formErrors).length === 0
+
+    // Check required fields are filled
+    const requiredValid = requiredFields.every(
+      (field) => selectedUser[field as keyof User]?.toString().trim() !== ""
     );
+
+    // Check role-specific requirements
+    const roleValid =
+      selectedUser.role === "school_head" ||
+      selectedUser.role === "school_admin"
+        ? selectedUser.school?.trim() !== ""
+        : true;
+
+    // Check no validation errors
+    const noErrors = Object.keys(formErrors).length === 0;
+
+    return requiredValid && roleValid && noErrors;
   }, [selectedUser, formErrors]);
 
-  const roleMap: Record<string, string> = {
-    admin: "Administrator",
-    school_head: "School Head",
-    school_admin: "School Admin",
-    district_admin: "District Admin",
-    superintendent: "Superintendent",
-    liquidator: "Liquidator",
-    accountant: "Accountant",
-  };
-
-  // Fetch users with archive filter
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get("http://127.0.0.1:8000/api/users/", {
-        params: {
-          archived: showArchived,
-        },
-      });
-      setUsers(response.data);
-      console.log(response.data);
-      // console.log("http://127.0.0.1:8000" + users[0].profile_picture);
-      setFilteredUsers(response.data);
-      setSortConfig({ key: "date_joined", direction: "desc" });
-    } catch (err) {
-      setError(err as Error);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, [showArchived]);
-
   // Apply filters whenever filterOptions or users change
-  // useEffect(() => {
-  //   const filtered = users.filter((user) => {
-  //     // Exclude current user
-  //     if (user.id === currentUser?.user_id) return false;
-
-  //     // Apply status filter
-  //     if (filterOptions.status === "active" && !user.is_active) return false;
-  //     if (filterOptions.status === "archived" && user.is_active) return false;
-
-  //     // Apply date range filter
-  //     if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
-  //       const userDate = new Date(user.date_joined);
-  //       const startDate = filterOptions.dateRange.start
-  //         ? new Date(filterOptions.dateRange.start)
-  //         : null;
-  //       const endDate = filterOptions.dateRange.end
-  //         ? new Date(filterOptions.dateRange.end)
-  //         : null;
-
-  //       if (startDate && userDate < startDate) return false;
-  //       if (endDate && userDate > endDate) return false;
-  //     }
-
-  //     // Apply search term filter
-  //     if (filterOptions.searchTerm) {
-  //       const term = filterOptions.searchTerm.toLowerCase();
-  //       return (
-  //         user.first_name.toLowerCase().includes(term) ||
-  //         user.last_name.toLowerCase().includes(term) ||
-  //         user.username.toLowerCase().includes(term) ||
-  //         user.email.toLowerCase().includes(term) ||
-  //         (user.phone_number && user.phone_number.includes(term))
-  //       );
-  //     }
-
-  //     return true;
-  //   });
-
-  //   setFilteredUsers(filtered);
-  //   setCurrentPage(1); // Reset to first page when filters change
-  // }, [users, filterOptions, currentUser?.user_id]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -254,6 +186,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
 
     debounceTimeout.current = setTimeout(() => {
       const newErrors = { ...formErrors };
+
       switch (name) {
         case "email":
           if (!validateEmail(value)) {
@@ -269,11 +202,37 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
             delete newErrors.password;
           }
           break;
+        case "date_of_birth":
+          const dateError = validateDateOfBirth(value);
+          if (dateError) {
+            newErrors.date_of_birth = dateError;
+          } else {
+            delete newErrors.date_of_birth;
+          }
+          break;
         case "phone_number":
           if (value && !validatePhoneNumber(value)) {
             newErrors.phone_number = "Please enter a valid phone number";
           } else {
             delete newErrors.phone_number;
+          }
+          break;
+        case "role":
+          if (value === "admin" && currentUser?.role !== "admin") {
+            newErrors.role = "Only administrators can create admin users";
+          } else {
+            delete newErrors.role;
+          }
+          break;
+        case "school":
+          if (
+            (selectedUser.role === "school_head" ||
+              selectedUser.role === "school_admin") &&
+            !value.trim()
+          ) {
+            newErrors.school = "School is required for this role";
+          } else {
+            delete newErrors.school;
           }
           break;
         default:
@@ -283,6 +242,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
             delete newErrors[name as keyof FormErrors];
           }
       }
+
       setFormErrors(newErrors);
     }, 500);
   };
@@ -294,6 +254,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
       }
     };
   }, []);
+
   useEffect(() => {
     // Reset selected users when switching between active/archived views
     setSelectedUsers([]);
@@ -303,26 +264,6 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
     const input = e.target as HTMLInputElement;
     input.value = input.value.replace(/[^0-9+]/g, "");
   };
-
-  // Sort users
-  const sortedUsers = useMemo(() => {
-    if (sortConfig !== null) {
-      return [...filteredUsers].sort((a, b) => {
-        if (sortConfig.key === "date_joined") {
-          const aDate = new Date(a.date_joined).getTime();
-          const bDate = new Date(b.date_joined).getTime();
-          return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
-        }
-
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-    return filteredUsers;
-  }, [filteredUsers, sortConfig]);
 
   const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
   const currentItems = useMemo(() => {
@@ -358,7 +299,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
     try {
       await Promise.all(
         selectedUsers.map((userId) =>
-          axios.patch(`http://127.0.0.1:8000/api/users/${userId}/`, {
+          api.patch(`http://127.0.0.1:8000/api/users/${userId}/`, {
             is_active: !archive,
           })
         )
@@ -367,19 +308,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
       toast.success(
         `${selectedUsers.length} user${selectedUsers.length > 1 ? "s" : ""} ${
           archive ? "archived" : "restored"
-        } successfully!`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        }
+        } successfully!`
       );
 
       await fetchUsers();
@@ -387,32 +316,12 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
       setSelectAll(false);
     } catch (error) {
       toast.error(
-        `Failed to ${archive ? "archive" : "restore"} users. Please try again.`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        }
+        `Failed to ${archive ? "archive" : "restore"} users. Please try again.`
       );
     } finally {
       setIsSubmitting(false);
       setIsBulkArchiveDialogOpen(false);
     }
-  };
-
-  const requestSort = (key: SortableField) => {
-    let direction: SortDirection = "asc";
-    if (sortConfig && sortConfig.key === key) {
-      direction = sortConfig.direction === "asc" ? "desc" : null;
-    }
-    setSortConfig(direction ? { key, direction } : null);
   };
 
   const goToPage = (page: number) => {
@@ -447,18 +356,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
     if (!selectedUser) return;
 
     if (!isFormValid) {
-      toast.error("Please fix the errors in the form", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.error("Please fix the errors in the form");
       return;
     }
 
@@ -470,28 +368,48 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        ...selectedUser,
-        password: selectedUser.password || undefined,
-      };
+      const formData = new FormData();
+      // Basic info
+      formData.append("first_name", selectedUser.first_name);
+      formData.append("last_name", selectedUser.last_name);
+      formData.append("email", selectedUser.email);
+      formData.append("username", selectedUser.username); // Add this
+      formData.append("date_of_birth", selectedUser.date_of_birth || ""); // Handle null case
 
-      await axios.put(
+      // Contact info
+      if (selectedUser.phone_number) {
+        formData.append("phone_number", selectedUser.phone_number);
+      } else {
+        formData.append("phone_number", ""); // Clear if removed
+      }
+
+      // Account info
+      formData.append("role", selectedUser.role);
+      if (selectedUser.school) {
+        formData.append("school", selectedUser.school);
+      }
+
+      // Password (only if changed)
+      if (selectedUser.password) {
+        formData.append("password", selectedUser.password);
+      }
+
+      // Profile picture handling
+      if (profilePictureFile) {
+        formData.append("profile_picture", profilePictureFile);
+      } else if (!selectedUser.profile_picture) {
+        formData.append("profile_picture", ""); // Clear existing picture
+      }
+
+      await api.put(
         `http://127.0.0.1:8000/api/users/${selectedUser.id}/`,
-        payload
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
       );
 
-      toast.success("User updated successfully!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.success("User updated successfully!");
 
       await fetchUsers();
       setIsDialogOpen(false);
@@ -507,18 +425,8 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
           errorMessage = "Password doesn't meet requirements.";
         }
       }
-      toast.error(errorMessage, {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      console.error(error);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -529,37 +437,16 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
     setIsSubmitting(true);
 
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/users/${userToDelete.id}/`);
-      toast.success("User deleted successfully!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      await api.delete(`http://127.0.0.1:8000/api/users/${userToDelete.id}/`);
+      toast.success("User deleted successfully!");
 
       await fetchUsers();
     } catch (error) {
-      toast.error("Failed to delete user", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.error("Failed to delete user");
     } finally {
       setIsSubmitting(false);
       setIsDeleteDialogOpen(false);
+      setProfilePictureFile(null);
       setUserToDelete(null);
     }
   };
@@ -570,74 +457,24 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
 
     try {
       const newStatus = !userToArchive.is_active;
-      await axios.patch(
-        `http://127.0.0.1:8000/api/users/${userToArchive.id}/`,
-        {
-          is_active: newStatus,
-        }
-      );
+      await api.patch(`users/${userToArchive.id}/`, {
+        is_active: newStatus,
+      });
 
       toast.success(
-        `User ${newStatus ? "restored" : "archived"} successfully!`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        }
+        `User ${newStatus ? "restored" : "archived"} successfully!`
       );
 
       await fetchUsers();
     } catch (error) {
       toast.error(
-        `Failed to ${userToArchive.is_active ? "archive" : "restore"} user`,
-        {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        }
+        `Failed to ${userToArchive.is_active ? "archive" : "restore"} user`
       );
     } finally {
       setIsSubmitting(false);
       setIsArchiveDialogOpen(false);
       setUserToArchive(null);
     }
-  };
-  const getAvatarColor = (
-    userId: number,
-    first_name: string,
-    last_name: string
-  ) => {
-    if (!userId) return "bg-gray-500";
-    const colors = [
-      "bg-blue-500",
-      "bg-green-500",
-      "bg-purple-500",
-      "bg-pink-500",
-      "bg-orange-500",
-      "bg-indigo-500",
-    ];
-    let stringId = userId.toString();
-    const hash =
-      stringId && typeof stringId === "string"
-        ? stringId.charCodeAt(0) + stringId.charCodeAt(stringId.length - 1)
-        : (typeof first_name === "string" ? first_name.charCodeAt(0) : 0) +
-          (typeof last_name === "string" ? last_name.charCodeAt(0) : 0);
-
-    return colors[hash % colors.length];
   };
 
   const handleFilterChange = (name: string, value: string) => {
@@ -656,94 +493,162 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
       },
     }));
   };
-  const getUserInitials = (first_name: string, last_name: string) => {
-    if (!first_name || !last_name) return "U";
-    const firstNameChar = first_name?.charAt(0) || "";
-    const lastNameChar = last_name?.charAt(0) || "";
-    return `${firstNameChar}${lastNameChar}`.toUpperCase() || "U";
-  };
+
   const resetFilters = () => {
     setFilterOptions({
-      status: "all",
-      dateRange: {
-        start: "",
-        end: "",
-      },
+      role: "",
+      dateRange: { start: "", end: "" },
       searchTerm: "",
     });
     setSearchTerm("");
-    setShowFilters(false);
   };
-
-  if (loading) return <Loading />;
-  if (error) {
-    return <div className="p-4 text-red-500">Error: {error.message}</div>;
-  }
 
   return (
     <div className="space-y-4">
       {/* Filters and Search */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-64">
-          <Input
-            type="text"
-            placeholder="Search users..."
-            value={filterOptions.searchTerm}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setSearchTerm(e.target.value);
-              handleFilterChange("searchTerm", e.target.value);
-            }}
-            className="pl-10"
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-64">
+            <Input
+              type="text"
+              placeholder="Search users..."
+              value={filterOptions.searchTerm}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setSearchTerm(e.target.value);
+                handleFilterChange("searchTerm", e.target.value);
+              }}
+              className="pl-10"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          </div>
+
+          <div className="flex gap-4 w-full md:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              startIcon={<Filter className="size-4" />}
+            >
+              Filters
+            </Button>
+
+            <Button
+              variant={showArchived ? "primary" : "outline"}
+              onClick={() => setShowArchived(!showArchived)}
+              startIcon={
+                showArchived ? (
+                  <ArchiveRestore className="size-4" />
+                ) : (
+                  <Archive className="size-4" />
+                )
+              }
+            >
+              {showArchived ? "View Active" : "View Archived"}
+            </Button>
+
+            {selectedUsers.length > 0 && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsBulkArchiveDialogOpen(true)}
+                  startIcon={
+                    isSubmitting ? (
+                      <Loader2Icon className="h-4 w-4 animate-spin" />
+                    ) : showArchived ? (
+                      <ArchiveRestore className="size-4" />
+                    ) : (
+                      <Archive className="size-4" />
+                    )
+                  }
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting
+                    ? "Processing..."
+                    : `${selectedUsers.length} Selected`}
+                </Button>
+              </div>
+            )}
+
+            <select
+              value={itemsPerPage.toString()}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                setItemsPerPage(Number(e.target.value))
+              }
+              className="min-w-[100px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+            >
+              <option value="5">5 per page</option>
+              <option value="10">10 per page</option>
+              <option value="20">20 per page</option>
+              <option value="50">50 per page</option>
+            </select>
+          </div>
         </div>
 
-        <div className="flex gap-4 w-full md:w-auto">
-          <Button
-            variant={showArchived ? "primary" : "outline"}
-            onClick={() => setShowArchived(!showArchived)}
-            startIcon={
-              showArchived ? (
-                <ArchiveRestore className="size-4" />
-              ) : (
-                <Archive className="size-4" />
-              )
-            }
-          >
-            {showArchived ? "View Active" : "View Archived"}
-          </Button>
+        {/* Filter section - visible when showFilters is true */}
+        {showFilters && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            <div className="space-y-2">
+              <Label htmlFor="role-filter" className="text-sm font-medium">
+                Role
+              </Label>
+              <select
+                id="role-filter"
+                value={filterOptions.role || ""}
+                onChange={(e) => handleFilterChange("role", e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="">All Roles</option>
+                {Object.entries(roleMap).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {selectedUsers.length > 0 && (
-            <div className="flex gap-2">
+            <div className="space-y-2">
+              <Label htmlFor="date-range-start" className="text-sm font-medium">
+                Date Joined Range
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <Input
+                    type="date"
+                    id="date-range-start"
+                    value={filterOptions.dateRange.start}
+                    onChange={(e) =>
+                      handleDateRangeChange("start", e.target.value)
+                    }
+                    className="w-full p-2 pr-8"
+                  />
+                  <CalenderIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+                <div className="relative">
+                  <Input
+                    type="date"
+                    id="date-range-end"
+                    value={filterOptions.dateRange.end}
+                    onChange={(e) =>
+                      handleDateRangeChange("end", e.target.value)
+                    }
+                    className="w-full p-2 pr-8"
+                  />
+                  <CalenderIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-3 flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => setIsBulkArchiveDialogOpen(true)}
-                startIcon={
-                  showArchived ? (
-                    <ArchiveRestore className="size-4" />
-                  ) : (
-                    <Archive className="size-4" />
-                  )
-                }
+                size="sm"
+                onClick={resetFilters}
+                startIcon={<X className="size-4" />}
               >
-                {selectedUsers.length} Selected
+                Clear Filters
               </Button>
             </div>
-          )}
-
-          <select
-            value={itemsPerPage.toString()}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              setItemsPerPage(Number(e.target.value))
-            }
-            className="min-w-[100px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
-          >
-            <option value="5">5 per page</option>
-            <option value="10">10 per page</option>
-            <option value="20">20 per page</option>
-            <option value="50">50 per page</option>
-          </select>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -769,35 +674,28 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                 >
                   <div
                     className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
-                    onClick={() => requestSort("id")}
+                    onClick={() => onRequestSort("id")}
                   >
                     ID
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 transition-colors ${
-                          sortConfig?.key === "id" &&
-                          sortConfig.direction === "asc"
+                          currentSort?.key === "id" &&
+                          currentSort.direction === "asc"
                             ? "text-primary-500 dark:text-primary-400"
                             : "text-gray-400 dark:text-gray-500"
                         }`}
                       />
                       <ChevronDown
                         className={`h-3 w-3 -mt-1 transition-colors ${
-                          sortConfig?.key === "id" &&
-                          sortConfig.direction === "desc"
+                          currentSort?.key === "id" &&
+                          currentSort.direction === "desc"
                             ? "text-primary-500 dark:text-primary-400"
                             : "text-gray-400 dark:text-gray-500"
                         }`}
                       />
                     </span>
                   </div>
-                </TableCell>
-
-                <TableCell
-                  isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-                >
-                  Profile
                 </TableCell>
 
                 <TableCell
@@ -806,22 +704,22 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                 >
                   <div
                     className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
-                    onClick={() => requestSort("first_name")}
+                    onClick={() => onRequestSort("first_name")}
                   >
-                    Name
+                    User
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 transition-colors ${
-                          sortConfig?.key === "first_name" &&
-                          sortConfig.direction === "asc"
+                          currentSort?.key === "first_name" &&
+                          currentSort.direction === "asc"
                             ? "text-primary-500 dark:text-primary-400"
                             : "text-gray-400 dark:text-gray-500"
                         }`}
                       />
                       <ChevronDown
                         className={`h-3 w-3 -mt-1 transition-colors ${
-                          sortConfig?.key === "first_name" &&
-                          sortConfig.direction === "desc"
+                          currentSort?.key === "first_name" &&
+                          currentSort.direction === "desc"
                             ? "text-primary-500 dark:text-primary-400"
                             : "text-gray-400 dark:text-gray-500"
                         }`}
@@ -834,14 +732,60 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  Role
+                  <div
+                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
+                    onClick={() => onRequestSort("username")}
+                  >
+                    Username
+                    <span className="inline-flex flex-col ml-1">
+                      <ChevronUp
+                        className={`h-3 w-3 transition-colors ${
+                          currentSort?.key === "username" &&
+                          currentSort.direction === "asc"
+                            ? "text-primary-500 dark:text-primary-400"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      />
+                      <ChevronDown
+                        className={`h-3 w-3 -mt-1 transition-colors ${
+                          currentSort?.key === "username" &&
+                          currentSort.direction === "desc"
+                            ? "text-primary-500 dark:text-primary-400"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      />
+                    </span>
+                  </div>
                 </TableCell>
 
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  School
+                  <div
+                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
+                    onClick={() => onRequestSort("email")}
+                  >
+                    Email
+                    <span className="inline-flex flex-col ml-1">
+                      <ChevronUp
+                        className={`h-3 w-3 transition-colors ${
+                          currentSort?.key === "email" &&
+                          currentSort.direction === "asc"
+                            ? "text-primary-500 dark:text-primary-400"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      />
+                      <ChevronDown
+                        className={`h-3 w-3 -mt-1 transition-colors ${
+                          currentSort?.key === "email" &&
+                          currentSort.direction === "desc"
+                            ? "text-primary-500 dark:text-primary-400"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      />
+                    </span>
+                  </div>
                 </TableCell>
 
                 <TableCell
@@ -861,11 +805,38 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
             </TableHeader>
 
             <TableBody className="divide-y divide-gray-200 dark:divide-white/[0.05]">
-              {currentItems.length > 0 ? (
+              {loading ? (
+                <>
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                </>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <AlertTriangle className="h-8 w-8 text-red-500" />
+                      <span className="text-red-500">
+                        Failed to load users: {error.message}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fetchUsers()}
+                        startIcon={<RefreshCw className="h-4 w-4" />}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : currentItems.length > 0 ? (
                 currentItems.map((user) => (
                   <TableRow
                     key={user.id}
-                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => handleViewUser(user)}
                   >
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
@@ -887,36 +858,39 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                         </span>
                       </div>
                     </TableCell>
+
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                      <div className="w-10 h-10 rounded-full overflow-hidden">
-                        {user.profile_picture ? (
-                          <img
-                            src={`http://127.0.0.1:8000${user.profile_picture}`}
-                            alt="Profile"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="bg-gray-200 w-full h-full flex items-center justify-center">
-                            <UserIcon className="w-5 h-5 text-gray-500" />
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                      <div>
-                        <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
-                          {user.first_name} {user.last_name}
-                        </span>
-                        <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                          {user.email}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 overflow-hidden rounded-full">
+                          {user.profile_picture ? (
+                            <img
+                              src={`http://127.0.0.1:8000${user.profile_picture}`}
+                              alt="Profile"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="bg-gray-200 w-full h-full flex items-center justify-center">
+                              <UserIcon className="w-5 h-5 text-gray-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
+                            {user.first_name} {user.last_name}
+                          </span>
+                          <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
+                            {roleMap[user.role] || user.role}
+                            {user.school && ` | ${user.school}`}
+                          </span>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {roleMap[user.role] || user.role}
+                      {user.username}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {user.school || "-"}
+                      {user.email}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       <Badge color={user.is_active ? "success" : "error"}>
@@ -1048,7 +1022,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
 
       {/* Edit User Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar [&>button]:hidden">
           <DialogHeader className="mb-8">
             <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
               Edit User
@@ -1060,6 +1034,82 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
 
           {selectedUser && (
             <form className="space-y-4" onSubmit={handleSubmit}>
+              {/* Profile Picture Upload */}
+              <div className="space-y-2">
+                <Label htmlFor="profile_picture" className="text-base">
+                  Profile Picture
+                </Label>
+                <div className="flex items-center gap-4">
+                  {selectedUser.profile_picture_base64 ||
+                  selectedUser.profile_picture ? (
+                    <div className="relative">
+                      <img
+                        src={
+                          selectedUser.profile_picture_base64 || // Show new upload preview first
+                          `http://127.0.0.1:8000${selectedUser.profile_picture}` // Fallback to existing image
+                        }
+                        className="w-16 h-16 rounded-full object-cover"
+                        alt="Preview"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUser((prev) => ({
+                            ...prev!,
+                            profile_picture: "",
+                            profile_picture_base64: "",
+                          }));
+                          setProfilePictureFile(null);
+                          // Clear the file input value too
+                          const fileInput = document.getElementById(
+                            "profile_picture"
+                          ) as HTMLInputElement;
+                          if (fileInput) fileInput.value = "";
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                        aria-label="Remove profile picture"
+                      >
+                        <XIcon />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                      <UserIcon className="w-8 h-8 text-gray-500" />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    id="profile_picture"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setProfilePictureFile(file);
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setSelectedUser((prev) => ({
+                            ...prev!,
+                            profile_picture_base64: event.target
+                              ?.result as string,
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <Label
+                    htmlFor="profile_picture"
+                    className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  >
+                    {selectedUser.profile_picture ||
+                    selectedUser.profile_picture_base64
+                      ? "Change Photo"
+                      : "Upload Photo"}
+                  </Label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="first_name" className="text-base">
@@ -1069,9 +1119,10 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                     type="text"
                     id="first_name"
                     name="first_name"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="John"
                     value={selectedUser.first_name}
                     onChange={handleChange}
-                    className={formErrors.first_name ? "border-red-500" : ""}
                   />
                   {formErrors.first_name && (
                     <p className="text-red-500 text-sm">
@@ -1087,9 +1138,10 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                     type="text"
                     id="last_name"
                     name="last_name"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="Doe"
                     value={selectedUser.last_name}
                     onChange={handleChange}
-                    className={formErrors.last_name ? "border-red-500" : ""}
                   />
                   {formErrors.last_name && (
                     <p className="text-red-500 text-sm">
@@ -1106,11 +1158,11 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                 <Input
                   type="text"
                   id="username"
-                  disabled
                   name="username"
+                  placeholder="johndoe123"
                   value={selectedUser.username}
                   onChange={handleChange}
-                  className={formErrors.username ? "border-red-500" : ""}
+                  disabled // Username shouldn't be editable
                 />
                 {formErrors.username && (
                   <p className="text-red-500 text-sm">{formErrors.username}</p>
@@ -1125,31 +1177,37 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                   type="email"
                   id="email"
                   name="email"
+                  className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                  placeholder="john@example.com"
                   value={selectedUser.email}
                   onChange={handleChange}
-                  className={formErrors.email ? "border-red-500" : ""}
                 />
                 {formErrors.email && (
                   <p className="text-red-500 text-sm">{formErrors.email}</p>
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-base">
-                  Password (leave blank to keep current)
+                  New Password (leave blank to keep current)
                 </Label>
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
                     id="password"
                     name="password"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="••••••••"
                     value={selectedUser.password || ""}
                     onChange={handleChange}
-                    className={formErrors.password ? "border-red-500" : ""}
                   />
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
                     onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showPassword ? (
                       <EyeClosedIcon className="h-5 w-5 text-gray-400" />
@@ -1162,6 +1220,94 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                   <p className="text-red-500 text-sm">{formErrors.password}</p>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm_password" className="text-base">
+                  Confirm New Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    id="confirm_password"
+                    name="confirm_password"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="••••••••"
+                    value={selectedUser.confirm_password || ""}
+                    onChange={handleChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                    aria-label={
+                      showConfirmPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showConfirmPassword ? (
+                      <EyeClosedIcon className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <EyeIcon className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+                {formErrors.confirm_password && (
+                  <p className="text-red-500 text-sm">
+                    {formErrors.confirm_password}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role" className="text-base">
+                  Role *
+                </Label>
+                <select
+                  id="role"
+                  name="role"
+                  value={selectedUser.role}
+                  onChange={handleChange}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  {roleOptions.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      className="text-gray-700"
+                      disabled={
+                        option.value === "admin" &&
+                        currentUser?.role !== "admin"
+                      }
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.role && (
+                  <p className="text-red-500 text-sm">{formErrors.role}</p>
+                )}
+              </div>
+
+              {(selectedUser.role === "school_head" ||
+                selectedUser.role === "school_admin") && (
+                <div className="space-y-2">
+                  <Label htmlFor="school" className="text-base">
+                    School *
+                  </Label>
+                  <Input
+                    type="text"
+                    id="school"
+                    name="school"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="Enter school name"
+                    value={selectedUser.school || ""}
+                    onChange={handleChange}
+                  />
+                  {formErrors.school && (
+                    <p className="text-red-500 text-sm">{formErrors.school}</p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="date_of_birth" className="text-base">
                   Birthdate
@@ -1172,7 +1318,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                     id="date_of_birth"
                     name="date_of_birth"
                     className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    value={selectedUser?.date_of_birth}
+                    value={selectedUser.date_of_birth || ""}
                     onChange={handleChange}
                     max={new Date().toISOString().split("T")[0]}
                   />
@@ -1180,6 +1326,11 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                     <CalenderIcon className="size-5" />
                   </span>
                 </div>
+                {formErrors.date_of_birth && (
+                  <p className="text-red-500 text-sm">
+                    {formErrors.date_of_birth}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -1190,10 +1341,11 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                   type="tel"
                   id="phone_number"
                   name="phone_number"
+                  className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                  placeholder="+1 (555) 123-4567"
                   value={selectedUser.phone_number || ""}
                   onChange={handleChange}
                   onInput={handlePhoneNumberInput}
-                  className={formErrors.phone_number ? "border-red-500" : ""}
                 />
                 {formErrors.phone_number && (
                   <p className="text-red-500 text-sm">
@@ -1210,6 +1362,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                     setIsDialogOpen(false);
                     setSelectedUser(null);
                     setFormErrors({});
+                    setProfilePictureFile(null);
                   }}
                   disabled={isSubmitting}
                 >
@@ -1222,7 +1375,7 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
-                      <Loader2 className="animate-spin size-4" />
+                      <Loader2Icon className="animate-spin size-4" />
                       Saving...
                     </span>
                   ) : (
@@ -1280,55 +1433,158 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
 
       {/* View User Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
-          <DialogHeader className="mb-8">
-            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              User Details
-            </DialogTitle>
-            <DialogDescription className="text-gray-600 dark:text-gray-400">
-              Detailed information about the user
-            </DialogDescription>
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-w-2xl">
+          <DialogHeader className="mb-6">
+            <div className="flex items-center gap-4">
+              {userToView?.profile_picture ? (
+                <img
+                  src={`http://127.0.0.1:8000${userToView.profile_picture}`}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+                  alt="Profile"
+                />
+              ) : (
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold ${getAvatarColor(
+                    userToView?.id || 0,
+                    userToView?.first_name || "",
+                    userToView?.last_name || ""
+                  )}`}
+                >
+                  {getUserInitials(
+                    userToView?.first_name || "",
+                    userToView?.last_name || ""
+                  )}
+                </div>
+              )}
+              <div>
+                <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
+                  {userToView?.first_name} {userToView?.last_name}
+                </DialogTitle>
+                <DialogDescription className="text-gray-600 dark:text-gray-400">
+                  {roleMap[userToView?.role || ""]}{" "}
+                  {userToView?.school && `• ${userToView.school}`}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           {userToView && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">First Name</Label>
-                  <p className="text-gray-800 dark:text-gray-200">
-                    {userToView.first_name}
-                  </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
+                    Basic Information
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Username
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {userToView.username}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Email
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {userToView.email}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Phone
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {userToView.phone_number || "Not provided"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">Last Name</Label>
-                  <p className="text-gray-800 dark:text-gray-200">
-                    {userToView.last_name}
-                  </p>
+
+                {/* Additional Details */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
+                    Additional Details
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Role
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {roleMap[userToView.role]}
+                      </p>
+                    </div>
+                    {userToView.school && (
+                      <div>
+                        <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                          School
+                        </Label>
+                        <p className="text-gray-800 dark:text-gray-200 mt-1">
+                          {userToView.school}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Date of Birth
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {userToView.date_of_birth
+                          ? new Date(
+                              userToView.date_of_birth
+                            ).toLocaleDateString()
+                          : "Not provided"}
+                        {userToView.date_of_birth && (
+                          <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
+                            ({calculateAge(userToView.date_of_birth)} years old)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-none">
+                        Status
+                      </Label>
+                      <Badge color={userToView.is_active ? "success" : "error"}>
+                        {userToView.is_active ? "Active" : "Archived"}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-base font-medium">Username</Label>
-                <p className="text-gray-800 dark:text-gray-200">
-                  {userToView.username}
-                </p>
+              {/* Account Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
+                  Account Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Date Joined
+                    </Label>
+                    <p className="text-gray-800 dark:text-gray-200 mt-1">
+                      {new Date(userToView.date_joined).toLocaleString()}
+                    </p>
+                  </div>
+                  {/* <div>
+                    <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Last Login
+                    </Label>
+                    <p className="text-gray-800 dark:text-gray-200 mt-1">
+                      {userToView.last_login
+                        ? new Date(userToView.last_login).toLocaleString()
+                        : "Never logged in"}
+                    </p>
+                  </div> */}
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-base font-medium">Email</Label>
-                <p className="text-gray-800 dark:text-gray-200">
-                  {userToView.email}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-base font-medium">Phone Number</Label>
-                <p className="text-gray-800 dark:text-gray-200">
-                  {userToView.phone_number || "Not provided"}
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3 pt-6">
                 <Button
                   type="button"
                   variant="outline"
@@ -1336,6 +1592,16 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
                 >
                   Close
                 </Button>
+                {/* <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => {
+                    setIsViewDialogOpen(false);
+                    handleEditUser(userToView);
+                  }}
+                >
+                  Edit User
+                </Button> */}
               </div>
             </div>
           )}
@@ -1506,16 +1772,6 @@ export default function UsersTable({ users, setUsers }: UsersTableProps) {
           </div>
         </DialogContent>
       </Dialog>
-
-      <ToastContainer
-        position="top-center"
-        autoClose={2000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick={false}
-        rtl={false}
-        pauseOnFocusLoss
-      />
     </div>
   );
 }
