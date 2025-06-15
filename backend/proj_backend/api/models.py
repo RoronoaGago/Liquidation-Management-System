@@ -57,3 +57,29 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.username})"
+
+class School(models.Model):
+    schoolId = models.CharField(max_length=50, unique=True)
+    district = models.CharField(max_length=100)
+    schoolName = models.CharField(max_length=255)
+    municipality = models.CharField(max_length=100)
+    legislativeDistrict = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.schoolName
+
+class Requirement(models.Model):
+    requirementID = models.AutoField(primary_key=True)
+    requirementTitle = models.CharField(max_length=255)
+    description = models.TextField()
+
+    def __str__(self):
+        return self.requirementTitle
+
+class listofPriority(models.Model):
+    LOPID = models.AutoField(primary_key=True)
+    expenseTitle = models.CharField(max_length=255)
+    requirement = models.ManyToManyField(Requirement, related_name='priorities')
+
+    def __str__(self):
+        return self.expenseTitle
