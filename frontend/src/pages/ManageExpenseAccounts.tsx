@@ -15,7 +15,11 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import { EyeIcon, Loader2, EyeClosedIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { UserFormData } from "@/lib/types";
+import {
+  UserFormData,
+  // ExpenseAccountFormData,
+  // SupportingDocument,
+} from "@/lib/types";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 
@@ -24,7 +28,9 @@ const ManageExpenseAccounts = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [users, setUsers] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<UserFormData>({
@@ -59,6 +65,7 @@ const ManageExpenseAccounts = () => {
       try {
         const response = await axios.get("http://127.0.0.1:8000/api/users/");
         setUsers(response.data);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         toast.error("Failed to fetch users", {
           position: "top-center",
