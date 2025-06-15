@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations */
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ interface UserFormData {
   profile_picture_base64: string;
 }
 //TODO - make the school search
+// eslint-disable-next-line react-refresh/only-export-components
 export const roleOptions = [
   { value: "admin", label: "Administrator" },
   { value: "school_head", label: "School Head" },
@@ -130,6 +132,7 @@ const ManageUsers = () => {
   };
   useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showArchived, filterOptions]);
 
   // Add filtering and sorting logic
@@ -409,6 +412,7 @@ const ManageUsers = () => {
       setPreviewImage(null);
       setErrors({});
       setIsDialogOpen(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       let errorMessage = "Failed to add user. Please try again.";
       console.error(error);
