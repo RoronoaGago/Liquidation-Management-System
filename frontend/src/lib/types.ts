@@ -11,6 +11,7 @@ export interface BaseUser {
 }
 
 export type User = {
+<<<<<<< HEAD
   id: number;
   first_name: string;
   last_name: string;
@@ -26,8 +27,52 @@ export type User = {
   confirm_password: string;
   school: string;
   profile_picture_base64?: string;
+=======
+    id: number;
+    first_name: string;
+    last_name: string;
+    username: string;
+    email: string;
+    date_of_birth: string;
+    date_joined: string;
+    phone_number: string;
+    role: string;
+    profile_picture: string;
+    is_active: boolean;
+    password: string;
+    confirm_password: string;
+    school: string;
+    profile_picture_base64?: string;
+
+}
+export type SortDirection = "asc" | "desc" | null;
+export type SortableField = keyof Pick<
+    User,
+    | "id"
+    | "first_name"
+    | "last_name"
+    | "username"
+    | "email"
+    | "phone_number"
+    | "password"
+    | "is_active"
+    | "date_joined"
+>;
+export type DialogState = {
+    edit: boolean;
+    view: boolean;
+    delete: boolean;
+    archive: boolean;
+    confirm: boolean;
+    bulkArchive: boolean;
+>>>>>>> main
 };
 
+export interface FilterOptions {
+    role: string;
+    dateRange: { start: string; end: string };
+    searchTerm: string;
+}
 export interface FormUser extends BaseUser {
   password?: string;
   confirm_password?: string;
