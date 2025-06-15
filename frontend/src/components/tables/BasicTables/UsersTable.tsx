@@ -836,7 +836,7 @@ export default function UsersTable({
                 currentItems.map((user) => (
                   <TableRow
                     key={user.id}
-                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => handleViewUser(user)}
                   >
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
