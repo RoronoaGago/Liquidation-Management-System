@@ -82,9 +82,17 @@ export default function UserDropdown() {
         className="flex items-center gap-2 text-gray-700 dropdown-toggle dark:text-gray-400"
       >
         <div
-          className={`flex items-center justify-center w-8 h-8 rounded-full ${getAvatarColor()} text-white font-medium`}
+          className={`flex items-center justify-center w-11 h-11 rounded-full ${getAvatarColor()} text-white font-medium`}
         >
-          {getUserInitials()}
+          {user?.profile_picture ? (
+            <img
+              src={`http://127.0.0.1:8000${user.profile_picture}`}
+              alt="Profile"
+              className="w-full h-full rounded-full object-cover"
+            />
+          ) : (
+            <span>{getUserInitials()}</span>
+          )}
         </div>
         <span className="block font-medium text-theme-sm">
           {user?.first_name}
@@ -119,7 +127,15 @@ export default function UserDropdown() {
           <div
             className={`flex items-center justify-center w-10 h-10 rounded-full ${getAvatarColor()} text-white font-medium`}
           >
-            {getUserInitials()}
+            {user?.profile_picture ? (
+              <img
+                src={`http://127.0.0.1:8000${user.profile_picture}`}
+                alt="Profile"
+                className="w-full h-full rounded-full object-cover"
+              />
+            ) : (
+              <span>{getUserInitials()}</span>
+            )}
           </div>
           <div>
             <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
