@@ -369,7 +369,7 @@ const ManageUsers = () => {
 
     try {
       console.log(formData);
-      const response = await axios.post("http://127.0.0.1:8000/api/users/", {
+      const response = await api.post("http://127.0.0.1:8000/api/users/", {
         ...formData,
         // profile_picture_base64 is already set in formData
 
