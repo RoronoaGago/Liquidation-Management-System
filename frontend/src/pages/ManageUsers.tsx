@@ -68,12 +68,9 @@ const ManageUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
-<<<<<<< HEAD
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [users, setUsers] = useState<any[]>([]);
-=======
+
   const [allUsers, setAllUsers] = useState<User[]>([]);
->>>>>>> main
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,40 +98,6 @@ const ManageUsers = () => {
     school: "",
     profile_picture_base64: "",
   });
-<<<<<<< HEAD
-  // State
-
-  // Handler for removing image
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleImageRemove = () => {
-    setPreviewImage(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-  const roleOptions = [
-    { value: "admin", label: "Administrator" },
-    { value: "school_head", label: "School Head" },
-    { value: "school_admin", label: "School Admin Assistant" },
-    { value: "district_admin", label: "District Admin Assistant" },
-    { value: "superintendent", label: "Division Superintendent" },
-    { value: "liquidator", label: "Liquidator" },
-    { value: "accountant", label: "Division Accountant" },
-  ];
-
-  const requiredFields = [
-    "first_name",
-    "last_name",
-    "username",
-    "password",
-    "confirm_password",
-    "email",
-    "role",
-  ];
-=======
->>>>>>> main
 
   const isFormValid =
     requiredFields.every(
@@ -170,30 +133,6 @@ const ManageUsers = () => {
     }
   };
   useEffect(() => {
-<<<<<<< HEAD
-    const fetchUsers = async () => {
-      try {
-        const response = await axios.get("http://127.0.0.1:8000/api/users/");
-        setUsers(response.data);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (error) {
-        toast.error("Failed to fetch users", {
-          position: "top-center",
-          autoClose: 2000,
-          style: { fontFamily: "Outfit, sans-serif" },
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-          transition: Bounce,
-        });
-      }
-    };
-
-=======
->>>>>>> main
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showArchived, filterOptions]);
