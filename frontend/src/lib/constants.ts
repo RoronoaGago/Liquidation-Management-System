@@ -11,7 +11,15 @@ export const serviceTypeOptions = [
 
 ];
 
-
+export const roleMap: Record<string, string> = {
+  admin: "Administrator",
+  school_head: "School Head",
+  school_admin: "School Admin",
+  district_admin: "District Admin",
+  superintendent: "Superintendent",
+  liquidator: "Liquidator",
+  accountant: "Accountant",
+};
 export const pricing = {
   regularClothes: 35,
   jeans: 45,
