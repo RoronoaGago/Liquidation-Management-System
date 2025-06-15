@@ -111,3 +111,6 @@ After setting up your database, follow these instructions to get your backend en
 ---
 
 You should now have the backend server up and running with a sample user created for testing!
+
+CHECK NYO yung SQLFOLDER para sa mga datas na galing sa excel na binigay ng lusdo pero school palang nalagay ko hehe
+we have 386 Schools at the moment
