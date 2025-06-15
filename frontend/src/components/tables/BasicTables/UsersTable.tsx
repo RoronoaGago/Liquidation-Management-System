@@ -58,6 +58,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { roleOptions } from "@/pages/ManageUsers";
 import SkeletonRow from "@/components/ui/skeleton";
 import { roleMap } from "@/lib/constants";
+import api from "@/api/axios";
 
 interface UsersTableProps {
   users: User[];
@@ -298,7 +299,7 @@ export default function UsersTable({
     try {
       await Promise.all(
         selectedUsers.map((userId) =>
-          axios.patch(`http://127.0.0.1:8000/api/users/${userId}/`, {
+          api.patch(`http://127.0.0.1:8000/api/users/${userId}/`, {
             is_active: !archive,
           })
         )
@@ -400,7 +401,7 @@ export default function UsersTable({
         formData.append("profile_picture", ""); // Clear existing picture
       }
 
-      await axios.put(
+      await api.put(
         `http://127.0.0.1:8000/api/users/${selectedUser.id}/`,
         formData,
         {
@@ -436,7 +437,7 @@ export default function UsersTable({
     setIsSubmitting(true);
 
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/users/${userToDelete.id}/`);
+      await api.delete(`http://127.0.0.1:8000/api/users/${userToDelete.id}/`);
       toast.success("User deleted successfully!");
 
       await fetchUsers();
@@ -456,12 +457,9 @@ export default function UsersTable({
 
     try {
       const newStatus = !userToArchive.is_active;
-      await axios.patch(
-        `http://127.0.0.1:8000/api/users/${userToArchive.id}/`,
-        {
-          is_active: newStatus,
-        }
-      );
+      await api.patch(`users/${userToArchive.id}/`, {
+        is_active: newStatus,
+      });
 
       toast.success(
         `User ${newStatus ? "restored" : "archived"} successfully!`
