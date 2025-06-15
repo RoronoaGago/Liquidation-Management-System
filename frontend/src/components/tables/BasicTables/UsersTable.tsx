@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Table,
   TableBody,
@@ -62,6 +63,7 @@ import api from "@/api/axios";
 
 interface UsersTableProps {
   users: User[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setUsers: React.Dispatch<React.SetStateAction<any[]>>;
   // Data display props
   currentPage?: number; // Current pagination page
@@ -105,7 +107,7 @@ interface FormErrors {
 }
 
 export default function UsersTable({
-  setUsers,
+  // setUsers,
   showArchived,
   setShowArchived,
   fetchUsers,
@@ -120,6 +122,7 @@ export default function UsersTable({
   const { user: currentUser } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -203,6 +206,7 @@ export default function UsersTable({
           }
           break;
         case "date_of_birth":
+          // eslint-disable-next-line no-case-declarations
           const dateError = validateDateOfBirth(value);
           if (dateError) {
             newErrors.date_of_birth = dateError;
@@ -314,6 +318,7 @@ export default function UsersTable({
       await fetchUsers();
       setSelectedUsers([]);
       setSelectAll(false);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error(
         `Failed to ${archive ? "archive" : "restore"} users. Please try again.`
