@@ -26,19 +26,19 @@ const allNavItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
-    roles: ["admin", "school_head", "teacher"], // All roles can access
+    roles: ["school_admin", "school_head", "teacher"], // All roles can access
   },
   {
     icon: <UserCircleIcon />,
     name: "Manage Users",
     path: "/users",
-    roles: ["admin", "school_admin"], // Only admin
+    roles: ["school_admin"], // Only admin
   },
   {
     icon: <BanknoteIcon />,
     name: "Manage Expense Accounts",
     path: "/expense-accounts",
-    roles: ["admin"], // Only admin
+    roles: ["school_admin"], // Only admin
   },
   {
     icon: <BanknoteIcon />,
@@ -63,19 +63,19 @@ const allNavItems: NavItem[] = [
   {
     icon: <ReportIcon />,
     name: "Generate Report",
-    roles: ["admin", "school_head"], // Admin and school heads
+    roles: ["school_admin", "school_head"], // Admin and school heads
     subItems: [
       {
         name: "Sales",
         path: "/generate-report/sales",
         pro: false,
-        roles: ["admin"], // Only admin can see this sub-item
+        roles: ["school_admin"], // Only admin can see this sub-item
       },
       {
         name: "Customer Frequency",
         path: "/generate-report/customer-frequency",
         pro: false,
-        roles: ["admin", "school_head"],
+        roles: ["school_admin", "school_head"],
       },
       {
         name: "Student Performance",
@@ -89,7 +89,7 @@ const allNavItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "User Profile",
     path: "/profile",
-    roles: ["admin", "school_head", "teacher"], // All roles
+    roles: ["school_admin", "school_head", "teacher"], // All roles
   },
   {
     icon: <UserCircleIcon />,
@@ -103,24 +103,29 @@ const othersItems: NavItem[] = [
   {
     icon: <PieChartIcon />,
     name: "Charts",
-    roles: ["admin", "school_head"],
+    roles: ["school_admin", "school_head"],
     subItems: [
       {
         name: "Line Chart",
         path: "/line-chart",
         pro: false,
-        roles: ["admin", "school_head"],
+        roles: ["school_admin", "school_head"],
       },
-      { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
+      {
+        name: "Bar Chart",
+        path: "/bar-chart",
+        pro: false,
+        roles: ["school_admin"],
+      },
     ],
   },
   {
     icon: <BoxCubeIcon />,
     name: "UI Elements",
-    roles: ["admin"],
+    roles: ["school_admin"],
     subItems: [
-      { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
-      { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
+      { name: "Alerts", path: "/alerts", pro: false, roles: ["school_admin"] },
+      { name: "Avatar", path: "/avatars", pro: false, roles: ["school_admin"] },
     ],
   },
 ];
