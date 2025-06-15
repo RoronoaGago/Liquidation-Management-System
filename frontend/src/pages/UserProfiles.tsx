@@ -232,7 +232,8 @@ export default function UserProfiles() {
               last_name: response.data.last_name,
               email: response.data.email,
               phone_number: response.data.phone_number,
-              role: "",
+              role: response.data.role,
+              profile_picture: response.data.profile_picture,
             },
             response.data.token.access
           );
@@ -364,7 +365,15 @@ export default function UserProfiles() {
                 <div
                   className={`flex items-center justify-center w-20 h-20 rounded-full ${getAvatarColor()} text-white text-3xl font-bold`}
                 >
-                  {getUserInitials()}
+                  {displayUser?.profile_picture ? (
+                    <img
+                      src={`http://127.0.0.1:8000${displayUser.profile_picture}`}
+                      alt="Profile"
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span>{getUserInitials()}</span>
+                  )}
                 </div>
                 <div className="order-3 xl:order-2">
                   <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
