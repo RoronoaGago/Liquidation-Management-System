@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, School, Requirement, ListOfPriority
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -118,3 +118,26 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['profile_picture'] = None
 
         return token
+
+class SchoolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = School
+        fields = '__all__'
+
+class RequirementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Requirement
+        fields = '__all__'
+
+class ListOfPrioritySerializer(serializers.ModelSerializer):
+    requirements = RequirementSerializer(read_only=True, many=True)
+    requirement_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Requirement.objects.all(),
+        many=True,
+        write_only=True,
+        source='requirements'
+    )
+
+    class Meta:
+        model = ListOfPriority
+        fields = ['LOPID', 'expenseTitle', 'requirements', 'requirement_ids']
