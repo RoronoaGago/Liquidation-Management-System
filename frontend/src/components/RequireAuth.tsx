@@ -23,10 +23,12 @@ const RequireAuth: React.FC<RequireAuthProps> = ({ allowedRoles }) => {
 
   // If allowedRoles is provided, check if user has required role
   if (allowedRoles && (!user?.role || !allowedRoles.includes(user.role))) {
+    console.log(user?.role);
+    console.log(allowedRoles);
     // Redirect to not-authorized or home page
     // return <Navigate to="/not-authorized" state={{ from: location }} replace />;
     // Alternatively, you could redirect to home:
-    return <Navigate to="/" replace />;
+    return <Navigate to="/not-authorized" replace />;
   }
 
   return <Outlet />;
