@@ -174,27 +174,57 @@ def user_detail(request, pk):
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class SchoolListCreateAPIView(generics.ListCreateAPIView):
-    queryset = School.objects.all()
     serializer_class = SchoolSerializer
+
+    def get_queryset(self):
+        queryset = School.objects.all()
+        search_term = self.request.query_params.get('search', None)
+        if search_term:
+            queryset = queryset.filter(
+                Q(schoolName__icontains=search_term) |
+                Q(district__icontains=search_term) |
+                Q(municipality__icontains=search_term)
+            )
+        return queryset.order_by('schoolName')
+
+# Add a new endpoint for school search
+
+
+@api_view(['GET'])
+def search_schools(request):
+    search_term = request.query_params.get('search', '')
+    schools = School.objects.filter(
+        Q(schoolName__icontains=search_term) |
+        Q(district__icontains=search_term) |
+        Q(municipality__icontains=search_term)
+    ).order_by('schoolName')[:10]  # Limit to 10 results
+    serializer = SchoolSerializer(schools, many=True)
+    return Response(serializer.data)
+
 
 class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = School.objects.all()
     serializer_class = SchoolSerializer
     lookup_field = 'id'
 
+
 class RequirementListCreateAPIView(generics.ListCreateAPIView):
     queryset = Requirement.objects.all()
     serializer_class = RequirementSerializer
+
 
 class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Requirement.objects.all()
     serializer_class = RequirementSerializer
     lookup_field = 'requirementID'
 
+
 class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
     queryset = ListOfPriority.objects.all()
     serializer_class = ListOfPrioritySerializer
+
 
 class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ListOfPriority.objects.all()
