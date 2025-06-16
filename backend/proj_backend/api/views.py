@@ -207,7 +207,7 @@ def search_schools(request):
 class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = School.objects.all()
     serializer_class = SchoolSerializer
-    lookup_field = 'id'
+    lookup_field = 'schoolId'
 
 
 class RequirementListCreateAPIView(generics.ListCreateAPIView):

@@ -19,7 +19,7 @@ urlpatterns = [
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
-    path('schools/<int:id>/',
+    path('schools/<str:schoolId>/',
          views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
 
     path('requirements/', views.RequirementListCreateAPIView.as_view(),
