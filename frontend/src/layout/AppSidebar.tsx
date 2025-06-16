@@ -71,31 +71,31 @@ const allNavItems: NavItem[] = [
     roles: ["school_head"], // Only admin
   },
 
-  {
-    icon: <ReportIcon />,
-    name: "Generate Report",
-    roles: ["admin", "school_head"], // Admin and school heads
-    subItems: [
-      {
-        name: "Sales",
-        path: "/generate-report/sales",
-        pro: false,
-        roles: ["admin"], // Only admin can see this sub-item
-      },
-      {
-        name: "Customer Frequency",
-        path: "/generate-report/customer-frequency",
-        pro: false,
-        roles: ["admin", "school_head"],
-      },
-      {
-        name: "Student Performance",
-        path: "/generate-report/student-performance",
-        pro: false,
-        roles: ["school_head", "teacher"],
-      },
-    ],
-  },
+  // {
+  //   icon: <ReportIcon />,
+  //   name: "Generate Report",
+  //   roles: ["admin", "school_head"], // Admin and school heads
+  //   subItems: [
+  //     {
+  //       name: "Sales",
+  //       path: "/generate-report/sales",
+  //       pro: false,
+  //       roles: ["admin"], // Only admin can see this sub-item
+  //     },
+  //     {
+  //       name: "Customer Frequency",
+  //       path: "/generate-report/customer-frequency",
+  //       pro: false,
+  //       roles: ["admin", "school_head"],
+  //     },
+  //     {
+  //       name: "Student Performance",
+  //       path: "/generate-report/student-performance",
+  //       pro: false,
+  //       roles: ["school_head", "teacher"],
+  //     },
+  //   ],
+  // },
   {
     icon: <UserCircleIcon />,
     name: "User Profile",
@@ -110,31 +110,31 @@ const allNavItems: NavItem[] = [
   },
 ];
 
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    roles: ["admin", "school_head"],
-    subItems: [
-      {
-        name: "Line Chart",
-        path: "/line-chart",
-        pro: false,
-        roles: ["admin", "school_head"],
-      },
-      { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    roles: ["admin"],
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
-      { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
-    ],
-  },
-];
+// const othersItems: NavItem[] = [
+//   {
+//     icon: <PieChartIcon />,
+//     name: "Charts",
+//     roles: ["admin", "school_head"],
+//     subItems: [
+//       {
+//         name: "Line Chart",
+//         path: "/line-chart",
+//         pro: false,
+//         roles: ["admin", "school_head"],
+//       },
+//       { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
+//     ],
+//   },
+//   {
+//     icon: <BoxCubeIcon />,
+//     name: "UI Elements",
+//     roles: ["admin"],
+//     subItems: [
+//       { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
+//       { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
+//     ],
+//   },
+// ];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -194,7 +194,7 @@ const AppSidebar: React.FC = () => {
   useEffect(() => {
     // Filter items whenever userRole changes
     setNavItems(filterItemsByRole(allNavItems));
-    setFilteredOthersItems(filterItemsByRole(othersItems));
+    // setFilteredOthersItems(filterItemsByRole(othersItems));
     console.log(user?.role);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
@@ -447,7 +447,7 @@ const AppSidebar: React.FC = () => {
             </div>
 
             {/* Others menu section */}
-            {filteredOthersItems.length > 0 && (
+            {/* {filteredOthersItems.length > 0 && (
               <div className="">
                 <h2
                   className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
@@ -464,7 +464,7 @@ const AppSidebar: React.FC = () => {
                 </h2>
                 {renderMenuItems(filteredOthersItems, "others")}
               </div>
-            )}
+            )} */}
           </div>
         </nav>
       </div>
