@@ -10,6 +10,16 @@ export interface BaseUser {
     profile_picture?: string;  // For stored profile pictures (URL or path)
 }
 
+
+// src/lib/types.ts
+export interface School {
+    id: number;
+    district: string;
+    schoolId: string;
+    schoolName: string;
+    municipality: string;
+    legislativeDistrict: string;
+}
 export type User = {
     id: number;
     first_name: string;

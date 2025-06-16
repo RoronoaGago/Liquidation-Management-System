@@ -10,7 +10,28 @@ export const serviceTypeOptions = [
   { value: "rush", label: "Rush" },
 
 ];
-
+export const laUnionMunicipalities = [
+  "AGOO",
+  "ARINGAY",
+  "BACNOTAN",
+  "BAGULIN",
+  "BALAOAN",
+  "BANGAR",
+  "BAUANG",
+  "BURGOS",
+  "CABA",
+  "LUNA",
+  "NAGUILIAN",
+  "PUGO",
+  "ROSARIO",
+  "SAN FERNANDO CITY", // Capital city, often included in lists of municipalities/towns
+  "SAN GABRIEL",
+  "SAN JUAN",
+  "SANTO TOMAS",
+  "SANTOL",
+  "SUDIPEN",
+  "TUBAO"
+];
 export const roleMap: Record<string, string> = {
   admin: "Administrator",
   school_head: "School Head",
