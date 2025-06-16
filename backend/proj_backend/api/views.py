@@ -56,7 +56,10 @@ def user_list(request):
 
         # School filter
         if school_filter:
-            queryset = queryset.filter(school__icontains=school_filter)
+            queryset = queryset.filter(
+                school__schoolName__icontains=school_filter)
+            queryset = queryset.filter(
+                school__schoolId__icontains=school_filter)
 
         # Search filter
         if search_term:
@@ -66,7 +69,10 @@ def user_list(request):
                 Q(username__icontains=search_term) |
                 Q(email__icontains=search_term) |
                 Q(phone_number__icontains=search_term) |
-                Q(school__icontains=search_term)
+                # <-- Fix: use related field
+                Q(school__schoolName__icontains=search_term) |
+                # <-- Optionally add this too
+                Q(school__schoolId__icontains=search_term)
             )
 
         queryset = queryset.order_by('-date_joined')

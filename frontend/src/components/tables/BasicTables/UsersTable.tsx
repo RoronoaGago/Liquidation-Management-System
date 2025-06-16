@@ -129,7 +129,8 @@ export default function UsersTable({
   const { user: currentUser } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(filterOptions.searchTerm || "");
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -192,6 +193,7 @@ export default function UsersTable({
     }
     return "";
   };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -283,7 +285,19 @@ export default function UsersTable({
     const input = e.target as HTMLInputElement;
     input.value = input.value.replace(/[^0-9+]/g, "");
   };
-
+  // Debounce searchTerm -> filterOptions.searchTerm
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setFilterOptions((prev) => ({
+        ...prev,
+        searchTerm,
+      }));
+    }, 400); // 400ms debounce
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchTerm, setFilterOptions]);
   const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
   const currentItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -556,10 +570,9 @@ export default function UsersTable({
             <Input
               type="text"
               placeholder="Search users..."
-              value={filterOptions.searchTerm}
+              value={searchTerm}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setSearchTerm(e.target.value);
-                handleFilterChange("searchTerm", e.target.value);
               }}
               className="pl-10"
             />
