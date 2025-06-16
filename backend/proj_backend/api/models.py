@@ -24,7 +24,13 @@ class User(AbstractUser):
         choices=ROLE_CHOICES,
         default='school_admin'
     )
-    school = models.CharField(max_length=100, blank=True, null=True)
+    school = models.ForeignKey(
+        'School',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='users'
+    )
     date_of_birth = models.DateField(null=True, blank=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     profile_picture = models.ImageField(
@@ -58,15 +64,17 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.username})"
 
+
 class School(models.Model):
     district = models.CharField(max_length=100)
-    schoolId = models.CharField(max_length=50, unique=True)
+    schoolId = models.CharField(primary_key=True, max_length=10)
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(max_length=100)
 
     def __str__(self):
         return self.schoolName
+
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
@@ -76,10 +84,12 @@ class Requirement(models.Model):
     def __str__(self):
         return self.requirementTitle
 
+
 class ListOfPriority(models.Model):
     LOPID = models.AutoField(primary_key=True)
     expenseTitle = models.CharField(max_length=255)
-    requirement = models.ManyToManyField(Requirement, related_name='priorities')
+    requirement = models.ManyToManyField(
+        Requirement, related_name='priorities')
 
     def __str__(self):
         return self.expenseTitle
