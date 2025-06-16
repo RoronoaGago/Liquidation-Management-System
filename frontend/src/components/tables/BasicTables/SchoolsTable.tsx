@@ -38,6 +38,7 @@ import Button from "@/components/ui/button/Button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "@/api/axios";
 import SkeletonRow from "@/components/ui/skeleton";
+import { laUnionMunicipalities } from "@/lib/constants";
 
 interface School {
   id: number;
@@ -718,7 +719,7 @@ export default function SchoolsTable({
                         >
                           <SquarePenIcon />
                         </button>
-                        <button
+                        {/* <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleArchiveClick(school);
@@ -735,7 +736,7 @@ export default function SchoolsTable({
                           ) : (
                             <ArchiveRestoreIcon />
                           )}
-                        </button>
+                        </button> */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -906,15 +907,20 @@ export default function SchoolsTable({
                 <Label htmlFor="municipality" className="text-base">
                   Municipality *
                 </Label>
-                <Input
-                  type="text"
+                <select
                   id="municipality"
                   name="municipality"
                   className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                  placeholder="Municipality"
                   value={selectedSchool.municipality}
                   onChange={handleChange}
-                />
+                >
+                  <option value="">Select Municipality</option>
+                  {laUnionMunicipalities.map((mun) => (
+                    <option key={mun} value={mun}>
+                      {mun}
+                    </option>
+                  ))}
+                </select>
                 {formErrors.municipality && (
                   <p className="text-red-500 text-sm">
                     {formErrors.municipality}

@@ -9,6 +9,8 @@ export interface BaseUser {
     date_joined: string;
     profile_picture?: string;  // For stored profile pictures (URL or path)
 }
+
+
 // src/lib/types.ts
 export interface School {
     id: number;
