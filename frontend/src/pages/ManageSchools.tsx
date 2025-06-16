@@ -17,6 +17,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import api from "@/api/axios";
 import { Loader2Icon } from "lucide-react";
+import { laUnionMunicipalities } from "@/lib/constants";
 
 interface SchoolFormData {
   schoolId: string;
@@ -308,15 +309,21 @@ const ManageSchools = () => {
                   <Label htmlFor="municipality" className="text-base">
                     Municipality *
                   </Label>
-                  <Input
-                    type="text"
+                  <select
                     id="municipality"
                     name="municipality"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="Municipality"
+                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     value={formData.municipality}
                     onChange={handleChange}
-                  />
+                  >
+                    <option value="">Select Municipality</option>
+                    {laUnionMunicipalities.map((mun) => (
+                      <option key={mun} value={mun}>
+                        {mun}
+                      </option>
+                    ))}
+                  </select>
+
                   {errors.municipality && (
                     <p className="text-red-500 text-sm">
                       {errors.municipality}
