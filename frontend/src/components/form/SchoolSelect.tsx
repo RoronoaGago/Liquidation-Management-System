@@ -111,11 +111,7 @@ export default function SchoolSelect({
                         )}
                       </div>
                       <div
-                        className={`text-xs ${
-                          focus
-                            ? "text-gray-700 dark:text-gray-300"
-                            : "text-gray-500 dark:text-gray-400"
-                        }`}
+                        className={`text-xs ${"text-gray-500 dark:text-gray-400"}`}
                       >
                         {school.district}, {school.municipality}
                       </div>
