@@ -29,7 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
             "email",
             "role",
-            "school_id",
+            "school",
             "date_of_birth",
             "phone_number",
             "profile_picture",

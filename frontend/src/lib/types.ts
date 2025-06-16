@@ -34,7 +34,7 @@ export type User = {
     is_active: boolean;
     password: string;
     confirm_password: string;
-    school: string;
+    school: number | School | null;
     profile_picture_base64?: string;
 
 }

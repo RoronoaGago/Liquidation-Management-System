@@ -67,7 +67,7 @@ class User(AbstractUser):
 
 class School(models.Model):
     district = models.CharField(max_length=100)
-    schoolId = models.CharField(max_length=50, unique=True)
+    schoolId = models.CharField(primary_key=True, max_length=10)
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(max_length=100)
