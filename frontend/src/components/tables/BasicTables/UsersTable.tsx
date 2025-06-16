@@ -428,7 +428,7 @@ export default function UsersTable({
         formData.append(
           "school",
           typeof selectedUser.school === "object"
-            ? selectedUser.school.id.toString()
+            ? selectedUser.school.schoolId.toString()
             : selectedUser.school.toString()
         );
       }
