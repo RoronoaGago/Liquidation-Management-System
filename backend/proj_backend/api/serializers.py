@@ -13,6 +13,12 @@ class UserSerializer(serializers.ModelSerializer):
         allow_blank=True,  # Explicitly allow empty strings ("")
         allow_null=True, )
 
+    school = serializers.PrimaryKeyRelatedField(
+        queryset=School.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
     class Meta:
         model = User
         fields = [
@@ -119,15 +125,18 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return token
 
+
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
         fields = '__all__'
 
+
 class RequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
         fields = '__all__'
+
 
 class ListOfPrioritySerializer(serializers.ModelSerializer):
     requirements = RequirementSerializer(read_only=True, many=True)

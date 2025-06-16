@@ -13,12 +13,12 @@ export interface BaseUser {
 
 // src/lib/types.ts
 export interface School {
-    id: number;
     district: string;
     schoolId: string;
     schoolName: string;
     municipality: string;
     legislativeDistrict: string;
+    is_active?: boolean;
 }
 export type User = {
     id: number;
@@ -34,7 +34,7 @@ export type User = {
     is_active: boolean;
     password: string;
     confirm_password: string;
-    school: string;
+    school: number | School | null;
     profile_picture_base64?: string;
 
 }
