@@ -19,6 +19,7 @@ import NotAuthorized from "./pages/NotAuthorized";
 import ManageExpenseAccounts from "./pages/ManageExpenseAccounts";
 import FundRequestApproval from "./pages/FundRequestApproval";
 import ListOfPrioritiesPage from "./pages/FundRequest";
+import ManageSchools from "./pages/ManageSchools";
 
 const App = () => {
   return (
@@ -40,6 +41,7 @@ const App = () => {
             {/* Admin-only routes */}
             <Route element={<RequireAuth allowedRoles={["admin"]} />}>
               {/* <Route path="/users" element={<ManageUsers />} /> */}
+              <Route path="/schools" element={<ManageSchools />} />
               <Route
                 path="/expense-accounts"
                 element={<ManageExpenseAccounts />}
