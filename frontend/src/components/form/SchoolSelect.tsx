@@ -13,8 +13,8 @@ import { School } from "@/lib/types";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 
 interface SchoolSelectProps {
-  value: string;
-  onChange: (value: string) => void;
+  value: number | School | null;
+  onChange: (value: number | null) => void;
   required?: boolean;
   error?: string;
 }
@@ -44,16 +44,21 @@ export default function SchoolSelect({
     }
   }, [query]);
 
+  // Set selectedSchool based on value (ID or School object)
   useEffect(() => {
-    if (value && schools.length > 0) {
-      const found = schools.find((s) => s.schoolName === value);
-      if (found) setSelectedSchool(found);
+    if (typeof value === "object" && value !== null) {
+      setSelectedSchool(value);
+    } else if (typeof value === "number" && schools.length > 0) {
+      const found = schools.find((s) => Number(s.schoolId) === value);
+      setSelectedSchool(found || null);
+    } else {
+      setSelectedSchool(null);
     }
   }, [value, schools]);
 
   const handleChange = (school: School | null) => {
     setSelectedSchool(school);
-    onChange(school?.schoolName || "");
+    onChange(school ? Number(school.schoolId) : null);
   };
 
   return (

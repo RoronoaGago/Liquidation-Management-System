@@ -24,7 +24,13 @@ import {
   validatePassword,
   validatePhoneNumber,
 } from "@/lib/helpers";
-import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
+import {
+  FilterOptions,
+  School,
+  SortableField,
+  SortDirection,
+  User,
+} from "@/lib/types";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
 
@@ -65,6 +71,7 @@ const requiredFields = [
 const ManageUsers = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [schools, setSchools] = useState<School[]>([]); // Assuming you have a list of schools
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,7 +119,7 @@ const ManageUsers = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("http://127.0.0.1:8000/api/users/", {
+      const response = await api.get("users/", {
         params: {
           archived: showArchived, // This is now the single source of truth for archive status
           role: filterOptions.role || undefined,
@@ -133,6 +140,10 @@ const ManageUsers = () => {
   };
   useEffect(() => {
     fetchUsers();
+    const response = api.get("schools/");
+    response.then((res) => {
+      setSchools(res.data);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showArchived, filterOptions]);
 
@@ -699,12 +710,14 @@ const ManageUsers = () => {
                 {(formData.role === "school_head" ||
                   formData.role === "school_admin") && (
                   <SchoolSelect
-                    value={formData.school}
-                    onChange={(value) => {
-                      setFormData((prev) => ({ ...prev, school: value }));
-                      if (errors.school) {
+                    value={formData.school ? Number(formData.school) : null}
+                    onChange={(schoolId) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        school: schoolId !== null ? String(schoolId) : "",
+                      }));
+                      if (errors.school)
                         setErrors((prev) => ({ ...prev, school: "" }));
-                      }
                     }}
                     required
                     error={errors.school}
@@ -813,10 +826,11 @@ const ManageUsers = () => {
           sortedUsers={sortedUsers}
           filterOptions={filterOptions}
           setFilterOptions={setFilterOptions}
-          onRequestSort={requestSort} // Add this new prop
-          currentSort={sortConfig} // Add this new prop
+          onRequestSort={requestSort}
+          currentSort={sortConfig}
           loading={loading}
           error={error}
+          schools={schools} // <-- Add this line
         />
       </div>
     </div>
