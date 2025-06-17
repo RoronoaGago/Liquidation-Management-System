@@ -72,6 +72,7 @@ export default function SchoolsTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -112,6 +113,19 @@ export default function SchoolsTable({
     setSelectedSchools([]);
     setSelectAll(false);
   }, [showArchived]);
+  // Debounce searchTerm -> filterOptions.searchTerm
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setFilterOptions((prev: any) => ({
+        ...prev,
+        searchTerm,
+      }));
+    }, 400); // 400ms debounce
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchTerm, setFilterOptions]);
 
   const totalPages = Math.ceil(sortedSchools.length / itemsPerPage);
   const currentItems = useMemo(() => {
@@ -342,10 +356,9 @@ export default function SchoolsTable({
             <Input
               type="text"
               placeholder="Search schools..."
-              value={filterOptions.searchTerm}
+              value={searchTerm}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setSearchTerm(e.target.value);
-                handleFilterChange("searchTerm", e.target.value);
               }}
               className="pl-10"
             />
