@@ -92,4 +92,19 @@ class ListOfPriority(models.Model):
     def __str__(self):
         return self.expenseTitle
     
-    
+class Request(models.Model):
+    STATUS_CHOICES = [
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('pending', 'Pending'),
+        ('inliquidated', 'Inliquidated'),
+    ]
+
+    request_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Replace User with your custom User model if needed
+    priority = models.ForeignKey(ListOfPriority, on_delete=models.SET_NULL, null=True, related_name='requests')
+    request_month = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    def __str__(self):
+        return f"Request #{self.request_id} - {self.status}"

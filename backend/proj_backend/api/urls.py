@@ -32,4 +32,6 @@ urlpatterns = [
     path('priorities/<int:LOPID>/',
          views.ListOfPriorityRetrieveUpdateDestroyAPIView.as_view(), name='priority-detail'),
 
+     path('requests/', views.RequestListCreateAPIView.as_view(), name='request-list-create'),
+     path('requests/<int:pk>/', views.RequestRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
 ]
