@@ -1312,27 +1312,6 @@ export default function UsersTable({
 
               {(selectedUser.role === "school_head" ||
                 selectedUser.role === "school_admin") && (
-                <div className="space-y-2">
-                  <Label htmlFor="school" className="text-base">
-                    School *
-                  </Label>
-                  <Input
-                    type="text"
-                    id="school"
-                    name="school"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="Enter school name"
-                    value={selectedUser.school || ""}
-                    onChange={handleChange}
-                  />
-                  {formErrors.school && (
-                    <p className="text-red-500 text-sm">{formErrors.school}</p>
-                  )}
-                </div>
-              )}
-
-              {(selectedUser.role === "school_head" ||
-                selectedUser.role === "school_admin") && (
                 <SchoolSelect
                   value={selectedUser.school}
                   onChange={handleSchoolChange}

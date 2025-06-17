@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { toast } from "react-toastify";
+// import { toast } from "react-toastify";
 import axios from "axios";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import {
@@ -68,15 +68,7 @@ const FundRequestPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Submitted expenses:", selected);
-    toast.success("Fund request submitted successfully!", {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
+    // toast.success("Fund request submitted successfully!")
   };
 
   // Debounced search handler
@@ -91,7 +83,7 @@ const FundRequestPage = () => {
         searchTerm: value,
       }));
       setCurrentPage(1); // Reset to first page when searching
-    }, 400);
+    }, 10);
   };
 
   // Filter priorities based on searchTerm
@@ -234,7 +226,6 @@ const FundRequestPage = () => {
 
             <div className="flex items-center gap-2">
               <Button
-                type="button"
                 onClick={() => goToPage(1)}
                 disabled={currentPage === 1}
                 variant="outline"
@@ -243,7 +234,6 @@ const FundRequestPage = () => {
                 <ChevronsLeft className="h-4 w-4" />
               </Button>
               <Button
-                type="button"
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
                 variant="outline"
