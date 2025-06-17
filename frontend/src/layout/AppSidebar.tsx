@@ -31,7 +31,7 @@ const allNavItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
-    roles: ["admin", "school_head", "teacher"], // All roles can access
+    roles: ["admin", "school_head", "teacher", "superintendent"], // All roles can access
   },
   {
     icon: <UserCircleIcon />,
@@ -69,6 +69,12 @@ const allNavItems: NavItem[] = [
     name: "Liquidation",
     path: "/liquidation",
     roles: ["school_head"], // Only admin
+  },
+  {
+    icon: <PhilippinePeso />,
+    name: "School Heads' Priority Submissions",
+    path: "/submitted-priorities",
+    roles: ["superintendent"], // Only for division superintendent
   },
 
   // {
