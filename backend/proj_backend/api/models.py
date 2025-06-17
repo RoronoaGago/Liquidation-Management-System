@@ -102,7 +102,7 @@ class Request(models.Model):
 
     request_id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Replace User with your custom User model if needed
-    priority = models.ForeignKey(ListOfPriority, on_delete=models.SET_NULL, null=True, related_name='requests')
+    priorities = models.ForeignKey(ListOfPriority, on_delete=models.SET_NULL, null=True, related_name='requests')
     request_month = models.DateField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
