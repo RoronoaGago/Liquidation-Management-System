@@ -50,10 +50,10 @@ const App = () => {
 
             {/* School Head-only routes */}
             <Route element={<RequireAuth allowedRoles={["school_head"]} />}>
-              <Route
+              {/* <Route
                 path="/list-of-priorities"
                 element={<ListOfPrioritiesPage />}
-              />
+              /> */}
               {/* <Route
                 path="/fund-request/request-list"
                 element={<RequestsList />}
@@ -85,6 +85,10 @@ const App = () => {
               <Route
                 path="/fund-requests/:id"
                 element={<RequestDetailPage />}
+              />
+              <Route
+                path="/list-of-priorities"
+                element={<ListOfPrioritiesPage />}
               />
             </Route>
           </Route>
