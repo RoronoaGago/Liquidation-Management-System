@@ -92,7 +92,7 @@ class ListOfPriority(models.Model):
     def __str__(self):
         return self.expenseTitle
     
-class Request(models.Model):
+class RequestManagement(models.Model):
     STATUS_CHOICES = [
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
@@ -101,11 +101,27 @@ class Request(models.Model):
     ]
 
     request_id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Replace User with your custom User model if needed
-    request_month = models.DateField()
-    priorities = models.ForeignKey(ListOfPriority, on_delete=models.SET_NULL, null=True, related_name='requests')
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    request_month = models.CharField(max_length=20)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
+    priorities = models.ManyToManyField(
+        ListOfPriority,
+        through='RequestPriority',
+        related_name='requests'
+    )
+
     def __str__(self):
-        return f"Request #{self.request_id} - {self.status}"
+        return f"Request {self.request_id} by {self.user.username}"
+
+
+class RequestPriority(models.Model):
+    request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
+    priority = models.ForeignKey(ListOfPriority, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        unique_together = ('request', 'priority')
+
+    def __str__(self):
+        return f"{self.request} - {self.priority} = {self.amount}"
