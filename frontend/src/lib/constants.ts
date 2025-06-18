@@ -10,6 +10,7 @@ export const serviceTypeOptions = [
   { value: "rush", label: "Rush" },
 
 ];
+
 export const laUnionMunicipalities = [
   "AGOO",
   "ARINGAY",

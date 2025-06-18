@@ -27,6 +27,8 @@ const Button = ({
       "bg-red-500 text-white shadow-theme-xs hover:bg-red-600 disabled:bg-red-300",
     success:
       "bg-green-600 text-white shadow-theme-xs hover:bg-green-700 disabled:bg-green-300",
+    destructive:
+      "bg-red-600 text-white shadow-theme-xs hover:bg-red-700 disabled:bg-red-300", // <-- Added destructive variant
   };
 
   return (
