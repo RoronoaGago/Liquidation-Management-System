@@ -149,7 +149,7 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'expenseTitle', 'requirements', 'requirement_ids']
+        fields = ['LOPID', 'expenseTitle', 'requirement', 'requirement_ids']
 
 class RequestSerializer(serializers.ModelSerializer):
     class Meta:
