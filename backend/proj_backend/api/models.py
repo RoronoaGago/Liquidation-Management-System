@@ -64,17 +64,15 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.username})"
 
-
 class School(models.Model):
-    district = models.CharField(max_length=100)
-    schoolId = models.CharField(primary_key=True, max_length=10)
+    schoolId = models.CharField(max_length=10, primary_key=True, editable=False)  # Primary Key
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
+    district = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(max_length=100)
 
     def __str__(self):
-        return self.schoolName
-
+        return f"{self.schoolName} ({self.schoolId})"
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
@@ -93,3 +91,20 @@ class ListOfPriority(models.Model):
 
     def __str__(self):
         return self.expenseTitle
+    
+class Request(models.Model):
+    STATUS_CHOICES = [
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('pending', 'Pending'),
+        ('inliquidated', 'Inliquidated'),
+    ]
+
+    request_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Replace User with your custom User model if needed
+    priorities = models.ForeignKey(ListOfPriority, on_delete=models.SET_NULL, null=True, related_name='requests')
+    request_month = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    def __str__(self):
+        return f"Request #{self.request_id} - {self.status}"
