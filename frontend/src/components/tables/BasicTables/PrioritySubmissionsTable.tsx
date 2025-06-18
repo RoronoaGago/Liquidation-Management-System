@@ -1,3 +1,5 @@
+import "@/assets/fonts/oldenglishtextmt-normal.js";
+import "@/assets/fonts/arial_black-normal.js"; // Add this line
 import {
   Table,
   TableBody,
@@ -42,25 +44,59 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
 }) => {
   const handleExport = (submission: Submission) => {
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Priority Submission Details", 10, 15);
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Helper to center text
+    const centerText = (
+      text: string,
+      y: number,
+      font: string,
+      style: string,
+      size: number
+    ) => {
+      doc.setFont(font, style);
+      doc.setFontSize(size);
+      const textWidth = doc.getTextWidth(text);
+      doc.text(text, (pageWidth - textWidth) / 2, y);
+    };
+
+    // Use Old English Text MT for the first two lines
+    // Header (tighter vertical spacing)
+    centerText(
+      "Republic of the Philippines",
+      15,
+      "oldenglishtextmt",
+      "normal",
+      12
+    );
+    centerText("Department of Education", 22, "oldenglishtextmt", "normal", 18);
+    centerText("Region 1", 29, "arial_black", "normal", 10);
+    centerText("Schools Division of La Union", 35, "arial_black", "normal", 10);
+    centerText(submission.submitted_by.school, 41, "arial_black", "normal", 11);
+    centerText("TALLAOEN, LUNA, LA UNION", 47, "arial_black", "normal", 10);
+
+    // Move down for details
+    doc.setFont("arial_black", "normal");
+    doc.setFontSize(14);
+    doc.text("Priority Submission Details", 10, 62);
+
+    doc.setFont("arial_black", "normal");
     doc.setFontSize(12);
-    doc.text(`Request ID: ${submission.id}`, 10, 30);
-    doc.text(`Submitted By: ${submission.submitted_by.name}`, 10, 40);
-    doc.text(`School: ${submission.submitted_by.school}`, 10, 50);
-    doc.text(`Status: ${submission.status}`, 10, 60);
+    doc.text(`Request ID: ${submission.id}`, 10, 85);
+    doc.text(`Submitted By: ${submission.submitted_by.name}`, 10, 93);
+    doc.text(`Status: ${submission.status}`, 10, 101);
     doc.text(
       `Submitted At: ${new Date(submission.submitted_at).toLocaleString()}`,
       10,
-      70
+      109
     );
-    doc.text("List of Priorities:", 10, 80);
+    doc.text("List of Priorities:", 10, 117);
 
     submission.priorities.forEach((priority, idx) => {
       doc.text(
         `- ${priority.expense}: ₱${priority.amount.toLocaleString()}`,
         15,
-        90 + idx * 10
+        125 + idx * 8
       );
     });
 
