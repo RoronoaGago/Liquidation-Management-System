@@ -20,6 +20,7 @@ import ManageExpenseAccounts from "./pages/ManageExpenseAccounts";
 import FundRequestApproval from "./pages/FundRequestApproval";
 import ListOfPrioritiesPage from "./pages/FundRequest";
 import ManageSchools from "./pages/ManageSchools";
+import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
 
 const App = () => {
   return (
@@ -54,6 +55,18 @@ const App = () => {
                 path="/list-of-priorities"
                 element={<ListOfPrioritiesPage />}
               /> */}
+              {/* <Route
+                path="/fund-request/request-list"
+                element={<RequestsList />}
+              /> */}
+              {/* <Route path="/liquidation" element={<Liquidation />} /> */}
+            </Route>
+
+            <Route element={<RequireAuth allowedRoles={["superintendent"]} />}>
+              <Route
+                path="/submitted-priorities"
+                element={<PriortySubmissionsPage />}
+              />
               {/* <Route
                 path="/fund-request/request-list"
                 element={<RequestsList />}

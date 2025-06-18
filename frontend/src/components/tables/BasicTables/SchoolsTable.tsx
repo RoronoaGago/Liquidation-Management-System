@@ -39,16 +39,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import api from "@/api/axios";
 import SkeletonRow from "@/components/ui/skeleton";
 import { laUnionMunicipalities } from "@/lib/constants";
-
-interface School {
-  id: number;
-  schoolId: string;
-  schoolName: string;
-  district: string;
-  municipality: string;
-  legislativeDistrict: string;
-  is_active?: boolean;
-}
+import { School } from "@/lib/types";
 
 interface SchoolsTableProps {
   schools: School[];
@@ -81,6 +72,7 @@ export default function SchoolsTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -121,6 +113,19 @@ export default function SchoolsTable({
     setSelectedSchools([]);
     setSelectAll(false);
   }, [showArchived]);
+  // Debounce searchTerm -> filterOptions.searchTerm
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setFilterOptions((prev: any) => ({
+        ...prev,
+        searchTerm,
+      }));
+    }, 400); // 400ms debounce
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchTerm, setFilterOptions]);
 
   const totalPages = Math.ceil(sortedSchools.length / itemsPerPage);
   const currentItems = useMemo(() => {
@@ -133,20 +138,24 @@ export default function SchoolsTable({
     if (selectAll) {
       setSelectedSchools([]);
     } else {
-      setSelectedSchools(currentItems.map((school) => school.id));
+      setSelectedSchools(currentItems.map((school) => Number(school.schoolId))); // FIXED
     }
     setSelectAll(!selectAll);
   };
 
-  const toggleSelectSchool = (schoolId: number) => {
+  const toggleSelectSchool = (schoolId: string | number) => {
+    const idNum = typeof schoolId === "number" ? schoolId : Number(schoolId);
     setSelectedSchools((prev) =>
-      prev.includes(schoolId)
-        ? prev.filter((id) => id !== schoolId)
-        : [...prev, schoolId]
+      prev.includes(idNum)
+        ? prev.filter((id) => id !== idNum)
+        : [...prev, idNum]
     );
   };
 
-  const isSelected = (schoolId: number) => selectedSchools.includes(schoolId);
+  const isSelected = (schoolId: string | number) => {
+    const idNum = typeof schoolId === "number" ? schoolId : Number(schoolId);
+    return selectedSchools.includes(idNum);
+  };
 
   // Bulk actions
   const handleBulkArchive = async (archive: boolean) => {
@@ -253,8 +262,9 @@ export default function SchoolsTable({
     setIsSubmitting(true);
 
     try {
+      console.log("Updating school:", selectedSchool);
       await api.put(
-        `http://127.0.0.1:8000/api/schools/${selectedSchool.id}/`,
+        `http://127.0.0.1:8000/api/schools/${selectedSchool.schoolId}/`,
         selectedSchool,
         {
           headers: { "Content-Type": "application/json" },
@@ -279,7 +289,7 @@ export default function SchoolsTable({
 
     try {
       await api.delete(
-        `http://127.0.0.1:8000/api/schools/${schoolToDelete.id}/`
+        `http://127.0.0.1:8000/api/schools/${schoolToDelete.schoolId}/`
       );
       toast.success("School deleted successfully!");
       await fetchSchools();
@@ -299,7 +309,7 @@ export default function SchoolsTable({
     try {
       const newStatus = !schoolToArchive.is_active;
       await api.patch(
-        `http://127.0.0.1:8000/api/schools/${schoolToArchive.id}/`,
+        `http://127.0.0.1:8000/api/schools/${schoolToArchive.schoolId}/`,
         {
           is_active: newStatus,
         }
@@ -346,10 +356,9 @@ export default function SchoolsTable({
             <Input
               type="text"
               placeholder="Search schools..."
-              value={filterOptions.searchTerm}
+              value={searchTerm}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setSearchTerm(e.target.value);
-                handleFilterChange("searchTerm", e.target.value);
               }}
               className="pl-10"
             />
@@ -661,17 +670,17 @@ export default function SchoolsTable({
               ) : currentItems.length > 0 ? (
                 currentItems.map((school) => (
                   <TableRow
-                    key={school.id}
+                    key={school.schoolId}
                     className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => handleViewSchool(school)}
                   >
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                       <input
                         type="checkbox"
-                        checked={isSelected(school.id)}
+                        checked={isSelected(school.schoolId)}
                         onChange={(e) => {
                           e.stopPropagation();
-                          toggleSelectSchool(school.id);
+                          toggleSelectSchool(school.schoolId);
                         }}
                         onClick={(e) => e.stopPropagation()}
                         className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
