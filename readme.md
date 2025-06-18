@@ -1,23 +1,4 @@
-"Salamat Doc"
+mga tanong
 
-# Test Commit
-
-- hehehehehey
-
-# try
-
-papa
-
-# try again
-
-mama
-
-sistersfdsfsdfds
-brothersfdsajofdsiofjdsiofdjs
-lolo
-lolosdfdsfdhsfudshfd
-lola
-sister
-step-brother
-lulu
-lula
+- yung pano gagawin sa request id kung pedeng random or yeah 2,3
+- kung pano yung plano don sa pagcheck ng district administrative assistant sa liquidation ng mga school sa district nila (timer???)
