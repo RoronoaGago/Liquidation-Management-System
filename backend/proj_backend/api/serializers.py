@@ -139,12 +139,12 @@ class RequirementSerializer(serializers.ModelSerializer):
 
 
 class ListOfPrioritySerializer(serializers.ModelSerializer):
-    requirements = RequirementSerializer(read_only=True, many=True)
+    requirement = RequirementSerializer(read_only=True, many=True)
     requirement_ids = serializers.PrimaryKeyRelatedField(
         queryset=Requirement.objects.all(),
         many=True,
         write_only=True,
-        source='requirements'
+        source='requirement'
     )
 
     class Meta:
@@ -161,3 +161,4 @@ class RequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Request
         fields = '__all__'
+
