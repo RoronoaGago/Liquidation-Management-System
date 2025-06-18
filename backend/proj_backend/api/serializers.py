@@ -139,20 +139,20 @@ class RequirementSerializer(serializers.ModelSerializer):
 
 
 class ListOfPrioritySerializer(serializers.ModelSerializer):
-    requirements = RequirementSerializer(read_only=True, many=True)
+    requirement = RequirementSerializer(read_only=True, many=True)
     requirement_ids = serializers.PrimaryKeyRelatedField(
         queryset=Requirement.objects.all(),
         many=True,
         write_only=True,
-        source='requirements'
+        source='requirement'
     )
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'expenseTitle', 'requirements', 'requirement_ids']
+        fields = ['LOPID', 'expenseTitle', 'requirement', 'requirement_ids']
 
-class RequestSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Request
-        fields = '__all__'
-
+    def create(self, validated_data):
+        requirements = validated_data.pop('requirement', [])
+        instance = ListOfPriority.objects.create(**validated_data)
+        instance.requirement.set(requirements)
+        return instance
