@@ -41,7 +41,13 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { CalenderIcon } from "@/icons";
-import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
+import {
+  FilterOptions,
+  School,
+  SortableField,
+  SortDirection,
+  User,
+} from "@/lib/types";
 import Button from "@/components/ui/button/Button";
 import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
@@ -92,6 +98,7 @@ interface UsersTableProps {
   currentUserId?: number;
   loading?: boolean;
   error?: Error | null;
+  schools: School[]; // <-- Add this line
 }
 
 interface FormErrors {
@@ -119,12 +126,13 @@ export default function UsersTable({
   currentSort,
   loading,
   error,
+  schools,
 }: UsersTableProps) {
   const { user: currentUser } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(filterOptions.searchTerm || "");
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -163,7 +171,7 @@ export default function UsersTable({
     const roleValid =
       selectedUser.role === "school_head" ||
       selectedUser.role === "school_admin"
-        ? selectedUser.school?.trim() !== ""
+        ? selectedUser.school !== null
         : true;
 
     // Check no validation errors
@@ -173,6 +181,20 @@ export default function UsersTable({
   }, [selectedUser, formErrors]);
 
   // Apply filters whenever filterOptions or users change
+  // Helper to get school name
+  const getSchoolName = (school: any) => {
+    if (!school) return "";
+    if (typeof school === "object" && school.schoolName)
+      return school.schoolName;
+    if (typeof school === "number" || typeof school === "string") {
+      const found = schools.find(
+        (s) =>
+          s.schoolId === school || s.schoolId.toString() === school.toString()
+      );
+      return found ? found.schoolName : "";
+    }
+    return "";
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -232,7 +254,7 @@ export default function UsersTable({
           // When role changes, validate school if needed
           if (
             (value === "school_head" || value === "school_admin") &&
-            !selectedUser.school?.trim()
+            !selectedUser.school
           ) {
             newErrors.school = "School is required for this role";
           }
@@ -266,7 +288,19 @@ export default function UsersTable({
     const input = e.target as HTMLInputElement;
     input.value = input.value.replace(/[^0-9+]/g, "");
   };
-
+  // Debounce searchTerm -> filterOptions.searchTerm
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setFilterOptions((prev) => ({
+        ...prev,
+        searchTerm,
+      }));
+    }, 400); // 400ms debounce
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchTerm, setFilterOptions]);
   const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
   const currentItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -353,12 +387,12 @@ export default function UsersTable({
     setUserToArchive(user);
     setIsArchiveDialogOpen(true);
   };
-  const handleSchoolChange = (schoolName: string) => {
+  const handleSchoolChange = (schoolId: number | null) => {
     if (!selectedUser) return;
 
     setSelectedUser((prev) => ({
       ...prev!,
-      school: schoolName,
+      school: schoolId,
     }));
 
     // Handle validation specifically for school
@@ -366,7 +400,7 @@ export default function UsersTable({
     if (
       (selectedUser.role === "school_head" ||
         selectedUser.role === "school_admin") &&
-      !schoolName.trim()
+      !schoolId
     ) {
       newErrors.school = "School is required for this role";
     } else {
@@ -409,7 +443,12 @@ export default function UsersTable({
       // Account info
       formData.append("role", selectedUser.role);
       if (selectedUser.school) {
-        formData.append("school", selectedUser.school);
+        formData.append(
+          "school",
+          typeof selectedUser.school === "object"
+            ? selectedUser.school.schoolId.toString()
+            : selectedUser.school.toString()
+        );
       }
 
       // Password (only if changed)
@@ -535,10 +574,9 @@ export default function UsersTable({
             <Input
               type="text"
               placeholder="Search users..."
-              value={filterOptions.searchTerm}
+              value={searchTerm}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setSearchTerm(e.target.value);
-                handleFilterChange("searchTerm", e.target.value);
               }}
               className="pl-10"
             />
@@ -904,7 +942,7 @@ export default function UsersTable({
                           </span>
                           <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
                             {roleMap[user.role] || user.role}
-                            {user.school && ` | ${user.school}`}
+                            {user.school && ` | ${getSchoolName(user.school)}`}
                           </span>
                         </div>
                       </div>
@@ -1474,7 +1512,8 @@ export default function UsersTable({
                 </DialogTitle>
                 <DialogDescription className="text-gray-600 dark:text-gray-400">
                   {roleMap[userToView?.role || ""]}{" "}
-                  {userToView?.school && `• ${userToView.school}`}
+                  {userToView?.school &&
+                    `• ${getSchoolName(userToView.school)}`}
                 </DialogDescription>
               </div>
             </div>
@@ -1536,7 +1575,7 @@ export default function UsersTable({
                           School
                         </Label>
                         <p className="text-gray-800 dark:text-gray-200 mt-1">
-                          {userToView.school}
+                          {getSchoolName(userToView.school)}
                         </p>
                       </div>
                     )}

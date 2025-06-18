@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority
+from .models import User, School, Requirement, ListOfPriority, Request
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -12,6 +12,12 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True,  # Explicitly allow empty strings ("")
         allow_null=True, )
+
+    school = serializers.PrimaryKeyRelatedField(
+        queryset=School.objects.all(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = User
@@ -119,15 +125,18 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return token
 
+
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
         fields = '__all__'
 
+
 class RequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
         fields = '__all__'
+
 
 class ListOfPrioritySerializer(serializers.ModelSerializer):
     requirement = RequirementSerializer(read_only=True, many=True)
