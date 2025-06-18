@@ -8,6 +8,7 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import { EyeIcon, CheckCircle2, XCircle } from "lucide-react";
 import Button from "@/components/ui/button/Button";
+import jsPDF from "jspdf";
 
 type Priority = {
   expense: string;
@@ -39,6 +40,33 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
   onApprove,
   onReject,
 }) => {
+  const handleExport = (submission: Submission) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Priority Submission Details", 10, 15);
+    doc.setFontSize(12);
+    doc.text(`Request ID: ${submission.id}`, 10, 30);
+    doc.text(`Submitted By: ${submission.submitted_by.name}`, 10, 40);
+    doc.text(`School: ${submission.submitted_by.school}`, 10, 50);
+    doc.text(`Status: ${submission.status}`, 10, 60);
+    doc.text(
+      `Submitted At: ${new Date(submission.submitted_at).toLocaleString()}`,
+      10,
+      70
+    );
+    doc.text("List of Priorities:", 10, 80);
+
+    submission.priorities.forEach((priority, idx) => {
+      doc.text(
+        `- ${priority.expense}: ₱${priority.amount.toLocaleString()}`,
+        15,
+        90 + idx * 10
+      );
+    });
+
+    doc.save(`priority_submission_${submission.id}.pdf`);
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
@@ -151,6 +179,14 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
                       </Button>
                     </>
                   )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleExport(submission)}
+                    className="inline-flex items-center gap-1"
+                  >
+                    Export
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
