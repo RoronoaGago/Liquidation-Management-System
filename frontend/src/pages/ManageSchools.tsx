@@ -38,7 +38,8 @@ const requiredFields = [
   "municipality",
   "legislativeDistrict",
 ];
-
+//TODO - Add validation for schoolId to ensure it is unique and follows a specific format if needed
+//TODO - Filtering options in the backend
 const ManageSchools = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
