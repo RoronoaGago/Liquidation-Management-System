@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, Request
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -157,8 +157,26 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
         instance.requirement.set(requirements)
         return instance
 
-class RequestSerializer(serializers.ModelSerializer):
+class RequestPrioritySerializer(serializers.ModelSerializer):
     class Meta:
-        model = Request
-        fields = '__all__'
+        model = RequestPriority
+        fields = ['priority', 'amount']
+
+class RequestManagementSerializer(serializers.ModelSerializer):
+    priority_amounts = RequestPrioritySerializer(many=True, write_only=True)
+
+    class Meta:
+        model = RequestManagement
+        fields = ['request_id', 'user', 'request_month', 'status', 'priority_amounts']
+
+    def create(self, validated_data):
+        priority_data = validated_data.pop('priority_amounts')
+        request = RequestManagement.objects.create(**validated_data)
+        for item in priority_data:
+            RequestPriority.objects.create(
+                request=request,
+                priority=item['priority'],
+                amount=item['amount']
+            )
+        return request
 
