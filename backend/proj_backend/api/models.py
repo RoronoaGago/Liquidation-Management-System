@@ -11,7 +11,7 @@ class User(AbstractUser):
     # Role choices
     ROLE_CHOICES = [
         ('admin', 'Administrator'),
-        ('school_head', 'School Head'), wn
+        ('school_head', 'School Head'),
         ('school_admin', 'School Administrative Assistant'),
         ('district_admin', 'District Administrative Assistant'),
         ('superintendent', 'Division Superintendent'),
