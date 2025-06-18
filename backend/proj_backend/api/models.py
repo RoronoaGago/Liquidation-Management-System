@@ -102,8 +102,9 @@ class Request(models.Model):
 
     request_id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Replace User with your custom User model if needed
-    priorities = models.ForeignKey(ListOfPriority, on_delete=models.SET_NULL, null=True, related_name='requests')
     request_month = models.DateField()
+    priorities = models.ForeignKey(ListOfPriority, on_delete=models.SET_NULL, null=True, related_name='requests')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     def __str__(self):
