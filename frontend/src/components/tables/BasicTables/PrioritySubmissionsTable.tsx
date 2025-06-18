@@ -72,7 +72,13 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
     centerText("Department of Education", 22, "oldenglishtextmt", "normal", 18);
     centerText("Region 1", 29, "arial_black", "normal", 10);
     centerText("Schools Division of La Union", 35, "arial_black", "normal", 10);
-    centerText(submission.submitted_by.school, 41, "arial_black", "normal", 11);
+    centerText(
+      submission.submitted_by.school.toUpperCase(),
+      41,
+      "arial_black",
+      "normal",
+      11
+    );
     centerText("TALLAOEN, LUNA, LA UNION", 47, "arial_black", "normal", 10);
 
     // Move down for details
