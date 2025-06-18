@@ -156,3 +156,9 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
         instance = ListOfPriority.objects.create(**validated_data)
         instance.requirement.set(requirements)
         return instance
+
+class RequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Request
+        fields = '__all__'
+
