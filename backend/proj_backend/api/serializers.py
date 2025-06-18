@@ -151,7 +151,7 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
         model = ListOfPriority
         fields = ['LOPID', 'expenseTitle', 'requirement', 'requirement_ids']
 
-            def create(self, validated_data):
+    def create(self, validated_data):
         requirements = validated_data.pop('requirement', [])
         instance = ListOfPriority.objects.create(**validated_data)
         instance.requirement.set(requirements)
