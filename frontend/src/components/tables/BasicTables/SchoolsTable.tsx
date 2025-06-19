@@ -38,7 +38,11 @@ import Button from "@/components/ui/button/Button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "@/api/axios";
 import SkeletonRow from "@/components/ui/skeleton";
-import { laUnionMunicipalities } from "@/lib/constants";
+import {
+  laUnionMunicipalities,
+  municipalityDistricts,
+  firstDistrictMunicipalities,
+} from "@/lib/constants";
 import { School } from "@/lib/types";
 
 interface SchoolsTableProps {
@@ -346,6 +350,44 @@ export default function SchoolsTable({
     });
     setSearchTerm("");
   };
+
+  const [districtOptions, setDistrictOptions] = useState<string[]>([]);
+  const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
+
+  useEffect(() => {
+    if (!isDialogOpen || !selectedSchool) return;
+    const mun = selectedSchool.municipality;
+    if (mun) {
+      setDistrictOptions(municipalityDistricts[mun] || []);
+      if (firstDistrictMunicipalities.includes(mun)) {
+        setAutoLegislativeDistrict("1st District");
+      } else {
+        setAutoLegislativeDistrict("2nd District");
+      }
+      // If the current district is not in the new options, reset it
+      if (!municipalityDistricts[mun]?.includes(selectedSchool.district)) {
+        setSelectedSchool((prev) => prev && { ...prev, district: "" });
+      }
+      // Always sync legislativeDistrict
+      setSelectedSchool((prev) =>
+        prev
+          ? {
+              ...prev,
+              legislativeDistrict: firstDistrictMunicipalities.includes(mun)
+                ? "1st District"
+                : "2nd District",
+            }
+          : prev
+      );
+    } else {
+      setDistrictOptions([]);
+      setAutoLegislativeDistrict("");
+      setSelectedSchool((prev) =>
+        prev ? { ...prev, district: "", legislativeDistrict: "" } : prev
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSchool?.municipality, isDialogOpen]);
 
   return (
     <div className="space-y-4">
@@ -896,30 +938,13 @@ export default function SchoolsTable({
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="district" className="text-base">
-                  District *
-                </Label>
-                <Input
-                  type="text"
-                  id="district"
-                  name="district"
-                  className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                  placeholder="District"
-                  value={selectedSchool.district}
-                  onChange={handleChange}
-                />
-                {formErrors.district && (
-                  <p className="text-red-500 text-sm">{formErrors.district}</p>
-                )}
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="municipality" className="text-base">
                   Municipality *
                 </Label>
                 <select
                   id="municipality"
                   name="municipality"
-                  className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                   value={selectedSchool.municipality}
                   onChange={handleChange}
                 >
@@ -937,6 +962,29 @@ export default function SchoolsTable({
                 )}
               </div>
               <div className="space-y-2">
+                <Label htmlFor="district" className="text-base">
+                  District *
+                </Label>
+                <select
+                  id="district"
+                  name="district"
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 text-gray-800"
+                  value={selectedSchool.district}
+                  onChange={handleChange}
+                  disabled={!selectedSchool.municipality}
+                >
+                  <option value="">Select District</option>
+                  {districtOptions.map((district) => (
+                    <option key={district} value={district}>
+                      {district}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.district && (
+                  <p className="text-red-500 text-sm">{formErrors.district}</p>
+                )}
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="legislativeDistrict" className="text-base">
                   Legislative District *
                 </Label>
@@ -946,8 +994,8 @@ export default function SchoolsTable({
                   name="legislativeDistrict"
                   className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
                   placeholder="Legislative District"
-                  value={selectedSchool.legislativeDistrict}
-                  onChange={handleChange}
+                  value={autoLegislativeDistrict}
+                  disabled
                 />
                 {formErrors.legislativeDistrict && (
                   <p className="text-red-500 text-sm">
