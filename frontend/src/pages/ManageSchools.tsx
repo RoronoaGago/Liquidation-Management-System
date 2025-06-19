@@ -17,7 +17,11 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import api from "@/api/axios";
 import { Loader2Icon } from "lucide-react";
-import { laUnionMunicipalities } from "@/lib/constants";
+import {
+  laUnionMunicipalities,
+  municipalityDistricts,
+  firstDistrictMunicipalities,
+} from "@/lib/constants";
 
 interface SchoolFormData {
   schoolId: string;
@@ -34,7 +38,8 @@ const requiredFields = [
   "municipality",
   "legislativeDistrict",
 ];
-
+//TODO - Add validation for schoolId to ensure it is unique and follows a specific format if needed
+//TODO - Filtering options in the backend
 const ManageSchools = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -59,6 +64,8 @@ const ManageSchools = () => {
     municipality: "",
     legislativeDistrict: "",
   });
+  const [districtOptions, setDistrictOptions] = useState<string[]>([]);
+  const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
 
   const isFormValid =
     requiredFields.every(
@@ -94,6 +101,12 @@ const ManageSchools = () => {
 
   const filteredSchools = useMemo(() => {
     return allSchools.filter((school) => {
+      // Filter by archive status
+      if (showArchived) {
+        if (school.is_active !== false) return false;
+      } else {
+        if (school.is_active === false) return false;
+      }
       if (filterOptions.searchTerm) {
         const term = filterOptions.searchTerm.toLowerCase();
         return (
@@ -106,7 +119,7 @@ const ManageSchools = () => {
       }
       return true;
     });
-  }, [allSchools, filterOptions]);
+  }, [allSchools, filterOptions, showArchived]);
 
   const sortedSchools = useMemo(() => {
     if (!sortConfig) return filteredSchools;
@@ -229,6 +242,34 @@ const ManageSchools = () => {
     }
   };
 
+  // When municipality changes, update district and legislative district
+  useEffect(() => {
+    const mun = formData.municipality;
+    if (mun) {
+      setDistrictOptions(municipalityDistricts[mun] || []);
+      if (firstDistrictMunicipalities.includes(mun)) {
+        setAutoLegislativeDistrict("1st District");
+      } else {
+        setAutoLegislativeDistrict("2nd District");
+      }
+      setFormData((prev) => ({
+        ...prev,
+        district: "", // reset district when municipality changes
+        legislativeDistrict: firstDistrictMunicipalities.includes(mun)
+          ? "1st District"
+          : "2nd District",
+      }));
+    } else {
+      setDistrictOptions([]);
+      setAutoLegislativeDistrict("");
+      setFormData((prev) => ({
+        ...prev,
+        district: "",
+        legislativeDistrict: "",
+      }));
+    }
+  }, [formData.municipality]);
+
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Manage Schools" />
@@ -289,23 +330,6 @@ const ManageSchools = () => {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="district" className="text-base">
-                    District *
-                  </Label>
-                  <Input
-                    type="text"
-                    id="district"
-                    name="district"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="District"
-                    value={formData.district}
-                    onChange={handleChange}
-                  />
-                  {errors.district && (
-                    <p className="text-red-500 text-sm">{errors.district}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="municipality" className="text-base">
                     Municipality *
                   </Label>
@@ -331,6 +355,29 @@ const ManageSchools = () => {
                   )}
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="district" className="text-base">
+                    District *
+                  </Label>
+                  <select
+                    id="district"
+                    name="district"
+                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 text-gray-800 "
+                    value={formData.district}
+                    onChange={handleChange}
+                    disabled={!formData.municipality}
+                  >
+                    <option value="">Select District</option>
+                    {districtOptions.map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.district && (
+                    <p className="text-red-500 text-sm">{errors.district}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="legislativeDistrict" className="text-base">
                     Legislative District *
                   </Label>
@@ -340,8 +387,8 @@ const ManageSchools = () => {
                     name="legislativeDistrict"
                     className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
                     placeholder="Legislative District"
-                    value={formData.legislativeDistrict}
-                    onChange={handleChange}
+                    value={autoLegislativeDistrict}
+                    disabled
                   />
                   {errors.legislativeDistrict && (
                     <p className="text-red-500 text-sm">
@@ -401,6 +448,7 @@ const ManageSchools = () => {
           currentSort={sortConfig}
           loading={loading}
           error={error}
+          // Add archive props if needed
         />
       </div>
     </div>
