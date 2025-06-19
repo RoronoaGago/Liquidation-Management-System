@@ -152,4 +152,5 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   startIcon?: React.ReactNode; // Icon before the text
   endIcon?: React.ReactNode; // Icon after the text
   dataModal?: string;
+  type?: "button" | "submit" | "reset"; // Explicitly add this
 };
