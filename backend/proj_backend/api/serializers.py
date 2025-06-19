@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from hashids import Hashids
-from .models import User, School, Requirement, ListOfPriority
+from .models import User, School, Requirement, ListOfPriority, Request
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -131,7 +131,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
-        fields = '__all__'
+        fields = '__all__'  # is_active will be included automatically
 
 
 class RequirementSerializer(serializers.ModelSerializer):
@@ -155,21 +155,30 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'masked_lopid', 'expenseTitle',
-                  'requirements', 'requirement_ids']
+        fields = ['LOPID', 'expenseTitle', 'requirements',
+                  'requirement_ids', 'is_active']
+        extra_kwargs = {
+            'is_active': {'required': True}
+        }
+
+    def create(self, validated_data):
+        requirements = validated_data.pop('requirements', [])
+        instance = ListOfPriority.objects.create(**validated_data)
+        instance.requirements.set(requirements)
+        return instance
+
+    def update(self, instance, validated_data):
+        requirements = validated_data.pop('requirements', [])
+        instance.expenseTitle = validated_data.get(
+            'expenseTitle', instance.expenseTitle)
+        instance.is_active = validated_data.get(
+            'is_active', instance.is_active)
+        instance.save()
+        instance.requirements.set(requirements)
+        return instance
 
 
-hashids_lop = Hashids(salt="your_secret_salt", min_length=6)
-
-
-def get_object_by_masked_lopid(masked_lopid):
-    # Remove prefix
-    hashid_part = masked_lopid.replace("LOP-", "")
-    # Decode to get the integer ID
-    decoded = hashids_lop.decode(hashid_part)
-    if not decoded:
-        raise Http404("Invalid LOPID")
-    lopid = decoded[0]
-    # Now use lopid to fetch from DB
-    obj = ListOfPriority.objects.get(LOPID=lopid)
-    return obj
+class RequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Request
+        fields = '__all__'

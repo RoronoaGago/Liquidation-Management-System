@@ -10,6 +10,8 @@ const Button = ({
   className = "",
   disabled = false,
   dataModal,
+  type = "button", // Add default type here
+  ...rest // Capture all other props
 }: ButtonProps) => {
   // Size Classes
   const sizeClasses = {
@@ -33,6 +35,7 @@ const Button = ({
 
   return (
     <button
+      type={type} // Ensure type is passed through
       data-modal-target={dataModal}
       data-modal-toggle={dataModal}
       className={`inline-flex items-center justify-center gap-2 rounded-lg transition ${className} ${
@@ -42,6 +45,7 @@ const Button = ({
       }`}
       onClick={onClick}
       disabled={disabled}
+      {...rest} // Spread remaining props
     >
       {startIcon && <span className="flex items-center">{startIcon}</span>}
       {children}
