@@ -87,15 +87,12 @@ export default function SchoolsTable({
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
-  const [isBulkArchiveDialogOpen, setIsBulkArchiveDialogOpen] = useState(false);
-  const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
-  const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
-  const [schoolToView, setSchoolToView] = useState<School | null>(null);
   const [schoolToArchive, setSchoolToArchive] = useState<School | null>(null);
+  const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-
+  const [schoolToView, setSchoolToView] = useState<School | null>(null);
   const requiredFields = [
     "schoolId",
     "schoolName",
@@ -161,38 +158,25 @@ export default function SchoolsTable({
     return selectedSchools.includes(idNum);
   };
 
-  // Bulk actions
-  const handleBulkArchive = async (archive: boolean) => {
-    if (selectedSchools.length === 0) return;
+  // Archive handler
+  const handleArchiveConfirm = async () => {
+    if (!schoolToArchive) return;
     setIsSubmitting(true);
-
     try {
-      await Promise.all(
-        selectedSchools.map((schoolId) =>
-          api.patch(`http://127.0.0.1:8000/api/schools/${schoolId}/`, {
-            is_active: !archive,
-          })
-        )
+      await api.patch(
+        `http://127.0.0.1:8000/api/schools/${schoolToArchive.schoolId}/`,
+        {
+          is_active: false,
+        }
       );
-
-      toast.success(
-        `${selectedSchools.length} school${
-          selectedSchools.length > 1 ? "s" : ""
-        } ${archive ? "archived" : "restored"} successfully!`
-      );
-
+      toast.success("School archived successfully!");
       await fetchSchools();
-      setSelectedSchools([]);
-      setSelectAll(false);
+      setSchoolToArchive(null);
+      setIsArchiveDialogOpen(false);
     } catch (error) {
-      toast.error(
-        `Failed to ${
-          archive ? "archive" : "restore"
-        } schools. Please try again.`
-      );
+      toast.error("Failed to archive school. Please try again.");
     } finally {
       setIsSubmitting(false);
-      setIsBulkArchiveDialogOpen(false);
     }
   };
 
@@ -206,16 +190,6 @@ export default function SchoolsTable({
     setSelectedSchool({ ...school });
     setFormErrors({});
     setIsDialogOpen(true);
-  };
-
-  const handleDeleteClick = (school: School) => {
-    setSchoolToDelete(school);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleViewSchool = (school: School) => {
-    setSchoolToView(school);
-    setIsViewDialogOpen(true);
   };
 
   const handleArchiveClick = (school: School) => {
@@ -287,54 +261,6 @@ export default function SchoolsTable({
     }
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!schoolToDelete) return;
-    setIsSubmitting(true);
-
-    try {
-      await api.delete(
-        `http://127.0.0.1:8000/api/schools/${schoolToDelete.schoolId}/`
-      );
-      toast.success("School deleted successfully!");
-      await fetchSchools();
-    } catch (error) {
-      toast.error("Failed to delete school");
-    } finally {
-      setIsSubmitting(false);
-      setIsDeleteDialogOpen(false);
-      setSchoolToDelete(null);
-    }
-  };
-
-  const handleArchiveConfirm = async () => {
-    if (!schoolToArchive) return;
-    setIsSubmitting(true);
-
-    try {
-      const newStatus = !schoolToArchive.is_active;
-      await api.patch(
-        `http://127.0.0.1:8000/api/schools/${schoolToArchive.schoolId}/`,
-        {
-          is_active: newStatus,
-        }
-      );
-
-      toast.success(
-        `School ${newStatus ? "restored" : "archived"} successfully!`
-      );
-
-      await fetchSchools();
-    } catch (error) {
-      toast.error(
-        `Failed to ${schoolToArchive.is_active ? "archive" : "restore"} school`
-      );
-    } finally {
-      setIsSubmitting(false);
-      setIsArchiveDialogOpen(false);
-      setSchoolToArchive(null);
-    }
-  };
-
   const handleFilterChange = (name: string, value: string) => {
     setFilterOptions((prev: any) => ({
       ...prev,
@@ -353,7 +279,10 @@ export default function SchoolsTable({
 
   const [districtOptions, setDistrictOptions] = useState<string[]>([]);
   const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
-
+  const handleViewSchool = (school: School) => {
+    setSchoolToView(school);
+    setIsViewDialogOpen(true);
+  };
   useEffect(() => {
     if (!isDialogOpen || !selectedSchool) return;
     const mun = selectedSchool.municipality;
@@ -389,6 +318,40 @@ export default function SchoolsTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSchool?.municipality, isDialogOpen]);
 
+  const [isBulkArchiveDialogOpen, setIsBulkArchiveDialogOpen] = useState(false);
+  const handleBulkArchive = async (restore: boolean) => {
+    if (selectedSchools.length === 0) return;
+    setIsSubmitting(true);
+
+    try {
+      await Promise.all(
+        selectedSchools.map((schoolId) =>
+          api.patch(`http://127.0.0.1:8000/api/schools/${schoolId}/`, {
+            is_active: restore,
+          })
+        )
+      );
+
+      toast.success(
+        `${selectedSchools.length} school${
+          selectedSchools.length > 1 ? "s" : ""
+        } ${restore ? "restored" : "archived"} successfully!`
+      );
+
+      await fetchSchools();
+      setSelectedSchools([]);
+      setSelectAll(false);
+    } catch (error) {
+      toast.error(
+        `Failed to ${
+          restore ? "restore" : "archive"
+        } schools. Please try again.`
+      );
+    } finally {
+      setIsSubmitting(false);
+      setIsBulkArchiveDialogOpen(false);
+    }
+  };
   return (
     <div className="space-y-4">
       {/* Filters and Search */}
@@ -431,7 +394,7 @@ export default function SchoolsTable({
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setIsBulkArchiveDialogOpen(true)}
+                  onClick={() => setIsArchiveDialogOpen(true)}
                   startIcon={
                     isSubmitting ? (
                       <Loader2Icon className="h-4 w-4 animate-spin" />
@@ -770,7 +733,7 @@ export default function SchoolsTable({
                         >
                           <SquarePenIcon />
                         </button>
-                        {/* <button
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleArchiveClick(school);
@@ -787,16 +750,6 @@ export default function SchoolsTable({
                           ) : (
                             <ArchiveRestoreIcon />
                           )}
-                        </button> */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteClick(school);
-                          }}
-                          className="text-gray-600 hover:text-red-600"
-                          title="Delete School"
-                        >
-                          <X />
                         </button>
                       </div>
                     </TableCell>
@@ -1135,53 +1088,6 @@ export default function SchoolsTable({
                   onClick={() => setIsViewDialogOpen(false)}
                 >
                   Close
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
-          <DialogHeader className="mb-8">
-            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              Delete School
-            </DialogTitle>
-          </DialogHeader>
-          {schoolToDelete && (
-            <div className="space-y-4">
-              <p className="text-gray-600 dark:text-gray-400">
-                Are you sure you want to permanently delete school{" "}
-                <strong>{schoolToDelete.schoolName}</strong>? This action cannot
-                be undone.
-              </p>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsDeleteDialogOpen(false);
-                    setSchoolToDelete(null);
-                  }}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="error"
-                  onClick={handleDeleteConfirm}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="animate-spin size-4" />
-                      Deleting...
-                    </span>
-                  ) : (
-                    "Delete"
-                  )}
                 </Button>
               </div>
             </div>
