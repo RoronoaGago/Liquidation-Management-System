@@ -14,9 +14,8 @@ import RequestDetailPage from "./pages/RequestDetailPage";
 // import StudentPerformanceReport from "./pages/StudentPerformanceReport";
 import UserProfile from "./pages/UserProfiles";
 // import MyClasses from "./pages/MyClasses";
-
+import ManageListOfPriorities from "./pages/ManageListOfPriorities";
 import NotAuthorized from "./pages/NotAuthorized";
-import ManageExpenseAccounts from "./pages/ManageExpenseAccounts";
 import FundRequestApproval from "./pages/FundRequestApproval";
 import ListOfPrioritiesPage from "./pages/FundRequest";
 import ManageSchools from "./pages/ManageSchools";
@@ -44,8 +43,8 @@ const App = () => {
               {/* <Route path="/users" element={<ManageUsers />} /> */}
               <Route path="/schools" element={<ManageSchools />} />
               <Route
-                path="/expense-accounts"
-                element={<ManageExpenseAccounts />}
+                path="/list-of-priorities"
+                element={<ManageListOfPriorities />}
               />
             </Route>
 
@@ -100,7 +99,7 @@ const App = () => {
                 element={<RequestDetailPage />}
               />
               <Route
-                path="/list-of-priorities"
+                path="/prepare-list-of-priorities"
                 element={<ListOfPrioritiesPage />}
               />
             </Route>

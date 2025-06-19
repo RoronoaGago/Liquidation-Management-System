@@ -27,6 +27,7 @@
     "antd": "^5.24.6",
     "apexcharts": "^4.1.0",
     "axios": "^1.8.4",
+    "canvg": "^4.0.3",
     "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",
     "clsx": "^2.1.1",

@@ -142,16 +142,12 @@ class RequirementSerializer(serializers.ModelSerializer):
 
 class ListOfPrioritySerializer(serializers.ModelSerializer):
     requirements = RequirementSerializer(read_only=True, many=True)
-    requirement_ids = serializers.PrimaryKeyRelatedField(
+    requirement_ids = serializers.PrimaryKeyRelatedFipeld(
         queryset=Requirement.objects.all(),
         many=True,
         write_only=True,
         source='requirements'
     )
-    masked_lopid = serializers.SerializerMethodField()
-
-    def get_masked_lopid(self, obj):
-        return f"LOP-{hashids_lop.encode(obj.LOPID)}"
 
     class Meta:
         model = ListOfPriority

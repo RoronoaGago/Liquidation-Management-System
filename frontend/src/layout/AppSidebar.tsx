@@ -48,8 +48,8 @@ const allNavItems: NavItem[] = [
   },
   {
     icon: <BanknoteIcon />,
-    name: "Manage Expense Accounts",
-    path: "/expense-accounts",
+    name: "Manage List of Priorities",
+    path: "/list-of-priorities",
     roles: ["admin"], // Only admin
   },
   {
