@@ -1,5 +1,3 @@
-
-
 export const options = [
   { value: "marketing", label: "Marketing" },
   { value: "template", label: "Template" },
@@ -12,27 +10,28 @@ export const serviceTypeOptions = [
 ];
 
 export const laUnionMunicipalities = [
-  "AGOO",
-  "ARINGAY",
-  "BACNOTAN",
-  "BAGULIN",
-  "BALAOAN",
-  "BANGAR",
-  "BAUANG",
-  "BURGOS",
-  "CABA",
-  "LUNA",
-  "NAGUILIAN",
-  "PUGO",
-  "ROSARIO",
-  "SAN FERNANDO CITY", // Capital city, often included in lists of municipalities/towns
-  "SAN GABRIEL",
-  "SAN JUAN",
-  "SANTO TOMAS",
-  "SANTOL",
-  "SUDIPEN",
-  "TUBAO"
+  "AGOO", "ARINGAY", "BACNOTAN", "BAGULIN", "BALAOAN", "BANGAR", "BAUANG", "BURGOS",
+  "CABA", "LUNA", "NAGUILIAN", "PUGO", "ROSARIO", "SAN FERNANDO CITY", "SAN GABRIEL",
+  "SAN JUAN", "SANTO TOMAS", "SANTOL", "SUDIPEN", "TUBAO"
 ];
+
+// Map municipality to possible districts
+export const municipalityDistricts: Record<string, string[]> = {
+  AGOO: ["AGOO EAST", "AGOO WEST"],
+  ARINGAY: ["ARINGAY EAST", "ARINGAY WEST"],
+  BACNOTAN: ["BACNOTAN EAST", "BACNOTAN WEST"],
+  // ...add other mappings as needed...
+  // For municipalities with only one district, use a single-element array
+  "SAN FERNANDO CITY": ["SAN FERNANDO CITY"],
+  // etc.
+};
+
+// 1st district municipalities
+export const firstDistrictMunicipalities = [
+  "BANGAR", "LUNA", "SUDIPEN", "BALAOAN", "SANTOL", "BACNOTAN",
+  "SAN GABRIEL", "SAN JUAN", "SAN FERNANDO CITY"
+];
+
 export const roleMap: Record<string, string> = {
   admin: "Administrator",
   school_head: "School Head",

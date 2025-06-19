@@ -66,20 +66,22 @@ class User(AbstractUser):
 
 
 class School(models.Model):
-    district = models.CharField(max_length=100)
-    schoolId = models.CharField(primary_key=True, max_length=10)
+    schoolId = models.CharField(
+        max_length=10, primary_key=True, editable=False)  # Primary Key
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
+    district = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)  # Added for archiving
 
     def __str__(self):
-        return self.schoolName
+        return f"{self.schoolName} ({self.schoolId})"
 
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
     requirementTitle = models.CharField(max_length=255)
-    description = models.TextField()
+    is_required = models.BooleanField(default=False)  # <-- updated field
 
     def __str__(self):
         return self.requirementTitle
@@ -88,8 +90,31 @@ class Requirement(models.Model):
 class ListOfPriority(models.Model):
     LOPID = models.AutoField(primary_key=True)
     expenseTitle = models.CharField(max_length=255)
-    requirement = models.ManyToManyField(
+    requirements = models.ManyToManyField(
         Requirement, related_name='priorities')
+    is_active = models.BooleanField(default=True)  # Add this field
 
     def __str__(self):
         return self.expenseTitle
+
+
+class Request(models.Model):
+    STATUS_CHOICES = [
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('pending', 'Pending'),
+        ('inliquidated', 'Inliquidated'),
+    ]
+
+    request_id = models.AutoField(primary_key=True)
+    # Replace User with your custom User model if needed
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    request_month = models.DateField()
+    priorities = models.ForeignKey(
+        ListOfPriority, on_delete=models.SET_NULL, null=True, related_name='requests')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    def __str__(self):
+        return f"Request #{self.request_id} - {self.status}"
