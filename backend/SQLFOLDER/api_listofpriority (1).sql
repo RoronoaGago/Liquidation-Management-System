@@ -27,10 +27,10 @@ SET time_zone = "+00:00";
 -- Table structure for table `api_listofpriority`
 --
 
-CREATE TABLE `api_listofpriority` (
-  `LOPID` int(11) NOT NULL,
-  `expenseTitle` varchar(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+-- CREATE TABLE `api_listofpriority` (
+--   `LOPID` int(11) NOT NULL,
+--   `expenseTitle` varchar(255) NOT NULL
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 --
 -- Dumping data for table `api_listofpriority`
