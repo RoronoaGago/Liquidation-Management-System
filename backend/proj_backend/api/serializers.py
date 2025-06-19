@@ -1,11 +1,9 @@
 from rest_framework import serializers
-from hashids import Hashids
 from .models import User, School, Requirement, ListOfPriority, Request
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
 import uuid
-hashids_lop = Hashids(salt="your_secret_salt", min_length=6)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -142,7 +140,7 @@ class RequirementSerializer(serializers.ModelSerializer):
 
 class ListOfPrioritySerializer(serializers.ModelSerializer):
     requirements = RequirementSerializer(read_only=True, many=True)
-    requirement_ids = serializers.PrimaryKeyRelatedFipeld(
+    requirement_ids = serializers.PrimaryKeyRelatedField(
         queryset=Requirement.objects.all(),
         many=True,
         write_only=True,
