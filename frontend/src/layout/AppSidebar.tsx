@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 // import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
@@ -49,7 +50,7 @@ const allNavItems: NavItem[] = [
     icon: <BanknoteIcon />,
     name: "Manage Expense Accounts",
     path: "/expense-accounts",
-    roles: ["school_admin"], // Only admin
+    roles: ["admin"], // Only admin
   },
   {
     icon: <BanknoteIcon />,

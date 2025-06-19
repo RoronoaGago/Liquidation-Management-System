@@ -2,6 +2,7 @@ type BadgeVariant = "light" | "solid";
 type BadgeSize = "sm" | "md";
 type BadgeColor =
   | "primary"
+  | "secondary" // <-- Add this line
   | "success"
   | "error"
   | "warning"
@@ -40,6 +41,8 @@ const Badge: React.FC<BadgeProps> = ({
     light: {
       primary:
         "bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400",
+      secondary:
+        "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200", // <-- Add this line
       success:
         "bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500",
       error:
@@ -52,6 +55,7 @@ const Badge: React.FC<BadgeProps> = ({
     },
     solid: {
       primary: "bg-brand-500 text-white dark:text-white",
+      secondary: "bg-gray-600 text-white dark:bg-gray-400 dark:text-gray-900", // <-- Add this line
       success: "bg-success-500 text-white dark:text-white",
       error: "bg-error-500 text-white dark:text-white",
       warning: "bg-warning-500 text-white dark:text-white",
