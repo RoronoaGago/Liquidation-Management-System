@@ -8,8 +8,8 @@ from rest_framework import generics
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import User, School, Requirement, ListOfPriority, RequestManagement
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer,LiquidationDocumentSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated
@@ -69,6 +69,7 @@ def user_list(request):
                 Q(username__icontains=search_term) |
                 Q(email__icontains=search_term) |
                 Q(phone_number__icontains=search_term) |
+                Q(sex__icontains=search_term) |
                 # <-- Fix: use related field
                 Q(school__schoolName__icontains=search_term) |
                 # <-- Optionally add this too
@@ -253,10 +254,132 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     serializer_class = ListOfPrioritySerializer
     lookup_field = 'LOPID'
 
-class RequestManagementCreateView(generics.CreateAPIView):
+class RequestManagementViewSet(viewsets.ModelViewSet):
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
 
-class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = RequestManagement.objects.all()
-    serializer_class = RequestManagementSerializer
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ['admin', 'liquidator', 'accountant']:
+            return self.queryset.all()
+        return self.queryset.filter(user=user)
+
+    @action(detail=True, methods=['post'])
+    def submit_for_liquidation(self, request, pk=None):
+        request_obj = self.get_object()
+        if request_obj.status != 'approved':
+            return Response(
+                {'error': 'Request must be approved before liquidation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        liquidation, created = LiquidationManagement.objects.get_or_create(
+            request=request_obj,
+            defaults={'status': 'ongoing'}
+        )
+        
+        if not created:
+            return Response(
+                {'error': 'Liquidation already exists for this request'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        request_obj.status = 'inliquidated'
+        request_obj.save()
+        
+        serializer = LiquidationManagementSerializer(
+            liquidation,
+            context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class LiquidationManagementViewSet(viewsets.ModelViewSet):
+    queryset = LiquidationManagement.objects.all()
+    serializer_class = LiquidationManagementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ['admin', 'liquidator', 'accountant']:
+            return self.queryset.all()
+        return self.queryset.filter(request__user=user)
+
+    @action(detail=True, methods=['post'])
+    def upload_document(self, request, pk=None):
+        liquidation = self.get_object()
+        request_priority_id = request.data.get('request_priority')
+        requirement_id = request.data.get('requirement')
+        
+        try:
+            request_priority = RequestPriority.objects.get(
+                pk=request_priority_id,
+                request=liquidation.request
+            )
+            requirement = Requirement.objects.get(pk=requirement_id)
+            
+            document, created = LiquidationDocument.objects.update_or_create(
+                liquidation=liquidation,
+                request_priority=request_priority,
+                requirement=requirement,
+                defaults={
+                    'document': request.FILES.get('document'),
+                    'uploaded_by': request.user
+                }
+            )
+            
+            serializer = LiquidationDocumentSerializer(
+                document,
+                context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def review_document(self, request, pk=None):
+        liquidation = self.get_object()
+        document_id = request.data.get('document_id')
+        is_approved = request.data.get('is_approved', False)
+        comment = request.data.get('comment', '')
+        
+        try:
+            document = liquidation.documents.get(pk=document_id)
+            document.is_approved = is_approved
+            document.reviewer_comment = comment
+            document.save()
+            
+            # Check if all documents are approved
+            if not liquidation.documents.filter(is_approved=False).exists():
+                liquidation.status = 'completed'
+                liquidation.reviewed_by = request.user
+                liquidation.reviewed_at = timezone.now()
+                liquidation.save()
+            
+            return Response(
+                LiquidationManagementSerializer(
+                    liquidation,
+                    context={'request': request}
+                ).data
+            )
+        
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class LiquidationDocumentViewSet(viewsets.ModelViewSet):
+    queryset = LiquidationDocument.objects.all()
+    serializer_class = LiquidationDocumentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        liquidation_id = self.request.query_params.get('liquidation_id')
+        if liquidation_id:
+            return self.queryset.filter(liquidation_id=liquidation_id)
+        return self.queryset.none()
