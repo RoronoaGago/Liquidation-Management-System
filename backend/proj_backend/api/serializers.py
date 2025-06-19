@@ -129,7 +129,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
-        fields = '__all__'
+        fields = '__all__'  # is_active will be included automatically
 
 
 class RequirementSerializer(serializers.ModelSerializer):
@@ -157,8 +157,8 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
         instance.requirement.set(requirements)
         return instance
 
+
 class RequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Request
         fields = '__all__'
-

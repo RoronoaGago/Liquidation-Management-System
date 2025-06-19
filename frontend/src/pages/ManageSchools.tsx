@@ -101,6 +101,12 @@ const ManageSchools = () => {
 
   const filteredSchools = useMemo(() => {
     return allSchools.filter((school) => {
+      // Filter by archive status
+      if (showArchived) {
+        if (school.is_active !== false) return false;
+      } else {
+        if (school.is_active === false) return false;
+      }
       if (filterOptions.searchTerm) {
         const term = filterOptions.searchTerm.toLowerCase();
         return (
@@ -113,7 +119,7 @@ const ManageSchools = () => {
       }
       return true;
     });
-  }, [allSchools, filterOptions]);
+  }, [allSchools, filterOptions, showArchived]);
 
   const sortedSchools = useMemo(() => {
     if (!sortConfig) return filteredSchools;
@@ -442,6 +448,7 @@ const ManageSchools = () => {
           currentSort={sortConfig}
           loading={loading}
           error={error}
+          // Add archive props if needed
         />
       </div>
     </div>
