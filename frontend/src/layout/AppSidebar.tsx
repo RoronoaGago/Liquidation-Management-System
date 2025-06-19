@@ -17,7 +17,12 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { NavItem } from "@/lib/types";
-import { BanknoteIcon, PhilippinePeso, ReceiptText } from "lucide-react";
+import {
+  BanknoteIcon,
+  PhilippinePeso,
+  ReceiptText,
+  SchoolIcon,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 // Define all possible navigation items with role permissions
@@ -26,13 +31,19 @@ const allNavItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
-    roles: ["school_admin", "school_head", "teacher"], // All roles can access
+    roles: ["admin", "school_head", "teacher", "superintendent"], // All roles can access
   },
   {
     icon: <UserCircleIcon />,
     name: "Manage Users",
     path: "/users",
-    roles: ["school_admin"], // Only admin
+    roles: ["admin", "school_admin", "school_head"], // Only admin
+  },
+  {
+    icon: <SchoolIcon />,
+    name: "Manage Schools",
+    path: "/schools",
+    roles: ["admin", "school_admin", "school_head"], // Only admin
   },
   {
     icon: <BanknoteIcon />,
@@ -59,32 +70,38 @@ const allNavItems: NavItem[] = [
     path: "/liquidation",
     roles: ["school_head"], // Only admin
   },
-
   {
-    icon: <ReportIcon />,
-    name: "Generate Report",
-    roles: ["school_admin", "school_head"], // Admin and school heads
-    subItems: [
-      {
-        name: "Sales",
-        path: "/generate-report/sales",
-        pro: false,
-        roles: ["school_admin"], // Only admin can see this sub-item
-      },
-      {
-        name: "Customer Frequency",
-        path: "/generate-report/customer-frequency",
-        pro: false,
-        roles: ["school_admin", "school_head"],
-      },
-      {
-        name: "Student Performance",
-        path: "/generate-report/student-performance",
-        pro: false,
-        roles: ["school_head", "teacher"],
-      },
-    ],
+    icon: <PhilippinePeso />,
+    name: "School Heads' Priority Submissions",
+    path: "/submitted-priorities",
+    roles: ["superintendent"], // Only for division superintendent
   },
+
+  // {
+  //   icon: <ReportIcon />,
+  //   name: "Generate Report",
+  //   roles: ["admin", "school_head"], // Admin and school heads
+  //   subItems: [
+  //     {
+  //       name: "Sales",
+  //       path: "/generate-report/sales",
+  //       pro: false,
+  //       roles: ["admin"], // Only admin can see this sub-item
+  //     },
+  //     {
+  //       name: "Customer Frequency",
+  //       path: "/generate-report/customer-frequency",
+  //       pro: false,
+  //       roles: ["admin", "school_head"],
+  //     },
+  //     {
+  //       name: "Student Performance",
+  //       path: "/generate-report/student-performance",
+  //       pro: false,
+  //       roles: ["school_head", "teacher"],
+  //     },
+  //   ],
+  // },
   {
     icon: <UserCircleIcon />,
     name: "User Profile",
@@ -99,36 +116,31 @@ const allNavItems: NavItem[] = [
   },
 ];
 
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    roles: ["school_admin", "school_head"],
-    subItems: [
-      {
-        name: "Line Chart",
-        path: "/line-chart",
-        pro: false,
-        roles: ["school_admin", "school_head"],
-      },
-      {
-        name: "Bar Chart",
-        path: "/bar-chart",
-        pro: false,
-        roles: ["school_admin"],
-      },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    roles: ["school_admin"],
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false, roles: ["school_admin"] },
-      { name: "Avatar", path: "/avatars", pro: false, roles: ["school_admin"] },
-    ],
-  },
-];
+// const othersItems: NavItem[] = [
+//   {
+//     icon: <PieChartIcon />,
+//     name: "Charts",
+//     roles: ["admin", "school_head"],
+//     subItems: [
+//       {
+//         name: "Line Chart",
+//         path: "/line-chart",
+//         pro: false,
+//         roles: ["admin", "school_head"],
+//       },
+//       { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
+//     ],
+//   },
+//   {
+//     icon: <BoxCubeIcon />,
+//     name: "UI Elements",
+//     roles: ["admin"],
+//     subItems: [
+//       { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
+//       { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
+//     ],
+//   },
+// ];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -188,7 +200,7 @@ const AppSidebar: React.FC = () => {
   useEffect(() => {
     // Filter items whenever userRole changes
     setNavItems(filterItemsByRole(allNavItems));
-    setFilteredOthersItems(filterItemsByRole(othersItems));
+    // setFilteredOthersItems(filterItemsByRole(othersItems));
     console.log(user?.role);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
@@ -441,7 +453,7 @@ const AppSidebar: React.FC = () => {
             </div>
 
             {/* Others menu section */}
-            {filteredOthersItems.length > 0 && (
+            {/* {filteredOthersItems.length > 0 && (
               <div className="">
                 <h2
                   className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
@@ -458,7 +470,7 @@ const AppSidebar: React.FC = () => {
                 </h2>
                 {renderMenuItems(filteredOthersItems, "others")}
               </div>
-            )}
+            )} */}
           </div>
         </nav>
       </div>

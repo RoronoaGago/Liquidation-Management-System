@@ -19,6 +19,8 @@ import NotAuthorized from "./pages/NotAuthorized";
 import ManageExpenseAccounts from "./pages/ManageExpenseAccounts";
 import FundRequestApproval from "./pages/FundRequestApproval";
 import ListOfPrioritiesPage from "./pages/FundRequest";
+import ManageSchools from "./pages/ManageSchools";
+import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
 
 const App = () => {
   return (
@@ -38,8 +40,9 @@ const App = () => {
             </Route>
 
             {/* Admin-only routes */}
-            <Route element={<RequireAuth allowedRoles={["school_admin"]} />}>
-              <Route path="/users" element={<ManageUsers />} />
+            <Route element={<RequireAuth allowedRoles={["admin"]} />}>
+              {/* <Route path="/users" element={<ManageUsers />} /> */}
+              <Route path="/schools" element={<ManageSchools />} />
               <Route
                 path="/expense-accounts"
                 element={<ManageExpenseAccounts />}
@@ -48,9 +51,21 @@ const App = () => {
 
             {/* School Head-only routes */}
             <Route element={<RequireAuth allowedRoles={["school_head"]} />}>
-              <Route
+              {/* <Route
                 path="/list-of-priorities"
                 element={<ListOfPrioritiesPage />}
+              /> */}
+              {/* <Route
+                path="/fund-request/request-list"
+                element={<RequestsList />}
+              /> */}
+              {/* <Route path="/liquidation" element={<Liquidation />} /> */}
+            </Route>
+
+            <Route element={<RequireAuth allowedRoles={["superintendent"]} />}>
+              <Route
+                path="/submitted-priorities"
+                element={<PriortySubmissionsPage />}
               />
               {/* <Route
                 path="/fund-request/request-list"
@@ -77,13 +92,16 @@ const App = () => {
 
             {/* Shared routes for multiple roles */}
             <Route
-              element={
-                <RequireAuth allowedRoles={["school_admin", "school_head"]} />
-              }
+              element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
             >
+              <Route path="/users" element={<ManageUsers />} />
               <Route
                 path="/fund-requests/:id"
                 element={<RequestDetailPage />}
+              />
+              <Route
+                path="/list-of-priorities"
+                element={<ListOfPrioritiesPage />}
               />
             </Route>
           </Route>

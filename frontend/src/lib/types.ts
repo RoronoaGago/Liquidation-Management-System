@@ -10,6 +10,15 @@ export interface BaseUser {
   profile_picture?: string; // For stored profile pictures (URL or path)
 }
 
+// src/lib/types.ts
+export interface School {
+  district: string;
+  schoolId: string;
+  schoolName: string;
+  municipality: string;
+  legislativeDistrict: string;
+  is_active?: boolean;
+}
 export type User = {
   id: number;
   first_name: string;
@@ -24,7 +33,7 @@ export type User = {
   is_active: boolean;
   password: string;
   confirm_password: string;
-  school: string;
+  school: number | School | null;
   profile_picture_base64?: string;
 };
 export type SortDirection = "asc" | "desc" | null;
@@ -100,17 +109,9 @@ export type UserFormData = {
   email: string;
   phone_number: string;
 };
-
-export type ExpenseAccountFormData = {
-  name: string;
-  description: string;
-  date_created: string;
-  date_updated?: string;
-};
-
-export type SupportingDocument = {
-  name: string;
-  description: string;
+export type ListofPriorityData = {
+  LOPID: number;
+  expenseTitle: string;
 };
 
 export type NavItem = {
@@ -151,4 +152,5 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   startIcon?: React.ReactNode; // Icon before the text
   endIcon?: React.ReactNode; // Icon after the text
   dataModal?: string;
+  type?: "button" | "submit" | "reset"; // Explicitly add this
 };

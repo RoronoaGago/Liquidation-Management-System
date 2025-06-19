@@ -8,8 +8,8 @@ from rest_framework import generics
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import User, School, Requirement, ListOfPriority
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer
+from .models import User, School, Requirement, ListOfPriority, Request
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated
@@ -56,7 +56,10 @@ def user_list(request):
 
         # School filter
         if school_filter:
-            queryset = queryset.filter(school__icontains=school_filter)
+            queryset = queryset.filter(
+                school__schoolName__icontains=school_filter)
+            queryset = queryset.filter(
+                school__schoolId__icontains=school_filter)
 
         # Search filter
         if search_term:
@@ -66,7 +69,10 @@ def user_list(request):
                 Q(username__icontains=search_term) |
                 Q(email__icontains=search_term) |
                 Q(phone_number__icontains=search_term) |
-                Q(school__icontains=search_term)
+                # <-- Fix: use related field
+                Q(school__schoolName__icontains=search_term) |
+                # <-- Optionally add this too
+                Q(school__schoolId__icontains=search_term)
             )
 
         queryset = queryset.order_by('-date_joined')
@@ -174,29 +180,83 @@ def user_detail(request, pk):
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class SchoolListCreateAPIView(generics.ListCreateAPIView):
-    queryset = School.objects.all()
     serializer_class = SchoolSerializer
+
+    def get_queryset(self):
+        queryset = School.objects.all()
+        search_term = self.request.query_params.get('search', None)
+        if search_term:
+            queryset = queryset.filter(
+                Q(schoolName__icontains=search_term) |
+                Q(district__icontains=search_term) |
+                Q(municipality__icontains=search_term)
+            )
+        return queryset.order_by('schoolName')
+
+# Add a new endpoint for school search
+
+
+@api_view(['GET'])
+def search_schools(request):
+    search_term = request.query_params.get('search', '')
+    schools = School.objects.filter(
+        Q(schoolName__icontains=search_term) |
+        Q(district__icontains=search_term) |
+        Q(municipality__icontains=search_term)
+    ).order_by('schoolName')[:10]  # Limit to 10 results
+    serializer = SchoolSerializer(schools, many=True)
+    return Response(serializer.data)
+
 
 class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = School.objects.all()
     serializer_class = SchoolSerializer
-    lookup_field = 'id'
+    lookup_field = 'schoolId'
+
 
 class RequirementListCreateAPIView(generics.ListCreateAPIView):
     queryset = Requirement.objects.all()
     serializer_class = RequirementSerializer
+
+    def create(self, request, *args, **kwargs):
+        is_many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Requirement.objects.all()
     serializer_class = RequirementSerializer
     lookup_field = 'requirementID'
 
+
 class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
     queryset = ListOfPriority.objects.all()
     serializer_class = ListOfPrioritySerializer
+
+    def create(self, request, *args, **kwargs):
+        is_many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ListOfPriority.objects.all()
     serializer_class = ListOfPrioritySerializer
     lookup_field = 'LOPID'
+
+class RequestListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Request.objects.all()
+    serializer_class = RequestSerializer
+
+class RequestRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Request.objects.all()
+    serializer_class = RequestSerializer
