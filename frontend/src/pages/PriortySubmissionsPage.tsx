@@ -275,37 +275,53 @@ const PriortySubmissionsPage = () => {
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Priority Submission Details
             </DialogTitle>
-            <DialogDescription className="text-gray-600 dark:text-gray-400">
-              Submitted by {viewedSubmission?.submitted_by.name} (
-              {viewedSubmission?.submitted_by.school})
-            </DialogDescription>
           </DialogHeader>
           {viewedSubmission && (
-            <div className="space-y-4">
-              <div>
-                <span className="font-semibold">Request ID:</span>{" "}
-                {viewedSubmission.id}
+            <div>
+              <div className="space-y-2">
+                {/* Sender Details Card */}
+                <div className="border rounded-md p-4 bg-gray-50 dark:bg-gray-900/30">
+                  <div className="flex flex-col gap-1">
+                    <div>
+                      <span className="font-semibold">Request ID:</span>{" "}
+                      <span>{viewedSubmission.id}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Submitted by:</span>{" "}
+                      <span>{viewedSubmission.submitted_by.name}</span>
+                      <span className="ml-2 text-sm text-gray-500">
+                        (School Head)
+                      </span>
+                    </div>
+
+                    <div className="text-sm text-gray-700 dark:text-gray-300">
+                      <span className="font-semibold">School:</span>{" "}
+                      {viewedSubmission.submitted_by.school}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Status:</span>{" "}
+                      <Badge
+                        color={
+                          viewedSubmission.status === "pending"
+                            ? "warning"
+                            : viewedSubmission.status === "approved"
+                            ? "success"
+                            : "error"
+                        }
+                      >
+                        {viewedSubmission.status.charAt(0).toUpperCase() +
+                          viewedSubmission.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Submitted At:</span>{" "}
+                      {new Date(viewedSubmission.submitted_at).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="font-semibold">Status:</span>{" "}
-                <Badge
-                  color={
-                    viewedSubmission.status === "pending"
-                      ? "warning"
-                      : viewedSubmission.status === "approved"
-                      ? "success"
-                      : "error"
-                  }
-                >
-                  {viewedSubmission.status.charAt(0).toUpperCase() +
-                    viewedSubmission.status.slice(1)}
-                </Badge>
-              </div>
-              <div>
-                <span className="font-semibold">Submitted At:</span>{" "}
-                {new Date(viewedSubmission.submitted_at).toLocaleString()}
-              </div>
-              <div>
+
+              <div className="mt-6">
                 <span className="font-semibold">List of Priorities:</span>
                 <table className="w-full mt-2 border">
                   <thead>
