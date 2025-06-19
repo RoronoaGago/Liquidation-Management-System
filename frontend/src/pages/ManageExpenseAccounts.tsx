@@ -41,7 +41,9 @@ const ManageExpenseAccounts = () => {
       setRequirements(reqsRes.data);
     } catch (err) {
       const error =
-        err instanceof Error ? err : new Error("Failed to fetch LOPs");
+        err instanceof Error
+          ? err
+          : new Error("Failed to fetch List of Priorities");
       setError(error);
       toast.error("Failed to load List of Priorities");
     } finally {
@@ -96,10 +98,10 @@ const ManageExpenseAccounts = () => {
         requirement_ids: [],
       });
       setLOPs([...lops, response.data]);
-      toast.success("New LOP created successfully!");
+      toast.success("New List of Priority created successfully!");
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      toast.error("Failed to create new LOP");
+      toast.error("Failed to create new List of Priority");
     }
   };
 
@@ -115,7 +117,7 @@ const ManageExpenseAccounts = () => {
             startIcon={<PlusIcon className="size-6" />}
             onClick={handleAddNewLOP}
           >
-            Add New LOP
+            Add New List of Priority
           </Button>
         </div>
 
