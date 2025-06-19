@@ -68,9 +68,7 @@ const ManageExpenseAccounts = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
-
   const [allUsers, setAllUsers] = useState<User[]>([]);
-
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -281,7 +279,6 @@ const ManageExpenseAccounts = () => {
           }
           break;
         case "date_of_birth":
-          // eslint-disable-next-line no-case-declarations
           const dateError = validateDateOfBirth(value);
           if (dateError) {
             newErrors.date_of_birth = dateError;
@@ -451,7 +448,7 @@ const ManageExpenseAccounts = () => {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <PageBreadcrumb pageTitle="Manage Expense Accounts" />
+      <PageBreadcrumb pageTitle="Manage Users" />
       <div className="space-y-6">
         <div className="flex justify-end">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -461,7 +458,7 @@ const ManageExpenseAccounts = () => {
                 variant="primary"
                 startIcon={<PlusIcon className="size-6" />}
               >
-                Add New Expense Account
+                Add New User
               </Button>
             </DialogTrigger>
             <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar">

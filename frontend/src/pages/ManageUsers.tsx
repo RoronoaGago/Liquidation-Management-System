@@ -24,8 +24,15 @@ import {
   validatePassword,
   validatePhoneNumber,
 } from "@/lib/helpers";
-import { FilterOptions, SortableField, SortDirection, User } from "@/lib/types";
+import {
+  FilterOptions,
+  School,
+  SortableField,
+  SortDirection,
+  User,
+} from "@/lib/types";
 import api from "@/api/axios";
+import SchoolSelect from "@/components/form/SchoolSelect";
 
 interface UserFormData {
   first_name: string;
@@ -64,6 +71,7 @@ const requiredFields = [
 const ManageUsers = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [schools, setSchools] = useState<School[]>([]); // Assuming you have a list of schools
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -113,7 +121,7 @@ const ManageUsers = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("http://127.0.0.1:8000/api/users/", {
+      const response = await api.get("users/", {
         params: {
           archived: showArchived, // This is now the single source of truth for archive status
           role: filterOptions.role || undefined,
@@ -134,6 +142,10 @@ const ManageUsers = () => {
   };
   useEffect(() => {
     fetchUsers();
+    const response = api.get("schools/");
+    response.then((res) => {
+      setSchools(res.data);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showArchived, filterOptions]);
 
@@ -302,7 +314,7 @@ const ManageUsers = () => {
               formData.role === "school_admin") &&
             !value.trim()
           ) {
-            newErrors.school = "School is required for this role.";
+            newErrors.school = "Please select a school from the list.";
           } else {
             delete newErrors.school;
           }
@@ -558,23 +570,6 @@ const ManageUsers = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="text-base">
-                    Username *
-                  </Label>
-                  <Input
-                    type="text"
-                    id="username"
-                    name="username"
-                    placeholder="johndoe123"
-                    value={formData.username}
-                    onChange={handleChange}
-                  />
-                  {errors.username && (
-                    <p className="text-red-500 text-sm">{errors.username}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="email" className="text-base">
                     Email *
                   </Label>
@@ -591,7 +586,88 @@ const ManageUsers = () => {
                     <p className="text-red-500 text-sm">{errors.email}</p>
                   )}
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone_number" className="text-base">
+                    Phone Number
+                  </Label>
+                  <Input
+                    type="tel"
+                    id="phone_number"
+                    name="phone_number"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    placeholder="+1 (555) 123-4567"
+                    value={formData.phone_number}
+                    onChange={handleChange}
+                    onInput={handlePhoneNumberInput}
+                  />
+                  {errors.phone_number && (
+                    <p className="text-red-500 text-sm">
+                      {errors.phone_number}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-base">
+                    Username *
+                  </Label>
+                  <Input
+                    type="text"
+                    id="username"
+                    name="username"
+                    placeholder="johndoe123"
+                    value={formData.username}
+                    onChange={handleChange}
+                  />
+                  {errors.username && (
+                    <p className="text-red-500 text-sm">{errors.username}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role" className="text-base">
+                    Role *
+                  </Label>
+                  <select
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  >
+                    {roleOptions.map((option) => (
+                      <option
+                        key={option.value}
+                        value={option.value}
+                        className="text-gray-700"
+                        disabled={
+                          option.value === "admin" &&
+                          currentUser?.role !== "admin"
+                        }
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.role && (
+                    <p className="text-red-500 text-sm">{errors.role}</p>
+                  )}
+                </div>
 
+                {(formData.role === "school_head" ||
+                  formData.role === "school_admin") && (
+                  <SchoolSelect
+                    value={formData.school ? Number(formData.school) : null}
+                    onChange={(schoolId) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        school: schoolId !== null ? String(schoolId) : "",
+                      }));
+                      if (errors.school)
+                        setErrors((prev) => ({ ...prev, school: "" }));
+                    }}
+                    required
+                    error={errors.school}
+                  />
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="password" className="text-base">
@@ -669,57 +745,6 @@ const ManageUsers = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="role" className="text-base">
-                    Role *
-                  </Label>
-                  <select
-                    id="role"
-                    name="role"
-                    value={formData.role}
-                    onChange={handleChange}
-                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  >
-                    {roleOptions.map((option) => (
-                      <option
-                        key={option.value}
-                        value={option.value}
-                        className="text-gray-700"
-                        disabled={
-                          option.value === "admin" &&
-                          currentUser?.role !== "admin"
-                        }
-                      >
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.role && (
-                    <p className="text-red-500 text-sm">{errors.role}</p>
-                  )}
-                </div>
-
-                {(formData.role === "school_head" ||
-                  formData.role === "school_admin") && (
-                  <div className="space-y-2">
-                    <Label htmlFor="school" className="text-base">
-                      School *
-                    </Label>
-                    <Input
-                      type="text"
-                      id="school"
-                      name="school"
-                      className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                      placeholder="Enter school name"
-                      value={formData.school}
-                      onChange={handleChange}
-                    />
-                    {errors.school && (
-                      <p className="text-red-500 text-sm">{errors.school}</p>
-                    )}
-                  </div>
-                )}
-
-                <div className="space-y-2">
                   <Label htmlFor="date_of_birth" className="text-base">
                     Birthdate
                   </Label>
@@ -740,27 +765,6 @@ const ManageUsers = () => {
                   {errors.date_of_birth && (
                     <p className="text-red-500 text-sm">
                       {errors.date_of_birth}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number" className="text-base">
-                    Phone Number
-                  </Label>
-                  <Input
-                    type="tel"
-                    id="phone_number"
-                    name="phone_number"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="+1 (555) 123-4567"
-                    value={formData.phone_number}
-                    onChange={handleChange}
-                    onInput={handlePhoneNumberInput}
-                  />
-                  {errors.phone_number && (
-                    <p className="text-red-500 text-sm">
-                      {errors.phone_number}
                     </p>
                   )}
                 </div>
@@ -821,10 +825,11 @@ const ManageUsers = () => {
           sortedUsers={sortedUsers}
           filterOptions={filterOptions}
           setFilterOptions={setFilterOptions}
-          onRequestSort={requestSort} // Add this new prop
-          currentSort={sortConfig} // Add this new prop
+          onRequestSort={requestSort}
+          currentSort={sortConfig}
           loading={loading}
           error={error}
+          schools={schools} // <-- Add this line
         />
       </div>
     </div>

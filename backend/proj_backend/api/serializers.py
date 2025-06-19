@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority
+from .models import User, School, Requirement, ListOfPriority, Request
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -12,6 +12,12 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True,  # Explicitly allow empty strings ("")
         allow_null=True, )
+
+    school = serializers.PrimaryKeyRelatedField(
+        queryset=School.objects.all(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = User
@@ -119,25 +125,40 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return token
 
+
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
-        fields = '__all__'
+        fields = '__all__'  # is_active will be included automatically
+
 
 class RequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
         fields = '__all__'
 
+
 class ListOfPrioritySerializer(serializers.ModelSerializer):
-    requirements = RequirementSerializer(read_only=True, many=True)
+    requirement = RequirementSerializer(read_only=True, many=True)
     requirement_ids = serializers.PrimaryKeyRelatedField(
         queryset=Requirement.objects.all(),
         many=True,
         write_only=True,
-        source='requirements'
+        source='requirement'
     )
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'expenseTitle', 'requirements', 'requirement_ids']
+        fields = ['LOPID', 'expenseTitle', 'requirement', 'requirement_ids']
+
+    def create(self, validated_data):
+        requirements = validated_data.pop('requirement', [])
+        instance = ListOfPriority.objects.create(**validated_data)
+        instance.requirement.set(requirements)
+        return instance
+
+
+class RequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Request
+        fields = '__all__'

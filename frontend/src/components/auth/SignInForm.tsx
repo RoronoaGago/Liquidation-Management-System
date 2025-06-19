@@ -4,7 +4,8 @@ import { EyeIcon, EyeClosedIcon } from "lucide-react";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 // import { Loading } from "../common/Loading";
-import bubbleMagicFacade from "../../images/bubble-magic/bubble-magic-facade.jpg";
+import companyFacade from "../../images/companyFacade.jpg";
+import companyLogo from "../../images/bubble-magic/company-logo.png";
 import { useAuth } from "@/context/AuthContext";
 
 export default function SignInForm() {
@@ -61,7 +62,7 @@ export default function SignInForm() {
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 p-1 bg-white rounded-full shadow-lg dark:bg-gray-800">
               <img
-                src="./images/logo/bubble-magic-logo.svg"
+                src={companyLogo}
                 alt="Company Logo"
                 className="w-full h-full object-contain"
                 loading="lazy" // Lazy load logo
@@ -197,11 +198,10 @@ export default function SignInForm() {
           </div> */}
         </div>
       </div>
-
       {/* Right Side - Image */}
       <div className="hidden lg:flex lg:w-1/2 bg-gray-200 dark:bg-gray-800 relative">
         <img
-          src={bubbleMagicFacade}
+          src={companyFacade}
           alt="Login visual"
           className="object-cover w-full h-full"
           loading="lazy" // Lazy load image
