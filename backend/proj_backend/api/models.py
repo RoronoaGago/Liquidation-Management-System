@@ -93,12 +93,34 @@ class Requirement(models.Model):
 class ListOfPriority(models.Model):
     LOPID = models.AutoField(primary_key=True)
     expenseTitle = models.CharField(max_length=255)
-    requirement = models.ManyToManyField(
-        Requirement,through='PriorityRequirement', related_name='priorities')
+    requirements = models.ManyToManyField(
+        'Requirement',
+        through='PriorityRequirement',
+        related_name='priority_requirements'  # Changed from 'priorities'
+    )
 
     def __str__(self):
         return self.expenseTitle
+
+class PriorityRequirement(models.Model):
+    """Through model connecting Priority to its Requirements"""
+    priority = models.ForeignKey(
+        ListOfPriority, 
+        on_delete=models.CASCADE,
+        related_name='priority_reqs'  # Added explicit related_name
+    )
+    requirement = models.ForeignKey(
+        'Requirement',
+        on_delete=models.CASCADE,
+        related_name='priority_reqs'  # Added explicit related_name
+    )
     
+    class Meta:
+        unique_together = ('priority', 'requirement')
+    
+    def __str__(self):
+        return f"{self.priority} requires {self.requirement}"
+
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
         ('approved', 'Approved'),
@@ -112,7 +134,7 @@ class RequestManagement(models.Model):
     request_month = models.CharField(max_length=20)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     priorities = models.ManyToManyField(
-        ListOfPriority,
+        'ListOfPriority',
         through='RequestPriority',
         related_name='requests'
     )
