@@ -90,8 +90,9 @@ class Requirement(models.Model):
 class ListOfPriority(models.Model):
     LOPID = models.AutoField(primary_key=True)
     expenseTitle = models.CharField(max_length=255)
-    requirement = models.ManyToManyField(
+    requirements = models.ManyToManyField(
         Requirement, related_name='priorities')
+    is_active = models.BooleanField(default=True)  # Add this field
 
     def __str__(self):
         return self.expenseTitle
