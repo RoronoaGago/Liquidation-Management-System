@@ -1,9 +1,11 @@
 from rest_framework import serializers
+from hashids import Hashids
 from .models import User, School, Requirement, ListOfPriority
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
 import uuid
+hashids_lop = Hashids(salt="your_secret_salt", min_length=6)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -146,7 +148,28 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
         write_only=True,
         source='requirements'
     )
+    masked_lopid = serializers.SerializerMethodField()
+
+    def get_masked_lopid(self, obj):
+        return f"LOP-{hashids_lop.encode(obj.LOPID)}"
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'expenseTitle', 'requirements', 'requirement_ids']
+        fields = ['LOPID', 'masked_lopid', 'expenseTitle',
+                  'requirements', 'requirement_ids']
+
+
+hashids_lop = Hashids(salt="your_secret_salt", min_length=6)
+
+
+def get_object_by_masked_lopid(masked_lopid):
+    # Remove prefix
+    hashid_part = masked_lopid.replace("LOP-", "")
+    # Decode to get the integer ID
+    decoded = hashids_lop.decode(hashid_part)
+    if not decoded:
+        raise Http404("Invalid LOPID")
+    lopid = decoded[0]
+    # Now use lopid to fetch from DB
+    obj = ListOfPriority.objects.get(LOPID=lopid)
+    return obj
