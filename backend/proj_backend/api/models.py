@@ -71,15 +71,19 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.username})"
 
+
 class School(models.Model):
-    schoolId = models.CharField(max_length=10, primary_key=True, editable=False)  # Primary Key
+    schoolId = models.CharField(
+        max_length=10, primary_key=True, editable=False)  # Primary Key
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     district = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)  # Added for archiving
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
+
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
