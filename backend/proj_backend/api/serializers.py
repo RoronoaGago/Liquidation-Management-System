@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, Request
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -31,6 +31,7 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "school",
             "date_of_birth",
+            "sex"
             "phone_number",
             "profile_picture",
             "profile_picture_base64",
@@ -168,8 +169,43 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
         instance.requirements.set(requirements)
         return instance
 
-
-class RequestSerializer(serializers.ModelSerializer):
+class RequestPrioritySerializer(serializers.ModelSerializer):
+    priority = ListOfPrioritySerializer(read_only=True)
+    
     class Meta:
-        model = Request
+        model = RequestPriority
+        fields = '__all__'
+
+class RequestManagementSerializer(serializers.ModelSerializer):
+    priorities = RequestPrioritySerializer(many=True, read_only=True)
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = RequestManagement
+        fields = '__all__'
+
+class LiquidationDocumentSerializer(serializers.ModelSerializer):
+    document_url = serializers.SerializerMethodField()
+    requirement = RequirementSerializer(read_only=True)
+    request_priority = RequestPrioritySerializer(read_only=True)
+    
+    class Meta:
+        model = LiquidationDocument
+        fields = '__all__'
+        extra_kwargs = {
+            'document': {'write_only': True}
+        }
+    
+    def get_document_url(self, obj):
+        if obj.document:
+            return self.context['request'].build_absolute_uri(obj.document.url)
+        return None
+
+class LiquidationManagementSerializer(serializers.ModelSerializer):
+    request = RequestManagementSerializer(read_only=True)
+    documents = LiquidationDocumentSerializer(many=True, read_only=True)
+    reviewed_by = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = LiquidationManagement
         fields = '__all__'

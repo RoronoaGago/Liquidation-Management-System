@@ -9,29 +9,41 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     # User URLs
-    path("users/", views.user_list, name="user-list"),
-    path("users/<int:pk>/", views.user_detail, name="user-detail"),
-    path('token/', CustomTokenObtainPairView.as_view(),
+     path("users/", views.user_list, name="user-list"),
+     path("users/<int:pk>/", views.user_detail, name="user-detail"),
+     path('token/', CustomTokenObtainPairView.as_view(),
          name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('protected/', ProtectedView.as_view(), name='protected'),
+     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+     path('protected/', ProtectedView.as_view(), name='protected'),
 
-    path('schools/', views.SchoolListCreateAPIView.as_view(),
+     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
-    path('schools/search/', views.search_schools, name='school-search'),
-    path('schools/<str:schoolId>/',
+     path('schools/search/', views.search_schools, name='school-search'),
+     path('schools/<str:schoolId>/',
          views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
 
-    path('requirements/', views.RequirementListCreateAPIView.as_view(),
+     path('requirements/', views.RequirementListCreateAPIView.as_view(),
          name='requirement-list-create'),
-    path('requirements/<int:requirementID>/',
+     path('requirements/<int:requirementID>/',
          views.RequirementRetrieveUpdateDestroyAPIView.as_view(), name='requirement-detail'),
 
-    path('priorities/', views.ListOfPriorityListCreateAPIView.as_view(),
+     path('priorities/', views.ListOfPriorityListCreateAPIView.as_view(),
          name='priority-list-create'),
-    path('priorities/<int:LOPID>/',
+     path('priorities/<int:LOPID>/',
          views.ListOfPriorityRetrieveUpdateDestroyAPIView.as_view(), name='priority-detail'),
 
-     path('requests/', views.RequestListCreateAPIView.as_view(), name='request-list-create'),
-     path('requests/<int:pk>/', views.RequestRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
+     path('requests/', views.RequestManagementCreateView.as_view(), name='request-list-create'),
+     path('requests/<int:pk>/', views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
+     path('requests/<int:pk>/submit-liquidation/', views.submit_for_liquidation, name='submit-liquidation'),
+    
+    # Liquidation Management URLs
+     path('liquidations/', views.LiquidationManagementListCreateAPIView.as_view(), name='liquidation-list-create'),
+     path('liquidations/<str:LiquidationID>/', views.LiquidationManagementRetrieveUpdateDestroyAPIView.as_view(), name='liquidation-detail'),
+     path('liquidations/<str:LiquidationID>/documents/', views.LiquidationDocumentListCreateAPIView.as_view(), name='liquidation-document-list'),
+     path('liquidations/<str:LiquidationID>/documents/<int:pk>/', views.LiquidationDocumentRetrieveUpdateDestroyAPIView.as_view(), name='liquidation-document-detail'),
+     path('liquidations/<str:LiquidationID>/approve/', views.approve_liquidation, name='approve-liquidation'),
+    
+    # Additional custom endpoints
+     path('user-requests/', views.UserRequestListAPIView.as_view(), name='user-requests'),
+     path('pending-liquidations/', views.PendingLiquidationListAPIView.as_view(), name='pending-liquidations'),
 ]
