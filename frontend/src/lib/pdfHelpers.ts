@@ -22,6 +22,7 @@ export type Submission = {
 export const handleExport = (submission: Submission) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
     // Logo settings
     const logoWidth = 28;
@@ -105,18 +106,80 @@ export const handleExport = (submission: Submission) => {
         10
     );
 
-    const lineY = headerBaseY + 32; // Adjusted line position
-    doc.setLineWidth(0.7);
-    doc.line(leftLogoX, lineY, rightLogoX + logoWidth, lineY);
+    // Helper to draw the header (call this on every new page)
+    const drawHeader = () => {
+        // Draw logos
+        doc.addImage(
+            depedLogoBase64,
+            "PNG",
+            leftLogoX,
+            logoY,
+            logoWidth,
+            logoHeight
+        );
+        doc.addImage(
+            depedLogoBase64,
+            "PNG",
+            rightLogoX,
+            logoY,
+            logoWidth,
+            logoHeight
+        );
 
-    // --- Salutation, Introduction, and Body Section ---
+        // Header text
+        centerText(
+            "Republic of the Philippines",
+            headerBaseY + 0,
+            "oldenglishtextmt",
+            "normal",
+            12
+        );
+        centerText(
+            "Department of Education",
+            headerBaseY + 8,
+            "oldenglishtextmt",
+            "normal",
+            18
+        );
+        centerText("Region 1", headerBaseY + 13, "arial_black", "normal", 10);
+        centerText(
+            "Schools Division of La Union",
+            headerBaseY + 18,
+            "arial_black",
+            "normal",
+            10
+        );
+        centerText(
+            submission.submitted_by.school.toUpperCase(),
+            headerBaseY + 23,
+            "arial_black",
+            "normal",
+            11
+        );
+        centerText(
+            "TALLAOEN, LUNA, LA UNION",
+            headerBaseY + 28,
+            "arial_black",
+            "normal",
+            10
+        );
+
+        // Draw a horizontal line below the header
+        let lineY = headerBaseY + 32;
+        doc.setLineWidth(0.5);
+        doc.setDrawColor(80, 80, 80);
+        doc.line(18, lineY, pageWidth - 18, lineY);
+
+        return lineY;
+    };
+
+    let lineY = drawHeader();
+    let y = lineY + 16;
 
     // Set Calibri (Body) font, fallback to 'helvetica' if Calibri is not available in jsPDF
     const bodyFont = "calibri" in doc.getFontList() ? "calibri" : "helvetica";
     const bodyFontStyle = "normal";
     const bodyFontSize = 11;
-
-    let y = lineY + 16;
 
     // Date (left aligned)
     doc.setFont(bodyFont, bodyFontStyle);
@@ -178,56 +241,101 @@ export const handleExport = (submission: Submission) => {
 
     y += 10;
 
-    // Table Columns and Borders
+    // Table setup
     const col1X = 30;
     const col2X = pageWidth - 30;
     const tableWidth = col2X - col1X;
-    const col1Width = tableWidth * 0.6; // 60% for Expense
-    const col2Width = tableWidth * 0.4; // 40% for Amount
+    const col1Width = tableWidth * 0.6;
+    const col2Width = tableWidth * 0.4;
     const rowHeight = 8;
     let tableY = y;
 
     // Draw table header
-    doc.setLineWidth(0.5);
-    // Header row border
-    doc.rect(col1X, tableY, col1Width, rowHeight);
-    doc.rect(col1X + col1Width, tableY, col2Width, rowHeight);
-    doc.setFont(bodyFont, "bold");
-    doc.text("Expense", col1X + 2, tableY + 6);
-    doc.text("Amount", col1X + col1Width + col2Width / 2, tableY + 6, {
-        align: "center",
-    });
+    const drawTableHeader = (tableY: number) => {
+        doc.setLineWidth(0.5);
+        doc.rect(col1X, tableY, col1Width, rowHeight);
+        doc.rect(col1X + col1Width, tableY, col2Width, rowHeight);
+        doc.setFont(bodyFont, "bold");
+        doc.text("Expense", col1X + 2, tableY + 6);
+        doc.text("Amount", col1X + col1Width + col2Width / 2, tableY + 6, {
+            align: "center",
+        });
+    };
 
-    // Table Rows
+    drawTableHeader(tableY);
+
+    // Table Rows with page break handling
     doc.setFont(bodyFont, bodyFontStyle);
+    let currentY = tableY + rowHeight;
+    const bottomMargin = 36; // leave space for signatures or just for margin
+
     submission.priorities.forEach((priority, idx) => {
-        const rowY = tableY + rowHeight * (idx + 1);
+        // Check if next row fits
+        if (currentY + rowHeight > pageHeight - bottomMargin) {
+            doc.addPage();
+            lineY = drawHeader();
+            currentY = lineY + 16;
+            // Optionally, re-draw "LIST OF PRIORITIES" and monthYear here if you want them on every page
+            drawTableHeader(currentY);
+            currentY += rowHeight;
+        }
         // Row borders
-        doc.rect(col1X, rowY, col1Width, rowHeight);
-        doc.rect(col1X + col1Width, rowY, col2Width, rowHeight);
+        doc.rect(col1X, currentY, col1Width, rowHeight);
+        doc.rect(col1X + col1Width, currentY, col2Width, rowHeight);
         // Expense (left)
-        doc.text(priority.expense, col1X + 2, rowY + 6);
-        // Amount (centered in its column)
+        doc.text(priority.expense, col1X + 2, currentY + 6);
+        // Amount (centered)
         doc.text(
             priority.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }),
             col1X + col1Width + col2Width / 2,
-            rowY + 6,
+            currentY + 6,
             { align: "center" }
         );
+        currentY += rowHeight;
     });
 
-    // Total Row
-    const totalRowY = tableY + rowHeight * (submission.priorities.length + 1);
+    // Total Row (check if it fits, else new page)
+    if (currentY + rowHeight > pageHeight - bottomMargin) {
+        doc.addPage();
+        lineY = drawHeader();
+        currentY = lineY + 16;
+        drawTableHeader(currentY);
+        currentY += rowHeight;
+    }
     doc.setFont(bodyFont, "bold");
-    doc.rect(col1X, totalRowY, col1Width, rowHeight);
-    doc.rect(col1X + col1Width, totalRowY, col2Width, rowHeight);
-    doc.text("TOTAL", col1X + 2, totalRowY + 6);
+    doc.rect(col1X, currentY, col1Width, rowHeight);
+    doc.rect(col1X + col1Width, currentY, col2Width, rowHeight);
+    doc.text("TOTAL", col1X + 2, currentY + 6);
     doc.text(
         totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 }),
         col1X + col1Width + col2Width / 2,
-        totalRowY + 6,
+        currentY + 6,
         { align: "center" }
     );
+
+    // --- Signature Section ---
+    let signatureY = currentY + 25;
+    // If signatures don't fit, add a new page
+    if (signatureY + 20 > pageHeight - 10) {
+        doc.addPage();
+        lineY = drawHeader();
+        signatureY = lineY + 40;
+    }
+    const leftX = 36;
+    const rightX = pageWidth - 100;
+    doc.setFont(bodyFont, "normal");
+    doc.text("Prepared by:", leftX, signatureY);
+    doc.text("Certified Correct:", rightX, signatureY);
+    const lineLength = 60;
+    let lineY2 = signatureY + 8;
+    doc.line(leftX, lineY2, leftX + lineLength, lineY2);
+    doc.line(rightX, lineY2, rightX + lineLength, lineY2);
+    doc.setFont(bodyFont, "bold");
+    doc.text("JAN LESTER RIVERA", leftX, lineY2 + 7);
+    doc.text("JOMARI FONTAWA", rightX, lineY2 + 7);
+    doc.setFont(bodyFont, "normal");
+    doc.text("School Head", leftX, lineY2 + 14);
+    doc.text("Accountant III", rightX, lineY2 + 14);
 
     doc.save(`priority_submission_${submission.id}.pdf`);
 };
