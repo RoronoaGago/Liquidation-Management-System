@@ -97,7 +97,7 @@ class Requirement(models.Model):
 class ListOfPriority(models.Model):
     LOPID = models.AutoField(primary_key=True)
     expenseTitle = models.CharField(max_length=255)
-    requirementss = models.ManyToManyField(
+    requirements = models.ManyToManyField(
         'Requirement',
         through='PriorityRequirement',
         related_name='priority_requirements'  # Changed from 'priorities'
