@@ -86,14 +86,16 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
                 key={submission.id}
                 className="hover:bg-gray-50 dark:hover:bg-gray-900/20"
               >
-                <TableCell className="px-6 py-4">{submission.id}</TableCell>
-                <TableCell className="px-6 py-4">
+                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                  {submission.id}
+                </TableCell>
+                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                   {submission.submitted_by.name}
                 </TableCell>
-                <TableCell className="px-6 py-4">
+                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                   {submission.submitted_by.school}
                 </TableCell>
-                <TableCell className="px-6 py-4">
+                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                   <Badge
                     color={
                       submission.status === "pending"
@@ -107,10 +109,10 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
                       submission.status.slice(1)}
                   </Badge>
                 </TableCell>
-                <TableCell className="px-6 py-4">
+                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                   {new Date(submission.submitted_at).toLocaleString()}
                 </TableCell>
-                <TableCell className="px-6 py-4">
+                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                   <button
                     className="flex items-center gap-2 text-blue-600 hover:underline"
                     onClick={() => onView(submission)}

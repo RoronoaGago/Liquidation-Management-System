@@ -63,7 +63,7 @@ const allNavItems: NavItem[] = [
     icon: <PhilippinePeso />,
     name: "List of Priorities",
     roles: ["school_head"], // Admin and school heads
-    path: "/list-of-priorities",
+    path: "/prepare-list-of-priorities",
   },
   {
     icon: <ReceiptText />,
