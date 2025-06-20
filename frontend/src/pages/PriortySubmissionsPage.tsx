@@ -21,6 +21,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import Input from "@/components/form/input/InputField";
 
 type Priority = {
   expense: string;
@@ -169,13 +170,13 @@ const PriortySubmissionsPage = () => {
 
       {/* Search and Items Per Page */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-        <div className="relative w-full md:w-64">
-          <input
+        <div className="relative w-full">
+          <Input
             type="text"
             placeholder="Search submissions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded-md w-full"
+            className="pl-10 "
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         </div>
