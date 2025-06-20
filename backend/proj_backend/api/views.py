@@ -8,8 +8,8 @@ from rest_framework import generics
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import User, School, Requirement, ListOfPriority, Request
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer,LiquidationDocumentSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated
@@ -69,6 +69,7 @@ def user_list(request):
                 Q(username__icontains=search_term) |
                 Q(email__icontains=search_term) |
                 Q(phone_number__icontains=search_term) |
+                Q(sex__icontains=search_term) |
                 # <-- Fix: use related field
                 Q(school__schoolName__icontains=search_term) |
                 # <-- Optionally add this too
@@ -253,10 +254,122 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     serializer_class = ListOfPrioritySerializer
     lookup_field = 'LOPID'
 
-class RequestListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Request.objects.all()
-    serializer_class = RequestSerializer
+class RequestManagementCreateView(generics.CreateAPIView):
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
 
-class RequestRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Request.objects.all()
-    serializer_class = RequestSerializer
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
+    queryset = LiquidationManagement.objects.all()
+    serializer_class = LiquidationManagementSerializer
+    permission_classes = [IsAuthenticated]
+
+class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = LiquidationManagement.objects.all()
+    serializer_class = LiquidationManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'LiquidationID'
+
+class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
+    queryset = LiquidationDocument.objects.all()
+    serializer_class = LiquidationDocumentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        liquidation_id = self.kwargs.get('LiquidationID')
+        return self.queryset.filter(liquidation__LiquidationID=liquidation_id)
+
+    def perform_create(self, serializer):
+        liquidation_id = self.kwargs.get('LiquidationID')
+        liquidation = LiquidationManagement.objects.get(LiquidationID=liquidation_id)
+        serializer.save(liquidation=liquidation, uploaded_by=self.request.user)
+
+class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = LiquidationDocument.objects.all()
+    serializer_class = LiquidationDocumentSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+def submit_for_liquidation(request, pk):
+    try:
+        request_obj = RequestManagement.objects.get(pk=pk)
+        if request_obj.status != 'approved':
+            return Response(
+                {'error': 'Request must be approved before liquidation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        liquidation, created = LiquidationManagement.objects.get_or_create(
+            request=request_obj,
+            defaults={'status': 'ongoing'}
+        )
+        
+        if not created:
+            return Response(
+                {'error': 'Liquidation already exists for this request'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        request_obj.status = 'inliquidated'
+        request_obj.save()
+        
+        serializer = LiquidationManagementSerializer(liquidation)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    except RequestManagement.DoesNotExist:
+        return Response(
+            {'error': 'Request not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+def approve_liquidation(request, LiquidationID):
+    try:
+        liquidation = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
+        if liquidation.status != 'ongoing':
+            return Response(
+                {'error': 'Liquidation is not in ongoing state'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if liquidation.documents.filter(is_approved=False).exists():
+            return Response(
+                {'error': 'All documents must be approved first'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        liquidation.status = 'completed'
+        liquidation.reviewed_by = request.user
+        liquidation.reviewed_at = timezone.now()
+        liquidation.save()
+        
+        serializer = LiquidationManagementSerializer(liquidation)
+        return Response(serializer.data)
+    
+    except LiquidationManagement.DoesNotExist:
+        return Response(
+            {'error': 'Liquidation not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+class UserRequestListAPIView(generics.ListAPIView):
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return RequestManagement.objects.filter(user=self.request.user)
+
+class PendingLiquidationListAPIView(generics.ListAPIView):
+    serializer_class = LiquidationManagementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return LiquidationManagement.objects.filter(status='ongoing')
