@@ -76,7 +76,9 @@ const ManageUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
+
   const [allUsers, setAllUsers] = useState<User[]>([]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -291,6 +293,7 @@ const ManageUsers = () => {
           }
           break;
         case "date_of_birth":
+          // eslint-disable-next-line no-case-declarations
           const dateError = validateDateOfBirth(value);
           if (dateError) {
             newErrors.date_of_birth = dateError;

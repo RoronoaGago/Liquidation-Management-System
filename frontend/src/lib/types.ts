@@ -49,6 +49,7 @@ export type SortableField = keyof Pick<
   | "is_active"
   | "date_joined"
 >;
+
 export type DialogState = {
   edit: boolean;
   view: boolean;
@@ -152,4 +153,21 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   startIcon?: React.ReactNode; // Icon before the text
   endIcon?: React.ReactNode; // Icon after the text
   dataModal?: string;
+  type?: "button" | "submit" | "reset"; // Explicitly add this
 };
+
+export interface Requirement {
+  requirementID: number;
+  requirementTitle: string;
+  is_required: boolean;
+}
+
+export interface ListOfPriority {
+  LOPID: number;
+  expenseTitle: string;
+  requirements: Requirement[];
+  is_active: boolean;
+}
+
+// Add this type for sorting ListOfPriority fields
+export type LOPSortableField = "LOPID" | "expenseTitle";
