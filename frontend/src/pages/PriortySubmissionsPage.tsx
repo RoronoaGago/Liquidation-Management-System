@@ -48,9 +48,10 @@ const PriortySubmissionsPage = () => {
       setError(null);
       try {
         // You may want to use /api/requests/ or /api/user-requests/ depending on your backend
-        const res = await api.get("/requests/");
+        const res = await api.get("requests/");
         setSubmissionsState(res.data);
       } catch (err: any) {
+        console.error("Failed to fetch submissions:", err);
         setError("Failed to fetch submissions");
       } finally {
         setLoading(false);
@@ -119,7 +120,7 @@ const PriortySubmissionsPage = () => {
     return submissionsState.filter((submission) => {
       const userName =
         `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
-      const school = (submission.user.school || "").toLowerCase();
+      const school = (submission.user.school?.schoolName || "").toLowerCase();
       return (
         userName.includes(term) ||
         school.includes(term) ||
@@ -277,7 +278,7 @@ const PriortySubmissionsPage = () => {
                     </div>
                     <div className="text-sm text-gray-700 dark:text-gray-300">
                       <span className="font-semibold">School:</span>{" "}
-                      {viewedSubmission.user.school}
+                      {viewedSubmission.user.school?.schoolName || "N/A"}
                     </div>
                     <div>
                       <span className="font-semibold">Status:</span>{" "}

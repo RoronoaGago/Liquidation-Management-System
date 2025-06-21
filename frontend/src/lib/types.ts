@@ -175,7 +175,7 @@ export type Submission = {
     id: string;
     first_name: string;
     last_name: string;
-    school: string | null;
+    school: School | null; // Use School type for school details
   };
   priorities: Priority[];
   status: "pending" | "approved" | "rejected";
