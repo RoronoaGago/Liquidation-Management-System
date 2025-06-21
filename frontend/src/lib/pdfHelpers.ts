@@ -314,7 +314,7 @@ export const handleExport = (submission: Submission) => {
     );
 
     // --- Signature Section ---
-    let signatureY = currentY + 25;
+    let signatureY = currentY + 80;
     // If signatures don't fit, add a new page
     if (signatureY + 20 > pageHeight - 10) {
         doc.addPage();
