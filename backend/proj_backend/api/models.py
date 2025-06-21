@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 import string
 
 
@@ -219,6 +220,28 @@ class LiquidationManagement(models.Model):
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
+    
+    def clean(self):
+        """
+        Validate that the request status is 'unliquidated' before saving.
+        This works with Django forms and admin interface.
+        """
+        if self.request.status != 'unliquidated':
+            raise ValidationError(
+                "Liquidation can only be created for requests with 'unliquidated' status."
+            )
+
+    def save(self, *args, **kwargs):
+        """
+        Ensure the request status is 'unliquidated' before saving to database.
+        """
+        # Skip validation when updating existing instance (optional)
+        if not self.pk and self.request.status != 'unliquidated':
+            raise ValidationError(
+                "Liquidation can only be created for requests with 'unliquidated' status."
+            )
+        
+        super().save(*args, **kwargs)
 
 class LiquidationDocument(models.Model):
     liquidation = models.ForeignKey(
