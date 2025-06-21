@@ -48,8 +48,8 @@ const allNavItems: NavItem[] = [
   },
   {
     icon: <BanknoteIcon />,
-    name: "Manage Expense Accounts",
-    path: "/expense-accounts",
+    name: "Manage List of Priorities",
+    path: "/list-of-priorities",
     roles: ["admin"], // Only admin
   },
   {
@@ -63,7 +63,7 @@ const allNavItems: NavItem[] = [
     icon: <PhilippinePeso />,
     name: "List of Priorities",
     roles: ["school_head"], // Admin and school heads
-    path: "/list-of-priorities",
+    path: "/prepare-list-of-priorities",
   },
   {
     icon: <ReceiptText />,

@@ -8,6 +8,7 @@ export const serviceTypeOptions = [
   { value: "rush", label: "Rush" },
 
 ];
+
 export const laUnionMunicipalities = [
   "AGOO", "ARINGAY", "BACNOTAN", "BAGULIN", "BALAOAN", "BANGAR", "BAUANG", "BURGOS",
   "CABA", "LUNA", "NAGUILIAN", "PUGO", "ROSARIO", "SAN FERNANDO CITY", "SAN GABRIEL",
