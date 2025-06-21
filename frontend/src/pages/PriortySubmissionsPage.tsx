@@ -235,7 +235,7 @@ const PriortySubmissionsPage = () => {
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           </div>
-          <select
+          {/* <select
             value={filterOptions.status}
             onChange={(e) =>
               setFilterOptions((prev) => ({ ...prev, status: e.target.value }))
@@ -260,18 +260,27 @@ const PriortySubmissionsPage = () => {
                 {school.schoolName}
               </option>
             ))}
+          </select> */}
+        </div>
+        <div className="flex gap-4 w-full md:w-auto items-center">
+          <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+            Items per page:
+          </label>
+          <select
+            value={itemsPerPage.toString()}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
+          >
+            {[5, 10, 20, 50].map((num) => (
+              <option key={num} value={num}>
+                Show {num}
+              </option>
+            ))}
           </select>
         </div>
-        <select
-          value={itemsPerPage.toString()}
-          onChange={(e) => setItemsPerPage(Number(e.target.value))}
-          className="min-w-[100px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
-        >
-          <option value="5">5 per page</option>
-          <option value="10">10 per page</option>
-          <option value="20">20 per page</option>
-          <option value="50">50 per page</option>
-        </select>
       </div>
       {/* Table */}
       <PrioritySubmissionsTable

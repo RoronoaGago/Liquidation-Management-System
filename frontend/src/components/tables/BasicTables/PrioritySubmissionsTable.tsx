@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "../../ui/table";
 import Badge from "@/components/ui/badge/Badge";
-import { EyeIcon } from "lucide-react";
+import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
 import { Submission } from "@/lib/types";
 
 interface PrioritySubmissionsTableProps {
@@ -39,11 +39,24 @@ const PrioritySubmissionsTable: React.FC<
                   onClick={() => requestSort && requestSort("request_id")}
                 >
                   Request ID
-                  {sortConfig?.key === "request_id" && (
-                    <span className="ml-1">
-                      {sortConfig.direction === "asc" ? "▲" : "▼"}
-                    </span>
-                  )}
+                  <span className="inline-flex flex-col ml-1">
+                    <ChevronUp
+                      className={`h-3 w-3 transition-colors ${
+                        sortConfig?.key === "request_id" &&
+                        sortConfig.direction === "asc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                    <ChevronDown
+                      className={`h-3 w-3 -mt-1 transition-colors ${
+                        sortConfig?.key === "request_id" &&
+                        sortConfig.direction === "desc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                  </span>
                 </div>
               </TableCell>
               <TableCell
@@ -55,11 +68,24 @@ const PrioritySubmissionsTable: React.FC<
                   onClick={() => requestSort && requestSort("submitted_by")}
                 >
                   Submitted By
-                  {sortConfig?.key === "submitted_by" && (
-                    <span className="ml-1">
-                      {sortConfig.direction === "asc" ? "▲" : "▼"}
-                    </span>
-                  )}
+                  <span className="inline-flex flex-col ml-1">
+                    <ChevronUp
+                      className={`h-3 w-3 transition-colors ${
+                        sortConfig?.key === "submitted_by" &&
+                        sortConfig.direction === "asc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                    <ChevronDown
+                      className={`h-3 w-3 -mt-1 transition-colors ${
+                        sortConfig?.key === "submitted_by" &&
+                        sortConfig.direction === "desc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                  </span>
                 </div>
               </TableCell>
               <TableCell
@@ -71,11 +97,24 @@ const PrioritySubmissionsTable: React.FC<
                   onClick={() => requestSort && requestSort("school")}
                 >
                   School
-                  {sortConfig?.key === "school" && (
-                    <span className="ml-1">
-                      {sortConfig.direction === "asc" ? "▲" : "▼"}
-                    </span>
-                  )}
+                  <span className="inline-flex flex-col ml-1">
+                    <ChevronUp
+                      className={`h-3 w-3 transition-colors ${
+                        sortConfig?.key === "school" &&
+                        sortConfig.direction === "asc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                    <ChevronDown
+                      className={`h-3 w-3 -mt-1 transition-colors ${
+                        sortConfig?.key === "school" &&
+                        sortConfig.direction === "desc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                  </span>
                 </div>
               </TableCell>
               <TableCell
@@ -87,11 +126,24 @@ const PrioritySubmissionsTable: React.FC<
                   onClick={() => requestSort && requestSort("status")}
                 >
                   Status
-                  {sortConfig?.key === "status" && (
-                    <span className="ml-1">
-                      {sortConfig.direction === "asc" ? "▲" : "▼"}
-                    </span>
-                  )}
+                  <span className="inline-flex flex-col ml-1">
+                    <ChevronUp
+                      className={`h-3 w-3 transition-colors ${
+                        sortConfig?.key === "status" &&
+                        sortConfig.direction === "asc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                    <ChevronDown
+                      className={`h-3 w-3 -mt-1 transition-colors ${
+                        sortConfig?.key === "status" &&
+                        sortConfig.direction === "desc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                  </span>
                 </div>
               </TableCell>
               <TableCell
@@ -103,11 +155,24 @@ const PrioritySubmissionsTable: React.FC<
                   onClick={() => requestSort && requestSort("created_at")}
                 >
                   Submitted At
-                  {sortConfig?.key === "created_at" && (
-                    <span className="ml-1">
-                      {sortConfig.direction === "asc" ? "▲" : "▼"}
-                    </span>
-                  )}
+                  <span className="inline-flex flex-col ml-1">
+                    <ChevronUp
+                      className={`h-3 w-3 transition-colors ${
+                        sortConfig?.key === "created_at" &&
+                        sortConfig.direction === "asc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                    <ChevronDown
+                      className={`h-3 w-3 -mt-1 transition-colors ${
+                        sortConfig?.key === "created_at" &&
+                        sortConfig.direction === "desc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                  </span>
                 </div>
               </TableCell>
               <TableCell
