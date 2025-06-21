@@ -318,7 +318,11 @@ export const handleExport = (submission: Submission, first_name: string, last_na
     doc.line(leftX, lineY2, leftX + lineLength, lineY2);
     doc.line(rightX, lineY2, rightX + lineLength, lineY2);
     doc.setFont(bodyFont, "bold");
-    doc.text("JAN LESTER RIVERA", leftX, lineY2 + 7);
+    doc.text(
+        `${submission.user.first_name.toUpperCase()} ${submission.user.last_name.toUpperCase()}`,
+        leftX,
+        lineY2 + 7
+    );
     doc.text("JOMARI FONTAWA", rightX, lineY2 + 7);
     doc.setFont(bodyFont, "normal");
     doc.text("School Head", leftX, lineY2 + 14);
