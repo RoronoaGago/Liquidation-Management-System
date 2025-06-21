@@ -37,7 +37,7 @@ urlpatterns = [
 
     path('requests/<str:request_id>/',
          views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
-    path('requests/<int:pk>/submit-liquidation/',
+    path('requests/<str:request_id>/submit-liquidation/',
          views.submit_for_liquidation, name='submit-liquidation'),
 
     # Liquidation Management URLs

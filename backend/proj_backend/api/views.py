@@ -281,7 +281,7 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
 class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
     queryset = LiquidationManagement.objects.all()
     serializer_class = LiquidationManagementSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
 
 class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -311,12 +311,13 @@ class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDes
     queryset = LiquidationDocument.objects.all()
     serializer_class = LiquidationDocumentSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
+    lookup_field = 'request_id'
 
 
-def submit_for_liquidation(request, pk):
+@api_view(['POST'])
+def submit_for_liquidation(request, request_id):
     try:
-        request_obj = RequestManagement.objects.get(pk=pk)
+        request_obj = RequestManagement.objects.get(request_id=request_id)
         if request_obj.status != 'approved':
             return Response(
                 {'error': 'Request must be approved before liquidation'},
@@ -334,7 +335,7 @@ def submit_for_liquidation(request, pk):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        request_obj.status = 'inliquidated'
+        request_obj.status = 'unliquidated'
         request_obj.save()
 
         serializer = LiquidationManagementSerializer(liquidation)
@@ -391,4 +392,8 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return LiquidationManagement.objects.filter(status='ongoing')
+        # Filter LiquidationManagement by status and by the current user
+        return LiquidationManagement.objects.filter(
+            status='ongoing',
+            request__user=self.request.user
+        )

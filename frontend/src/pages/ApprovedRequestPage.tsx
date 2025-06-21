@@ -77,16 +77,14 @@ const ApprovedRequestPage = () => {
   // Approve handler (should call backend in real app)
   const handleApprove = async (submission: Submission) => {
     try {
-      await api.put(`requests/${submission.request_id}/`, {
-        status: "unliquidated",
-      });
+      await api.post(`requests/${submission.request_id}/submit-liquidation/`);
       setViewedSubmission((prev) =>
         prev ? { ...prev, status: "unliquidated" } : prev
       );
       await fetchSubmissions(); // Refresh the list after approval
     } catch (err) {
       // handle error
-      console.error("Failed to approve submission:", err);
+      console.error("Failed to submit for liquidation:", err);
     }
   };
 
