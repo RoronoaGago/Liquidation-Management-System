@@ -73,8 +73,8 @@ const allNavItems: NavItem[] = [
   },
   {
     icon: <PhilippinePeso />,
-    name: "School Heads' Priority Submissions",
-    path: "/submitted-priorities",
+    name: "Schools Priorities Submissions",
+    path: "/schools-priorities-submissions",
     roles: ["superintendent"], // Only for division superintendent
   },
 
