@@ -19,6 +19,9 @@ export type Submission = {
     submitted_at: string;
 };
 
+
+//TODO - name ng file is pangalan ng school ex (TALLAOEN_LUNA_LA_UNION_LOP)
+
 export const handleExport = (submission: Submission) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
