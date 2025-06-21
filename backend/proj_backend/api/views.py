@@ -260,6 +260,13 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        return queryset
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -268,7 +275,7 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
+    lookup_field = 'request_id'
 
 
 class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):

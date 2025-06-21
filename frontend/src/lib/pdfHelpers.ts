@@ -5,7 +5,8 @@ import { Submission } from "./types";
 
 //TODO - name ng file is pangalan ng school ex (TALLAOEN_LUNA_LA_UNION_LOP)
 
-export const handleExport = (submission: Submission) => {
+export const handleExport = (submission: Submission, first_name: string, last_name: string) => {
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -85,7 +86,7 @@ export const handleExport = (submission: Submission) => {
         11
     );
     centerText(
-        "TALLAOEN, LUNA, LA UNION",
+        `${(submission.user.school?.municipality || "").toUpperCase()}, LA UNION`,
         headerBaseY + 28,
         "arial_black",
         "normal",
@@ -143,7 +144,7 @@ export const handleExport = (submission: Submission) => {
             11
         );
         centerText(
-            "TALLAOEN, LUNA, LA UNION",
+            `${(submission.user.school?.municipality || "").toUpperCase()}, LA UNION`,
             headerBaseY + 28,
             "arial_black",
             "normal",
@@ -184,7 +185,7 @@ export const handleExport = (submission: Submission) => {
 
     // Heading (Recipient)
     doc.setFont(bodyFont, "bold");
-    doc.text("JORGE M. REINANTE, CSEE, CEO VI, CESO V", 18, y);
+    doc.text(`${(first_name + " " + last_name).toUpperCase()}`, 18, y);
     doc.setFont(bodyFont, bodyFontStyle);
     y += 6;
     doc.text("Schools Division Superintendent", 18, y);
@@ -323,5 +324,5 @@ export const handleExport = (submission: Submission) => {
     doc.text("School Head", leftX, lineY2 + 14);
     doc.text("Accountant III", rightX, lineY2 + 14);
 
-    doc.save(`priority_submission_${submission.request_id}.pdf`);
+    doc.save(`${submission.user.school?.schoolName.toUpperCase()}_${submission.request_id}.pdf`);
 };

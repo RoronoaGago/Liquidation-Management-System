@@ -25,6 +25,7 @@ import Input from "@/components/form/input/InputField";
 import axios from "axios";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
+import { useAuth } from "@/context/AuthContext";
 
 const PriortySubmissionsPage = () => {
   // State for submissions and modal
@@ -34,6 +35,7 @@ const PriortySubmissionsPage = () => {
   const [submissionsState, setSubmissionsState] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
 
   // Pagination, search, and sort state
@@ -51,44 +53,40 @@ const PriortySubmissionsPage = () => {
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch submissions and schools from backend
+  const fetchSubmissions = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get("requests/?status=pending");
+      setSubmissionsState(res.data);
+      // Fetch schools for filter dropdown
+      const schoolRes = await api.get("schools/");
+      setSchools(schoolRes.data);
+    } catch (err: any) {
+      console.error("Failed to fetch submissions:", err);
+      setError("Failed to fetch submissions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchSubmissions = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await api.get("requests/");
-        setSubmissionsState(res.data);
-        // Fetch schools for filter dropdown
-        const schoolRes = await api.get("schools/");
-        setSchools(schoolRes.data);
-      } catch (err: any) {
-        console.error("Failed to fetch submissions:", err);
-        setError("Failed to fetch submissions");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchSubmissions();
   }, []);
 
   // Approve handler (should call backend in real app)
   const handleApprove = async (submission: Submission) => {
     try {
-      await api.put(`/api/requests/${submission.request_id}/`, {
+      await api.put(`requests/${submission.request_id}/`, {
         status: "approved",
       });
-      setSubmissionsState((prev) =>
-        prev.map((s) =>
-          s.request_id === submission.request_id
-            ? { ...s, status: "approved" }
-            : s
-        )
-      );
       setViewedSubmission((prev) =>
         prev ? { ...prev, status: "approved" } : prev
       );
+      await fetchSubmissions(); // Refresh the list after approval
     } catch (err) {
       // handle error
+      console.error("Failed to approve submission:", err);
     }
   };
 
@@ -475,7 +473,13 @@ const PriortySubmissionsPage = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => handleExport(viewedSubmission)}
+                  onClick={() =>
+                    handleExport(
+                      viewedSubmission,
+                      user?.first_name || "user",
+                      user?.last_name || "name"
+                    )
+                  }
                   startIcon={<Download className="w-4 h-4" />}
                 >
                   Export
