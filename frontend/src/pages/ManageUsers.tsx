@@ -44,7 +44,7 @@ interface UserFormData {
   email: string;
   phone_number: string;
   role: string;
-  school: string;
+  school_id: string; // was: school: string;
   profile_picture_base64: string;
 }
 //TODO - make the school search
@@ -103,7 +103,7 @@ const ManageUsers = () => {
     email: "",
     phone_number: "",
     role: "school_admin",
-    school: "",
+    school_id: "",
     profile_picture_base64: "",
   });
 
@@ -113,7 +113,7 @@ const ManageUsers = () => {
     ) &&
     (formData.role !== "school_head" && formData.role !== "school_admin"
       ? true
-      : formData.school.trim() !== "") &&
+      : formData.school_id.trim() !== "") &&
     Object.keys(errors).length === 0;
 
   // Modify the fetchUsers function to handle archived status
@@ -244,7 +244,7 @@ const ManageUsers = () => {
     }));
 
     if (name === "role" && !["school_head", "school_admin"].includes(value)) {
-      setFormData((prev) => ({ ...prev, school: "" }));
+      setFormData((prev) => ({ ...prev, school_id: "" }));
     }
 
     if (debounceTimeout.current) {
@@ -308,15 +308,15 @@ const ManageUsers = () => {
             delete newErrors.role;
           }
           break;
-        case "school":
+        case "school_id":
           if (
             (formData.role === "school_head" ||
               formData.role === "school_admin") &&
             !value.trim()
           ) {
-            newErrors.school = "Please select a school from the list.";
+            newErrors.school_id = "Please select a school from the list.";
           } else {
-            delete newErrors.school;
+            delete newErrors.school_id;
           }
           break;
         default:
@@ -371,9 +371,9 @@ const ManageUsers = () => {
 
     if (
       (formData.role === "school_head" || formData.role === "school_admin") &&
-      !formData.school.trim()
+      !formData.school_id.trim()
     ) {
-      finalErrors.school = "School is required for this role.";
+      finalErrors.school_id = "School is required for this role.";
     }
 
     setErrors(finalErrors);
@@ -421,7 +421,7 @@ const ManageUsers = () => {
         email: "",
         phone_number: "",
         role: "school_admin",
-        school: "",
+        school_id: "",
         profile_picture_base64: "",
       });
       setPreviewImage(null);
@@ -655,17 +655,19 @@ const ManageUsers = () => {
                 {(formData.role === "school_head" ||
                   formData.role === "school_admin") && (
                   <SchoolSelect
-                    value={formData.school ? Number(formData.school) : null}
+                    value={
+                      formData.school_id ? Number(formData.school_id) : null
+                    }
                     onChange={(schoolId) => {
                       setFormData((prev) => ({
                         ...prev,
-                        school: schoolId !== null ? String(schoolId) : "",
+                        school_id: schoolId !== null ? String(schoolId) : "",
                       }));
-                      if (errors.school)
-                        setErrors((prev) => ({ ...prev, school: "" }));
+                      if (errors.school_id)
+                        setErrors((prev) => ({ ...prev, school_id: "" }));
                     }}
                     required
-                    error={errors.school}
+                    error={errors.school_id}
                   />
                 )}
                 <div className="grid grid-cols-2 gap-4">
@@ -787,7 +789,7 @@ const ManageUsers = () => {
                         email: "",
                         phone_number: "",
                         role: "school_admin",
-                        school: "",
+                        school_id: "",
                         profile_picture_base64: "",
                       });
                       setPreviewImage(null);

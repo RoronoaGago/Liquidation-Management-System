@@ -1,23 +1,6 @@
 import jsPDF from "jspdf";
 import { depedLogoBase64 } from "@/lib/depedLogo";
-
-// Types can be imported or redefined if needed
-export type Priority = {
-    expense: string;
-    amount: number;
-};
-
-export type Submission = {
-    id: number;
-    submitted_by: {
-        id: number;
-        name: string;
-        school: string;
-    };
-    priorities: Priority[];
-    status: "pending" | "approved" | "rejected";
-    submitted_at: string;
-};
+import { Submission } from "./types";
 
 
 //TODO - name ng file is pangalan ng school ex (TALLAOEN_LUNA_LA_UNION_LOP)
@@ -95,7 +78,7 @@ export const handleExport = (submission: Submission) => {
         10
     );
     centerText(
-        submission.submitted_by.school.toUpperCase(),
+        (submission.user.school?.schoolName || "").toUpperCase(),
         headerBaseY + 23,
         "arial_black",
         "normal",
@@ -153,7 +136,7 @@ export const handleExport = (submission: Submission) => {
             10
         );
         centerText(
-            submission.submitted_by.school.toUpperCase(),
+            (submission.user.school?.schoolName || "").toUpperCase(),
             headerBaseY + 23,
             "arial_black",
             "normal",
@@ -187,7 +170,7 @@ export const handleExport = (submission: Submission) => {
     // Date (left aligned)
     doc.setFont(bodyFont, bodyFontStyle);
     doc.setFontSize(bodyFontSize);
-    const dateStr = new Date(submission.submitted_at).toLocaleDateString(
+    const dateStr = new Date(submission.created_at).toLocaleDateString(
         "en-US",
         {
             year: "numeric",
@@ -219,7 +202,7 @@ export const handleExport = (submission: Submission) => {
 
     // Introduction
     const totalAmount = submission.priorities.reduce(
-        (sum, p) => sum + p.amount,
+        (sum, p) => sum + Number(p.amount),
         0
     );
     doc.text(
@@ -272,7 +255,7 @@ export const handleExport = (submission: Submission) => {
     let currentY = tableY + rowHeight;
     const bottomMargin = 36; // leave space for signatures or just for margin
 
-    submission.priorities.forEach((priority, idx) => {
+    submission.priorities.forEach((priority) => {
         // Check if next row fits
         if (currentY + rowHeight > pageHeight - bottomMargin) {
             doc.addPage();
@@ -286,10 +269,10 @@ export const handleExport = (submission: Submission) => {
         doc.rect(col1X, currentY, col1Width, rowHeight);
         doc.rect(col1X + col1Width, currentY, col2Width, rowHeight);
         // Expense (left)
-        doc.text(priority.expense, col1X + 2, currentY + 6);
+        doc.text(priority.priority.expenseTitle, col1X + 2, currentY + 6);
         // Amount (centered)
         doc.text(
-            priority.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }),
+            Number(priority.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }),
             col1X + col1Width + col2Width / 2,
             currentY + 6,
             { align: "center" }
@@ -317,7 +300,7 @@ export const handleExport = (submission: Submission) => {
     );
 
     // --- Signature Section ---
-    let signatureY = currentY + 25;
+    let signatureY = currentY + 80;
     // If signatures don't fit, add a new page
     if (signatureY + 20 > pageHeight - 10) {
         doc.addPage();
@@ -340,5 +323,5 @@ export const handleExport = (submission: Submission) => {
     doc.text("School Head", leftX, lineY2 + 14);
     doc.text("Accountant III", rightX, lineY2 + 14);
 
-    doc.save(`priority_submission_${submission.id}.pdf`);
+    doc.save(`priority_submission_${submission.request_id}.pdf`);
 };

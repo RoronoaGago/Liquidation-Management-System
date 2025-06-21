@@ -22,107 +22,95 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
-
-type Priority = {
-  expense: string;
-  amount: number;
-};
-
-type Submission = {
-  id: number;
-  submitted_by: {
-    id: number;
-    name: string;
-    school: string;
-  };
-  priorities: Priority[];
-  status: "pending" | "approved" | "rejected";
-  submitted_at: string;
-};
-
-const initialSubmissions: Submission[] = [
-  {
-    id: 1,
-    submitted_by: {
-      id: 10,
-      name: "Jane Doe",
-      school: "Sample Elementary School",
-    },
-    priorities: [
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-    ],
-    status: "pending",
-    submitted_at: "2025-06-17T10:00:00Z",
-  },
-  {
-    id: 2,
-    submitted_by: { id: 11, name: "John Smith", school: "Central High School" },
-    priorities: [{ expense: "Electricity Expense", amount: 3000 }],
-    status: "pending",
-    submitted_at: "2025-06-16T14:30:00Z",
-  },
-  {
-    id: 3,
-    submitted_by: { id: 12, name: "Alice Johnson", school: "Westside School" },
-    priorities: [{ expense: "Water Expense", amount: 1200 }],
-    status: "approved",
-    submitted_at: "2025-06-15T09:00:00Z",
-  },
-  {
-    id: 4,
-    submitted_by: { id: 13, name: "Bob Lee", school: "Eastside School" },
-    priorities: [{ expense: "Maintenance", amount: 800 }],
-    status: "rejected",
-    submitted_at: "2025-06-14T11:00:00Z",
-  },
-  // Add more for pagination demo
-];
+import axios from "axios";
+import api from "@/api/axios";
+import { Submission, School } from "@/lib/types";
 
 const PriortySubmissionsPage = () => {
   // State for submissions and modal
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
-  const [submissionsState, setSubmissionsState] =
-    useState<Submission[]>(initialSubmissions);
+  const [submissionsState, setSubmissionsState] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [schools, setSchools] = useState<School[]>([]);
 
-  // Pagination and search state
+  // Pagination, search, and sort state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [filterOptions, setFilterOptions] = useState({
+    searchTerm: "",
+    status: "",
+    school: "",
+  });
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>({ key: "created_at", direction: "desc" });
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Approve handler
-  const handleApprove = (submission: Submission) => {
-    setSubmissionsState((prev) =>
-      prev.map((s) =>
-        s.id === submission.id ? { ...s, status: "approved" } : s
-      )
-    );
-    setViewedSubmission((prev) =>
-      prev ? { ...prev, status: "approved" } : prev
-    );
+  // Fetch submissions and schools from backend
+  useEffect(() => {
+    const fetchSubmissions = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.get("requests/");
+        setSubmissionsState(res.data);
+        // Fetch schools for filter dropdown
+        const schoolRes = await api.get("schools/");
+        setSchools(schoolRes.data);
+      } catch (err: any) {
+        console.error("Failed to fetch submissions:", err);
+        setError("Failed to fetch submissions");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubmissions();
+  }, []);
+
+  // Approve handler (should call backend in real app)
+  const handleApprove = async (submission: Submission) => {
+    try {
+      await api.put(`/api/requests/${submission.request_id}/`, {
+        status: "approved",
+      });
+      setSubmissionsState((prev) =>
+        prev.map((s) =>
+          s.request_id === submission.request_id
+            ? { ...s, status: "approved" }
+            : s
+        )
+      );
+      setViewedSubmission((prev) =>
+        prev ? { ...prev, status: "approved" } : prev
+      );
+    } catch (err) {
+      // handle error
+    }
   };
 
-  // Reject handler
-  const handleReject = (submission: Submission) => {
-    setSubmissionsState((prev) =>
-      prev.map((s) =>
-        s.id === submission.id ? { ...s, status: "rejected" } : s
-      )
-    );
-    setViewedSubmission((prev) =>
-      prev ? { ...prev, status: "rejected" } : prev
-    );
+  // Reject handler (should call backend in real app)
+  const handleReject = async (submission: Submission) => {
+    try {
+      await api.put(`/api/requests/${submission.request_id}/`, {
+        status: "rejected",
+      });
+      setSubmissionsState((prev) =>
+        prev.map((s) =>
+          s.request_id === submission.request_id
+            ? { ...s, status: "rejected" }
+            : s
+        )
+      );
+      setViewedSubmission((prev) =>
+        prev ? { ...prev, status: "rejected" } : prev
+      );
+    } catch (err) {
+      // handle error
+    }
   };
 
   // Debounce search
@@ -134,30 +122,92 @@ const PriortySubmissionsPage = () => {
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-  }, [searchTerm]);
+  }, [filterOptions.searchTerm]);
 
-  // Filtered submissions
+  // Filtering logic
   const filteredSubmissions = useMemo(() => {
-    if (!searchTerm) return submissionsState;
-    const term = searchTerm.toLowerCase();
-    return submissionsState.filter(
-      (submission) =>
-        submission.submitted_by.name.toLowerCase().includes(term) ||
-        submission.submitted_by.school.toLowerCase().includes(term) ||
-        submission.priorities.some((p) =>
-          p.expense.toLowerCase().includes(term)
-        ) ||
-        submission.status.toLowerCase().includes(term) ||
-        submission.id.toString().includes(term)
-    );
-  }, [submissionsState, searchTerm]);
+    let filtered = submissionsState;
+    if (filterOptions.searchTerm) {
+      const term = filterOptions.searchTerm.toLowerCase();
+      filtered = filtered.filter((submission) => {
+        const userName =
+          `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
+        const school = (submission.user.school?.schoolName || "").toLowerCase();
+        return (
+          userName.includes(term) ||
+          school.includes(term) ||
+          submission.priorities.some((p) =>
+            p.priority.expenseTitle.toLowerCase().includes(term)
+          ) ||
+          submission.status.toLowerCase().includes(term) ||
+          submission.request_id.toLowerCase().includes(term)
+        );
+      });
+    }
+    if (filterOptions.status) {
+      filtered = filtered.filter((s) => s.status === filterOptions.status);
+    }
+    if (filterOptions.school) {
+      filtered = filtered.filter(
+        (s) =>
+          s.user.school &&
+          String(s.user.school.schoolId) === filterOptions.school
+      );
+    }
+    return filtered;
+  }, [submissionsState, filterOptions]);
+
+  // Sorting logic
+  const sortedSubmissions = useMemo(() => {
+    if (!sortConfig) return filteredSubmissions;
+    return [...filteredSubmissions].sort((a, b) => {
+      if (sortConfig.key === "created_at") {
+        const aDate = new Date(a.created_at).getTime();
+        const bDate = new Date(b.created_at).getTime();
+        return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
+      }
+      if (sortConfig.key === "request_id") {
+        return sortConfig.direction === "asc"
+          ? a.request_id.localeCompare(b.request_id)
+          : b.request_id.localeCompare(a.request_id);
+      }
+      if (sortConfig.key === "status") {
+        return sortConfig.direction === "asc"
+          ? a.status.localeCompare(b.status)
+          : b.status.localeCompare(a.status);
+      }
+      if (sortConfig.key === "school") {
+        const aSchool = a.user.school?.schoolName || "";
+        const bSchool = b.user.school?.schoolName || "";
+        return sortConfig.direction === "asc"
+          ? aSchool.localeCompare(bSchool)
+          : bSchool.localeCompare(aSchool);
+      }
+      if (sortConfig.key === "submitted_by") {
+        const aName = `${a.user.first_name} ${a.user.last_name}`;
+        const bName = `${b.user.first_name} ${b.user.last_name}`;
+        return sortConfig.direction === "asc"
+          ? aName.localeCompare(bName)
+          : bName.localeCompare(aName);
+      }
+      return 0;
+    });
+  }, [filteredSubmissions, sortConfig]);
+
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key) {
+      direction = sortConfig.direction === "asc" ? "desc" : "asc";
+    }
+    setSortConfig({ key, direction });
+  };
 
   // Pagination
-  const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedSubmissions.length / itemsPerPage);
   const currentItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredSubmissions.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredSubmissions, currentPage, itemsPerPage]);
+    return sortedSubmissions.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedSubmissions, currentPage, itemsPerPage]);
 
   // Pagination controls
   const goToPage = (page: number) => {
@@ -167,37 +217,80 @@ const PriortySubmissionsPage = () => {
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="School Heads' Priority Submissions" />
-
-      {/* Search and Items Per Page */}
+      {/* Search, Filters, and Items Per Page */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-        <div className="relative w-full">
-          <Input
-            type="text"
-            placeholder="Search submissions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 "
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="flex flex-col md:flex-row gap-2 w-full">
+          <div className="relative w-full">
+            <Input
+              type="text"
+              placeholder="Search submissions..."
+              value={filterOptions.searchTerm}
+              onChange={(e) =>
+                setFilterOptions((prev) => ({
+                  ...prev,
+                  searchTerm: e.target.value,
+                }))
+              }
+              className="pl-10 "
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          </div>
+          {/* <select
+            value={filterOptions.status}
+            onChange={(e) =>
+              setFilterOptions((prev) => ({ ...prev, status: e.target.value }))
+            }
+            className="min-w-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+          >
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <select
+            value={filterOptions.school}
+            onChange={(e) =>
+              setFilterOptions((prev) => ({ ...prev, school: e.target.value }))
+            }
+            className="min-w-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+          >
+            <option value="">All Schools</option>
+            {schools.map((school) => (
+              <option key={school.schoolId} value={school.schoolId}>
+                {school.schoolName}
+              </option>
+            ))}
+          </select> */}
         </div>
-        <select
-          value={itemsPerPage.toString()}
-          onChange={(e) => setItemsPerPage(Number(e.target.value))}
-          className="min-w-[100px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
-        >
-          <option value="5">5 per page</option>
-          <option value="10">10 per page</option>
-          <option value="20">20 per page</option>
-          <option value="50">50 per page</option>
-        </select>
+        <div className="flex gap-4 w-full md:w-auto items-center">
+          <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+            Items per page:
+          </label>
+          <select
+            value={itemsPerPage.toString()}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
+          >
+            {[5, 10, 20, 50].map((num) => (
+              <option key={num} value={num}>
+                Show {num}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
-
       {/* Table */}
       <PrioritySubmissionsTable
         submissions={currentItems}
         onView={setViewedSubmission}
+        loading={loading}
+        error={error}
+        sortConfig={sortConfig}
+        requestSort={requestSort}
       />
-
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
         <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -265,7 +358,6 @@ const PriortySubmissionsPage = () => {
           </Button>
         </div>
       </div>
-
       {/* Modal for viewing priorities and actions */}
       <Dialog
         open={!!viewedSubmission}
@@ -285,19 +377,21 @@ const PriortySubmissionsPage = () => {
                   <div className="flex flex-col gap-1">
                     <div>
                       <span className="font-semibold">Request ID:</span>{" "}
-                      <span>{viewedSubmission.id}</span>
+                      <span>{viewedSubmission.request_id}</span>
                     </div>
                     <div>
                       <span className="font-semibold">Submitted by:</span>{" "}
-                      <span>{viewedSubmission.submitted_by.name}</span>
+                      <span>
+                        {viewedSubmission.user.first_name}{" "}
+                        {viewedSubmission.user.last_name}
+                      </span>
                       <span className="ml-2 text-sm text-gray-500">
                         (School Head)
                       </span>
                     </div>
-
                     <div className="text-sm text-gray-700 dark:text-gray-300">
                       <span className="font-semibold">School:</span>{" "}
-                      {viewedSubmission.submitted_by.school}
+                      {viewedSubmission.user.school?.schoolName || "N/A"}
                     </div>
                     <div>
                       <span className="font-semibold">Status:</span>{" "}
@@ -316,12 +410,11 @@ const PriortySubmissionsPage = () => {
                     </div>
                     <div>
                       <span className="font-semibold">Submitted At:</span>{" "}
-                      {new Date(viewedSubmission.submitted_at).toLocaleString()}
+                      {new Date(viewedSubmission.created_at).toLocaleString()}
                     </div>
                   </div>
                 </div>
               </div>
-
               <div className="mt-6">
                 <span className="font-semibold">List of Priorities:</span>
                 <table className="w-full mt-2 border">
@@ -334,9 +427,11 @@ const PriortySubmissionsPage = () => {
                   <tbody>
                     {viewedSubmission.priorities.map((priority, idx) => (
                       <tr key={idx}>
-                        <td className="border px-2 py-1">{priority.expense}</td>
+                        <td className="border px-2 py-1">
+                          {priority.priority.expenseTitle}
+                        </td>
                         <td className="border px-2 py-1 text-center">
-                          {priority.amount.toLocaleString(undefined, {
+                          {Number(priority.amount).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                           })}
                         </td>
@@ -346,7 +441,7 @@ const PriortySubmissionsPage = () => {
                       <td className="border px-2 py-1 font-bold">TOTAL</td>
                       <td className="border px-2 py-1 text-center font-bold">
                         {viewedSubmission.priorities
-                          .reduce((sum, p) => sum + p.amount, 0)
+                          .reduce((sum, p) => sum + Number(p.amount), 0)
                           .toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                           })}
