@@ -78,7 +78,7 @@ export const handleExport = (submission: Submission) => {
         10
     );
     centerText(
-        (submission.user.school || "").toUpperCase(),
+        (submission.user.school?.schoolName || "").toUpperCase(),
         headerBaseY + 23,
         "arial_black",
         "normal",
@@ -136,7 +136,7 @@ export const handleExport = (submission: Submission) => {
             10
         );
         centerText(
-            (submission.user.school || "").toUpperCase(),
+            (submission.user.school?.schoolName || "").toUpperCase(),
             headerBaseY + 23,
             "arial_black",
             "normal",
