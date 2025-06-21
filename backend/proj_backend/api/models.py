@@ -162,6 +162,9 @@ class RequestManagement(models.Model):
         related_name='requests'
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    last_reminder_sent = models.DateField(null=True, blank=True)
+    demand_letter_sent = models.BooleanField(default=False)
+    demand_letter_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
