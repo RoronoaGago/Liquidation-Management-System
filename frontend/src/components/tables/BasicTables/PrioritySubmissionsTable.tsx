@@ -11,30 +11,39 @@ import Badge from "@/components/ui/badge/Badge";
 import { EyeIcon } from "lucide-react";
 
 type Priority = {
-  expense: string;
+  id: number;
+  priority: {
+    LOPID: number;
+    expenseTitle: string;
+  };
   amount: number;
 };
 
 type Submission = {
-  id: number;
-  submitted_by: {
-    id: number;
-    name: string;
-    school: string;
+  request_id: string;
+  user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    school: string | null;
   };
   priorities: Priority[];
   status: "pending" | "approved" | "rejected";
-  submitted_at: string;
+  created_at: string;
 };
 
 interface PrioritySubmissionsTableProps {
   submissions: Submission[];
   onView: (submission: Submission) => void;
+  loading?: boolean;
+  error?: string | null;
 }
 
 const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
   submissions,
   onView,
+  loading,
+  error,
 }) => {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -81,48 +90,77 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-gray-200 dark:divide-white/[0.05]">
-            {submissions.map((submission) => (
-              <TableRow
-                key={submission.id}
-                className="hover:bg-gray-50 dark:hover:bg-gray-900/20"
-              >
-                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                  {submission.id}
-                </TableCell>
-                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                  {submission.submitted_by.name}
-                </TableCell>
-                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                  {submission.submitted_by.school}
-                </TableCell>
-                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                  <Badge
-                    color={
-                      submission.status === "pending"
-                        ? "warning"
-                        : submission.status === "approved"
-                        ? "success"
-                        : "error"
-                    }
-                  >
-                    {submission.status.charAt(0).toUpperCase() +
-                      submission.status.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                  {new Date(submission.submitted_at).toLocaleString()}
-                </TableCell>
-                <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                  <button
-                    className="flex items-center gap-2 text-blue-600 hover:underline"
-                    onClick={() => onView(submission)}
-                  >
-                    View
-                    <EyeIcon className="w-4 h-4" />
-                  </button>
+            {loading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-gray-500"
+                >
+                  Loading submissions...
                 </TableCell>
               </TableRow>
-            ))}
+            ) : error ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-red-500"
+                >
+                  {error}
+                </TableCell>
+              </TableRow>
+            ) : submissions.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-gray-500"
+                >
+                  No submissions found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              submissions.map((submission) => (
+                <TableRow
+                  key={submission.request_id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-900/20"
+                >
+                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    {submission.request_id}
+                  </TableCell>
+                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    {submission.user.first_name} {submission.user.last_name}
+                  </TableCell>
+                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    {submission.user.school}
+                  </TableCell>
+                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    <Badge
+                      color={
+                        submission.status === "pending"
+                          ? "warning"
+                          : submission.status === "approved"
+                          ? "success"
+                          : "error"
+                      }
+                    >
+                      {submission.status.charAt(0).toUpperCase() +
+                        submission.status.slice(1)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    {new Date(submission.created_at).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    <button
+                      className="flex items-center gap-2 text-blue-600 hover:underline"
+                      onClick={() => onView(submission)}
+                    >
+                      View
+                      <EyeIcon className="w-4 h-4" />
+                    </button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
