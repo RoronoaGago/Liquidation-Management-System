@@ -21,6 +21,7 @@ import ListOfPrioritiesPage from "./pages/FundRequest";
 import ManageSchools from "./pages/ManageSchools";
 import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
 import LiquidationPage from "./pages/LiquidationPage";
+import ApprovedRequestPage from "./pages/ApprovedRequestPage";
 
 const App = () => {
   return (
@@ -82,12 +83,12 @@ const App = () => {
             </Route>
 
             {/* Teacher-only routes */}
-            <Route element={<RequireAuth allowedRoles={["teacher"]} />}>
-              {/* <Route path="/classes" element={<MyClasses />} />
+            <Route element={<RequireAuth allowedRoles={["accountant"]} />}>
+              {/* <Route path="/classes" element={<MyClasses />} /> */}
               <Route
-                path="/generate-report/student-performance"
-                element={<StudentPerformanceReport />}
-              /> */}
+                path="/approved-requests"
+                element={<ApprovedRequestPage />}
+              />
             </Route>
 
             {/* Shared routes for multiple roles */}
