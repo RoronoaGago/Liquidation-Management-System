@@ -22,78 +22,18 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
-
-type Priority = {
-  expense: string;
-  amount: number;
-};
-
-type Submission = {
-  id: number;
-  submitted_by: {
-    id: number;
-    name: string;
-    school: string;
-  };
-  priorities: Priority[];
-  status: "pending" | "approved" | "rejected";
-  submitted_at: string;
-};
-
-const initialSubmissions: Submission[] = [
-  {
-    id: 1,
-    submitted_by: {
-      id: 10,
-      name: "Jane Doe",
-      school: "Sample Elementary School",
-    },
-    priorities: [
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-      { expense: "Internet Expense", amount: 1500 },
-      { expense: "Office Supplies", amount: 2000 },
-    ],
-    status: "pending",
-    submitted_at: "2025-06-17T10:00:00Z",
-  },
-  {
-    id: 2,
-    submitted_by: { id: 11, name: "John Smith", school: "Central High School" },
-    priorities: [{ expense: "Electricity Expense", amount: 3000 }],
-    status: "pending",
-    submitted_at: "2025-06-16T14:30:00Z",
-  },
-  {
-    id: 3,
-    submitted_by: { id: 12, name: "Alice Johnson", school: "Westside School" },
-    priorities: [{ expense: "Water Expense", amount: 1200 }],
-    status: "approved",
-    submitted_at: "2025-06-15T09:00:00Z",
-  },
-  {
-    id: 4,
-    submitted_by: { id: 13, name: "Bob Lee", school: "Eastside School" },
-    priorities: [{ expense: "Maintenance", amount: 800 }],
-    status: "rejected",
-    submitted_at: "2025-06-14T11:00:00Z",
-  },
-  // Add more for pagination demo
-];
+import axios from "axios";
+import api from "@/api/axios";
+import { Submission } from "@/lib/types";
 
 const PriortySubmissionsPage = () => {
   // State for submissions and modal
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
-  const [submissionsState, setSubmissionsState] =
-    useState<Submission[]>(initialSubmissions);
+  const [submissionsState, setSubmissionsState] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Pagination and search state
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,28 +41,64 @@ const PriortySubmissionsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Approve handler
-  const handleApprove = (submission: Submission) => {
-    setSubmissionsState((prev) =>
-      prev.map((s) =>
-        s.id === submission.id ? { ...s, status: "approved" } : s
-      )
-    );
-    setViewedSubmission((prev) =>
-      prev ? { ...prev, status: "approved" } : prev
-    );
+  // Fetch submissions from backend
+  useEffect(() => {
+    const fetchSubmissions = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // You may want to use /api/requests/ or /api/user-requests/ depending on your backend
+        const res = await api.get("/requests/");
+        setSubmissionsState(res.data);
+      } catch (err: any) {
+        setError("Failed to fetch submissions");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubmissions();
+  }, []);
+
+  // Approve handler (should call backend in real app)
+  const handleApprove = async (submission: Submission) => {
+    try {
+      await api.put(`/api/requests/${submission.request_id}/`, {
+        status: "approved",
+      });
+      setSubmissionsState((prev) =>
+        prev.map((s) =>
+          s.request_id === submission.request_id
+            ? { ...s, status: "approved" }
+            : s
+        )
+      );
+      setViewedSubmission((prev) =>
+        prev ? { ...prev, status: "approved" } : prev
+      );
+    } catch (err) {
+      // handle error
+    }
   };
 
-  // Reject handler
-  const handleReject = (submission: Submission) => {
-    setSubmissionsState((prev) =>
-      prev.map((s) =>
-        s.id === submission.id ? { ...s, status: "rejected" } : s
-      )
-    );
-    setViewedSubmission((prev) =>
-      prev ? { ...prev, status: "rejected" } : prev
-    );
+  // Reject handler (should call backend in real app)
+  const handleReject = async (submission: Submission) => {
+    try {
+      await api.put(`/api/requests/${submission.request_id}/`, {
+        status: "rejected",
+      });
+      setSubmissionsState((prev) =>
+        prev.map((s) =>
+          s.request_id === submission.request_id
+            ? { ...s, status: "rejected" }
+            : s
+        )
+      );
+      setViewedSubmission((prev) =>
+        prev ? { ...prev, status: "rejected" } : prev
+      );
+    } catch (err) {
+      // handle error
+    }
   };
 
   // Debounce search
@@ -140,16 +116,20 @@ const PriortySubmissionsPage = () => {
   const filteredSubmissions = useMemo(() => {
     if (!searchTerm) return submissionsState;
     const term = searchTerm.toLowerCase();
-    return submissionsState.filter(
-      (submission) =>
-        submission.submitted_by.name.toLowerCase().includes(term) ||
-        submission.submitted_by.school.toLowerCase().includes(term) ||
+    return submissionsState.filter((submission) => {
+      const userName =
+        `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
+      const school = (submission.user.school || "").toLowerCase();
+      return (
+        userName.includes(term) ||
+        school.includes(term) ||
         submission.priorities.some((p) =>
-          p.expense.toLowerCase().includes(term)
+          p.priority.expenseTitle.toLowerCase().includes(term)
         ) ||
         submission.status.toLowerCase().includes(term) ||
-        submission.id.toString().includes(term)
-    );
+        submission.request_id.toLowerCase().includes(term)
+      );
+    });
   }, [submissionsState, searchTerm]);
 
   // Pagination
@@ -167,7 +147,6 @@ const PriortySubmissionsPage = () => {
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="School Heads' Priority Submissions" />
-
       {/* Search and Items Per Page */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <div className="relative w-full">
@@ -191,13 +170,13 @@ const PriortySubmissionsPage = () => {
           <option value="50">50 per page</option>
         </select>
       </div>
-
       {/* Table */}
       <PrioritySubmissionsTable
         submissions={currentItems}
         onView={setViewedSubmission}
+        loading={loading}
+        error={error}
       />
-
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
         <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -265,7 +244,6 @@ const PriortySubmissionsPage = () => {
           </Button>
         </div>
       </div>
-
       {/* Modal for viewing priorities and actions */}
       <Dialog
         open={!!viewedSubmission}
@@ -285,19 +263,21 @@ const PriortySubmissionsPage = () => {
                   <div className="flex flex-col gap-1">
                     <div>
                       <span className="font-semibold">Request ID:</span>{" "}
-                      <span>{viewedSubmission.id}</span>
+                      <span>{viewedSubmission.request_id}</span>
                     </div>
                     <div>
                       <span className="font-semibold">Submitted by:</span>{" "}
-                      <span>{viewedSubmission.submitted_by.name}</span>
+                      <span>
+                        {viewedSubmission.user.first_name}{" "}
+                        {viewedSubmission.user.last_name}
+                      </span>
                       <span className="ml-2 text-sm text-gray-500">
                         (School Head)
                       </span>
                     </div>
-
                     <div className="text-sm text-gray-700 dark:text-gray-300">
                       <span className="font-semibold">School:</span>{" "}
-                      {viewedSubmission.submitted_by.school}
+                      {viewedSubmission.user.school}
                     </div>
                     <div>
                       <span className="font-semibold">Status:</span>{" "}
@@ -316,12 +296,11 @@ const PriortySubmissionsPage = () => {
                     </div>
                     <div>
                       <span className="font-semibold">Submitted At:</span>{" "}
-                      {new Date(viewedSubmission.submitted_at).toLocaleString()}
+                      {new Date(viewedSubmission.created_at).toLocaleString()}
                     </div>
                   </div>
                 </div>
               </div>
-
               <div className="mt-6">
                 <span className="font-semibold">List of Priorities:</span>
                 <table className="w-full mt-2 border">
@@ -334,9 +313,11 @@ const PriortySubmissionsPage = () => {
                   <tbody>
                     {viewedSubmission.priorities.map((priority, idx) => (
                       <tr key={idx}>
-                        <td className="border px-2 py-1">{priority.expense}</td>
+                        <td className="border px-2 py-1">
+                          {priority.priority.expenseTitle}
+                        </td>
                         <td className="border px-2 py-1 text-center">
-                          {priority.amount.toLocaleString(undefined, {
+                          {Number(priority.amount).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                           })}
                         </td>
@@ -346,7 +327,7 @@ const PriortySubmissionsPage = () => {
                       <td className="border px-2 py-1 font-bold">TOTAL</td>
                       <td className="border px-2 py-1 text-center font-bold">
                         {viewedSubmission.priorities
-                          .reduce((sum, p) => sum + p.amount, 0)
+                          .reduce((sum, p) => sum + Number(p.amount), 0)
                           .toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                           })}

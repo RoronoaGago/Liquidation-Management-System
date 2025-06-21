@@ -169,5 +169,26 @@ export interface ListOfPriority {
   is_active: boolean;
 }
 
+export type Submission = {
+  request_id: string;
+  user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    school: string | null;
+  };
+  priorities: Priority[];
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+};
+
+type Priority = {
+  id: number;
+  priority: {
+    LOPID: number;
+    expenseTitle: string;
+  };
+  amount: number;
+};
 // Add this type for sorting ListOfPriority fields
 export type LOPSortableField = "LOPID" | "expenseTitle";
