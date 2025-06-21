@@ -148,7 +148,7 @@ export type Transaction = {
 export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   children: React.ReactNode; // Button text or content
   size?: "sm" | "md"; // Button size
-  variant?: "primary" | "outline" | "error"; // Button variant
+  variant?: "primary" | "outline" | "error" | "success" | "destructive" | "ghost"; // Button variant
   loading?: boolean;
   startIcon?: React.ReactNode; // Icon before the text
   endIcon?: React.ReactNode; // Icon after the text
@@ -169,5 +169,26 @@ export interface ListOfPriority {
   is_active: boolean;
 }
 
+export type Submission = {
+  request_id: string;
+  user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    school: School | null; // Use School type for school details
+  };
+  priorities: Priority[];
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+};
+
+type Priority = {
+  id: number;
+  priority: {
+    LOPID: number;
+    expenseTitle: string;
+  };
+  amount: number;
+};
 // Add this type for sorting ListOfPriority fields
 export type LOPSortableField = "LOPID" | "expenseTitle";
