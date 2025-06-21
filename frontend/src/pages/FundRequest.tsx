@@ -12,6 +12,7 @@ import {
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
 import { ListofPriorityData } from "@/lib/types";
+import { toast } from "react-hot-toast"; // or your preferred toast library
 
 const FundRequestPage = () => {
   const [priorities, setPriorities] = useState<ListofPriorityData[]>([]);
@@ -23,6 +24,7 @@ const FundRequestPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch priorities from backend
@@ -64,10 +66,53 @@ const FundRequestPage = () => {
     setSelected((prev) => ({ ...prev, [expense]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Map selected to [{ LOPID, amount }]
+  const selectedPriorities = Object.entries(selected)
+    .map(([expenseTitle, amount]) => {
+      const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
+      return priority ? { LOPID: priority.LOPID, amount } : null;
+    })
+    .filter(Boolean);
+
+  // Submit handler
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Submitted expenses:", selected);
-    // toast.success("Fund request submitted successfully!")
+    if (selectedPriorities.length === 0) {
+      toast.error("Please select at least one expense.");
+      return;
+    }
+    setSubmitting(true);
+    toast.loading("Submitting fund request...", { id: "fundreq" });
+    try {
+      // Get JWT token from localStorage or context
+      const token = localStorage.getItem("access_token");
+      await axios.post(
+        "http://127.0.0.1:8000/api/requests/",
+        {
+          priority_amounts: selectedPriorities,
+          request_month: new Date().toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+          }),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      toast.success("Fund request submitted successfully!", { id: "fundreq" });
+      setSelected({});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error.response && error.response.status === 401) {
+        toast.error("Unauthorized. Please log in again.", { id: "fundreq" });
+      } else {
+        toast.error("Failed to submit fund request.", { id: "fundreq" });
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Debounced search handler
@@ -155,9 +200,9 @@ const FundRequestPage = () => {
                   <Button
                     type="submit"
                     variant="primary"
-                    disabled={Object.keys(selected).length === 0}
+                    disabled={Object.keys(selected).length === 0 || submitting}
                   >
-                    Submit Fund Request
+                    {submitting ? "Submitting..." : "Submit Fund Request"}
                   </Button>
                 </div>
               </div>
