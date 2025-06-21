@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
@@ -30,9 +30,9 @@ interface Requirement {
 
 interface UploadedDocument {
   id: number | string;
-  request_priority: number | string;
-  requirement: number | string;
-  file_url?: string;
+  request_priority_id: number | string;
+  requirement_id: number | string;
+  document_url?: string;
   uploaded_at?: string;
 }
 
@@ -116,17 +116,24 @@ const LiquidationPage = () => {
     setExpandedExpense(expandedExpense === expenseId ? null : expenseId);
   };
 
-  // Find uploaded document for a requirement
+  // Build a lookup map for uploaded documents: { "expenseId-requirementID": doc }
+  const uploadedDocMap = useMemo(() => {
+    if (!request) return {};
+    const map: { [key: string]: UploadedDocument } = {};
+    request.uploadedDocuments.forEach((doc) => {
+      // Use the correct keys from your backend response
+      map[`${doc.request_priority_id}-${doc.requirement_id}`] = doc;
+    });
+    return map;
+  }, [request]);
+
+  // Find uploaded document for a requirement (O(1) lookup)
   const getUploadedDocument = (
     expenseId: string | number,
     requirementID: string | number
   ) => {
     if (!request) return undefined;
-    return request.uploadedDocuments.find(
-      (doc) =>
-        String(doc.request_priority) === String(expenseId) &&
-        String(doc.requirement) === String(requirementID)
-    );
+    return uploadedDocMap[`${expenseId}-${requirementID}`];
   };
 
   // Handle file upload
@@ -402,6 +409,7 @@ const LiquidationPage = () => {
                         expense.id,
                         req.requirementID
                       );
+
                       return (
                         <div
                           key={`${expense.id}-${req.requirementID}`}
@@ -453,9 +461,9 @@ const LiquidationPage = () => {
                                     <DownloadIcon className="h-4 w-4" />
                                   }
                                   onClick={() => {
-                                    if (uploadedDoc.file_url) {
+                                    if (uploadedDoc.document_url) {
                                       window.open(
-                                        uploadedDoc.file_url,
+                                        uploadedDoc.document_url,
                                         "_blank"
                                       );
                                     } else {
@@ -503,7 +511,11 @@ const LiquidationPage = () => {
                                   }
                                   disabled={
                                     uploading ===
-                                    `${expense.id}-${req.requirementID}`
+                                      `${expense.id}-${req.requirementID}` ||
+                                    !!getUploadedDocument(
+                                      expense.id,
+                                      req.requirementID
+                                    ) // Disable if already uploaded
                                   }
                                 >
                                   {uploading ===
@@ -551,14 +563,14 @@ const LiquidationPage = () => {
                         className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                       >
                         <Paperclip className="h-4 w-4 text-gray-500" />
-                        {doc?.file_url ? (
+                        {doc?.document_url ? (
                           <a
-                            href={doc.file_url}
+                            href={doc.document_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline"
                           >
-                            {doc.file_url.split("/").pop()}
+                            {doc.document_url.split("/").pop()}
                           </a>
                         ) : (
                           "Document"

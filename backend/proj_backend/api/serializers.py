@@ -236,17 +236,21 @@ class RequestManagementSerializer(serializers.ModelSerializer):
 
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
-    document_url = serializers.SerializerMethodField()
-    requirement = serializers.PrimaryKeyRelatedField(
-        queryset=Requirement.objects.all(),
-        write_only=True
-    )
-    requirement_obj = RequirementSerializer(
-        source='requirement', read_only=True)
     request_priority = serializers.PrimaryKeyRelatedField(
         queryset=RequestPriority.objects.all(),
         write_only=True
     )
+    requirement = serializers.PrimaryKeyRelatedField(
+        queryset=Requirement.objects.all(),
+        write_only=True
+    )
+    request_priority_id = serializers.IntegerField(
+        source='request_priority.id', read_only=True)
+    requirement_id = serializers.IntegerField(
+        source='requirement.requirementID', read_only=True)
+    document_url = serializers.SerializerMethodField()
+    requirement_obj = RequirementSerializer(
+        source='requirement', read_only=True)
     request_priority_obj = RequestPrioritySerializer(
         source='request_priority', read_only=True)
     liquidation_document_id = serializers.CharField(read_only=True)
@@ -265,7 +269,9 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
             'uploaded_at',
             'uploaded_by',
             'is_approved',
-            'reviewer_comment'
+            'reviewer_comment',
+            'request_priority_id',
+            'requirement_id',
         ]
         extra_kwargs = {
             'document': {'write_only': True},
