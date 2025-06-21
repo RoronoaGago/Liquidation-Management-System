@@ -24,7 +24,7 @@ import {
 import Input from "@/components/form/input/InputField";
 import axios from "axios";
 import api from "@/api/axios";
-import { Submission } from "@/lib/types";
+import { Submission, School } from "@/lib/types";
 
 const PriortySubmissionsPage = () => {
   // State for submissions and modal
@@ -34,22 +34,33 @@ const PriortySubmissionsPage = () => {
   const [submissionsState, setSubmissionsState] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [schools, setSchools] = useState<School[]>([]);
 
-  // Pagination and search state
+  // Pagination, search, and sort state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [filterOptions, setFilterOptions] = useState({
+    searchTerm: "",
+    status: "",
+    school: "",
+  });
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>({ key: "created_at", direction: "desc" });
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch submissions from backend
+  // Fetch submissions and schools from backend
   useEffect(() => {
     const fetchSubmissions = async () => {
       setLoading(true);
       setError(null);
       try {
-        // You may want to use /api/requests/ or /api/user-requests/ depending on your backend
         const res = await api.get("requests/");
         setSubmissionsState(res.data);
+        // Fetch schools for filter dropdown
+        const schoolRes = await api.get("schools/");
+        setSchools(schoolRes.data);
       } catch (err: any) {
         console.error("Failed to fetch submissions:", err);
         setError("Failed to fetch submissions");
@@ -111,34 +122,92 @@ const PriortySubmissionsPage = () => {
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-  }, [searchTerm]);
+  }, [filterOptions.searchTerm]);
 
-  // Filtered submissions
+  // Filtering logic
   const filteredSubmissions = useMemo(() => {
-    if (!searchTerm) return submissionsState;
-    const term = searchTerm.toLowerCase();
-    return submissionsState.filter((submission) => {
-      const userName =
-        `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
-      const school = (submission.user.school?.schoolName || "").toLowerCase();
-      return (
-        userName.includes(term) ||
-        school.includes(term) ||
-        submission.priorities.some((p) =>
-          p.priority.expenseTitle.toLowerCase().includes(term)
-        ) ||
-        submission.status.toLowerCase().includes(term) ||
-        submission.request_id.toLowerCase().includes(term)
+    let filtered = submissionsState;
+    if (filterOptions.searchTerm) {
+      const term = filterOptions.searchTerm.toLowerCase();
+      filtered = filtered.filter((submission) => {
+        const userName =
+          `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
+        const school = (submission.user.school?.schoolName || "").toLowerCase();
+        return (
+          userName.includes(term) ||
+          school.includes(term) ||
+          submission.priorities.some((p) =>
+            p.priority.expenseTitle.toLowerCase().includes(term)
+          ) ||
+          submission.status.toLowerCase().includes(term) ||
+          submission.request_id.toLowerCase().includes(term)
+        );
+      });
+    }
+    if (filterOptions.status) {
+      filtered = filtered.filter((s) => s.status === filterOptions.status);
+    }
+    if (filterOptions.school) {
+      filtered = filtered.filter(
+        (s) =>
+          s.user.school &&
+          String(s.user.school.schoolId) === filterOptions.school
       );
+    }
+    return filtered;
+  }, [submissionsState, filterOptions]);
+
+  // Sorting logic
+  const sortedSubmissions = useMemo(() => {
+    if (!sortConfig) return filteredSubmissions;
+    return [...filteredSubmissions].sort((a, b) => {
+      if (sortConfig.key === "created_at") {
+        const aDate = new Date(a.created_at).getTime();
+        const bDate = new Date(b.created_at).getTime();
+        return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
+      }
+      if (sortConfig.key === "request_id") {
+        return sortConfig.direction === "asc"
+          ? a.request_id.localeCompare(b.request_id)
+          : b.request_id.localeCompare(a.request_id);
+      }
+      if (sortConfig.key === "status") {
+        return sortConfig.direction === "asc"
+          ? a.status.localeCompare(b.status)
+          : b.status.localeCompare(a.status);
+      }
+      if (sortConfig.key === "school") {
+        const aSchool = a.user.school?.schoolName || "";
+        const bSchool = b.user.school?.schoolName || "";
+        return sortConfig.direction === "asc"
+          ? aSchool.localeCompare(bSchool)
+          : bSchool.localeCompare(aSchool);
+      }
+      if (sortConfig.key === "submitted_by") {
+        const aName = `${a.user.first_name} ${a.user.last_name}`;
+        const bName = `${b.user.first_name} ${b.user.last_name}`;
+        return sortConfig.direction === "asc"
+          ? aName.localeCompare(bName)
+          : bName.localeCompare(aName);
+      }
+      return 0;
     });
-  }, [submissionsState, searchTerm]);
+  }, [filteredSubmissions, sortConfig]);
+
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key) {
+      direction = sortConfig.direction === "asc" ? "desc" : "asc";
+    }
+    setSortConfig({ key, direction });
+  };
 
   // Pagination
-  const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedSubmissions.length / itemsPerPage);
   const currentItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredSubmissions.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredSubmissions, currentPage, itemsPerPage]);
+    return sortedSubmissions.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedSubmissions, currentPage, itemsPerPage]);
 
   // Pagination controls
   const goToPage = (page: number) => {
@@ -148,17 +217,50 @@ const PriortySubmissionsPage = () => {
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="School Heads' Priority Submissions" />
-      {/* Search and Items Per Page */}
+      {/* Search, Filters, and Items Per Page */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-        <div className="relative w-full">
-          <Input
-            type="text"
-            placeholder="Search submissions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 "
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="flex flex-col md:flex-row gap-2 w-full">
+          <div className="relative w-full">
+            <Input
+              type="text"
+              placeholder="Search submissions..."
+              value={filterOptions.searchTerm}
+              onChange={(e) =>
+                setFilterOptions((prev) => ({
+                  ...prev,
+                  searchTerm: e.target.value,
+                }))
+              }
+              className="pl-10 "
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          </div>
+          <select
+            value={filterOptions.status}
+            onChange={(e) =>
+              setFilterOptions((prev) => ({ ...prev, status: e.target.value }))
+            }
+            className="min-w-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+          >
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <select
+            value={filterOptions.school}
+            onChange={(e) =>
+              setFilterOptions((prev) => ({ ...prev, school: e.target.value }))
+            }
+            className="min-w-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+          >
+            <option value="">All Schools</option>
+            {schools.map((school) => (
+              <option key={school.schoolId} value={school.schoolId}>
+                {school.schoolName}
+              </option>
+            ))}
+          </select>
         </div>
         <select
           value={itemsPerPage.toString()}
@@ -177,6 +279,8 @@ const PriortySubmissionsPage = () => {
         onView={setViewedSubmission}
         loading={loading}
         error={error}
+        sortConfig={sortConfig}
+        requestSort={requestSort}
       />
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">

@@ -18,12 +18,12 @@ interface PrioritySubmissionsTableProps {
   error?: string | null;
 }
 
-const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
-  submissions,
-  onView,
-  loading,
-  error,
-}) => {
+const PrioritySubmissionsTable: React.FC<
+  PrioritySubmissionsTableProps & {
+    sortConfig?: { key: string; direction: "asc" | "desc" } | null;
+    requestSort?: (key: string) => void;
+  }
+> = ({ submissions, onView, loading, error, sortConfig, requestSort }) => {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
@@ -34,31 +34,81 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
               >
-                Request ID
+                <div
+                  className="flex items-center gap-1 cursor-pointer"
+                  onClick={() => requestSort && requestSort("request_id")}
+                >
+                  Request ID
+                  {sortConfig?.key === "request_id" && (
+                    <span className="ml-1">
+                      {sortConfig.direction === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
               >
-                Submitted By
+                <div
+                  className="flex items-center gap-1 cursor-pointer"
+                  onClick={() => requestSort && requestSort("submitted_by")}
+                >
+                  Submitted By
+                  {sortConfig?.key === "submitted_by" && (
+                    <span className="ml-1">
+                      {sortConfig.direction === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
               >
-                School
+                <div
+                  className="flex items-center gap-1 cursor-pointer"
+                  onClick={() => requestSort && requestSort("school")}
+                >
+                  School
+                  {sortConfig?.key === "school" && (
+                    <span className="ml-1">
+                      {sortConfig.direction === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
               >
-                Status
+                <div
+                  className="flex items-center gap-1 cursor-pointer"
+                  onClick={() => requestSort && requestSort("status")}
+                >
+                  Status
+                  {sortConfig?.key === "status" && (
+                    <span className="ml-1">
+                      {sortConfig.direction === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
               >
-                Submitted At
+                <div
+                  className="flex items-center gap-1 cursor-pointer"
+                  onClick={() => requestSort && requestSort("created_at")}
+                >
+                  Submitted At
+                  {sortConfig?.key === "created_at" && (
+                    <span className="ml-1">
+                      {sortConfig.direction === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell
                 isHeader
