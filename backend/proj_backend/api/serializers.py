@@ -217,8 +217,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         priority_amounts = validated_data.pop('priority_amounts', [])
-        user = self.context['request'].user
-        request_obj = RequestManagement.objects.create(user=user, **validated_data)
+        request_obj = RequestManagement.objects.create(**validated_data)
         # Save priorities and amounts
         for pa in priority_amounts:
             lopid = pa.get('LOPID')
