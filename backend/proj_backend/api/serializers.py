@@ -1,10 +1,10 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
 import uuid
-
+import string
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture_base64 = serializers.CharField(
@@ -136,11 +136,15 @@ class SchoolSerializer(serializers.ModelSerializer):
 class RequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
-        fields = '__all__'
+        fields = ['requirementID', 'requirementTitle', 'is_required']
 
+class PriorityRequirementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PriorityRequirement
+        fields = ['id', 'priority', 'requirement']
 
 class ListOfPrioritySerializer(serializers.ModelSerializer):
-    requirements = RequirementSerializer(read_only=True, many=True)
+    requirements = RequirementSerializer(many=True, read_only=True)
     requirement_ids = serializers.PrimaryKeyRelatedField(
         queryset=Requirement.objects.all(),
         many=True,
@@ -151,9 +155,6 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
     class Meta:
         model = ListOfPriority
         fields = ['LOPID', 'expenseTitle', 'requirements', 'requirement_ids', 'is_active']
-        extra_kwargs = {
-            'is_active': {'required': True}
-        }
 
     def create(self, validated_data):
         requirements = validated_data.pop('requirements', [])
@@ -171,31 +172,48 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
 
 class RequestPrioritySerializer(serializers.ModelSerializer):
     priority = ListOfPrioritySerializer(read_only=True)
-    
+
     class Meta:
         model = RequestPriority
-        fields = '__all__'
+        fields = ['id', 'request', 'priority', 'amount']
+        extra_kwargs = {
+            'request': {'write_only': True}
+        }
 
 class RequestManagementSerializer(serializers.ModelSerializer):
     priorities = RequestPrioritySerializer(many=True, read_only=True)
     user = UserSerializer(read_only=True)
-    
+
     class Meta:
         model = RequestManagement
-        fields = '__all__'
+        fields = ['request_id', 'user', 'request_month', 'status', 'priorities', 'created_at']
+        read_only_fields = ['request_id', 'created_at']
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
     document_url = serializers.SerializerMethodField()
     requirement = RequirementSerializer(read_only=True)
     request_priority = RequestPrioritySerializer(read_only=True)
-    
+    liquidation_document_id = serializers.CharField(read_only=True)
+
     class Meta:
         model = LiquidationDocument
-        fields = '__all__'
+        fields = [
+            'liquidation_document_id',
+            'liquidation',
+            'request_priority',
+            'requirement',
+            'document',
+            'document_url',
+            'uploaded_at',
+            'uploaded_by',
+            'is_approved',
+            'reviewer_comment'
+        ]
         extra_kwargs = {
-            'document': {'write_only': True}
+            'document': {'write_only': True},
+            'liquidation': {'write_only': True}
         }
-    
+
     def get_document_url(self, obj):
         if obj.document:
             return self.context['request'].build_absolute_uri(obj.document.url)
@@ -205,7 +223,18 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     reviewed_by = UserSerializer(read_only=True)
-    
+    LiquidationID = serializers.CharField(read_only=True)
+
     class Meta:
         model = LiquidationManagement
-        fields = '__all__'
+        fields = [
+            'LiquidationID',
+            'request',
+            'comment_id',
+            'status',
+            'reviewed_by',
+            'reviewed_at',
+            'documents',
+            'created_at'
+        ]
+        read_only_fields = ['created_at']
