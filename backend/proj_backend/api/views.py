@@ -8,8 +8,9 @@ from rest_framework import generics
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -255,26 +256,152 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     lookup_field = 'LOPID'
 
 
-class RequestManagementCreateView(generics.CreateAPIView):
-    queryset = RequestManagement.objects.all()
+class RequestManagementListView(generics.ListAPIView):
+    """
+    View for listing all requests (for admin/superusers) or user's own requests
+    """
     serializer_class = RequestManagementSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = RequestManagement.objects.all()
+        
+        # Non-admin users only see their own requests
+        if not self.request.user.role in ['admin', 'superintendent']:
+            queryset = queryset.filter(user=self.request.user)
+            
+        # Filter by status if provided
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+            
+        return queryset.order_by('-created_at')
+
+class RequestManagementCreateView(generics.CreateAPIView):
+    """
+    View for creating new requests
+    """
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-
-class RequestManagementListCreateView(generics.ListCreateAPIView):
-    queryset = RequestManagement.objects.all()
-    serializer_class = RequestManagementSerializer
-    permission_classes = [IsAuthenticated]
-
-
-class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    View for retrieving, updating or deleting a specific request
+    """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'pk'
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        
+        # Check if user has permission to edit this request
+        if instance.user != self.request.user and self.request.user.role not in ['admin', 'superintendent']:
+            raise PermissionDenied("You don't have permission to edit this request")
+            
+        # Prevent editing if request is already approved/rejected
+        if instance.status in ['approved', 'rejected']:
+            raise ValidationError("Cannot edit an already approved/rejected request")
+            
+        serializer.save()
+
+class RequestPriorityCreateView(generics.CreateAPIView):
+    """
+    View for adding priorities to an existing request
+    """
+    serializer_class = RequestPrioritySerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        request_id = self.kwargs['request_id']
+        request_obj = RequestManagement.objects.get(request_id=request_id)
+        
+        # Check if user has permission to modify this request
+        if request_obj.user != self.request.user and self.request.user.role not in ['admin', 'superintendent']:
+            raise PermissionDenied("You don't have permission to modify this request")
+            
+        # Prevent adding priorities if request is already approved/rejected
+        if request_obj.status in ['approved', 'rejected']:
+            raise ValidationError("Cannot add priorities to an already approved/rejected request")
+            
+        serializer.save(request=request_obj)
+
+class ApproveRequestView(generics.UpdateAPIView):
+    """
+    View for approving a request (admin/superintendent only)
+    """
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Check if user has permission to approve
+        if request.user.role not in ['admin', 'superintendent']:
+            return Response(
+                {"detail": "Only administrators can approve requests"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Check if request is in pending state
+        if instance.status != 'pending':
+            return Response(
+                {"detail": "Only pending requests can be approved"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        instance.status = 'approved'
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+class RejectRequestView(generics.UpdateAPIView):
+    """
+    View for rejecting a request (admin/superintendent only)
+    """
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Check if user has permission to reject
+        if request.user.role not in ['admin', 'superintendent']:
+            return Response(
+                {"detail": "Only administrators can reject requests"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Check if request is in pending state
+        if instance.status != 'pending':
+            return Response(
+                {"detail": "Only pending requests can be rejected"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Require a rejection reason
+        rejection_reason = request.data.get('rejection_reason')
+        if not rejection_reason:
+            return Response(
+                {"detail": "Please provide a rejection reason"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        instance.status = 'rejected'
+        instance.rejection_reason = rejection_reason
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
 
 class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
