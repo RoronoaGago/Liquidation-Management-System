@@ -6,6 +6,7 @@ import base64
 import uuid
 import string
 
+
 class UserSerializer(serializers.ModelSerializer):
     profile_picture_base64 = serializers.CharField(
         write_only=True,
@@ -31,7 +32,7 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "school",
             "date_of_birth",
-            "sex"
+            "sex",
             "phone_number",
             "profile_picture",
             "profile_picture_base64",
@@ -138,10 +139,12 @@ class RequirementSerializer(serializers.ModelSerializer):
         model = Requirement
         fields = ['requirementID', 'requirementTitle', 'is_required']
 
+
 class PriorityRequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = PriorityRequirement
         fields = ['id', 'priority', 'requirement']
+
 
 class ListOfPrioritySerializer(serializers.ModelSerializer):
     requirements = RequirementSerializer(many=True, read_only=True)
@@ -154,7 +157,8 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'expenseTitle', 'requirements', 'requirement_ids', 'is_active']
+        fields = ['LOPID', 'expenseTitle', 'requirements',
+                  'requirement_ids', 'is_active']
 
     def create(self, validated_data):
         requirements = validated_data.pop('requirements', [])
@@ -164,11 +168,14 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         requirements = validated_data.pop('requirements', [])
-        instance.expenseTitle = validated_data.get('expenseTitle', instance.expenseTitle)
-        instance.is_active = validated_data.get('is_active', instance.is_active)
+        instance.expenseTitle = validated_data.get(
+            'expenseTitle', instance.expenseTitle)
+        instance.is_active = validated_data.get(
+            'is_active', instance.is_active)
         instance.save()
         instance.requirements.set(requirements)
         return instance
+
 
 class RequestPrioritySerializer(serializers.ModelSerializer):
     priority = ListOfPrioritySerializer(read_only=True)
@@ -180,14 +187,17 @@ class RequestPrioritySerializer(serializers.ModelSerializer):
             'request': {'write_only': True}
         }
 
+
 class RequestManagementSerializer(serializers.ModelSerializer):
     priorities = RequestPrioritySerializer(many=True, read_only=True)
     user = UserSerializer(read_only=True)
 
     class Meta:
         model = RequestManagement
-        fields = ['request_id', 'user', 'request_month', 'status', 'priorities', 'created_at']
+        fields = ['request_id', 'user', 'request_month',
+                  'status', 'priorities', 'created_at']
         read_only_fields = ['request_id', 'created_at']
+
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
     document_url = serializers.SerializerMethodField()
@@ -218,6 +228,7 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
         if obj.document:
             return self.context['request'].build_absolute_uri(obj.document.url)
         return None
+
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
     request = RequestManagementSerializer(read_only=True)
