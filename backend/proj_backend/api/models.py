@@ -38,7 +38,8 @@ class User(AbstractUser):
         related_name='users'
     )
     date_of_birth = models.DateField(null=True, blank=True)
-    sex = models.CharField(max_length=10,choices=SEX_CHOICES,null=True,blank=True)
+    sex = models.CharField(
+        max_length=10, choices=SEX_CHOICES, null=True, blank=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     profile_picture = models.ImageField(
         upload_to='profile_pictures/',
@@ -107,10 +108,11 @@ class ListOfPriority(models.Model):
     def __str__(self):
         return self.expenseTitle
 
+
 class PriorityRequirement(models.Model):
     """Through model connecting Priority to its Requirements"""
     priority = models.ForeignKey(
-        ListOfPriority, 
+        ListOfPriority,
         on_delete=models.CASCADE,
         related_name='priority_reqs'  # Added explicit related_name
     )
@@ -119,12 +121,13 @@ class PriorityRequirement(models.Model):
         on_delete=models.CASCADE,
         related_name='priority_reqs'  # Added explicit related_name
     )
-    
+
     class Meta:
         unique_together = ('priority', 'requirement')
-    
+
     def __str__(self):
         return f"{self.priority} requires {self.requirement}"
+
 
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
@@ -137,7 +140,8 @@ class RequestManagement(models.Model):
     request_id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     request_month = models.CharField(max_length=20)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='pending')
     priorities = models.ManyToManyField(
         'ListOfPriority',
         through='RequestPriority',
@@ -147,19 +151,22 @@ class RequestManagement(models.Model):
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
 
+
 class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
     priority = models.ForeignKey(ListOfPriority, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    
+
     class Meta:
         unique_together = ('request', 'priority')
-    
+
     def __str__(self):
         return f"{self.request} - {self.priority} (${self.amount})"
 
+
 def generate_liquidation_id():
     return get_random_string(length=8, allowed_chars='0123456789')
+
 
 class LiquidationManagement(models.Model):
     STATUS_CHOICES = [
@@ -167,7 +174,7 @@ class LiquidationManagement(models.Model):
         ('resubmit', 'Resubmit'),
         ('completed', 'Completed'),
     ]
-    
+
     LiquidationID = models.CharField(
         max_length=8,
         primary_key=True,
@@ -176,16 +183,17 @@ class LiquidationManagement(models.Model):
         unique=True
     )
     request = models.OneToOneField(
-        RequestManagement, 
-        on_delete=models.CASCADE, 
+        RequestManagement,
+        on_delete=models.CASCADE,
         related_name='liquidation'
     )
     comment_id = models.CharField(max_length=255, blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ongoing')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='ongoing')
     reviewed_by = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name='reviewed_liquidations'
     )
@@ -193,6 +201,7 @@ class LiquidationManagement(models.Model):
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
+
 
 class LiquidationDocument(models.Model):
     liquidation = models.ForeignKey(
@@ -221,12 +230,13 @@ class LiquidationDocument(models.Model):
 
     class Meta:
         unique_together = ('liquidation', 'request_priority', 'requirement')
-    
+
     def __str__(self):
         return f"Document for {self.requirement} in {self.request_priority}"
 
     def save(self, *args, **kwargs):
         # Ensure the document belongs to the same request as the liquidation
         if self.request_priority.request != self.liquidation.request:
-            raise ValueError("Document's priority must belong to the liquidation's request")
+            raise ValueError(
+                "Document's priority must belong to the liquidation's request")
         super().save(*args, **kwargs)
