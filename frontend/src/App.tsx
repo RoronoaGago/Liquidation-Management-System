@@ -64,7 +64,7 @@ const App = () => {
 
             <Route element={<RequireAuth allowedRoles={["superintendent"]} />}>
               <Route
-                path="/submitted-priorities"
+                path="/schools-priorities-submissions"
                 element={<PriortySubmissionsPage />}
               />
               {/* <Route
