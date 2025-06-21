@@ -122,11 +122,11 @@ const FundRequestPage = () => {
 
       <div className="mt-8">
         {/* New: Step-by-step instructions */}
-        <div className="mb-6 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20">
-          <h3 className="text-lg font-medium text-blue-800 dark:text-blue-200 flex items-center gap-2 mb-2">
+        <div className="mb-6 bg-blue-50 dark:bg-brand-900/10 p-4 rounded-lg border border-blue-100 dark:border-brand-900/20">
+          <h3 className="text-lg font-medium text-brand-800 dark:text-blue-200 flex items-center gap-2 mb-2">
             <Info className="h-5 w-5" /> How to request funds
           </h3>
-          <ol className="list-decimal list-inside space-y-1 text-blue-700 dark:text-blue-300">
+          <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-blue-300">
             <li>Select expenses by checking the boxes below</li>
             <li>Enter amounts for each selected expense</li>
             <li>Review your selections above</li>
