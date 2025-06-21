@@ -1,0 +1,258 @@
+[
+  {
+    "requirementTitle": "Abstract of Quotation (AOQ)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Accomplishment Report",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Acknowledgement Receipt (AR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Agency Procurement Request (APR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Approved Activity Request Form",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Approved Authority to Travel / Locator Slip",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Approved Certificate of Travel Completed",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Approved Itinerary of Travel",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Attendance",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Authority to Claim (copy)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "BAC Resolution",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Barangay Certificate (for initial submission)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "BIR Forms 2306 / 2307",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Certification of Non-Availability of Stocks",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Certification of Official Business (OB) calls",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Certification of Stock Availability and Price Quotation",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Certification: not recipient of sim card / other allowances for communication",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "COA Circ1 - COENRR/ Memorandum",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Collection Receipt (CR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Confirmation of Bond",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Contract of Service / MOA",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Daily Menu of food to be served",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Daily Time Record (DTR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Delivery Receipt (DR) / Charge Invoice (CI)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Detailed Meal Plan",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Disbursement Voucher (DV) / optional",
+    "is_required": false
+  },
+  {
+    "requirementTitle": "Disbursement Voucher (for tax withheld) / optional",
+    "is_required": false
+  },
+  {
+    "requirementTitle": "GAD Plan and Budget",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Inspection and Acceptance Report (IAR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Inventory Custodian Slip (if applicable)",
+    "is_required": false
+  },
+  {
+    "requirementTitle": "List of Bondable Official",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Memorandum",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Menu of Food / Snacks",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Narrative Report",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Official Receipt (OR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Official Receipt (OR) / Acknowledgement Receipt (AR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Original Copy of Certificate of Appearance (CA)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Original copy of Official Receipt (OR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Payroll (multiple laborer)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Payroll (multiple recipient)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Payment Slip",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Permit to Conduct / Approved Request",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "PhilGEPS Certification / Registration",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Photocopy of check issued",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Photocopy of valid ID / CTC",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Pictures",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Pictures (Before - During - After)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Pre-Repair Inspection Report",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Program",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Program / Training Matrix",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Program of Works / Job Order",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Proof of receipt of items (signed by authorized recipients)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Purchase Order (PO)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Purchase Request (PR)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Request for Payment",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Request for Quotation (RFQ)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Requisition and Issue Slip (RIS)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "SBFP Form 1",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "SBFP Form 4",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Sales Invoice (SI)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Signed list of recipients",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Statement of Account (SOA)",
+    "is_required": true
+  },
+  {
+    "requirementTitle": "Tickets (if any)",
+    "is_required": false
+  },
+  {
+    "requirementTitle": "Trip Ticket (for people transported)",
+    "is_required": true
+  }
+]
