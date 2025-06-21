@@ -258,10 +258,16 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 class RequestManagementCreateView(generics.CreateAPIView):
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class RequestManagementListCreateView(generics.ListCreateAPIView):
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
 
 
 class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):

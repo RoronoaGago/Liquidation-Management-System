@@ -9,28 +9,7 @@ import {
 } from "../../ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import { EyeIcon } from "lucide-react";
-
-type Priority = {
-  id: number;
-  priority: {
-    LOPID: number;
-    expenseTitle: string;
-  };
-  amount: number;
-};
-
-type Submission = {
-  request_id: string;
-  user: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    school: string | null;
-  };
-  priorities: Priority[];
-  status: "pending" | "approved" | "rejected";
-  created_at: string;
-};
+import { Submission } from "@/lib/types";
 
 interface PrioritySubmissionsTableProps {
   submissions: Submission[];
@@ -130,7 +109,7 @@ const PrioritySubmissionsTable: React.FC<PrioritySubmissionsTableProps> = ({
                     {submission.user.first_name} {submission.user.last_name}
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    {submission.user.school}
+                    {submission.user.school?.schoolName}
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                     <Badge
