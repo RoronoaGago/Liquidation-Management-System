@@ -12,7 +12,8 @@ import {
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
 import { ListofPriorityData } from "@/lib/types";
-import { toast } from "react-hot-toast"; // or your preferred toast library
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const FundRequestPage = () => {
   const [priorities, setPriorities] = useState<ListofPriorityData[]>([]);
@@ -82,9 +83,7 @@ const FundRequestPage = () => {
       return;
     }
     setSubmitting(true);
-    toast.loading("Submitting fund request...", { id: "fundreq" });
     try {
-      // Get JWT token from localStorage or context
       const token = localStorage.getItem("access_token");
       await axios.post(
         "http://127.0.0.1:8000/api/requests/",
@@ -101,14 +100,20 @@ const FundRequestPage = () => {
           },
         }
       );
-      toast.success("Fund request submitted successfully!", { id: "fundreq" });
+      toast.success("Fund request submitted successfully!", {
+        autoClose: 3000,
+      });
       setSelected({});
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error.response && error.response.status === 401) {
-        toast.error("Unauthorized. Please log in again.", { id: "fundreq" });
+        toast.error("Unauthorized. Please log in again.", {
+          autoClose: 4000,
+        });
       } else {
-        toast.error("Failed to submit fund request.", { id: "fundreq" });
+        toast.error("Failed to submit fund request.", {
+          autoClose: 4000,
+        });
       }
     } finally {
       setSubmitting(false);
@@ -163,6 +168,7 @@ const FundRequestPage = () => {
 
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+      <ToastContainer />
       <PageBreadcrumb pageTitle="List of Priorities" />
 
       <div className="mt-8">
