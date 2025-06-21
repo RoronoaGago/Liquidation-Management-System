@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
+import string
 
 
 class User(AbstractUser):
@@ -129,6 +130,16 @@ class PriorityRequirement(models.Model):
         return f"{self.priority} requires {self.requirement}"
 
 
+def generate_request_id():
+    """Generate REQ-ABC123 format ID"""
+    prefix = "REQ-"
+    random_part = get_random_string(
+        length=6,
+        allowed_chars=string.ascii_uppercase + string.digits
+    )
+    return f"{prefix}{random_part}"
+
+
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
         ('approved', 'Approved'),
@@ -137,7 +148,13 @@ class RequestManagement(models.Model):
         ('unliquidated', 'Unliquidated'),
     ]
 
-    request_id = models.AutoField(primary_key=True)
+    request_id = models.CharField(
+        max_length=10,
+        primary_key=True,
+        default=generate_request_id,
+        editable=False,
+        unique=True
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     request_month = models.CharField(max_length=20)
     status = models.CharField(
@@ -147,6 +164,7 @@ class RequestManagement(models.Model):
         through='RequestPriority',
         related_name='requests'
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
@@ -165,7 +183,13 @@ class RequestPriority(models.Model):
 
 
 def generate_liquidation_id():
-    return get_random_string(length=8, allowed_chars='0123456789')
+    """Generate LQN-ABC123 format ID"""
+    prefix = "LQN-"
+    random_part = get_random_string(
+        length=6,
+        allowed_chars=string.ascii_uppercase + string.digits
+    )
+    return f"{prefix}{random_part}"
 
 
 class LiquidationManagement(models.Model):
@@ -176,7 +200,7 @@ class LiquidationManagement(models.Model):
     ]
 
     LiquidationID = models.CharField(
-        max_length=8,
+        max_length=10,
         primary_key=True,
         default=generate_liquidation_id,
         editable=False,
@@ -198,6 +222,7 @@ class LiquidationManagement(models.Model):
         related_name='reviewed_liquidations'
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
