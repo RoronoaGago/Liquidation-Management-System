@@ -237,8 +237,18 @@ class RequestManagementSerializer(serializers.ModelSerializer):
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
     document_url = serializers.SerializerMethodField()
-    requirement = RequirementSerializer(read_only=True)
-    request_priority = RequestPrioritySerializer(read_only=True)
+    requirement = serializers.PrimaryKeyRelatedField(
+        queryset=Requirement.objects.all(),
+        write_only=True
+    )
+    requirement_obj = RequirementSerializer(
+        source='requirement', read_only=True)
+    request_priority = serializers.PrimaryKeyRelatedField(
+        queryset=RequestPriority.objects.all(),
+        write_only=True
+    )
+    request_priority_obj = RequestPrioritySerializer(
+        source='request_priority', read_only=True)
     liquidation_document_id = serializers.CharField(read_only=True)
 
     class Meta:
@@ -247,7 +257,9 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
             'liquidation_document_id',
             'liquidation',
             'request_priority',
+            'request_priority_obj',
             'requirement',
+            'requirement_obj',
             'document',
             'document_url',
             'uploaded_at',
@@ -257,7 +269,7 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'document': {'write_only': True},
-            'liquidation': {'write_only': True}
+            'liquidation': {'read_only': True},
         }
 
     def get_document_url(self, obj):
