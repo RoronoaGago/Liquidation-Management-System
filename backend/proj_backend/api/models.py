@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 import string
 
+
 class User(AbstractUser):
     # Custom ID field - primary key
     id = models.CharField(primary_key=True, max_length=10, editable=False)
@@ -159,6 +160,7 @@ class RequestManagement(models.Model):
         through='RequestPriority',
         related_name='requests'
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
@@ -213,6 +215,7 @@ class LiquidationManagement(models.Model):
         related_name='reviewed_liquidations'
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
