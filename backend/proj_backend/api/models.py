@@ -102,7 +102,7 @@ class ListOfPriority(models.Model):
     requirements = models.ManyToManyField(
         'Requirement',
         through='PriorityRequirement',
-        related_name='priority_requirements'  # Changed from 'priorities'
+        related_name='priority_requirement'  # Changed from 'priorities'
     )
     is_active = models.BooleanField(default=True)  # Add this field
 

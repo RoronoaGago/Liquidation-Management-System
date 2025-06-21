@@ -7,15 +7,25 @@ import uuid
 import string
 
 
+class SchoolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = School
+        fields = '__all__'  # is_active will be included automatically
+
+
 class UserSerializer(serializers.ModelSerializer):
     profile_picture_base64 = serializers.CharField(
         write_only=True,
         required=False,
-        allow_blank=True,  # Explicitly allow empty strings ("")
-        allow_null=True, )
-
-    school = serializers.PrimaryKeyRelatedField(
+        allow_blank=True,
+        allow_null=True,
+    )
+    # Use nested serializer for school
+    school = SchoolSerializer(read_only=True)
+    school_id = serializers.PrimaryKeyRelatedField(
         queryset=School.objects.all(),
+        source='school',
+        write_only=True,
         required=False,
         allow_null=True
     )
@@ -30,7 +40,8 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
             "email",
             "role",
-            "school",
+            "school",  # now returns full school object
+            "school_id",  # write-only field for school ID
             "date_of_birth",
             "sex",
             "phone_number",
@@ -128,12 +139,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
 
-class SchoolSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = School
-        fields = '__all__'  # is_active will be included automatically
-
-
 class RequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
@@ -189,7 +194,7 @@ class RequestPrioritySerializer(serializers.ModelSerializer):
 
 
 class RequestManagementSerializer(serializers.ModelSerializer):
-    priorities = RequestPrioritySerializer(many=True, read_only=True)
+    priorities = serializers.SerializerMethodField()
     user = UserSerializer(read_only=True)
 
     class Meta:
@@ -197,6 +202,11 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         fields = ['request_id', 'user', 'request_month',
                   'status', 'priorities', 'created_at']
         read_only_fields = ['request_id', 'created_at']
+
+    def get_priorities(self, obj):
+        # Get all RequestPriority objects for this request
+        request_priorities = obj.requestpriority_set.all()
+        return RequestPrioritySerializer(request_priorities, many=True).data
 
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
