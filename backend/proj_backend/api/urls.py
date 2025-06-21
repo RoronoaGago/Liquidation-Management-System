@@ -35,7 +35,7 @@ urlpatterns = [
     path('requests/', views.RequestManagementListCreateView.as_view(),
          name='request-list'),
 
-    path('requests/<int:pk>/',
+    path('requests/<str:request_id>/',
          views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
     path('requests/<int:pk>/submit-liquidation/',
          views.submit_for_liquidation, name='submit-liquidation'),
