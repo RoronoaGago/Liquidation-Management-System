@@ -156,7 +156,7 @@ class RequestManagement(models.Model):
         unique=True
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    request_month = models.CharField(max_length=20)
+    request_month = models.CharField(max_length=20, null=True, blank=True)
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default='pending')
     priorities = models.ManyToManyField(
