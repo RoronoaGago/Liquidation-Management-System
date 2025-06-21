@@ -440,6 +440,7 @@ const PriortySubmissionsPage = () => {
                     <tr>
                       <td className="border px-2 py-1 font-bold">TOTAL</td>
                       <td className="border px-2 py-1 text-center font-bold">
+                        ₱
                         {viewedSubmission.priorities
                           .reduce((sum, p) => sum + Number(p.amount), 0)
                           .toLocaleString(undefined, {
