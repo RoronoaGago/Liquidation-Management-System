@@ -34,6 +34,8 @@ def send_reminder(request_id, days_remaining):
             [request.user.email, 'finance@yourdomain.com'],  # CC finance department
             fail_silently=False,
         )
+        request.last_reminder_sent = timezone.now().date()
+        request.save()
 
 def send_demand_letter(request):
     """Final demand letter on day 31"""
@@ -50,3 +52,6 @@ def send_demand_letter(request):
         [request.user.email, 'finance@yourdomain.com', 'management@yourdomain.com'],
         fail_silently=False,
     )
+    request.demand_letter_sent = True
+    request.demand_letter_date = timezone.now().date()
+    request.save()
