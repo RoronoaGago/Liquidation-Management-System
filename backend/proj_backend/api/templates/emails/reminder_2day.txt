@@ -1,0 +1,14 @@
+SEMI-FINAL NOTICE: {{ request.user.get_full_name }},
+
+You have ONLY 1 DAY remaining to liquidate Request {{ request.request_id }}!
+
+This is your final warning before automatic expiration and legal action.
+
+Immediate action required:
+1. Log in to the system now
+2. Complete all liquidation documents
+3. Submit before tomorrow's deadline
+
+Request will automatically expire at: {{ request.created_at|date:"Y-m-d"|add:30 }}
+
+Finance Department
