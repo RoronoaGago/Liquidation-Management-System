@@ -12,14 +12,14 @@ def start_unliquidated_timer(sender, instance, **kwargs):
     Schedule reminders when request status changes to 'unliquidated'
     """
     # Only proceed if status changed to 'unliquidated'
-    if instance.status != 'unliquidated':
+    if instance.status != 'downloaded':
         return
 
     # Check if this is a new status change (not just saving the same status)
     if kwargs.get('created', False) or not hasattr(instance, '_previous_status'):
         instance._previous_status = None
 
-    if instance._previous_status == 'unliquidated':
+    if instance._previous_status == 'downloaded':
         return  # Already processed
 
     now = timezone.now()

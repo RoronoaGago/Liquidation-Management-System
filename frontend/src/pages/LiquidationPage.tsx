@@ -165,7 +165,7 @@ const LiquidationPage = () => {
       );
       toast.success("File uploaded!");
       // Refresh data
-      const res = await api.get("/pending-liquidations/");
+      const res = await api.get("/liquidation/");
       const data = Array.isArray(res.data) ? res.data[0] : null;
       if (data) {
         setRequest((prev) =>
@@ -204,7 +204,7 @@ const LiquidationPage = () => {
       );
       toast.success("File removed!");
       // Refresh data
-      const res = await api.get("/pending-liquidations/");
+      const res = await api.get("/liquidation/");
       const data = Array.isArray(res.data) ? res.data[0] : null;
       if (data) {
         setRequest((prev) =>
