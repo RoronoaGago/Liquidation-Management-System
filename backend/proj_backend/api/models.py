@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 import string
 
 
@@ -146,7 +147,7 @@ class RequestManagement(models.Model):
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
-        ('unliquidated', 'Unliquidated'),
+        ('downloaded', 'Downloaded'),
     ]
 
     request_id = models.CharField(
@@ -166,6 +167,9 @@ class RequestManagement(models.Model):
         related_name='requests'
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    last_reminder_sent = models.DateField(null=True, blank=True)
+    demand_letter_sent = models.BooleanField(default=False)
+    demand_letter_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
@@ -195,9 +199,17 @@ def generate_liquidation_id():
 
 class LiquidationManagement(models.Model):
     STATUS_CHOICES = [
-        ('ongoing', 'Ongoing'),
-        ('resubmit', 'Resubmit'),
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('under_review_district', 'Under Review (District)'),
+        ('under_review_division', 'Under Review (Division)'),
+        ('resubmit', 'Needs Revision'),
+        ('approved_district', 'Approved by District'),
+        ('approved_division', 'Approved by Division'),
+        ('approved', 'Fully Approved'),
+        ('rejected', 'Rejected'),
         ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
     ]
 
     LiquidationID = models.CharField(
@@ -214,7 +226,8 @@ class LiquidationManagement(models.Model):
     )
     comment_id = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default='ongoing')
+        max_length=30, choices=STATUS_CHOICES, default='draft'
+    )
     reviewed_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -223,10 +236,41 @@ class LiquidationManagement(models.Model):
         related_name='reviewed_liquidations'
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by_district = models.ForeignKey(
+        User, null=True, blank=True, related_name='district_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_district = models.DateTimeField(null=True, blank=True)
+
+    reviewed_by_division = models.ForeignKey(
+        User, null=True, blank=True, related_name='division_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_division = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
+
+    def clean(self):
+        """
+        Validate that the request status is 'downloaded' before saving.
+        This works with Django forms and admin interface.
+        """
+        if self.request.status != 'downloaded':
+            raise ValidationError(
+                "Liquidation can only be created for requests with 'downloaded' status."
+            )
+
+    def save(self, *args, **kwargs):
+        """
+        Ensure the request status is 'downloaded' before saving to database.
+        """
+        # Skip validation when updating existing instance (optional)
+        if not self.pk and self.request.status != 'downloaded':
+            raise ValidationError(
+                "Liquidation can only be created for requests with 'downloaded' status."
+            )
+
+        super().save(*args, **kwargs)
 
 
 class LiquidationDocument(models.Model):
