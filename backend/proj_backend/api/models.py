@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 import string
 
 
@@ -145,7 +146,7 @@ class RequestManagement(models.Model):
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
-        ('unliquidated', 'Unliquidated'),
+        ('downloaded', 'Downloaded'),
     ]
 
     request_id = models.CharField(
@@ -165,6 +166,9 @@ class RequestManagement(models.Model):
         related_name='requests'
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    last_reminder_sent = models.DateField(null=True, blank=True)
+    demand_letter_sent = models.BooleanField(default=False)
+    demand_letter_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
@@ -197,6 +201,7 @@ class LiquidationManagement(models.Model):
         ('ongoing', 'Ongoing'),
         ('resubmit', 'Resubmit'),
         ('completed', 'Completed'),
+        ('unliquidated', 'Unliquidated')
     ]
 
     LiquidationID = models.CharField(
@@ -226,6 +231,28 @@ class LiquidationManagement(models.Model):
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
+    
+    def clean(self):
+        """
+        Validate that the request status is 'downloaded' before saving.
+        This works with Django forms and admin interface.
+        """
+        if self.request.status != 'downloaded':
+            raise ValidationError(
+                "Liquidation can only be created for requests with 'downloaded' status."
+            )
+
+    def save(self, *args, **kwargs):
+        """
+        Ensure the request status is 'downloaded' before saving to database.
+        """
+        # Skip validation when updating existing instance (optional)
+        if not self.pk and self.request.status != 'downloaded':
+            raise ValidationError(
+                "Liquidation can only be created for requests with 'downloaded' status."
+            )
+        
+        super().save(*args, **kwargs)
 
 
 class LiquidationDocument(models.Model):
