@@ -178,7 +178,7 @@ export type Submission = {
     school: School | null; // Use School type for school details
   };
   priorities: Priority[];
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "unliquidated";
   created_at: string;
 };
 

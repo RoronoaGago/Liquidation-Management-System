@@ -27,7 +27,7 @@ import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 
-const PriortySubmissionsPage = () => {
+const ApprovedRequestPage = () => {
   // State for submissions and modal
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
@@ -57,7 +57,7 @@ const PriortySubmissionsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("requests/?status=pending");
+      const res = await api.get("requests/?status=approved");
       setSubmissionsState(res.data);
       // Fetch schools for filter dropdown
       const schoolRes = await api.get("schools/");
@@ -77,13 +77,11 @@ const PriortySubmissionsPage = () => {
   // Approve handler (should call backend in real app)
   const handleApprove = async (submission: Submission) => {
     try {
-      await api.put(`requests/${submission.request_id}/`, {
-        status: "approved",
-      });
+      await api.post(`requests/${submission.request_id}/submit-liquidation/`);
       setViewedSubmission(null); // Close the modal
       await fetchSubmissions(); // Refresh the list after approval
     } catch (err) {
-      console.error("Failed to approve submission:", err);
+      console.error("Failed to submit for liquidation:", err);
     }
   };
 
@@ -445,7 +443,7 @@ const PriortySubmissionsPage = () => {
                 </table>
               </div>
               <div className="flex gap-2 justify-end pt-4">
-                {viewedSubmission.status === "pending" && (
+                {viewedSubmission.status === "approved" && (
                   <>
                     <Button
                       type="button"
@@ -453,16 +451,16 @@ const PriortySubmissionsPage = () => {
                       onClick={() => handleApprove(viewedSubmission)}
                       startIcon={<CheckCircle className="w-4 h-4" />}
                     >
-                      Approve
+                      Download
                     </Button>
-                    <Button
+                    {/* <Button
                       type="button"
                       variant="destructive"
                       onClick={() => handleReject(viewedSubmission)}
                       startIcon={<XCircle className="w-4 h-4" />}
                     >
                       Reject
-                    </Button>
+                    </Button> */}
                   </>
                 )}
                 <Button
@@ -488,4 +486,4 @@ const PriortySubmissionsPage = () => {
   );
 };
 
-export default PriortySubmissionsPage;
+export default ApprovedRequestPage;

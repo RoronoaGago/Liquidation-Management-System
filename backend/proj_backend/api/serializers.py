@@ -236,28 +236,46 @@ class RequestManagementSerializer(serializers.ModelSerializer):
 
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
+    request_priority = serializers.PrimaryKeyRelatedField(
+        queryset=RequestPriority.objects.all(),
+        write_only=True
+    )
+    requirement = serializers.PrimaryKeyRelatedField(
+        queryset=Requirement.objects.all(),
+        write_only=True
+    )
+    request_priority_id = serializers.IntegerField(
+        source='request_priority.id', read_only=True)
+    requirement_id = serializers.IntegerField(
+        source='requirement.requirementID', read_only=True)
     document_url = serializers.SerializerMethodField()
-    requirement = RequirementSerializer(read_only=True)
-    request_priority = RequestPrioritySerializer(read_only=True)
-    liquidation_document_id = serializers.CharField(read_only=True)
+    requirement_obj = RequirementSerializer(
+        source='requirement', read_only=True)
+    request_priority_obj = RequestPrioritySerializer(
+        source='request_priority', read_only=True)
+    # liquidation_document_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = LiquidationDocument
         fields = [
-            'liquidation_document_id',
+            'id',
             'liquidation',
             'request_priority',
+            'request_priority_obj',
             'requirement',
+            'requirement_obj',
             'document',
             'document_url',
             'uploaded_at',
             'uploaded_by',
             'is_approved',
-            'reviewer_comment'
+            'reviewer_comment',
+            'request_priority_id',
+            'requirement_id',
         ]
         extra_kwargs = {
             'document': {'write_only': True},
-            'liquidation': {'write_only': True}
+            'liquidation': {'read_only': True},
         }
 
     def get_document_url(self, obj):
@@ -270,7 +288,9 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     reviewed_by = UserSerializer(read_only=True)
-    LiquidationID = serializers.CharField(read_only=True)
+    submitted_at = serializers.DateTimeField(
+        source='created_at', read_only=True)
+    reviewer_comments = serializers.SerializerMethodField()
 
     class Meta:
         model = LiquidationManagement
@@ -281,7 +301,23 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'status',
             'reviewed_by',
             'reviewed_at',
+            'reviewed_by_district',
+            'reviewed_at_district',
+            'reviewed_by_division',
+            'reviewed_at_division',
             'documents',
+            'submitted_at',
+            'reviewer_comments',
             'created_at'
         ]
-        read_only_fields = ['created_at']
+
+    def get_reviewer_comments(self, obj):
+        # Get all reviewer comments from documents
+        comments = []
+        for doc in obj.documents.all():
+            if doc.reviewer_comment:
+                comments.append({
+                    'document': doc.requirement.requirementTitle,
+                    'comment': doc.reviewer_comment
+                })
+        return comments

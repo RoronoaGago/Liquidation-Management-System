@@ -284,6 +284,13 @@ class RequestManagementCreateView(generics.CreateAPIView):
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        return queryset
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -294,7 +301,7 @@ class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
+    lookup_field = 'request_id'
 
     def perform_update(self, serializer):
         instance = self.get_object()
@@ -407,7 +414,7 @@ class RejectRequestView(generics.UpdateAPIView):
 class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
     queryset = LiquidationManagement.objects.all()
     serializer_class = LiquidationManagementSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
 
 class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -437,12 +444,12 @@ class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDes
     queryset = LiquidationDocument.objects.all()
     serializer_class = LiquidationDocumentSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
 
 
-def submit_for_liquidation(request, pk):
+@api_view(['POST'])
+def submit_for_liquidation(request, request_id):
     try:
-        request_obj = RequestManagement.objects.get(pk=pk)
+        request_obj = RequestManagement.objects.get(request_id=request_id)
         if request_obj.status != 'approved':
             return Response(
                 {'error': 'Request must be approved before liquidation'},
@@ -451,7 +458,7 @@ def submit_for_liquidation(request, pk):
 
         liquidation, created = LiquidationManagement.objects.get_or_create(
             request=request_obj,
-            defaults={'status': 'ongoing'}
+            defaults={'status': 'draft'}
         )
 
         if not created:
@@ -460,7 +467,7 @@ def submit_for_liquidation(request, pk):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        request_obj.status = 'inliquidated'
+        request_obj.status = 'unliquidated'
         request_obj.save()
 
         serializer = LiquidationManagementSerializer(liquidation)
@@ -473,13 +480,70 @@ def submit_for_liquidation(request, pk):
         )
 
 
+@api_view(['POST'])
+def submit_liquidation(request, LiquidationID):
+    try:
+        liquidation = LiquidationManagement.objects.get(
+            LiquidationID=LiquidationID)
+
+        # Check if all required documents are uploaded
+        required_docs_missing = False
+        for rp in liquidation.request.requestpriority_set.all():
+            for req in rp.priority.requirements.filter(is_required=True):
+                if not LiquidationDocument.objects.filter(
+                    liquidation=liquidation,
+                    request_priority=rp,
+                    requirement=req
+                ).exists():
+                    required_docs_missing = True
+                    break
+            if required_docs_missing:
+                break
+        if liquidation.status != 'draft':
+            return Response(
+                {'error': 'Liquidation has already been submitted'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if required_docs_missing:
+            return Response(
+                {'error': 'All required documents must be uploaded before submission'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update status to submitted
+        liquidation.status = 'submitted'
+        liquidation.save()
+
+        serializer = LiquidationManagementSerializer(
+            liquidation,
+            context={'request': request}  # <-- Add this line
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except LiquidationManagement.DoesNotExist:
+        return Response(
+            {'error': 'Liquidation not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+# views.py
+
+
+@api_view(['GET'])
+def view_liquidation(request, LiquidationID):
+    liquidation = get_object_or_404(
+        LiquidationManagement, LiquidationID=LiquidationID)
+    serializer = LiquidationManagementSerializer(liquidation)
+    return Response(serializer.data)
+
+
 def approve_liquidation(request, LiquidationID):
     try:
         liquidation = LiquidationManagement.objects.get(
             LiquidationID=LiquidationID)
-        if liquidation.status != 'ongoing':
+        if liquidation.status not in ['submitted', 'under_review']:
             return Response(
-                {'error': 'Liquidation is not in ongoing state'},
+                {'error': 'Liquidation is not in a reviewable state'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -504,6 +568,16 @@ def approve_liquidation(request, LiquidationID):
         )
 
 
+class UserLiquidationsAPIView(generics.ListAPIView):
+    serializer_class = LiquidationManagementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return LiquidationManagement.objects.filter(
+            request__user=self.request.user
+        ).order_by('-created_at')
+
+
 class UserRequestListAPIView(generics.ListAPIView):
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -517,4 +591,8 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return LiquidationManagement.objects.filter(status='ongoing')
+        # Filter LiquidationManagement by status and by the current user
+        return LiquidationManagement.objects.filter(
+            status='draft',
+            request__user=self.request.user
+        )
