@@ -225,7 +225,8 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = Requirement.objects.all()
-        archived = self.request.query_params.get('archived', 'false').lower() == 'true'
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
         if archived:
             queryset = queryset.filter(is_active=False)
         else:
@@ -460,11 +461,32 @@ class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
         liquidation_id = self.kwargs.get('LiquidationID')
         return self.queryset.filter(liquidation__LiquidationID=liquidation_id)
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         liquidation_id = self.kwargs.get('LiquidationID')
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=liquidation_id)
-        serializer.save(liquidation=liquidation, uploaded_by=self.request.user)
+        liquidation = get_object_or_404(
+            LiquidationManagement, LiquidationID=liquidation_id)
+
+        # Check for existing document
+        existing_doc = self.get_queryset().filter(
+            request_priority_id=request.data.get('request_priority'),
+            requirement_id=request.data.get('requirement')
+        ).first()
+
+        if existing_doc:
+            serializer = self.get_serializer(
+                existing_doc, data=request.data, partial=True)
+        else:
+            serializer = self.get_serializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save(liquidation=liquidation, uploaded_by=request.user)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK if existing_doc else status.HTTP_201_CREATED,
+            headers=headers
+        )
 
 
 class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
