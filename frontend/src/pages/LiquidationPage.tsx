@@ -347,13 +347,13 @@ const LiquidationPage = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 justify-end">
-            <Button
+            {/* <Button
               variant="outline"
               onClick={handleSaveDraft}
               disabled={isSubmitting}
             >
               Save as Draft
-            </Button>
+            </Button> */}
             <Dialog
               open={isConfirmDialogOpen}
               onOpenChange={setIsConfirmDialogOpen}
