@@ -325,7 +325,7 @@ def submit_for_liquidation(request, request_id):
 
         liquidation, created = LiquidationManagement.objects.get_or_create(
             request=request_obj,
-            defaults={'status': 'submitted'}
+            defaults={'status': 'draft'}
         )
 
         if not created:

@@ -78,12 +78,9 @@ const ApprovedRequestPage = () => {
   const handleApprove = async (submission: Submission) => {
     try {
       await api.post(`requests/${submission.request_id}/submit-liquidation/`);
-      setViewedSubmission((prev) =>
-        prev ? { ...prev, status: "unliquidated" } : prev
-      );
+      setViewedSubmission(null); // Close the modal
       await fetchSubmissions(); // Refresh the list after approval
     } catch (err) {
-      // handle error
       console.error("Failed to submit for liquidation:", err);
     }
   };
@@ -94,15 +91,13 @@ const ApprovedRequestPage = () => {
       await api.put(`/api/requests/${submission.request_id}/`, {
         status: "rejected",
       });
+      setViewedSubmission(null); // Close the modal
       setSubmissionsState((prev) =>
         prev.map((s) =>
           s.request_id === submission.request_id
             ? { ...s, status: "rejected" }
             : s
         )
-      );
-      setViewedSubmission((prev) =>
-        prev ? { ...prev, status: "rejected" } : prev
       );
     } catch (err) {
       // handle error
