@@ -10,6 +10,7 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
 import { Submission } from "@/lib/types";
+import { formatDateTime } from "@/lib/helpers";
 
 interface PrioritySubmissionsTableProps {
   submissions: Submission[];
@@ -241,7 +242,7 @@ const PrioritySubmissionsTable: React.FC<
                     </Badge>
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    {new Date(submission.created_at).toLocaleString()}
+                    {formatDateTime(submission.created_at)}
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                     <button

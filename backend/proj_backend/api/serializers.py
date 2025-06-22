@@ -194,19 +194,45 @@ class RequestPrioritySerializer(serializers.ModelSerializer):
 
 
 class RequestManagementSerializer(serializers.ModelSerializer):
-    priorities = serializers.SerializerMethodField()
+    priorities = serializers.SerializerMethodField(read_only=True)
     user = UserSerializer(read_only=True)
+    priority_amounts = serializers.ListField(
+        child=serializers.DictField(child=serializers.CharField()),
+        write_only=True,
+        required=False
+    )
 
     class Meta:
         model = RequestManagement
-        fields = ['request_id', 'user', 'request_month',
-                  'status', 'priorities', 'created_at']
+        fields = [
+            'request_id', 'user', 'request_month',
+            'status', 'priorities', 'created_at',
+            'priority_amounts'  # <-- add this
+        ]
         read_only_fields = ['request_id', 'created_at']
 
     def get_priorities(self, obj):
-        # Get all RequestPriority objects for this request
         request_priorities = obj.requestpriority_set.all()
         return RequestPrioritySerializer(request_priorities, many=True).data
+
+    def create(self, validated_data):
+        priority_amounts = validated_data.pop('priority_amounts', [])
+        request_obj = RequestManagement.objects.create(**validated_data)
+        # Save priorities and amounts
+        for pa in priority_amounts:
+            lopid = pa.get('LOPID')
+            amount = pa.get('amount')
+            if lopid and amount is not None:
+                try:
+                    priority = ListOfPriority.objects.get(LOPID=lopid)
+                    RequestPriority.objects.create(
+                        request=request_obj,
+                        priority=priority,
+                        amount=amount
+                    )
+                except ListOfPriority.DoesNotExist:
+                    continue
+        return request_obj
 
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
