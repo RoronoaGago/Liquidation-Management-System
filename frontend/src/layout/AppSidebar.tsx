@@ -23,6 +23,7 @@ import {
   PhilippinePeso,
   ReceiptText,
   SchoolIcon,
+  FileText, // <-- Add this import for the requirements icon
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -50,6 +51,12 @@ const allNavItems: NavItem[] = [
     icon: <BanknoteIcon />,
     name: "Manage List of Priorities",
     path: "/list-of-priorities",
+    roles: ["admin"], // Only admin
+  },
+  {
+    icon: <FileText />, // <-- Add this block for requirements
+    name: "Manage Requirements",
+    path: "/requirements",
     roles: ["admin"], // Only admin
   },
   {

@@ -90,7 +90,8 @@ class School(models.Model):
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
     requirementTitle = models.CharField(max_length=255)
-    is_required = models.BooleanField(default=False)  # <-- updated field
+    is_required = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)  # <-- Add this line
 
     def __str__(self):
         return self.requirementTitle

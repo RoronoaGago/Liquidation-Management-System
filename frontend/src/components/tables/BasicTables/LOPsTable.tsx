@@ -366,6 +366,32 @@ export default function LOPsTable({
     }
   };
 
+  // Filter LOPs based on search term (example implementation)
+  const filteredLOPs = useMemo(() => {
+    return sortedLOPs.filter((lop) =>
+      lop.expenseTitle?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [sortedLOPs, searchTerm]);
+
+  // Example local sorting logic (if needed)
+  // If you don't need this, you can remove locallySortedLOPs and use filteredLOPs directly
+  // If you want to use locallySortedLOPs, make sure to define sortConfig and update onRequestSort accordingly
+  // const locallySortedLOPs = useMemo(() => {
+  //   let sorted = [...filteredLOPs];
+  //   if (sortConfig) {
+  //     sorted.sort((a, b) => {
+  //       let aValue: any = a[sortConfig.key];
+  //       let bValue: any = b[sortConfig.key];
+  //       if (typeof aValue === "string") aValue = aValue.toLowerCase();
+  //       if (typeof bValue === "string") bValue = bValue.toLowerCase();
+  //       if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+  //       if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+  //       return 0;
+  //     });
+  //   }
+  //   return sorted;
+  // }, [filteredLOPs, sortConfig]);
+
   //   const handleFilterChange = (name: string, value: string) => {
   //     setFilterOptions((prev) => ({
   //       ...prev,
@@ -471,15 +497,63 @@ export default function LOPsTable({
                 </TableCell>
                 <TableCell
                   isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase cursor-pointer select-none"
                 >
-                  List of Priority ID
+                  <div
+                    className="flex items-center gap-1"
+                    onClick={() => onRequestSort("LOPID")}
+                    style={{ cursor: "pointer", userSelect: "none" }}
+                  >
+                    List of Priority ID
+                    <span className="inline-flex flex-col ml-1">
+                      <ChevronUp
+                        className={`h-3 w-3 ${
+                          currentSort?.key === "LOPID" &&
+                          currentSort.direction === "asc"
+                            ? "text-primary-500"
+                            : "text-gray-400"
+                        }`}
+                      />
+                      <ChevronDown
+                        className={`h-3 w-3 -mt-1 ${
+                          currentSort?.key === "LOPID" &&
+                          currentSort.direction === "desc"
+                            ? "text-primary-500"
+                            : "text-gray-400"
+                        }`}
+                      />
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell
                   isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase cursor-pointer select-none"
                 >
-                  List of Priority Title
+                  <div
+                    className="flex items-center gap-1"
+                    onClick={() => onRequestSort("expenseTitle")}
+                    style={{ cursor: "pointer", userSelect: "none" }}
+                  >
+                    List of Priority Title
+                    <span className="inline-flex flex-col ml-1">
+                      <ChevronUp
+                        className={`h-3 w-3 ${
+                          currentSort?.key === "expenseTitle" &&
+                          currentSort.direction === "asc"
+                            ? "text-primary-500"
+                            : "text-gray-400"
+                        }`}
+                      />
+                      <ChevronDown
+                        className={`h-3 w-3 -mt-1 ${
+                          currentSort?.key === "expenseTitle" &&
+                          currentSort.direction === "desc"
+                            ? "text-primary-500"
+                            : "text-gray-400"
+                        }`}
+                      />
+                    </span>
+                  </div>
                 </TableCell>
 
                 <TableCell
