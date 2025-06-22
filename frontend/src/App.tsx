@@ -21,6 +21,7 @@ import ListOfPrioritiesPage from "./pages/FundRequest";
 import ManageSchools from "./pages/ManageSchools";
 import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
 import LiquidationPage from "./pages/LiquidationPage";
+import ManageRequirement from "./pages/ManageRequirement";
 
 const App = () => {
   return (
@@ -47,6 +48,7 @@ const App = () => {
                 path="/list-of-priorities"
                 element={<ManageListOfPriorities />}
               />
+              <Route path="/requirements" element={<ManageRequirement />} />
             </Route>
 
             {/* School Head-only routes */}
