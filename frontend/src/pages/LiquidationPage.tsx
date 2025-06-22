@@ -34,6 +34,7 @@ interface UploadedDocument {
   requirement_id: number | string;
   document_url?: string;
   uploaded_at?: string;
+  // Add other fields as needed
 }
 
 interface Expense {
@@ -182,9 +183,38 @@ const LiquidationPage = () => {
     }
   };
 
-  // Remove uploaded file (stub, implement as needed)
+  // Remove uploaded file
   const removeFile = async (expenseId: string, requirementID: string) => {
-    toast.info("File removal not implemented in this demo.");
+    if (!request) return;
+    const doc = getUploadedDocument(expenseId, requirementID);
+    const docId = doc?.id;
+    console.log("Removing file:", doc);
+    if (!doc || !docId) {
+      toast.error("No document found to remove.");
+      return;
+    }
+    try {
+      await api.delete(
+        `/liquidations/${request.liquidationID}/documents/${docId}/`
+      );
+      toast.success("File removed!");
+      // Refresh data
+      const res = await api.get("/pending-liquidations/");
+      const data = Array.isArray(res.data) ? res.data[0] : null;
+      if (data) {
+        setRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                uploadedDocuments: data.documents || [],
+              }
+            : prev
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove file.");
+    }
   };
 
   // Trigger file input

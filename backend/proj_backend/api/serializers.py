@@ -253,12 +253,12 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
         source='requirement', read_only=True)
     request_priority_obj = RequestPrioritySerializer(
         source='request_priority', read_only=True)
-    liquidation_document_id = serializers.CharField(read_only=True)
+    # liquidation_document_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = LiquidationDocument
         fields = [
-            'liquidation_document_id',
+            'id',
             'liquidation',
             'request_priority',
             'request_priority_obj',
