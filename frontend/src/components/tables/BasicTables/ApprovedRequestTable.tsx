@@ -12,15 +12,15 @@ import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
 import { Submission } from "@/lib/types";
 import { formatDateTime } from "@/lib/helpers";
 
-interface PrioritySubmissionsTableProps {
+interface ApprovedRequestTableProps {
   submissions: Submission[];
   onView: (submission: Submission) => void;
   loading?: boolean;
   error?: string | null;
 }
 
-const PrioritySubmissionsTable: React.FC<
-  PrioritySubmissionsTableProps & {
+const ApprovedRequestTable: React.FC<
+  ApprovedRequestTableProps & {
     sortConfig?: { key: string; direction: "asc" | "desc" } | null;
     requestSort?: (key: string) => void;
   }
@@ -263,4 +263,4 @@ const PrioritySubmissionsTable: React.FC<
   );
 };
 
-export default PrioritySubmissionsTable;
+export default ApprovedRequestTable;

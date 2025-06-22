@@ -16,7 +16,7 @@ import { useParams } from "react-router";
 import { toast } from "react-toastify";
 
 interface FundRequestApprovalProps {
-  request: FundRequest;
+  request: typeof FundRequest;
   userRole: "district" | "liquidator" | "accountant";
   onDecision: (
     decision: "approve" | "reject" | "request-changes",

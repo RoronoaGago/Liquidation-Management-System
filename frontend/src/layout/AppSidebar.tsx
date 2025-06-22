@@ -20,6 +20,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { NavItem } from "@/lib/types";
 import {
   BanknoteIcon,
+  FileCheck2Icon,
   PhilippinePeso,
   ReceiptText,
   SchoolIcon,
@@ -83,6 +84,12 @@ const allNavItems: NavItem[] = [
     name: "Schools Priorities Submissions",
     path: "/schools-priorities-submissions",
     roles: ["superintendent"], // Only for division superintendent
+  },
+  {
+    icon: <FileCheck2Icon />,
+    name: "Approved Requests",
+    path: "/approved-requests",
+    roles: ["accountant"], // Only for division superintendent
   },
 
   // {

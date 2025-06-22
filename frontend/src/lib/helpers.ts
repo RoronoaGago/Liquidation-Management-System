@@ -103,7 +103,12 @@ export const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString(undefined, options);
 };
 
-export const formatDateTime = (dateString: string): string => {
+export const formatDateTime = (dateString: string | undefined): string => {
+  if (dateString === undefined || dateString === null || dateString.trim() === '') {
+    // Handle the case where submittedDate is undefined, null, or an empty string
+    // You could return an empty string, a default message, or throw an error.
+    return 'Date not provided'; // Example: Return a descriptive message
+  }
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
@@ -112,5 +117,24 @@ export const formatDateTime = (dateString: string): string => {
     minute: '2-digit'
   };
   return new Date(dateString).toLocaleDateString(undefined, options);
+};
+export const calculateExpectedDate = (submittedDate: string | undefined): string => {
+  if (submittedDate === undefined || submittedDate === null || submittedDate.trim() === '') {
+    // Handle the case where submittedDate is undefined, null, or an empty string
+    // You could return an empty string, a default message, or throw an error.
+    return 'Date not provided'; // Example: Return a descriptive message
+  }
+
+  const date = new Date(submittedDate);
+
+  // It's good practice to check if the created date is valid
+  // in case the submittedDate string was malformed.
+  if (isNaN(date.getTime())) {
+    return 'Invalid submitted date format'; // Handle invalid date string
+  }
+
+  date.setDate(date.getDate() + 5); // Add 5 days as example
+
+  return `Before ${date.toLocaleDateString()}`;
 };
 
