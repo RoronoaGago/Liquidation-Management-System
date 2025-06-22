@@ -59,6 +59,7 @@ const ApprovedRequestPage = () => {
     try {
       const res = await api.get("requests/?status=approved");
       setSubmissionsState(res.data);
+      console.log("Fetched submissions:", res.data);
       // Fetch schools for filter dropdown
       const schoolRes = await api.get("schools/");
       setSchools(schoolRes.data);
@@ -77,11 +78,21 @@ const ApprovedRequestPage = () => {
   // Approve handler (should call backend in real app)
   const handleApprove = async (submission: Submission) => {
     try {
+      setLoading(true); // Show loading state
       await api.post(`requests/${submission.request_id}/submit-liquidation/`);
-      setViewedSubmission(null); // Close the modal
-      await fetchSubmissions(); // Refresh the list after approval
+
+      // Close the modal
+      setViewedSubmission(null);
+
+      // Refresh the list with a small delay to ensure backend processed
+      setTimeout(() => {
+        fetchSubmissions().catch(console.error);
+      }, 500);
     } catch (err) {
       console.error("Failed to submit for liquidation:", err);
+      // Optionally show an error message to the user
+    } finally {
+      setLoading(false);
     }
   };
 

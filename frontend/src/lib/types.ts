@@ -154,6 +154,7 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   endIcon?: React.ReactNode; // Icon after the text
   dataModal?: string;
   type?: "button" | "submit" | "reset"; // Explicitly add this
+  asChild?: boolean; // If true, renders as a child component
 };
 
 export interface Requirement {
