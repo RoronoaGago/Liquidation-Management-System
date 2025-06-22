@@ -83,7 +83,7 @@ const ManageListOfPriorities = () => {
         axios.get(`${API_BASE_URL}/api/priorities/`, {
           params: { archived: showArchived },
         }),
-        axios.get(`${API_BASE_URL}/api/requirements/`),
+        axios.get(`${API_BASE_URL}/api/requirements/`), // <--- This should fetch ALL requirements
       ]);
       setAllLOPs(Array.isArray(lopsRes.data) ? lopsRes.data : []);
       setRequirements(Array.isArray(reqsRes.data) ? reqsRes.data : []);
@@ -304,6 +304,8 @@ const ManageListOfPriorities = () => {
                             onChange={() =>
                               handleRequirementToggle(req.requirementID)
                             }
+                            className="h-5 w-5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150" // <-- outlined, matches input
+                            style={{ minWidth: 20, minHeight: 20 }}
                           />
                           <span>
                             {matchIndex !== -1 ? (
@@ -333,30 +335,7 @@ const ManageListOfPriorities = () => {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="is_active"
-                      checked={formData.is_active}
-                      onChange={() =>
-                        setFormData((prev) => ({ ...prev, is_active: true }))
-                      }
-                    />
-                    <span>Active</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="is_active"
-                      checked={!formData.is_active}
-                      onChange={() =>
-                        setFormData((prev) => ({ ...prev, is_active: false }))
-                      }
-                    />
-                    <span>Archived</span>
-                  </label>
-                </div>
+                <div className="flex items-center gap-4"></div>
                 <div className="flex justify-end gap-3 pt-4">
                   <Button
                     type="button"

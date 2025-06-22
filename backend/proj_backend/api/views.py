@@ -219,16 +219,19 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class RequirementListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Requirement.objects.all()
     serializer_class = RequirementSerializer
 
-    def create(self, request, *args, **kwargs):
-        is_many = isinstance(request.data, list)
-        serializer = self.get_serializer(data=request.data, many=is_many)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    def get_queryset(self):
+        queryset = Requirement.objects.all()
+        archived = self.request.query_params.get('archived', 'false').lower() == 'true'
+        if archived:
+            queryset = queryset.filter(is_active=False)
+        else:
+            queryset = queryset.filter(is_active=True)
+        search_term = self.request.query_params.get('search', None)
+        if search_term:
+            queryset = queryset.filter(requirementTitle__icontains=search_term)
+        return queryset
 
 
 class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):

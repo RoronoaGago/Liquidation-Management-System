@@ -48,6 +48,7 @@ const App = () => {
                 path="/list-of-priorities"
                 element={<ManageListOfPriorities />}
               />
+              <Route path="/requirements" element={<ManageRequirement />} />
             </Route>
 
             {/* School Head-only routes */}
