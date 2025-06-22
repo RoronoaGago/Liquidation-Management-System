@@ -194,9 +194,17 @@ def generate_liquidation_id():
 
 class LiquidationManagement(models.Model):
     STATUS_CHOICES = [
-        ('ongoing', 'Ongoing'),
-        ('resubmit', 'Resubmit'),
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('under_review_district', 'Under Review (District)'),
+        ('under_review_division', 'Under Review (Division)'),
+        ('resubmit', 'Needs Revision'),
+        ('approved_district', 'Approved by District'),
+        ('approved_division', 'Approved by Division'),
+        ('approved', 'Fully Approved'),
+        ('rejected', 'Rejected'),
         ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
     ]
 
     LiquidationID = models.CharField(
@@ -213,7 +221,8 @@ class LiquidationManagement(models.Model):
     )
     comment_id = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default='ongoing')
+        max_length=30, choices=STATUS_CHOICES, default='draft'
+    )
     reviewed_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -222,6 +231,15 @@ class LiquidationManagement(models.Model):
         related_name='reviewed_liquidations'
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by_district = models.ForeignKey(
+        User, null=True, blank=True, related_name='district_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_district = models.DateTimeField(null=True, blank=True)
+
+    reviewed_by_division = models.ForeignKey(
+        User, null=True, blank=True, related_name='division_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_division = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
