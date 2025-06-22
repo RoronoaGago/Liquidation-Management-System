@@ -347,6 +347,63 @@ def submit_for_liquidation(request, request_id):
         )
 
 
+@api_view(['POST'])
+def submit_liquidation(request, LiquidationID):
+    try:
+        liquidation = LiquidationManagement.objects.get(
+            LiquidationID=LiquidationID)
+
+        # Check if all required documents are uploaded
+        required_docs_missing = False
+        for rp in liquidation.request.requestpriority_set.all():
+            for req in rp.priority.requirements.filter(is_required=True):
+                if not LiquidationDocument.objects.filter(
+                    liquidation=liquidation,
+                    request_priority=rp,
+                    requirement=req
+                ).exists():
+                    required_docs_missing = True
+                    break
+            if required_docs_missing:
+                break
+        if liquidation.status != 'draft':
+            return Response(
+                {'error': 'Liquidation has already been submitted'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if required_docs_missing:
+            return Response(
+                {'error': 'All required documents must be uploaded before submission'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update status to submitted
+        liquidation.status = 'submitted'
+        liquidation.save()
+
+        serializer = LiquidationManagementSerializer(
+            liquidation,
+            context={'request': request}  # <-- Add this line
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except LiquidationManagement.DoesNotExist:
+        return Response(
+            {'error': 'Liquidation not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+# views.py
+
+
+@api_view(['GET'])
+def view_liquidation(request, LiquidationID):
+    liquidation = get_object_or_404(
+        LiquidationManagement, LiquidationID=LiquidationID)
+    serializer = LiquidationManagementSerializer(liquidation)
+    return Response(serializer.data)
+
+
 def approve_liquidation(request, LiquidationID):
     try:
         liquidation = LiquidationManagement.objects.get(
@@ -376,6 +433,16 @@ def approve_liquidation(request, LiquidationID):
             {'error': 'Liquidation not found'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+class UserLiquidationsAPIView(generics.ListAPIView):
+    serializer_class = LiquidationManagementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return LiquidationManagement.objects.filter(
+            request__user=self.request.user
+        ).order_by('-created_at')
 
 
 class UserRequestListAPIView(generics.ListAPIView):

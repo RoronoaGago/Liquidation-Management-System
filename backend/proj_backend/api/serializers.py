@@ -288,7 +288,9 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     reviewed_by = UserSerializer(read_only=True)
-    LiquidationID = serializers.CharField(read_only=True)
+    submitted_at = serializers.DateTimeField(
+        source='created_at', read_only=True)
+    reviewer_comments = serializers.SerializerMethodField()
 
     class Meta:
         model = LiquidationManagement
@@ -299,7 +301,23 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'status',
             'reviewed_by',
             'reviewed_at',
+            'reviewed_by_district',
+            'reviewed_at_district',
+            'reviewed_by_division',
+            'reviewed_at_division',
             'documents',
+            'submitted_at',
+            'reviewer_comments',
             'created_at'
         ]
-        read_only_fields = ['created_at']
+
+    def get_reviewer_comments(self, obj):
+        # Get all reviewer comments from documents
+        comments = []
+        for doc in obj.documents.all():
+            if doc.reviewer_comment:
+                comments.append({
+                    'document': doc.requirement.requirementTitle,
+                    'comment': doc.reviewer_comment
+                })
+        return comments
