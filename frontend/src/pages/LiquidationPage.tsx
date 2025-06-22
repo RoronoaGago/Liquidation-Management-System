@@ -10,6 +10,8 @@ import {
   CheckCircle,
   AlertCircle,
   Paperclip,
+  MessageCircleIcon,
+  CheckIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
 import api from "@/api/axios";
+import { DocumentTextIcon } from "@heroicons/react/outline";
 
 interface Requirement {
   requirementID: number | string;
@@ -49,6 +52,7 @@ interface LiquidationRequest {
   liquidationID: string;
   month: string;
   status: string;
+  created_at?: Date;
   totalAmount: number;
   expenses: Expense[];
   uploadedDocuments: UploadedDocument[];
@@ -70,8 +74,9 @@ const LiquidationPage = () => {
     const fetchPendingLiquidation = async () => {
       setLoading(true);
       setFetchError(null);
+      console.log("Fetching pending liquidation for user:", user?.user_id);
       try {
-        const res = await api.get("/pending-liquidations/");
+        const res = await api.get("/liquidation/");
         const data = Array.isArray(res.data) ? res.data[0] : null;
         if (!data) {
           setRequest(null);
@@ -256,13 +261,35 @@ const LiquidationPage = () => {
   const { uploadedRequired, totalRequired } = calculateProgress();
 
   // Submit liquidation (stub, needs API integration)
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!request) return;
+
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      const response = await api.post(
+        `/liquidations/${request.liquidationID}/submit/`
+      );
+
+      // Update the request state with the new status
+      setRequest((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: response.data.status || "submitted",
+            }
+          : prev
+      );
+
+      toast.success("Liquidation submitted successfully!");
+    } catch (error: any) {
+      console.error(error);
+      const errorMessage =
+        error.response?.data?.error || "Failed to submit liquidation";
+      toast.error(errorMessage);
+    } finally {
       setIsSubmitting(false);
       setIsConfirmDialogOpen(false);
-      toast.success("Liquidation submitted successfully!");
-    }, 1500);
+    }
   };
 
   // Save as draft (stub)
@@ -298,7 +325,13 @@ const LiquidationPage = () => {
   }
 
   return (
-    <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+    <div
+      className={`container mx-auto rounded-2xl px-5 pb-5 pt-5 sm:px-6 sm:pt-6 ${
+        request.status === "submitted"
+          ? "bg-blue-50/30 border border-blue-200 dark:bg-blue-900/5 dark:border-blue-800/30"
+          : "bg-white dark:bg-white/[0.03]"
+      }`}
+    >
       <PageBreadcrumb pageTitle="Liquidation Request" />
 
       <div className="mt-8">
@@ -314,7 +347,7 @@ const LiquidationPage = () => {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-brand-800 dark:bg-blue-900/30 dark:text-blue-300">
                 {statusLabels[request.status] || request.status}
               </span>
               <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
@@ -361,9 +394,17 @@ const LiquidationPage = () => {
               <DialogTrigger asChild>
                 <Button
                   variant="primary"
-                  disabled={isSubmitDisabled || isSubmitting}
+                  disabled={
+                    isSubmitDisabled ||
+                    isSubmitting ||
+                    request.status !== "draft" // Disable if not in draft
+                  }
                 >
-                  Submit Liquidation
+                  {request.status === "submitted"
+                    ? "Already Submitted"
+                    : isSubmitting
+                    ? "Submitting..."
+                    : "Submit Liquidation"}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
@@ -556,7 +597,8 @@ const LiquidationPage = () => {
                                     !!getUploadedDocument(
                                       expense.id,
                                       req.requirementID
-                                    ) // Disable if already uploaded
+                                    ) ||
+                                    request.status !== "draft" // Disable if not in draft status
                                   }
                                 >
                                   {uploading ===
@@ -631,6 +673,109 @@ const LiquidationPage = () => {
           </div>
         </div>
       </div>
+      {/* Status History Timeline - Add right here */}
+
+      {/* {request.status !== "draft" && (
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            Status History
+          </h3>
+          <div className="relative pl-6"> */}
+      {/* Timeline item */}
+      {/* <div className="relative pb-6">
+              <div className="absolute left-0 top-1 h-full w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+              <div className="absolute left-0 top-1 flex h-4 w-4 -translate-x-1/2 items-center justify-center rounded-full bg-blue-500">
+                <CheckIcon className="h-3 w-3 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="font-medium text-gray-800 dark:text-white">
+                  Submitted for Review
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {new Date(request.created_at).toLocaleString()} by{" "}
+                  {user?.username}
+                </p>
+              </div>
+            </div> */}
+      {/* Add more timeline items as needed */}
+      {/* </div>
+        </div>
+      )} */}
+      {request.status !== "draft" && (
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <MessageCircleIcon className="h-5 w-5 text-gray-500" />
+            Reviewer Feedback (Sample Data)
+          </h3>
+          <div className="space-y-4">
+            {/* Sample Comment 1 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 dark:text-white">
+                    Official Receipt
+                  </h4>
+                  <p className="mt-1 text-gray-700 dark:text-gray-300">
+                    The receipt is unclear. Please provide a clearer scan with
+                    the vendor name visible.
+                  </p>
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Reviewed by: District Admin •{" "}
+                    {new Date().toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sample Comment 2 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 dark:text-white">
+                    Purchase Order
+                  </h4>
+                  <p className="mt-1 text-gray-700 dark:text-gray-300">
+                    The purchase order number doesn't match our records. Please
+                    verify the PO number.
+                  </p>
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Reviewed by: Division Accountant •{" "}
+                    {new Date(Date.now() - 86400000).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sample Comment 3 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 dark:text-white">
+                    Delivery Receipt
+                  </h4>
+                  <p className="mt-1 text-gray-700 dark:text-gray-300">
+                    Approved. All details are clear and match the purchase
+                    order.
+                  </p>
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Reviewed by: School Head •{" "}
+                    {new Date(Date.now() - 172800000).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
