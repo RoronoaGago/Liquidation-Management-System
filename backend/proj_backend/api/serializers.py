@@ -43,6 +43,7 @@ class UserSerializer(serializers.ModelSerializer):
             "school",  # now returns full school object
             "school_id",  # write-only field for school ID
             "date_of_birth",
+            "sex",
             "phone_number",
             "profile_picture",
             "profile_picture_base64",
