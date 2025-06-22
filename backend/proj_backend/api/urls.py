@@ -32,11 +32,11 @@ urlpatterns = [
     path('priorities/<int:LOPID>/',
          views.ListOfPriorityRetrieveUpdateDestroyAPIView.as_view(), name='priority-detail'),
 
-    path('requests/', views.RequestManagementListCreateView.as_view(),
+    path('requests/', views.RequestManagementListView.as_view(),
          name='request-list'),
 
-    path('requests/<str:request_id>/',
-         views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
+    # path('requests/<str:request_id>/',
+    #      views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
     path('requests/<str:request_id>/submit-liquidation/',
          views.submit_for_liquidation, name='submit-liquidation'),
 
