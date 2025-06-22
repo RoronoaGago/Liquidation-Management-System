@@ -311,7 +311,6 @@ class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDes
     queryset = LiquidationDocument.objects.all()
     serializer_class = LiquidationDocumentSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'request_id'
 
 
 @api_view(['POST'])
