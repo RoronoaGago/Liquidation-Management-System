@@ -1,0 +1,21 @@
+Dear {{ request.user.get_full_name }},
+
+IMPORTANT REMINDER: You have 5 days remaining to liquidate Request {{ request.request_id }}.
+
+Request Details:
+- Created: {{ request.created_at|date:"Y-m-d" }}
+- Total Amount: ${{ request.total_amount|default:"0.00" }}
+- Priorities: 
+{% for priority in request.priorities.all %}
+  - {{ priority.expenseTitle }} (${{ priority.amount }})
+{% endfor %}
+
+Failure to liquidate by the deadline will result in:
+1. Automatic expiration of the request
+2. A formal demand letter from our legal department
+3. Possible suspension of future fund requests
+
+Please complete your liquidation immediately.
+
+Regards,
+Finance Department
