@@ -237,16 +237,16 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
 
 
 class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
-    queryset = ListOfPriority.objects.all()
     serializer_class = ListOfPrioritySerializer
 
-    def create(self, request, *args, **kwargs):
-        is_many = isinstance(request.data, list)
-        serializer = self.get_serializer(data=request.data, many=is_many)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    def get_queryset(self):
+        queryset = ListOfPriority.objects.all()
+        archived = self.request.query_params.get('archived', 'false').lower() == 'true'
+        if archived:
+            queryset = queryset.filter(is_active=False)
+        else:
+            queryset = queryset.filter(is_active=True)
+        return queryset
 
 
 class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
