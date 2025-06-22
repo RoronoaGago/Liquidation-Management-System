@@ -146,7 +146,7 @@ class RequestManagement(models.Model):
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
-        ('unliquidated', 'Unliquidated'),
+        ('downloaded', 'Downloaded'),
     ]
 
     request_id = models.CharField(
@@ -201,6 +201,7 @@ class LiquidationManagement(models.Model):
         ('ongoing', 'Ongoing'),
         ('resubmit', 'Resubmit'),
         ('completed', 'Completed'),
+        ('unliquidated', 'Unliquidated')
     ]
 
     LiquidationID = models.CharField(
@@ -233,22 +234,22 @@ class LiquidationManagement(models.Model):
     
     def clean(self):
         """
-        Validate that the request status is 'unliquidated' before saving.
+        Validate that the request status is 'downloaded' before saving.
         This works with Django forms and admin interface.
         """
-        if self.request.status != 'unliquidated':
+        if self.request.status != 'downloaded':
             raise ValidationError(
-                "Liquidation can only be created for requests with 'unliquidated' status."
+                "Liquidation can only be created for requests with 'downloaded' status."
             )
 
     def save(self, *args, **kwargs):
         """
-        Ensure the request status is 'unliquidated' before saving to database.
+        Ensure the request status is 'downloaded' before saving to database.
         """
         # Skip validation when updating existing instance (optional)
-        if not self.pk and self.request.status != 'unliquidated':
+        if not self.pk and self.request.status != 'downloaded':
             raise ValidationError(
-                "Liquidation can only be created for requests with 'unliquidated' status."
+                "Liquidation can only be created for requests with 'downloaded' status."
             )
         
         super().save(*args, **kwargs)
