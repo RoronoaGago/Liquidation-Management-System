@@ -325,7 +325,7 @@ def submit_for_liquidation(request, request_id):
 
         liquidation, created = LiquidationManagement.objects.get_or_create(
             request=request_obj,
-            defaults={'status': 'ongoing'}
+            defaults={'status': 'submitted'}
         )
 
         if not created:
@@ -351,9 +351,9 @@ def approve_liquidation(request, LiquidationID):
     try:
         liquidation = LiquidationManagement.objects.get(
             LiquidationID=LiquidationID)
-        if liquidation.status != 'ongoing':
+        if liquidation.status not in ['submitted', 'under_review']:
             return Response(
-                {'error': 'Liquidation is not in ongoing state'},
+                {'error': 'Liquidation is not in a reviewable state'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -393,6 +393,6 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
     def get_queryset(self):
         # Filter LiquidationManagement by status and by the current user
         return LiquidationManagement.objects.filter(
-            status='ongoing',
+            status='draft',
             request__user=self.request.user
         )

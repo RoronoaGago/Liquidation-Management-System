@@ -270,6 +270,17 @@ const LiquidationPage = () => {
     toast.success("Draft saved successfully!");
   };
 
+  const statusLabels: Record<string, string> = {
+    draft: "Draft",
+    submitted: "Submitted",
+    under_review: "Under Review",
+    resubmit: "Needs Revision",
+    approved: "Approved",
+    rejected: "Rejected",
+    completed: "Completed",
+    cancelled: "Cancelled",
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-5 py-10 text-center text-gray-500">
@@ -304,7 +315,7 @@ const LiquidationPage = () => {
             </div>
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                {request.status}
+                {statusLabels[request.status] || request.status}
               </span>
               <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                 ₱{request.totalAmount.toLocaleString()}
