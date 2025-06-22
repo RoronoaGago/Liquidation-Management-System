@@ -22,6 +22,7 @@ import ManageSchools from "./pages/ManageSchools";
 import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
 import LiquidationPage from "./pages/LiquidationPage";
 import ApprovedRequestPage from "./pages/ApprovedRequestPage";
+import ManageRequirement from "./pages/ManageRequirement";
 
 const App = () => {
   return (
