@@ -32,13 +32,14 @@ urlpatterns = [
     path('priorities/<int:LOPID>/',
          views.ListOfPriorityRetrieveUpdateDestroyAPIView.as_view(), name='priority-detail'),
 
-    path('requests/', views.RequestManagementListView.as_view(), name='request-list'),
-    path('requests/create/', views.RequestManagementCreateView.as_view(), name='request-create'),
-    path('requests/<str:pk>/', views.RequestManagementDetailView.as_view(), name='request-detail'),
-    path('requests/<str:request_id>/add-priority/', views.RequestPriorityCreateView.as_view(), name='request-add-priority'),
-    path('requests/<str:pk>/approve/', views.ApproveRequestView.as_view(), name='request-approve'),
-    path('requests/<str:pk>/reject/', views.RejectRequestView.as_view(), name='request-reject'),
-    
+    path('requests/', views.RequestManagementListCreateView.as_view(),
+         name='request-list'),
+
+    path('requests/<int:pk>/',
+         views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
+    path('requests/<int:pk>/submit-liquidation/',
+         views.submit_for_liquidation, name='submit-liquidation'),
+
     # Liquidation Management URLs
     path('liquidations/', views.LiquidationManagementListCreateAPIView.as_view(),
          name='liquidation-list-create'),
