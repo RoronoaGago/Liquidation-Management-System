@@ -43,6 +43,7 @@ const FundRequestPage = () => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
       } catch (error: any) {
         setFetchError("Failed to fetch priorities.");
+        console.log("Error fetching priorities:", error);
       } finally {
         setLoading(false);
       }
@@ -105,6 +106,7 @@ const FundRequestPage = () => {
       setSelected({});
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
+      console.log("Error:", error);
       if (error.response && error.response.status === 401) {
         toast.error("Unauthorized. Please log in again.", { id: "fundreq" });
       } else {
