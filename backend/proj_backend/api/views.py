@@ -236,6 +236,15 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
             queryset = queryset.filter(requirementTitle__icontains=search_term)
         return queryset
 
+    def create(self, request, *args, **kwargs):
+        # Check if request.data is a list (batch)
+        is_many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Requirement.objects.all()
@@ -255,6 +264,15 @@ class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
         else:
             queryset = queryset.filter(is_active=True)
         return queryset
+
+    def create(self, request, *args, **kwargs):
+        # Enable batch posting
+        is_many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
