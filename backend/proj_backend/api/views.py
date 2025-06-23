@@ -15,6 +15,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
+from django.db import transaction
+from django.core.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +225,8 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = Requirement.objects.all()
-        archived = self.request.query_params.get('archived', 'false').lower() == 'true'
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
         if archived:
             queryset = queryset.filter(is_active=False)
         else:
@@ -245,7 +248,8 @@ class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = ListOfPriority.objects.all()
-        archived = self.request.query_params.get('archived', 'false').lower() == 'true'
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
         if archived:
             queryset = queryset.filter(is_active=False)
         else:
@@ -268,34 +272,48 @@ class RequestManagementListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = RequestManagement.objects.all()
-        
+
         # Non-admin users only see their own requests
         if not self.request.user.role in ['admin', 'superintendent']:
             queryset = queryset.filter(user=self.request.user)
-            
+
         # Filter by status if provided
         status_param = self.request.query_params.get('status')
         if status_param:
             queryset = queryset.filter(status=status_param)
-            
+
         return queryset.order_by('-created_at')
 
-class RequestManagementCreateView(generics.CreateAPIView):
-    """
-    View for creating new requests
-    """
+
+class RequestManagementListCreateView(generics.ListCreateAPIView):
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        # Automatically set the current user as the request creator
+        serializer.save(user=self.request.user)
+
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = RequestManagement.objects.all()
+
+        # Filter by status if provided
         status_param = self.request.query_params.get('status')
         if status_param:
             queryset = queryset.filter(status=status_param)
-        return queryset
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # For non-admin users, only show their own requests
+        if not self.request.user.role in ['admin', 'superintendent', 'accountant']:
+            queryset = queryset.filter(user=self.request.user)
+
+        return queryset.order_by('-created_at')
+
+
+class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'request_id'
+
 
 class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -308,16 +326,19 @@ class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        
+
         # Check if user has permission to edit this request
         if instance.user != self.request.user and self.request.user.role not in ['admin', 'superintendent']:
-            raise PermissionDenied("You don't have permission to edit this request")
-            
+            raise PermissionDenied(
+                "You don't have permission to edit this request")
+
         # Prevent editing if request is already approved/rejected
         if instance.status in ['approved', 'rejected']:
-            raise ValidationError("Cannot edit an already approved/rejected request")
-            
+            raise ValidationError(
+                "Cannot edit an already approved/rejected request")
+
         serializer.save()
+
 
 class RequestPriorityCreateView(generics.CreateAPIView):
     """
@@ -329,16 +350,19 @@ class RequestPriorityCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         request_id = self.kwargs['request_id']
         request_obj = RequestManagement.objects.get(request_id=request_id)
-        
+
         # Check if user has permission to modify this request
         if request_obj.user != self.request.user and self.request.user.role not in ['admin', 'superintendent']:
-            raise PermissionDenied("You don't have permission to modify this request")
-            
+            raise PermissionDenied(
+                "You don't have permission to modify this request")
+
         # Prevent adding priorities if request is already approved/rejected
         if request_obj.status in ['approved', 'rejected']:
-            raise ValidationError("Cannot add priorities to an already approved/rejected request")
-            
+            raise ValidationError(
+                "Cannot add priorities to an already approved/rejected request")
+
         serializer.save(request=request_obj)
+
 
 class ApproveRequestView(generics.UpdateAPIView):
     """
@@ -351,26 +375,27 @@ class ApproveRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        
+
         # Check if user has permission to approve
         if request.user.role not in ['admin', 'superintendent']:
             return Response(
                 {"detail": "Only administrators can approve requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
-            
+
         # Check if request is in pending state
         if instance.status != 'pending':
             return Response(
                 {"detail": "Only pending requests can be approved"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         instance.status = 'approved'
         instance.save()
-        
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
 
 class RejectRequestView(generics.UpdateAPIView):
     """
@@ -383,21 +408,21 @@ class RejectRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        
+
         # Check if user has permission to reject
         if request.user.role not in ['admin', 'superintendent']:
             return Response(
                 {"detail": "Only administrators can reject requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
-            
+
         # Check if request is in pending state
         if instance.status != 'pending':
             return Response(
                 {"detail": "Only pending requests can be rejected"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         # Require a rejection reason
         rejection_reason = request.data.get('rejection_reason')
         if not rejection_reason:
@@ -405,11 +430,11 @@ class RejectRequestView(generics.UpdateAPIView):
                 {"detail": "Please provide a rejection reason"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         instance.status = 'rejected'
         instance.rejection_reason = rejection_reason
         instance.save()
-        
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -436,11 +461,32 @@ class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
         liquidation_id = self.kwargs.get('LiquidationID')
         return self.queryset.filter(liquidation__LiquidationID=liquidation_id)
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         liquidation_id = self.kwargs.get('LiquidationID')
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=liquidation_id)
-        serializer.save(liquidation=liquidation, uploaded_by=self.request.user)
+        liquidation = get_object_or_404(
+            LiquidationManagement, LiquidationID=liquidation_id)
+
+        # Check for existing document
+        existing_doc = self.get_queryset().filter(
+            request_priority_id=request.data.get('request_priority'),
+            requirement_id=request.data.get('requirement')
+        ).first()
+
+        if existing_doc:
+            serializer = self.get_serializer(
+                existing_doc, data=request.data, partial=True)
+        else:
+            serializer = self.get_serializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save(liquidation=liquidation, uploaded_by=request.user)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK if existing_doc else status.HTTP_201_CREATED,
+            headers=headers
+        )
 
 
 class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -450,36 +496,52 @@ class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDes
 
 
 @api_view(['POST'])
+@transaction.atomic
 def submit_for_liquidation(request, request_id):
     try:
-        request_obj = RequestManagement.objects.get(request_id=request_id)
-        if request_obj.status != 'approved':
-            return Response(
-                {'error': 'Request must be approved before liquidation'},
-                status=status.HTTP_400_BAD_REQUEST
+        with transaction.atomic():
+            request_obj = RequestManagement.objects.select_for_update().get(request_id=request_id)
+
+            # Validate status transition
+            if request_obj.status != 'approved':
+                return Response(
+                    {'error': 'Request must be approved before liquidation'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Create liquidation record
+            liquidation, created = LiquidationManagement.objects.get_or_create(
+                request=request_obj,
+                defaults={'status': 'draft'}
             )
 
-        liquidation, created = LiquidationManagement.objects.get_or_create(
-            request=request_obj,
-            defaults={'status': 'draft'}
-        )
+            if not created:
+                return Response(
+                    {'error': 'Liquidation already exists for this request'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        if not created:
-            return Response(
-                {'error': 'Liquidation already exists for this request'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # Update request status
+            request_obj.status = 'unliquidated'
+            request_obj.save(update_fields=['status'])
 
-        request_obj.status = 'unliquidated'
-        request_obj.save()
-
-        serializer = LiquidationManagementSerializer(liquidation)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            serializer = LiquidationManagementSerializer(liquidation)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     except RequestManagement.DoesNotExist:
         return Response(
             {'error': 'Request not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+    except ValidationError as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': 'An unexpected error occurred'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
