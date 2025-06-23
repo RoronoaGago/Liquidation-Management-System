@@ -1,28 +1,18 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Info,
-  X,
-  Plus,
-} from "lucide-react";
+import { Search, Info, X, Plus } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
 import { ListofPriorityData } from "@/lib/types";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import PaginationControls from "@/pages/ListofPriorityModule/PaginationControl";
 
 const FundRequestPage = () => {
   const [priorities, setPriorities] = useState<ListofPriorityData[]>([]);
   const [selected, setSelected] = useState<{ [key: string]: string }>({});
-  const [filterOptions, setFilterOptions] = useState<{ searchTerm: string }>({
-    searchTerm: "",
-  });
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
@@ -43,7 +33,7 @@ const FundRequestPage = () => {
           ? response.data
           : response.data.results || [];
         setPriorities(data);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         setFetchError("Failed to fetch priorities.");
         console.log("Error fetching priorities:", error);
@@ -54,6 +44,42 @@ const FundRequestPage = () => {
     fetchPriorities();
   }, []);
 
+  // Debounced search handler
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    debounceTimeout.current = setTimeout(() => {
+      setSearchTerm(value);
+      setCurrentPage(1);
+    }, 200);
+  };
+
+  // Filter priorities based on searchTerm
+  const filteredExpenses = priorities.filter((priority) =>
+    priority.expenseTitle.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Separate checked and unchecked items
+  const checkedItems = filteredExpenses.filter(
+    (priority) => selected[priority.expenseTitle] !== undefined
+  );
+  const uncheckedItems = filteredExpenses.filter(
+    (priority) => selected[priority.expenseTitle] === undefined
+  );
+  const sortedItems = [...checkedItems, ...uncheckedItems];
+
+  // Pagination logic
+  const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
+  const currentItems = sortedItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+  };
+
+  // Selection logic
   const handleCheck = (expense: string) => {
     setSelected((prev) => {
       if (expense in prev) {
@@ -67,7 +93,6 @@ const FundRequestPage = () => {
   };
 
   const handleAmountChange = (expense: string, value: string) => {
-    // Only allow positive numbers
     if (value === "" || (!isNaN(Number(value)) && Number(value) >= 0)) {
       setSelected((prev) => ({ ...prev, [expense]: value }));
     }
@@ -103,8 +128,6 @@ const FundRequestPage = () => {
       toast.error("Please select at least one expense.");
       return;
     }
-
-    // Validate all amounts are filled
     const emptyAmounts = selectedPriorities.filter(
       (item) => item && (!item.amount || item.amount === "0")
     );
@@ -112,7 +135,6 @@ const FundRequestPage = () => {
       toast.error("Please enter amounts for all selected expenses.");
       return;
     }
-
     setSubmitting(true);
     try {
       const token = localStorage.getItem("access_token");
@@ -152,62 +174,16 @@ const FundRequestPage = () => {
     }
   };
 
-  // Debounced search handler
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
-    debounceTimeout.current = setTimeout(() => {
-      setFilterOptions((prev) => ({
-        ...prev,
-        searchTerm: value,
-      }));
-      setCurrentPage(1);
-    }, 10);
-  };
-
-  // Filter priorities based on searchTerm
-  const filteredExpenses = priorities.filter((priority) =>
-    priority.expenseTitle
-      .toLowerCase()
-      .includes(filterOptions.searchTerm.toLowerCase())
-  );
-
-  // Separate checked and unchecked items
-  const checkedItems = filteredExpenses.filter(
-    (priority) => selected[priority.expenseTitle] !== undefined
-  );
-  const uncheckedItems = filteredExpenses.filter(
-    (priority) => selected[priority.expenseTitle] === undefined
-  );
-
-  // Combine checked (first) and unchecked items
-  const sortedItems = [...checkedItems, ...uncheckedItems];
-
-  // Pagination logic
-  const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
-  const currentItems = sortedItems.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const goToPage = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <ToastContainer />
       <PageBreadcrumb pageTitle="List of Priorities" />
 
       <div className="mt-8">
-        {/* Improved instructions with more visual hierarchy */}
+        {/* Instructions */}
         <div className="mb-6 bg-blue-50 dark:bg-brand-900/10 p-4 rounded-lg border border-blue-100 dark:border-brand-900/20">
           <h3 className="text-lg font-medium text-brand-800 dark:text-blue-200 flex items-center gap-2 mb-2">
-            <Info className="h-5 w-5" /> How to request MOOE(Maintenance and
+            <Info className="h-5 w-5" /> How to request MOOE (Maintenance and
             Other Operating Expenses)
           </h3>
           <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-blue-300">
@@ -227,7 +203,7 @@ const FundRequestPage = () => {
                   <Input
                     type="text"
                     placeholder="Search expenses..."
-                    value={filterOptions.searchTerm}
+                    value={searchTerm}
                     onChange={handleSearchChange}
                     className="pl-10"
                   />
@@ -236,7 +212,6 @@ const FundRequestPage = () => {
                     {filteredExpenses.length} items
                   </span>
                 </div>
-
                 <div className="flex gap-4 w-full md:w-auto items-center">
                   <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     Items per page:
@@ -258,7 +233,7 @@ const FundRequestPage = () => {
                 </div>
               </div>
 
-              {/* Improved Expense List with inline editing */}
+              {/* Expense List as Cards */}
               <div className="grid grid-cols-1 gap-3">
                 {loading && (
                   <div className="col-span-2 text-gray-500 text-center py-8">
@@ -300,7 +275,6 @@ const FundRequestPage = () => {
                             {priority.expenseTitle}
                           </span>
                         </div>
-
                         {isSelected && (
                           <div className="flex items-center gap-2">
                             <div className="flex gap-1">
@@ -354,71 +328,11 @@ const FundRequestPage = () => {
                   Page {currentPage} of {totalPages} • {sortedItems.length}{" "}
                   total items
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    onClick={() => goToPage(1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      return (
-                        <Button
-                          type="button"
-                          key={pageNum}
-                          onClick={() => goToPage(pageNum)}
-                          variant={
-                            currentPage === pageNum ? "primary" : "outline"
-                          }
-                          size="sm"
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages || totalPages === 0}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => goToPage(totalPages)}
-                    disabled={currentPage === totalPages || totalPages === 0}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </Button>
-                </div>
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={goToPage}
+                />
               </div>
             </div>
 
@@ -430,7 +344,6 @@ const FundRequestPage = () => {
                     MOOE Request Summary
                   </h3>
                 </div>
-
                 {checkedItems.length > 0 ? (
                   <>
                     <div className="p-4">
@@ -442,7 +355,6 @@ const FundRequestPage = () => {
                           Total: ₱{totalAmount.toLocaleString()}
                         </span>
                       </div>
-
                       <div className="space-y-3 max-h-[400px] overflow-y-auto">
                         {checkedItems.map((priority) => (
                           <div
@@ -470,7 +382,6 @@ const FundRequestPage = () => {
                         ))}
                       </div>
                     </div>
-
                     <div className="p-4 border-t border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex justify-between items-center">
                         <Button
