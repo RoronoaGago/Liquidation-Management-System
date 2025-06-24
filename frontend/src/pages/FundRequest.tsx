@@ -316,13 +316,23 @@ const FundRequestPage = () => {
           </div>
 
           {/* Footer */}
+          {/* Footer */}
           <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
             <div></div>
             <Button
               variant="primary"
               className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 dark:from-brand-700 dark:to-brand-600 dark:hover:from-brand-800 dark:hover:to-brand-700 text-white shadow-sm"
             >
-              <Link to="/liquidation" className="flex items-center gap-2">
+              <Link
+                to={
+                  hasPendingRequest
+                    ? "/requests-history"
+                    : hasActiveLiquidation
+                    ? "/liquidation"
+                    : "#" // Fallback (shouldn't happen if logic is correct)
+                }
+                className="flex items-center gap-2"
+              >
                 View Full Details
                 <ArrowRight className="h-4 w-4" />
               </Link>
