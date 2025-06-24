@@ -1,18 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 // import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
 import desktopLogo from "../images/bubble-magic/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
-  BoxCubeIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
-  PieChartIcon,
-  // PlugInIcon,
-  // ReceiptIcon,
-  ReportIcon,
   // StatusIcon,
   UserCircleIcon,
 } from "../icons";
@@ -24,7 +18,9 @@ import {
   PhilippinePeso,
   ReceiptText,
   SchoolIcon,
-  FileText, // <-- Add this import for the requirements icon
+  FileText,
+  ListOrdered, // <-- Add this
+  History, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -69,9 +65,23 @@ const allNavItems: NavItem[] = [
 
   {
     icon: <PhilippinePeso />,
-    name: "List of Priorities",
-    roles: ["school_head"], // Admin and school heads
-    path: "/prepare-list-of-priorities",
+    name: "MOOE",
+    roles: ["school_head"], // Only for school_head
+    // No direct path, use subItems for dropdown
+    subItems: [
+      {
+        icon: <ListOrdered />, // <-- Add icon here
+        name: "List of Priority",
+        path: "/prepare-list-of-priorities",
+        roles: ["school_head"],
+      },
+      {
+        icon: <History />, // <-- Add icon here
+        name: "Requests History",
+        path: "/requests-history", // Make sure this route exists in your App.tsx
+        roles: ["school_head"],
+      },
+    ],
   },
   {
     icon: <ReceiptText />,
@@ -210,7 +220,7 @@ const AppSidebar: React.FC = () => {
   };
 
   const [navItems, setNavItems] = useState<NavItem[]>([]);
-  const [filteredOthersItems, setFilteredOthersItems] = useState<NavItem[]>([]);
+  const [filteredOthersItems] = useState<NavItem[]>([]);
 
   useEffect(() => {
     // Filter items whenever userRole changes
@@ -360,9 +370,15 @@ const AppSidebar: React.FC = () => {
                         isActive(subItem.path)
                           ? "menu-dropdown-item-active"
                           : "menu-dropdown-item-inactive"
-                      }`}
+                      } flex items-center gap-2`}
                     >
-                      {subItem.name}
+                      {/* Render the icon if it exists */}
+                      {subItem.icon && (
+                        <span className="menu-item-icon-size">
+                          {subItem.icon}
+                        </span>
+                      )}
+                      <span>{subItem.name}</span>
                       <span className="flex items-center gap-1 ml-auto">
                         {subItem.new && (
                           <span
