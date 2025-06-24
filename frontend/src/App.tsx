@@ -25,11 +25,24 @@ import ApprovedRequestPage from "./pages/ApprovedRequestPage";
 import ManageRequirement from "./pages/ManageRequirement";
 import FundRequestPage from "./pages/FundRequest";
 import MOOERequestPage from "./pages/MOOERequestPage";
+import { ToastContainer } from "react-toastify";
 
 const App = () => {
   return (
     <Router>
       <AuthProvider>
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored" // optional - match your app's theme
+        />
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<SignIn />} />
