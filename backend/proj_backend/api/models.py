@@ -172,8 +172,19 @@ class RequestManagement(models.Model):
     demand_letter_date = models.DateField(null=True, blank=True)
     date_approved = models.DateField(null=True, blank=True)  # <-- Add this field
     date_downloaded = models.DateField(null=True, blank=True)
+    rejection_comment = models.TextField(null=True, blank=True)
+    rejection_date = models.DateField(null=True, blank=True)
+
 
     def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        old_status = None
+        if not is_new:
+            old = RequestManagement.objects.get(pk=self.pk)
+            old_status = old.status
+
+        # Status change logic
+        status_changed = (old_status != self.status)
         # Automatically set date_approved when status becomes 'approved'
         if self.status == 'approved' and self.date_approved is None:
             self.date_approved = timezone.now().date()
@@ -185,8 +196,24 @@ class RequestManagement(models.Model):
         if self.status == 'downloaded' and self.date_downloaded is None:
             self.date_downloaded = timezone.now().date()
         elif self.status != 'downloaded' and self.date_downloaded is not None:
-            self.date_downloaded = None  
+            self.date_downloaded = None
+
+          # Automatically set rejection_date when status becomes 'rejected'
+        if self.status == 'rejected' and self.rejection_date is None:
+            self.rejection_date = timezone.now().date()
+        elif self.status != 'rejected' and self.rejection_date is not None:
+            self.rejection_date = None
+
         super().save(*args, **kwargs)
+
+        if status_changed:
+            from .models import Notification  # Avoid circular import
+            Notification.objects.create(
+                notification_title=f"Request {self.status.title()}",
+                details=self.rejection_comment if self.status == 'rejected' else None,
+                receiver=self.user,
+                sender=getattr(self, '_status_changed_by', None),  # Set this in your view if needed
+            )
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
@@ -222,11 +249,7 @@ class LiquidationManagement(models.Model):
         ('under_review_division', 'Under Review (Division)'),
         ('resubmit', 'Needs Revision'),
         ('approved_district', 'Approved by District'),
-        ('approved_division', 'Approved by Division'),
-        ('approved', 'Fully Approved'),
-        ('rejected', 'Rejected'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
+        ('liquidated', 'Liquidated'),
     ]
 
     LiquidationID = models.CharField(
@@ -245,14 +268,7 @@ class LiquidationManagement(models.Model):
     status = models.CharField(
         max_length=30, choices=STATUS_CHOICES, default='draft'
     )
-    reviewed_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='reviewed_liquidations'
-    )
-    reviewed_at = models.DateTimeField(null=True, blank=True)
+
     reviewed_by_district = models.ForeignKey(
         User, null=True, blank=True, related_name='district_reviewed_liquidations', on_delete=models.SET_NULL
     )
@@ -263,6 +279,40 @@ class LiquidationManagement(models.Model):
     )
     reviewed_at_division = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    date_districtApproved = models.DateField(null=True, blank=True)
+    date_liquidated = models.DateField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        old_status = None
+        if not is_new:
+            old = LiquidationManagement.objects.get(pk=self.pk)
+            old_status = old.status
+
+        status_changed = (old_status != self.status)
+        # Automatically set date_liquidated when status becomes 'liquidated'
+        if self.status == 'liquidated' and self.date_liquidated is None:
+            self.date_liquidated = timezone.now().date()
+        elif self.status != 'liquidated' and self.date_liquidated is not None:
+            self.date_liquidated = None
+
+        # Automatically set date_districtApproved when status becomes 'approved_district'
+        if self.status == 'approved_district' and self.date_districtApproved is None:
+            self.date_districtApproved = timezone.now().date()  
+        elif self.status != 'approved_district' and self.date_districtApproved is not None:
+            self.date_districtApproved = None        
+
+        super().save(*args, **kwargs)
+
+        # Notification logic (after save, so PK exists)
+        if status_changed:
+            from .models import Notification  # Avoid circular import
+            Notification.objects.create(
+                notification_title=f"Liquidation {self.status.title()}",
+                details=self.comment_id if self.status == 'rejected' else None,
+                receiver=self.request.user,
+                sender=getattr(self, '_status_changed_by', None),  # Set this in your view if needed
+            )
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
@@ -327,3 +377,17 @@ class LiquidationDocument(models.Model):
             raise ValueError(
                 "Document's priority must belong to the liquidation's request")
         super().save(*args, **kwargs)
+
+
+
+class Notification(models.Model):
+    notification_title = models.CharField(max_length=255)
+    details = models.TextField(null=True, blank=True)
+    receiver = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='notifications_received')
+    sender = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications_sent')
+    notification_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification to {self.receiver.username}: {self.notification_title}"
