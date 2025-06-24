@@ -170,10 +170,19 @@ class RequestManagement(models.Model):
     last_reminder_sent = models.DateField(null=True, blank=True)
     demand_letter_sent = models.BooleanField(default=False)
     demand_letter_date = models.DateField(null=True, blank=True)
+    date_approved = models.DateField(null=True, blank=True)  # <-- Add this field
+
+    def save(self, *args, **kwargs):
+        # Automatically set date_approved when status becomes 'approved'
+        if self.status == 'approved' and self.date_approved is None:
+            self.date_approved = timezone.now().date()
+        # If status is changed from approved to something else, clear date_approved
+        elif self.status != 'approved' and self.date_approved is not None:
+            self.date_approved = None
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
-
 
 class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
