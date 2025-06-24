@@ -154,6 +154,7 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   endIcon?: React.ReactNode; // Icon after the text
   dataModal?: string;
   type?: "button" | "submit" | "reset"; // Explicitly add this
+  asChild?: boolean; // If true, renders as a child component
 };
 
 export interface Requirement {
@@ -178,7 +179,7 @@ export type Submission = {
     school: School | null; // Use School type for school details
   };
   priorities: Priority[];
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "unliquidated";
   created_at: string;
 };
 

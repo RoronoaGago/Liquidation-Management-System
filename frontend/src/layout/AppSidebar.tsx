@@ -20,9 +20,11 @@ import { useSidebar } from "../context/SidebarContext";
 import { NavItem } from "@/lib/types";
 import {
   BanknoteIcon,
+  FileCheck2Icon,
   PhilippinePeso,
   ReceiptText,
   SchoolIcon,
+  FileText, // <-- Add this import for the requirements icon
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -53,6 +55,12 @@ const allNavItems: NavItem[] = [
     roles: ["admin"], // Only admin
   },
   {
+    icon: <FileText />, // <-- Add this block for requirements
+    name: "Manage Requirements",
+    path: "/requirements",
+    roles: ["admin"], // Only admin
+  },
+  {
     icon: <BanknoteIcon />,
     name: "Fund Request Approval",
     path: "/fund-request-approval",
@@ -76,6 +84,12 @@ const allNavItems: NavItem[] = [
     name: "Schools Priorities Submissions",
     path: "/schools-priorities-submissions",
     roles: ["superintendent"], // Only for division superintendent
+  },
+  {
+    icon: <FileCheck2Icon />,
+    name: "Approved Requests",
+    path: "/approved-requests",
+    roles: ["accountant"], // Only for division superintendent
   },
 
   // {

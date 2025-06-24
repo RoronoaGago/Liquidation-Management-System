@@ -24,20 +24,19 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Search,
-  Loader2,
   Archive,
   ArchiveRestore,
   ArchiveIcon,
   ArchiveRestoreIcon,
   SquarePenIcon,
-  Loader2Icon,
   AlertTriangle,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
-import { useAuth } from "@/context/AuthContext";
+// import { useAuth } from "@/context/AuthContext";
 import { useEffect, useMemo, useRef, useState } from "react";
 import SkeletonRow from "@/components/ui/skeleton";
 import api from "@/api/axios";
@@ -304,17 +303,17 @@ export default function LOPsTable({
       if (selectedLOP.LOPID) {
         // Update existing LOP
         await api.put(`priorities/${selectedLOP.LOPID}/`, data);
-        toast.success("LOP updated successfully!");
+        toast.success("List of Priority updated successfully!");
       } else {
         // Create new LOP
         await api.post("priorities/", data);
-        toast.success("LOP created successfully!");
+        toast.success("List of Priority created successfully!");
       }
 
       await fetchLOPs();
       setIsDialogOpen(false);
     } catch (error) {
-      let errorMessage = "Failed to save LOP. Please try again.";
+      let errorMessage = "Failed to save List of Priority. Please try again.";
       if (axios.isAxiosError(error) && error.response) {
         errorMessage = error.response.data.message || errorMessage;
       }
@@ -330,10 +329,10 @@ export default function LOPsTable({
 
     try {
       await api.delete(`priorities/${LOPToDelete.LOPID}/`);
-      toast.success("LOP deleted successfully!");
+      toast.success("List of Priority deleted successfully!");
       await fetchLOPs();
     } catch (error) {
-      toast.error("Failed to delete LOP");
+      toast.error("Failed to delete List of Priority");
     } finally {
       setIsSubmitting(false);
       setIsDeleteDialogOpen(false);
@@ -356,7 +355,9 @@ export default function LOPsTable({
       await fetchLOPs();
     } catch (error) {
       toast.error(
-        `Failed to ${LOPToArchive.is_active ? "archive" : "restore"} LOP`
+        `Failed to ${
+          LOPToArchive.is_active ? "archive" : "restore"
+        } List of Priority`
       );
     } finally {
       setIsSubmitting(false);
@@ -364,6 +365,32 @@ export default function LOPsTable({
       setLOPToArchive(null);
     }
   };
+
+  // Filter LOPs based on search term (example implementation)
+  const filteredLOPs = useMemo(() => {
+    return sortedLOPs.filter((lop) =>
+      lop.expenseTitle?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [sortedLOPs, searchTerm]);
+
+  // Example local sorting logic (if needed)
+  // If you don't need this, you can remove locallySortedLOPs and use filteredLOPs directly
+  // If you want to use locallySortedLOPs, make sure to define sortConfig and update onRequestSort accordingly
+  // const locallySortedLOPs = useMemo(() => {
+  //   let sorted = [...filteredLOPs];
+  //   if (sortConfig) {
+  //     sorted.sort((a, b) => {
+  //       let aValue: any = a[sortConfig.key];
+  //       let bValue: any = b[sortConfig.key];
+  //       if (typeof aValue === "string") aValue = aValue.toLowerCase();
+  //       if (typeof bValue === "string") bValue = bValue.toLowerCase();
+  //       if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+  //       if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+  //       return 0;
+  //     });
+  //   }
+  //   return sorted;
+  // }, [filteredLOPs, sortConfig]);
 
   //   const handleFilterChange = (name: string, value: string) => {
   //     setFilterOptions((prev) => ({
@@ -419,7 +446,7 @@ export default function LOPsTable({
                   onClick={() => setIsBulkArchiveDialogOpen(true)}
                   startIcon={
                     isSubmitting ? (
-                      <Loader2Icon className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : showArchived ? (
                       <ArchiveRestore className="size-4" />
                     ) : (
@@ -470,58 +497,59 @@ export default function LOPsTable({
                 </TableCell>
                 <TableCell
                   isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase cursor-pointer select-none"
                 >
                   <div
-                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
+                    className="flex items-center gap-1"
                     onClick={() => onRequestSort("LOPID")}
+                    style={{ cursor: "pointer", userSelect: "none" }}
                   >
-                    ID
+                    List of Priority ID
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
-                        className={`h-3 w-3 transition-colors ${
+                        className={`h-3 w-3 ${
                           currentSort?.key === "LOPID" &&
                           currentSort.direction === "asc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
+                            ? "text-primary-500"
+                            : "text-gray-400"
                         }`}
                       />
                       <ChevronDown
-                        className={`h-3 w-3 -mt-1 transition-colors ${
+                        className={`h-3 w-3 -mt-1 ${
                           currentSort?.key === "LOPID" &&
                           currentSort.direction === "desc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
+                            ? "text-primary-500"
+                            : "text-gray-400"
                         }`}
                       />
                     </span>
                   </div>
                 </TableCell>
-
                 <TableCell
                   isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase cursor-pointer select-none"
                 >
                   <div
-                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
+                    className="flex items-center gap-1"
                     onClick={() => onRequestSort("expenseTitle")}
+                    style={{ cursor: "pointer", userSelect: "none" }}
                   >
-                    Expense Title
+                    List of Priority Title
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
-                        className={`h-3 w-3 transition-colors ${
+                        className={`h-3 w-3 ${
                           currentSort?.key === "expenseTitle" &&
                           currentSort.direction === "asc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
+                            ? "text-primary-500"
+                            : "text-gray-400"
                         }`}
                       />
                       <ChevronDown
-                        className={`h-3 w-3 -mt-1 transition-colors ${
+                        className={`h-3 w-3 -mt-1 ${
                           currentSort?.key === "expenseTitle" &&
                           currentSort.direction === "desc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
+                            ? "text-primary-500"
+                            : "text-gray-400"
                         }`}
                       />
                     </span>
@@ -605,20 +633,24 @@ export default function LOPsTable({
                         </span>
                       </div>
                     </TableCell>
-
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                      <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
-                        {lop.expenseTitle}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
+                          {lop.expenseTitle}
+                        </span>
+                      </div>
                     </TableCell>
 
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       <div className="flex flex-wrap gap-1">
-                        {lop.requirements?.map((req) => (
+                        {lop.requirements?.slice(0, 3).map((req) => (
                           <Badge key={req.requirementID} color="primary">
                             {req.requirementTitle}
                           </Badge>
                         ))}
+                        {lop.requirements && lop.requirements.length > 3 && (
+                          <span className="ml-1 text-gray-500">...</span>
+                        )}
                       </div>
                     </TableCell>
 
@@ -753,12 +785,14 @@ export default function LOPsTable({
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar [&>button]:hidden">
           <DialogHeader className="mb-8">
             <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              {selectedLOP?.LOPID ? "Edit LOP" : "Create New LOP"}
+              {selectedLOP?.LOPID
+                ? "Edit List of Priority"
+                : "Create New List of Priority"}
             </DialogTitle>
             <DialogDescription className="text-gray-600 dark:text-gray-400">
               {selectedLOP?.LOPID
-                ? "Update the LOP details below"
-                : "Fill in the details for the new LOP"}
+                ? "Update the List of Priority details below"
+                : "Fill in the details for the new List of Priority"}
             </DialogDescription>
           </DialogHeader>
 
@@ -766,14 +800,14 @@ export default function LOPsTable({
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="expenseTitle" className="text-base">
-                  Expense Title *
+                  List of Priority *
                 </Label>
                 <Input
                   type="text"
                   id="expenseTitle"
                   name="expenseTitle"
                   className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                  placeholder="Enter expense title"
+                  placeholder="Enter list of priority"
                   value={selectedLOP.expenseTitle}
                   onChange={handleChange}
                 />
@@ -891,7 +925,7 @@ export default function LOPsTable({
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
-                      <Loader2Icon className="animate-spin size-4" />
+                      <Loader2 className="animate-spin size-4" />
                       Saving...
                     </span>
                   ) : (
@@ -913,7 +947,7 @@ export default function LOPsTable({
                 {LOPToView?.expenseTitle}
               </DialogTitle>
               <DialogDescription className="text-gray-600 dark:text-gray-400">
-                LOP Details
+                List of Priority Details
               </DialogDescription>
             </div>
           </DialogHeader>
@@ -929,7 +963,7 @@ export default function LOPsTable({
                   <div className="space-y-3">
                     <div>
                       <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        LOP ID
+                        List of Priority ID
                       </Label>
                       <p className="text-gray-800 dark:text-gray-200 mt-1">
                         {LOPToView.LOPID}
@@ -937,7 +971,7 @@ export default function LOPsTable({
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Expense Title
+                        List of Priority Title
                       </Label>
                       <p className="text-gray-800 dark:text-gray-200 mt-1">
                         {LOPToView.expenseTitle}
@@ -970,65 +1004,11 @@ export default function LOPsTable({
                 </h3>
                 {LOPToView?.requirements?.length ? (
                   <div
-                    className={`${
-                      LOPToView.requirements.length > 5
-                        ? "grid grid-cols-2 gap-4"
-                        : "space-y-2"
-                    }`}
+                    className="max-h-72 overflow-y-auto pr-2"
+                    style={{ minHeight: "60px" }}
                   >
-                    {LOPToView.requirements.length > 5 ? (
-                      <>
-                        {/* First column */}
-                        <div className="space-y-2">
-                          {LOPToView.requirements
-                            .slice(
-                              0,
-                              Math.ceil(LOPToView.requirements.length / 2)
-                            )
-                            .map((req) => (
-                              <div
-                                key={req.requirementID}
-                                className="p-3 border rounded-lg flex justify-between items-center"
-                              >
-                                <div className="font-medium">
-                                  {req.requirementTitle}
-                                </div>
-                                <Badge
-                                  color={
-                                    req.is_required ? "primary" : "secondary"
-                                  }
-                                >
-                                  {req.is_required ? "Required" : "Optional"}
-                                </Badge>
-                              </div>
-                            ))}
-                        </div>
-                        {/* Second column */}
-                        <div className="space-y-2">
-                          {LOPToView.requirements
-                            .slice(Math.ceil(LOPToView.requirements.length / 2))
-                            .map((req) => (
-                              <div
-                                key={req.requirementID}
-                                className="p-3 border rounded-lg flex justify-between items-center"
-                              >
-                                <div className="font-medium">
-                                  {req.requirementTitle}
-                                </div>
-                                <Badge
-                                  color={
-                                    req.is_required ? "primary" : "secondary"
-                                  }
-                                >
-                                  {req.is_required ? "Required" : "Optional"}
-                                </Badge>
-                              </div>
-                            ))}
-                        </div>
-                      </>
-                    ) : (
-                      // Single column layout when 5 or fewer requirements
-                      LOPToView.requirements.map((req) => (
+                    <div className="space-y-2">
+                      {LOPToView.requirements.map((req) => (
                         <div
                           key={req.requirementID}
                           className="p-3 border rounded-lg flex justify-between items-center"
@@ -1042,8 +1022,8 @@ export default function LOPsTable({
                             {req.is_required ? "Required" : "Optional"}
                           </Badge>
                         </div>
-                      ))
-                    )}
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-gray-500 dark:text-gray-400">
@@ -1071,14 +1051,14 @@ export default function LOPsTable({
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
           <DialogHeader className="mb-8">
             <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              Delete LOP
+              Delete List of Priority
             </DialogTitle>
           </DialogHeader>
 
           {LOPToDelete && (
             <div className="space-y-4">
               <p className="text-gray-600 dark:text-gray-400">
-                Are you sure you want to permanently delete LOP{" "}
+                Are you sure you want to permanently delete List of Priority{" "}
                 <strong>{LOPToDelete.expenseTitle}</strong>? This action cannot
                 be undone.
               </p>
@@ -1121,7 +1101,9 @@ export default function LOPsTable({
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
           <DialogHeader className="mb-8">
             <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              {LOPToArchive?.is_active ? "Archive LOP" : "Restore LOP"}
+              {LOPToArchive?.is_active
+                ? "Archive List of Priority"
+                : "Restore List of Priority"}
             </DialogTitle>
           </DialogHeader>
 
@@ -1129,11 +1111,11 @@ export default function LOPsTable({
             <div className="space-y-4">
               <p className="text-gray-600 dark:text-gray-400">
                 Are you sure you want to{" "}
-                {LOPToArchive.is_active ? "archive" : "restore"} LOP{" "}
-                <strong>{LOPToArchive.expenseTitle}</strong>?{" "}
+                {LOPToArchive.is_active ? "archive" : "restore"} List of
+                Priority <strong>{LOPToArchive.expenseTitle}</strong>?{" "}
                 {LOPToArchive.is_active
-                  ? "Archived LOPs will not be available for new requests."
-                  : "Restored LOPs will be available for requests."}
+                  ? "Archived List of Priorities will not be available for new requests."
+                  : "Restored List of Priorities will be available for requests."}
               </p>
 
               <div className="flex justify-end gap-3 pt-4">
@@ -1179,18 +1161,20 @@ export default function LOPsTable({
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
           <DialogHeader className="mb-8">
             <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              {showArchived ? "Restore LOPs" : "Archive LOPs"}
+              {showArchived
+                ? "Restore List of Priorities"
+                : "Archive List of Priorities"}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <p className="text-gray-600 dark:text-gray-400">
               Are you sure you want to {showArchived ? "restore" : "archive"}{" "}
-              {selectedLOPs.length} selected LOP
-              {selectedLOPs.length > 1 ? "s" : ""}?{" "}
+              {selectedLOPs.length} selected List of Priority
+              {selectedLOPs.length > 1 ? "ies" : "y"}?{" "}
               {showArchived
-                ? "Restored LOPs will be available for requests."
-                : "Archived LOPs will not be available for new requests."}
+                ? "Restored List of Priorities will be available for requests."
+                : "Archived List of Priorities will not be available for new requests."}
             </p>
 
             <div className="flex justify-end gap-3 pt-4">
