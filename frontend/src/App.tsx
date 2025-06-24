@@ -26,6 +26,7 @@ import ManageRequirement from "./pages/ManageRequirement";
 import FundRequestPage from "./pages/FundRequest";
 import MOOERequestPage from "./pages/MOOERequestPage";
 import { ToastContainer } from "react-toastify";
+import LiquidationReportPage from "./pages/LiquidationReportPage";
 
 const App = () => {
   return (

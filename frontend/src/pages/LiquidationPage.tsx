@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -11,7 +13,6 @@ import {
   AlertCircle,
   Paperclip,
   MessageCircleIcon,
-  CheckIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -115,6 +116,7 @@ const LiquidationPage = () => {
       }
     };
     fetchPendingLiquidation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Toggle expense expansion
@@ -293,9 +295,6 @@ const LiquidationPage = () => {
   };
 
   // Save as draft (stub)
-  const handleSaveDraft = () => {
-    toast.success("Draft saved successfully!");
-  };
 
   const statusLabels: Record<string, string> = {
     draft: "Draft",

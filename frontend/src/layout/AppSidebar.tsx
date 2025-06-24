@@ -66,7 +66,7 @@ const allNavItems: NavItem[] = [
   {
     icon: <FileSearch />, // <-- Use FileSearch or any icon you prefer
     name: "Pre Audit",
-    path: "/pre-audit",
+    path: "/pre-auditing",
     roles: ["district_admin"], // Only for district_admin
   },
   {

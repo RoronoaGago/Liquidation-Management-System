@@ -116,7 +116,6 @@ const PriortySubmissionsPage = () => {
             : s
         )
       );
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       console.error("Failed to reject submission:", err);
     }
