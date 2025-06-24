@@ -170,7 +170,8 @@ class RequestManagement(models.Model):
     last_reminder_sent = models.DateField(null=True, blank=True)
     demand_letter_sent = models.BooleanField(default=False)
     demand_letter_date = models.DateField(null=True, blank=True)
-    date_approved = models.DateField(null=True, blank=True)  # <-- Add this field
+    date_approved = models.DateField(
+        null=True, blank=True)  # <-- Add this field
 
     def save(self, *args, **kwargs):
         # Automatically set date_approved when status becomes 'approved'
@@ -183,6 +184,7 @@ class RequestManagement(models.Model):
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
+
 
 class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)

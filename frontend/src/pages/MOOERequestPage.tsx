@@ -6,18 +6,7 @@ import { Submission } from "@/lib/types";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-
-// Set up Axios request interceptor to include the token in the headers
-axios.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+import api from "@/api/axios";
 
 const MOOERequestPage = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -34,7 +23,7 @@ const MOOERequestPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await axios.get("http://127.0.0.1:8000/api/user-requests/");
+        const res = await api.get("/user-requests/");
         setSubmissions(Array.isArray(res.data) ? res.data : []);
       } catch (err: any) {
         setError("Failed to load requests.");
