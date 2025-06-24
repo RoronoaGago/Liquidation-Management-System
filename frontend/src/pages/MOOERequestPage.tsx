@@ -23,6 +23,7 @@ const MOOERequestPage = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -80,6 +81,7 @@ const MOOERequestPage = () => {
         error={error}
         sortConfig={sortConfig}
         requestSort={handleSort}
+        currentUserRole={user?.role} // Pass the user's role
       />
 
       {/* Modal for viewing priorities */}
@@ -213,22 +215,24 @@ const MOOERequestPage = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons - Modified to check for superintendent role */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    handleExport(
-                      viewedSubmission,
-                      user?.first_name || "user",
-                      user?.last_name || "name"
-                    )
-                  }
-                  startIcon={<Download className="w-4 h-4" />}
-                >
-                  Export PDF
-                </Button>
+                {user?.role === "superintendent" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      handleExport(
+                        viewedSubmission,
+                        user?.first_name || "user",
+                        user?.last_name || "name"
+                      )
+                    }
+                    startIcon={<Download className="w-4 h-4" />}
+                  >
+                    Export PDF
+                  </Button>
+                )}
               </div>
             </div>
           )}
