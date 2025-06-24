@@ -397,7 +397,8 @@ const LiquidationPage = () => {
                   disabled={
                     isSubmitDisabled ||
                     isSubmitting ||
-                    request.status !== "draft" // Disable if not in draft
+                    (request.status !== "draft" &&
+                      request.status !== "resubmit")
                   }
                 >
                   {request.status === "submitted"
@@ -703,10 +704,27 @@ const LiquidationPage = () => {
       )} */}
       {request.status !== "draft" && (
         <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-            <MessageCircleIcon className="h-5 w-5 text-gray-500" />
-            Reviewer Feedback (Sample Data)
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <MessageCircleIcon className="h-5 w-5 text-gray-500" />
+              Reviewer Feedback
+            </h3>
+            {request.status === "resubmit" && (
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                Action Required
+              </span>
+            )}
+          </div>
+
+          {request.status === "resubmit" && (
+            <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800/30">
+              <p className="font-medium text-red-800 dark:text-red-200">
+                This request requires your attention. Please address the
+                feedback below.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             {/* Sample Comment 1 */}
             <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
@@ -747,28 +765,6 @@ const LiquidationPage = () => {
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     Reviewed by: Division Accountant •{" "}
                     {new Date(Date.now() - 86400000).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sample Comment 3 */}
-            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <DocumentTextIcon className="h-5 w-5 text-gray-500" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-800 dark:text-white">
-                    Delivery Receipt
-                  </h4>
-                  <p className="mt-1 text-gray-700 dark:text-gray-300">
-                    Approved. All details are clear and match the purchase
-                    order.
-                  </p>
-                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Reviewed by: School Head •{" "}
-                    {new Date(Date.now() - 172800000).toLocaleDateString()}
                   </div>
                 </div>
               </div>
