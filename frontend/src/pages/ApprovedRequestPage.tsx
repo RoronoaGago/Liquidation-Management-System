@@ -85,14 +85,7 @@ const ApprovedRequestPage = () => {
       // Close the modal
       setViewedSubmission(null);
       toast.success(
-        `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been downloaded.`,
-        {
-          autoClose: 5000, // Slightly longer to read the details
-          position: "top-center",
-          className:
-            "!bg-green-50 !text-green-800 dark:!bg-green-900 dark:!text-green-50",
-          icon: <CheckCircle className="w-6 h-6" />,
-        }
+        `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been downloaded.`
       );
       // Refresh the list with a small delay to ensure backend processed
       setTimeout(() => {
