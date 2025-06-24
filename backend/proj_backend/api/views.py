@@ -1,6 +1,6 @@
 from .serializers import CustomTokenObtainPairSerializer
 from datetime import datetime, timedelta
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -17,6 +17,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
 from django.core.exceptions import ValidationError
+
 
 logger = logging.getLogger(__name__)
 
@@ -380,6 +381,34 @@ class RequestPriorityCreateView(generics.CreateAPIView):
                 "Cannot add priorities to an already approved/rejected request")
 
         serializer.save(request=request_obj)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_pending_requests(request):
+    """
+    Check if user has any pending requests or liquidations that aren't completed
+    """
+    # Check for pending requests (status = 'pending')
+    pending_requests = RequestManagement.objects.filter(
+        user=request.user,
+        # Add all statuses you want to include
+        status__in=['pending', 'rejected', 'pending', 'approved']
+    ).order_by('-created_at')
+
+    # Check for liquidations that aren't completed
+    active_liquidations = LiquidationManagement.objects.filter(
+        request__user=request.user
+    ).exclude(status='completed').order_by('-created_at')
+
+    response_data = {
+        'has_pending_request': pending_requests.exists(),
+        'has_active_liquidation': active_liquidations.exists(),
+        'pending_request': RequestManagementSerializer(pending_requests.first()).data if pending_requests.exists() else None,
+        'active_liquidation': LiquidationManagementSerializer(active_liquidations.first(), context={'request': request}).data if active_liquidations.exists() else None
+    }
+
+    return Response(response_data)
 
 
 class ApproveRequestView(generics.UpdateAPIView):
