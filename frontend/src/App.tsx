@@ -25,6 +25,7 @@ import ApprovedRequestPage from "./pages/ApprovedRequestPage";
 import ManageRequirement from "./pages/ManageRequirement";
 import FundRequestPage from "./pages/FundRequest";
 import MOOERequestPage from "./pages/MOOERequestPage";
+import LiquidationReportPage from "./pages/LiquidationReportPage";
 
 const App = () => {
   return (
@@ -52,6 +53,11 @@ const App = () => {
                 element={<ManageListOfPriorities />}
               />
               <Route path="/requirements" element={<ManageRequirement />} />
+            </Route>
+
+            <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
+              {/* <Route path="/users" element={<ManageUsers />} /> */}
+              <Route path="/pre-auditing" element={<LiquidationReportPage />} />
             </Route>
 
             {/* School Head-only routes */}
