@@ -24,6 +24,9 @@ import {
 import { toast } from "react-toastify";
 import api from "@/api/axios";
 import { DocumentTextIcon } from "@heroicons/react/outline";
+import { Skeleton } from "antd";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useNavigate } from "react-router";
 
 interface Requirement {
   requirementID: number | string;
@@ -60,6 +63,7 @@ interface LiquidationRequest {
 
 const LiquidationPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [request, setRequest] = useState<LiquidationRequest | null>(null);
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -310,16 +314,98 @@ const LiquidationPage = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-5 py-10 text-center text-gray-500">
-        Loading pending liquidation...
+      <div className="container mx-auto px-5 py-10">
+        <PageBreadcrumb pageTitle="Liquidation Request" />
+        <div className="mt-8 space-y-6">
+          {/* Loading Skeleton for Summary Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-5 w-48" />
+              </div>
+              <div className="flex gap-3">
+                <Skeleton className="h-8 w-24 rounded-full" />
+                <Skeleton className="h-8 w-28 rounded-full" />
+              </div>
+            </div>
+
+            {/* Progress Bar Skeleton */}
+            <div className="mb-6">
+              <div className="flex justify-between mb-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+              <Skeleton className="h-2.5 w-full rounded-full" />
+            </div>
+
+            <div className="flex justify-end">
+              <Skeleton className="h-10 w-40" />
+            </div>
+          </div>
+
+          {/* Loading Skeleton for Expenses */}
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-48 mb-4" />
+
+            {[...Array(3)].map((_, i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
+              >
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="w-10 h-10 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (fetchError || !request) {
     return (
-      <div className="container mx-auto px-5 py-10 text-center text-red-500">
-        {fetchError || "No pending liquidation found."}
+      <div className="container mx-auto px-5 py-10">
+        <PageBreadcrumb pageTitle="Liquidation Request" />
+        <div className="mt-24 flex items-center justify-center">
+          <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+            <div className="text-center py-8">
+              <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                <DocumentTextIcon className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+                No Active Liquidation Request
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">
+                {fetchError
+                  ? "Failed to load liquidation data. Please try again later."
+                  : "You don't have any pending liquidation requests at this time."}
+              </p>
+              <div className="flex justify-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => window.location.reload()}
+                >
+                  Retry
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => navigate("/requests-history")}
+                >
+                  View Request History
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

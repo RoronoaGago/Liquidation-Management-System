@@ -142,7 +142,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class RequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
-        fields = ['requirementID', 'requirementTitle', 'is_required', 'is_active']  # <-- Add is_active
+        fields = ['requirementID', 'requirementTitle',
+                  'is_required', 'is_active']  # <-- Add is_active
 
 
 class PriorityRequirementSerializer(serializers.ModelSerializer):
@@ -208,8 +209,8 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'request_id', 'user', 'request_month',
             'status', 'priorities', 'created_at',
             'priority_amounts',
-             'date_approved', # <-- add this
-        ]   
+            'date_approved',  # <-- add this
+        ]
         read_only_fields = ['request_id', 'created_at', 'date_approved']
 
     def get_priorities(self, obj):
@@ -310,6 +311,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'submitted_at',
             'reviewer_comments',
             'created_at'
+            'date_approved',  # <-- add this
         ]
 
     def get_reviewer_comments(self, obj):
