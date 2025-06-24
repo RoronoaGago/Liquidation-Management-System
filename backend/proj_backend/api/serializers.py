@@ -207,9 +207,10 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         fields = [
             'request_id', 'user', 'request_month',
             'status', 'priorities', 'created_at',
-            'priority_amounts'  # <-- add this
-        ]
-        read_only_fields = ['request_id', 'created_at']
+            'priority_amounts',
+             'date_approved', # <-- add this
+        ]   
+        read_only_fields = ['request_id', 'created_at', 'date_approved']
 
     def get_priorities(self, obj):
         request_priorities = obj.requestpriority_set.all()
