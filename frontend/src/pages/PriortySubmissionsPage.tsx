@@ -26,6 +26,7 @@ import axios from "axios";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "react-toastify";
 
 const PriortySubmissionsPage = () => {
   // State for submissions and modal
@@ -83,6 +84,14 @@ const PriortySubmissionsPage = () => {
         status: "approved",
       });
       setViewedSubmission(null); // Close the modal
+      toast.success(
+        `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been approved.`,
+        {
+          autoClose: 5000, // Slightly longer to read the details
+          position: "top-right",
+          icon: <CheckCircle className="w-6 h-6" />,
+        }
+      );
       await fetchSubmissions(); // Refresh the list after approval
     } catch (err) {
       console.error("Failed to approve submission:", err);

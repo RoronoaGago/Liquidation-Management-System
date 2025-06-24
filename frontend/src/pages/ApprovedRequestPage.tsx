@@ -26,6 +26,7 @@ import axios from "axios";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "react-toastify";
 
 const ApprovedRequestPage = () => {
   // State for submissions and modal
@@ -83,7 +84,16 @@ const ApprovedRequestPage = () => {
 
       // Close the modal
       setViewedSubmission(null);
-
+      toast.success(
+        `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been downloaded.`,
+        {
+          autoClose: 5000, // Slightly longer to read the details
+          position: "top-center",
+          className:
+            "!bg-green-50 !text-green-800 dark:!bg-green-900 dark:!text-green-50",
+          icon: <CheckCircle className="w-6 h-6" />,
+        }
+      );
       // Refresh the list with a small delay to ensure backend processed
       setTimeout(() => {
         fetchSubmissions().catch(console.error);
@@ -97,23 +107,23 @@ const ApprovedRequestPage = () => {
   };
 
   // Reject handler (should call backend in real app)
-  const handleReject = async (submission: Submission) => {
-    try {
-      await api.put(`/api/requests/${submission.request_id}/`, {
-        status: "rejected",
-      });
-      setViewedSubmission(null); // Close the modal
-      setSubmissionsState((prev) =>
-        prev.map((s) =>
-          s.request_id === submission.request_id
-            ? { ...s, status: "rejected" }
-            : s
-        )
-      );
-    } catch (err) {
-      // handle error
-    }
-  };
+  // const handleReject = async (submission: Submission) => {
+  //   try {
+  //     await api.put(`/api/requests/${submission.request_id}/`, {
+  //       status: "rejected",
+  //     });
+  //     setViewedSubmission(null); // Close the modal
+  //     setSubmissionsState((prev) =>
+  //       prev.map((s) =>
+  //         s.request_id === submission.request_id
+  //           ? { ...s, status: "rejected" }
+  //           : s
+  //       )
+  //     );
+  //   } catch (err) {
+  //     // handle error
+  //   }
+  // };
 
   // Debounce search
   useEffect(() => {
@@ -365,38 +375,64 @@ const ApprovedRequestPage = () => {
         open={!!viewedSubmission}
         onOpenChange={() => setViewedSubmission(null)}
       >
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-w-lg">
-          <DialogHeader className="mb-6">
+        <DialogContent className="w-full max-w-[90vw] lg:max-w-3xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+          <DialogHeader className="mb-4">
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Priority Submission Details
             </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400">
+              Review and manage this priority submission
+            </DialogDescription>
           </DialogHeader>
+
           {viewedSubmission && (
-            <div>
-              <div className="space-y-2">
-                {/* Sender Details Card */}
-                <div className="border rounded-md p-4 bg-gray-50 dark:bg-gray-900/30">
-                  <div className="flex flex-col gap-1">
-                    <div>
-                      <span className="font-semibold">Request ID:</span>{" "}
-                      <span>{viewedSubmission.request_id}</span>
+            <div className="space-y-6">
+              {/* Sender Details Card - Improved for long IDs */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {" "}
+                  {/* Changed to 3 columns */}
+                  <div className="space-y-1 col-span-2">
+                    {" "}
+                    {/* Takes more space */}
+                    <div className="flex items-start">
+                      {" "}
+                      {/* Changed to items-start */}
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
+                        Request ID:
+                      </span>
+                      <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
+                        {" "}
+                        {/* Added min-w-0 */}
+                        {viewedSubmission.request_id}
+                      </span>
                     </div>
-                    <div>
-                      <span className="font-semibold">Submitted by:</span>{" "}
-                      <span>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
+                        Submitted by:
+                      </span>
+                      <span className="text-gray-900 dark:text-white">
                         {viewedSubmission.user.first_name}{" "}
                         {viewedSubmission.user.last_name}
-                      </span>
-                      <span className="ml-2 text-sm text-gray-500">
-                        (School Head)
+                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                          (School Head)
+                        </span>
                       </span>
                     </div>
-                    <div className="text-sm text-gray-700 dark:text-gray-300">
-                      <span className="font-semibold">School:</span>{" "}
-                      {viewedSubmission.user.school?.schoolName || "N/A"}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
+                        School:
+                      </span>
+                      <span className="text-gray-900 dark:text-white">
+                        {viewedSubmission.user.school?.schoolName || "N/A"}
+                      </span>
                     </div>
-                    <div>
-                      <span className="font-semibold">Status:</span>{" "}
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
+                        Status:
+                      </span>
                       <Badge
                         color={
                           viewedSubmission.status === "pending"
@@ -406,74 +442,78 @@ const ApprovedRequestPage = () => {
                             : "error"
                         }
                       >
-                        {viewedSubmission.status.charAt(0).toUpperCase() +
-                          viewedSubmission.status.slice(1)}
+                        {viewedSubmission.status}
                       </Badge>
-                    </div>
-                    <div>
-                      <span className="font-semibold">Submitted At:</span>{" "}
-                      {new Date(viewedSubmission.created_at).toLocaleString()}
                     </div>
                   </div>
                 </div>
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    Submitted at:{" "}
+                    {new Date(viewedSubmission.created_at).toLocaleString()}
+                  </span>
+                </div>
               </div>
-              <div className="mt-6">
-                <span className="font-semibold">List of Priorities:</span>
-                <table className="w-full mt-2 border">
-                  <thead>
-                    <tr>
-                      <th className="border px-2 py-1 text-left">Expense</th>
-                      <th className="border px-2 py-1 text-center">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {viewedSubmission.priorities.map((priority, idx) => (
-                      <tr key={idx}>
-                        <td className="border px-2 py-1">
-                          {priority.priority.expenseTitle}
-                        </td>
-                        <td className="border px-2 py-1 text-center">
-                          {Number(priority.amount).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr>
-                      <td className="border px-2 py-1 font-bold">TOTAL</td>
-                      <td className="border px-2 py-1 text-center font-bold">
-                        ₱
-                        {viewedSubmission.priorities
-                          .reduce((sum, p) => sum + Number(p.amount), 0)
-                          .toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+
+              {/* Priorities Table */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg text-gray-800 dark:text-white">
+                  List of Priorities
+                </h3>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Expense
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Amount
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {viewedSubmission.priorities.map((priority, idx) => (
+                          <tr
+                            key={idx}
+                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                          >
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                              {priority.priority.expenseTitle}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
+                              ₱
+                              {Number(priority.amount).toLocaleString(
+                                undefined,
+                                {
+                                  minimumFractionDigits: 2,
+                                }
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-50/50 dark:bg-gray-700/30 font-semibold">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                            TOTAL
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
+                            ₱
+                            {viewedSubmission.priorities
+                              .reduce((sum, p) => sum + Number(p.amount), 0)
+                              .toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-2 justify-end pt-4">
-                {viewedSubmission.status === "approved" && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="success"
-                      onClick={() => handleApprove(viewedSubmission)}
-                      startIcon={<CheckCircle className="w-4 h-4" />}
-                    >
-                      Download
-                    </Button>
-                    {/* <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={() => handleReject(viewedSubmission)}
-                      startIcon={<XCircle className="w-4 h-4" />}
-                    >
-                      Reject
-                    </Button> */}
-                  </>
-                )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button
                   type="button"
                   variant="outline"
@@ -485,9 +525,23 @@ const ApprovedRequestPage = () => {
                     )
                   }
                   startIcon={<Download className="w-4 h-4" />}
+                  className="order-1 sm:order-none"
                 >
-                  Export
+                  Export PDF
                 </Button>
+
+                {viewedSubmission.status === "approved" && (
+                  <div className="flex gap-3 order-0 sm:order-1">
+                    <Button
+                      type="button"
+                      variant="success"
+                      onClick={() => handleApprove(viewedSubmission)}
+                      startIcon={<CheckCircle className="w-4 h-4" />}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}
