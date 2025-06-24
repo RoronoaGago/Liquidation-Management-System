@@ -23,6 +23,8 @@ import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
 import LiquidationPage from "./pages/LiquidationPage";
 import ApprovedRequestPage from "./pages/ApprovedRequestPage";
 import ManageRequirement from "./pages/ManageRequirement";
+import FundRequestPage from "./pages/FundRequest";
+import MOOERequestPage from "./pages/MOOERequestPage";
 
 const App = () => {
   return (
@@ -54,6 +56,11 @@ const App = () => {
 
             {/* School Head-only routes */}
             <Route element={<RequireAuth allowedRoles={["school_head"]} />}>
+              <Route
+                path="/prepare-list-of-priorities"
+                element={<FundRequestPage />}
+              />
+              <Route path="/requests-history" element={<MOOERequestPage />} />
               {/* <Route
                 path="/list-of-priorities"
                 element={<ListOfPrioritiesPage />}
