@@ -5,7 +5,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import Button from "@/components/ui/button/Button";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
@@ -22,7 +21,6 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
-import axios from "axios";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
@@ -37,10 +35,8 @@ const PriortySubmissionsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const [schools, setSchools] = useState<School[]>([]);
-  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-  const [submissionToReject, setSubmissionToReject] =
-    useState<Submission | null>(null);
+  const [, setSchools] = useState<School[]>([]);
+
   // Pagination, search, and sort state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
@@ -65,6 +61,7 @@ const PriortySubmissionsPage = () => {
       // Fetch schools for filter dropdown
       const schoolRes = await api.get("schools/");
       setSchools(schoolRes.data);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("Failed to fetch submissions:", err);
       setError("Failed to fetch submissions");
@@ -116,7 +113,7 @@ const PriortySubmissionsPage = () => {
             : s
         )
       );
-      fetchSubmissions(); // Refresh the list after rejection
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       console.error("Failed to reject submission:", err);
     }

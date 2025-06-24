@@ -24,7 +24,16 @@ const PrioritySubmissionsTable: React.FC<
     sortConfig?: { key: string; direction: "asc" | "desc" } | null;
     requestSort?: (key: string) => void;
   }
-> = ({ submissions, onView, loading, error, sortConfig, requestSort }) => {
+> = ({
+  submissions = [], // <-- Default to empty array
+  onView,
+  loading,
+  error,
+  sortConfig,
+  requestSort,
+}) => {
+  const safeSubmissions = Array.isArray(submissions) ? submissions : [];
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
@@ -203,7 +212,7 @@ const PrioritySubmissionsTable: React.FC<
                   {error}
                 </TableCell>
               </TableRow>
-            ) : submissions.length === 0 ? (
+            ) : safeSubmissions.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
@@ -213,7 +222,7 @@ const PrioritySubmissionsTable: React.FC<
                 </TableCell>
               </TableRow>
             ) : (
-              submissions.map((submission) => (
+              safeSubmissions.map((submission) => (
                 <TableRow
                   key={submission.request_id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-900/20"

@@ -6,26 +6,15 @@ import {
   XCircleIcon,
   CircleFadingArrowUpIcon,
   FileTextIcon,
-  MessagesSquareIcon,
-  ClockIcon,
   UserIcon,
 } from "lucide-react";
-import FundRequest from "./FundRequest";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
 import { useParams } from "react-router";
 import { toast } from "react-toastify";
 
-interface FundRequestApprovalProps {
-  request: typeof FundRequest;
-  userRole: "district" | "liquidator" | "accountant";
-  onDecision: (
-    decision: "approve" | "reject" | "request-changes",
-    comment: string
-  ) => void;
-}
-
 const FundRequestApproval = () => {
   const { id } = useParams();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [request, setRequest] = useState<any>(null);
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,6 +47,7 @@ const FundRequestApproval = () => {
 
         // Determine user role (mock implementation)
         setUserRole("district"); // Default, replace with actual logic
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         toast.error("Failed to load request data");
       }
@@ -105,6 +95,7 @@ const FundRequestApproval = () => {
 
       toast.success(`Request ${newStatus} successfully`);
       setComment("");
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error("Failed to process decision");
     } finally {
