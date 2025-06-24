@@ -333,6 +333,67 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
     permission_classes = [IsAuthenticated]
     lookup_field = 'request_id'
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        # Set the sender for notification
+        instance._status_changed_by = self.request.user
+        serializer.save()
+
+class ApproveRequestView(generics.UpdateAPIView):
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user.role not in ['admin', 'superintendent']:
+            return Response(
+                {"detail": "Only administrators can approve requests"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if instance.status != 'pending':
+            return Response(
+                {"detail": "Only pending requests can be approved"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        instance.status = 'approved'
+        instance._status_changed_by = request.user
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+class RejectRequestView(generics.UpdateAPIView):
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user.role not in ['admin', 'superintendent']:
+            return Response(
+                {"detail": "Only administrators can reject requests"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if instance.status != 'pending':
+            return Response(
+                {"detail": "Only pending requests can be rejected"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        rejection_reason = request.data.get('rejection_reason')
+        if not rejection_reason:
+            return Response(
+                {"detail": "Please provide a rejection reason"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        instance.status = 'rejected'
+        instance.rejection_comment = rejection_reason
+        instance._status_changed_by = request.user
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
 
 class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -498,6 +559,34 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
     permission_classes = [IsAuthenticated]
     lookup_field = 'LiquidationID'
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        # Set the sender for notification
+        instance._status_changed_by = self.request.user
+        serializer.save()
+
+@api_view(['POST'])
+def approve_liquidation(request, LiquidationID):
+    try:
+        liquidation = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
+        if liquidation.status not in ['submitted', 'under_review_district', 'under_review_division']:
+            return Response(
+                {'error': 'Liquidation is not in a reviewable state'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # ... (other checks as needed) ...
+        liquidation.status = 'liquidated'
+        liquidation.reviewed_by = request.user
+        liquidation.reviewed_at = timezone.now()
+        liquidation._status_changed_by = request.user
+        liquidation.save()
+        serializer = LiquidationManagementSerializer(liquidation)
+        return Response(serializer.data)
+    except LiquidationManagement.DoesNotExist:
+        return Response(
+            {'error': 'Liquidation not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
     queryset = LiquidationDocument.objects.all()
