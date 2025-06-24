@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
@@ -10,6 +10,8 @@ import {
   CheckCircle,
   AlertCircle,
   Paperclip,
+  MessageCircleIcon,
+  CheckIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -20,221 +22,316 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
+import api from "@/api/axios";
+import { DocumentTextIcon } from "@heroicons/react/outline";
 
-interface Document {
-  type: string;
-  required: boolean;
-  uploaded: boolean;
-  file?: File; // Optional file property
+interface Requirement {
+  requirementID: number | string;
+  requirementTitle: string;
+  is_required: boolean;
+}
+
+interface UploadedDocument {
+  id: number | string;
+  request_priority_id: number | string;
+  requirement_id: number | string;
+  document_url?: string;
+  uploaded_at?: string;
+  // Add other fields as needed
 }
 
 interface Expense {
-  id: string;
+  id: string | number;
   title: string;
   amount: number;
-  documents: Document[];
+  requirements: Requirement[];
 }
 
 interface LiquidationRequest {
   id: string;
+  liquidationID: string;
   month: string;
   status: string;
+  created_at?: Date;
   totalAmount: number;
   expenses: Expense[];
+  uploadedDocuments: UploadedDocument[];
 }
-// Hardcoded data based on your examples
-const unliquidatedRequest: LiquidationRequest = {
-  id: "REQ-2023-06-001",
-  month: "June 2023",
-  status: "Pending Liquidation",
-  totalAmount: 25000,
-  expenses: [
-    {
-      id: "EXP-001",
-      title: "Travelling Expense",
-      amount: 8000,
-      documents: [
-        { type: "Photocopy of check issued", required: true, uploaded: false },
-        { type: "Tickets", required: false, uploaded: false },
-        {
-          type: "Original Copy of Certificate of Appearance (CA)",
-          required: true,
-          uploaded: false,
-        },
-        {
-          type: "Approved Certificate of Travel Completed",
-          required: true,
-          uploaded: false,
-        },
-        {
-          type: "Approved Itinerary of Travel",
-          required: true,
-          uploaded: false,
-        },
-        {
-          type: "Approved Authority to Travel/Locator Slip",
-          required: true,
-          uploaded: false,
-        },
-        { type: "Memorandum", required: true, uploaded: false },
-      ],
-    },
-    {
-      id: "EXP-002",
-      title: "Training Expense",
-      amount: 12000,
-      documents: [
-        { type: "Photocopy of check issued", required: true, uploaded: false },
-        {
-          type: "Original copy of Original Receipt (OR)",
-          required: true,
-          uploaded: false,
-        },
-        { type: "Narrative Report", required: true, uploaded: false },
-        { type: "Tickets", required: false, uploaded: false },
-        {
-          type: "Original Copy of Certificate of Appearance (CA)",
-          required: true,
-          uploaded: false,
-        },
-        {
-          type: "Approved Certificate of Travel Completed",
-          required: true,
-          uploaded: false,
-        },
-        {
-          type: "Approved Itinerary of Travel",
-          required: true,
-          uploaded: false,
-        },
-        {
-          type: "Approved Authority to Travel",
-          required: true,
-          uploaded: false,
-        },
-        { type: "Memorandum", required: true, uploaded: false },
-      ],
-    },
-    {
-      id: "EXP-003",
-      title: "Electricity Expense",
-      amount: 5000,
-      documents: [
-        { type: "Photocopy of check issued", required: true, uploaded: false },
-        { type: "Disbursement voucher (DV)", required: false, uploaded: false },
-        { type: "BIR FORMS 2306/2307", required: true, uploaded: false },
-        { type: "Official Receipt (OR)", required: true, uploaded: false },
-        { type: "Statement of Account (SOA)", required: true, uploaded: false },
-      ],
-    },
-  ],
-};
 
 const LiquidationPage = () => {
   const { user } = useAuth();
-  const [request, setRequest] =
-    useState<LiquidationRequest>(unliquidatedRequest);
+  const [request, setRequest] = useState<LiquidationRequest | null>(null);
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+
+  // Fetch pending liquidation for the current user
+  useEffect(() => {
+    const fetchPendingLiquidation = async () => {
+      setLoading(true);
+      setFetchError(null);
+      console.log("Fetching pending liquidation for user:", user?.user_id);
+      try {
+        const res = await api.get("/liquidation/");
+        const data = Array.isArray(res.data) ? res.data[0] : null;
+        if (!data) {
+          setRequest(null);
+          setFetchError("No pending liquidation found.");
+          return;
+        }
+        setRequest({
+          id: data.request?.request_id || data.LiquidationID || "N/A",
+          liquidationID: data.LiquidationID,
+          month: data.request?.request_month || "N/A",
+          status: data.status || "N/A",
+          totalAmount: data.request?.priorities
+            ? data.request.priorities.reduce(
+                (sum: number, p: any) => sum + Number(p.amount || 0),
+                0
+              )
+            : 0,
+          expenses: (data.request?.priorities || []).map((priority: any) => ({
+            id: priority.id || priority.priority?.LOPID || "",
+            title: priority.priority?.expenseTitle || "",
+            amount: Number(priority.amount) || 0,
+            requirements: (priority.priority?.requirements || []).map(
+              (req: any) => ({
+                requirementID: req.requirementID,
+                requirementTitle: req.requirementTitle,
+                is_required: req.is_required,
+              })
+            ),
+          })),
+          uploadedDocuments: data.documents || [],
+        });
+      } catch (err) {
+        setFetchError("Failed to fetch pending liquidation.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPendingLiquidation();
+  }, []);
 
   // Toggle expense expansion
   const toggleExpense = (expenseId: string) => {
     setExpandedExpense(expandedExpense === expenseId ? null : expenseId);
   };
 
+  // Build a lookup map for uploaded documents: { "expenseId-requirementID": doc }
+  const uploadedDocMap = useMemo(() => {
+    if (!request) return {};
+    const map: { [key: string]: UploadedDocument } = {};
+    request.uploadedDocuments.forEach((doc) => {
+      // Use the correct keys from your backend response
+      map[`${doc.request_priority_id}-${doc.requirement_id}`] = doc;
+    });
+    return map;
+  }, [request]);
+
+  // Find uploaded document for a requirement (O(1) lookup)
+  const getUploadedDocument = (
+    expenseId: string | number,
+    requirementID: string | number
+  ) => {
+    if (!request) return undefined;
+    return uploadedDocMap[`${expenseId}-${requirementID}`];
+  };
+
   // Handle file upload
-  const handleFileUpload = (
+  const handleFileUpload = async (
     expenseId: string,
-    docType: string,
+    requirementID: string,
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    if (!e.target.files || !request) return;
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(`${expenseId}-${requirementID}`);
+    const formData = new FormData();
+    formData.append("request_priority", expenseId);
+    formData.append("requirement", requirementID);
+    formData.append("document", file);
 
-    const updatedRequest = { ...request };
-    const expense = updatedRequest.expenses.find((exp) => exp.id === expenseId);
-    if (!expense) return;
-
-    const document = expense.documents.find((doc) => doc.type === docType);
-    if (document) {
-      document.uploaded = true;
-      document.file = files[0]; // Store the File object
+    try {
+      await api.post(
+        `/liquidations/${request.liquidationID}/documents/`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      toast.success("File uploaded!");
+      // Refresh data
+      const res = await api.get("/liquidation/");
+      const data = Array.isArray(res.data) ? res.data[0] : null;
+      if (data) {
+        setRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                uploadedDocuments: data.documents || [],
+              }
+            : prev
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload file.");
+    } finally {
+      setUploading(null);
+      if (fileInputRefs.current[`${expenseId}-${requirementID}`]) {
+        fileInputRefs.current[`${expenseId}-${requirementID}`]!.value = "";
+      }
     }
-
-    setRequest(updatedRequest);
-    toast.success(`${docType} uploaded successfully!`);
   };
 
   // Remove uploaded file
-  const removeFile = (expenseId: string, docType: string) => {
-    const updatedRequest = { ...request };
-    const expense = updatedRequest.expenses.find((exp) => exp.id === expenseId);
-    if (!expense) return;
-
-    const document = expense.documents.find((doc) => doc.type === docType);
-    if (document) {
-      document.uploaded = false;
-      document.file = undefined;
+  const removeFile = async (expenseId: string, requirementID: string) => {
+    if (!request) return;
+    const doc = getUploadedDocument(expenseId, requirementID);
+    const docId = doc?.id;
+    console.log("Removing file:", doc);
+    if (!doc || !docId) {
+      toast.error("No document found to remove.");
+      return;
     }
-
-    setRequest(updatedRequest);
-    toast.info(`${docType} removed.`);
+    try {
+      await api.delete(
+        `/liquidations/${request.liquidationID}/documents/${docId}/`
+      );
+      toast.success("File removed!");
+      // Refresh data
+      const res = await api.get("/liquidation/");
+      const data = Array.isArray(res.data) ? res.data[0] : null;
+      if (data) {
+        setRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                uploadedDocuments: data.documents || [],
+              }
+            : prev
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove file.");
+    }
   };
 
   // Trigger file input
-  const triggerFileInput = (expenseId: string, docType: string) => {
-    const key = `${expenseId}-${docType}`;
+  const triggerFileInput = (expenseId: string, requirementID: string) => {
+    const key = `${expenseId}-${requirementID}`;
     if (fileInputRefs.current[key]) {
       fileInputRefs.current[key]?.click();
     }
   };
 
   // Check if all required documents are uploaded
-  const isSubmitDisabled = request.expenses.some((expense) =>
-    expense.documents.some((doc) => doc.required && !doc.uploaded)
-  );
+  const isSubmitDisabled =
+    !request ||
+    request.expenses.some((expense) =>
+      expense.requirements.some(
+        (req) =>
+          req.is_required && !getUploadedDocument(expense.id, req.requirementID)
+      )
+    );
 
   // Calculate progress
   const calculateProgress = () => {
+    if (!request) return { uploadedRequired: 0, totalRequired: 0 };
     let totalRequired = 0;
     let uploadedRequired = 0;
-
     request.expenses.forEach((expense) => {
-      expense.documents.forEach((doc) => {
-        if (doc.required) {
+      expense.requirements.forEach((req) => {
+        if (req.is_required) {
           totalRequired++;
-          if (doc.uploaded) uploadedRequired++;
+          if (getUploadedDocument(expense.id, req.requirementID)) {
+            uploadedRequired++;
+          }
         }
       });
     });
-
     return { uploadedRequired, totalRequired };
   };
 
   const { uploadedRequired, totalRequired } = calculateProgress();
 
-  // Submit liquidation
-  const handleSubmit = () => {
+  // Submit liquidation (stub, needs API integration)
+  const handleSubmit = async () => {
+    if (!request) return;
+
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await api.post(
+        `/liquidations/${request.liquidationID}/submit/`
+      );
+
+      // Update the request state with the new status
+      setRequest((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: response.data.status || "submitted",
+            }
+          : prev
+      );
+
+      toast.success("Liquidation submitted successfully!");
+    } catch (error: any) {
+      console.error(error);
+      const errorMessage =
+        error.response?.data?.error || "Failed to submit liquidation";
+      toast.error(errorMessage);
+    } finally {
       setIsSubmitting(false);
       setIsConfirmDialogOpen(false);
-      toast.success("Liquidation submitted successfully!");
-      // In a real app, you would redirect or update the state here
-    }, 1500);
+    }
   };
 
-  // Save as draft
+  // Save as draft (stub)
   const handleSaveDraft = () => {
-    // Simulate saving draft
     toast.success("Draft saved successfully!");
   };
 
+  const statusLabels: Record<string, string> = {
+    draft: "Draft",
+    submitted: "Submitted",
+    under_review: "Under Review",
+    resubmit: "Needs Revision",
+    approved: "Approved",
+    rejected: "Rejected",
+    completed: "Completed",
+    cancelled: "Cancelled",
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-5 py-10 text-center text-gray-500">
+        Loading pending liquidation...
+      </div>
+    );
+  }
+
+  if (fetchError || !request) {
+    return (
+      <div className="container mx-auto px-5 py-10 text-center text-red-500">
+        {fetchError || "No pending liquidation found."}
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+    <div
+      className={`container mx-auto rounded-2xl px-5 pb-5 pt-5 sm:px-6 sm:pt-6 ${
+        request.status === "submitted"
+          ? "bg-blue-50/30 border border-blue-200 dark:bg-blue-900/5 dark:border-blue-800/30"
+          : "bg-white dark:bg-white/[0.03]"
+      }`}
+    >
       <PageBreadcrumb pageTitle="Liquidation Request" />
 
       <div className="mt-8">
@@ -250,8 +347,8 @@ const LiquidationPage = () => {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                {request.status}
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-brand-800 dark:bg-blue-900/30 dark:text-blue-300">
+                {statusLabels[request.status] || request.status}
               </span>
               <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                 ₱{request.totalAmount.toLocaleString()}
@@ -273,7 +370,9 @@ const LiquidationPage = () => {
               <div
                 className="bg-blue-600 h-2.5 rounded-full"
                 style={{
-                  width: `${(uploadedRequired / totalRequired) * 100}%`,
+                  width: totalRequired
+                    ? `${(uploadedRequired / totalRequired) * 100}%`
+                    : "0%",
                 }}
               ></div>
             </div>
@@ -281,13 +380,13 @@ const LiquidationPage = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 justify-end">
-            <Button
+            {/* <Button
               variant="outline"
               onClick={handleSaveDraft}
               disabled={isSubmitting}
             >
               Save as Draft
-            </Button>
+            </Button> */}
             <Dialog
               open={isConfirmDialogOpen}
               onOpenChange={setIsConfirmDialogOpen}
@@ -295,9 +394,18 @@ const LiquidationPage = () => {
               <DialogTrigger asChild>
                 <Button
                   variant="primary"
-                  disabled={isSubmitDisabled || isSubmitting}
+                  disabled={
+                    isSubmitDisabled ||
+                    isSubmitting ||
+                    (request.status !== "draft" &&
+                      request.status !== "resubmit")
+                  }
                 >
-                  Submit Liquidation
+                  {request.status === "submitted"
+                    ? "Already Submitted"
+                    : isSubmitting
+                    ? "Submitting..."
+                    : "Submit Liquidation"}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
@@ -344,11 +452,11 @@ const LiquidationPage = () => {
               {/* Expense Header */}
               <div
                 className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                onClick={() => toggleExpense(expense.id)}
+                onClick={() => toggleExpense(String(expense.id))}
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-300">
-                    {expandedExpense === expense.id ? (
+                    {expandedExpense === String(expense.id) ? (
                       <ChevronUp className="h-5 w-5" />
                     ) : (
                       <ChevronDown className="h-5 w-5" />
@@ -365,99 +473,146 @@ const LiquidationPage = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {expense.documents.filter((d) => d.uploaded).length}/
-                    {expense.documents.length} documents
+                    {
+                      expense.requirements.filter((req) =>
+                        getUploadedDocument(expense.id, req.requirementID)
+                      ).length
+                    }
+                    /{expense.requirements.length} documents
                   </span>
                 </div>
               </div>
 
               {/* Expense Content - Collapsible */}
-              {expandedExpense === expense.id && (
+              {expandedExpense === String(expense.id) && (
                 <div className="border-t border-gray-200 dark:border-gray-700 p-4">
                   <div className="space-y-4">
-                    {expense.documents.map((document) => (
-                      <div
-                        key={`${expense.id}-${document.type}`}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0">
-                            {document.uploaded ? (
-                              <CheckCircle className="h-5 w-5 text-green-500" />
-                            ) : (
-                              <AlertCircle className="h-5 w-5 text-yellow-500" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-800 dark:text-white">
-                              {document.type}
-                            </p>
-                            {document.required ? (
-                              <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
-                                Required
-                              </span>
-                            ) : (
-                              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
-                                Optional
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                    {expense.requirements.map((req) => {
+                      const uploadedDoc = getUploadedDocument(
+                        expense.id,
+                        req.requirementID
+                      );
 
-                        <div className="flex gap-2">
-                          {document.uploaded ? (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  removeFile(expense.id, document.type)
-                                }
-                              >
-                                Remove
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                startIcon={<DownloadIcon className="h-4 w-4" />}
-                                onClick={() => {
-                                  // In a real app, this would download the file
-                                  toast.info(`Downloading ${document.type}`);
-                                }}
-                              >
-                                View
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <input
-                                type="file"
-                                ref={(el) => {
-                                  fileInputRefs.current[
-                                    `${expense.id}-${document.type}`
-                                  ] = el;
-                                }}
-                                onChange={(e) =>
-                                  handleFileUpload(expense.id, document.type, e)
-                                }
-                                className="hidden"
-                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                              />
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                startIcon={<UploadIcon className="h-4 w-4" />}
-                                onClick={() =>
-                                  triggerFileInput(expense.id, document.type)
-                                }
-                              >
-                                Upload
-                              </Button>
-                            </>
-                          )}
+                      return (
+                        <div
+                          key={`${expense.id}-${req.requirementID}`}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0">
+                              {uploadedDoc ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <AlertCircle className="h-5 w-5 text-yellow-500" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800 dark:text-white">
+                                {req.requirementTitle}
+                              </p>
+                              {req.is_required ? (
+                                <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
+                                  Required
+                                </span>
+                              ) : (
+                                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
+                                  Optional
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            {uploadedDoc ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    removeFile(
+                                      String(expense.id),
+                                      String(req.requirementID)
+                                    )
+                                  }
+                                >
+                                  Remove
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  startIcon={
+                                    <DownloadIcon className="h-4 w-4" />
+                                  }
+                                  onClick={() => {
+                                    if (uploadedDoc.document_url) {
+                                      window.open(
+                                        uploadedDoc.document_url,
+                                        "_blank"
+                                      );
+                                    } else {
+                                      toast.info(
+                                        `No file available for ${req.requirementTitle}`
+                                      );
+                                    }
+                                  }}
+                                >
+                                  View
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <input
+                                  type="file"
+                                  ref={(el) => {
+                                    fileInputRefs.current[
+                                      `${expense.id}-${req.requirementID}`
+                                    ] = el;
+                                  }}
+                                  onChange={(e) =>
+                                    handleFileUpload(
+                                      String(expense.id),
+                                      String(req.requirementID),
+                                      e
+                                    )
+                                  }
+                                  className="hidden"
+                                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                  disabled={
+                                    uploading ===
+                                    `${expense.id}-${req.requirementID}`
+                                  }
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  startIcon={<UploadIcon className="h-4 w-4" />}
+                                  onClick={() =>
+                                    triggerFileInput(
+                                      String(expense.id),
+                                      String(req.requirementID)
+                                    )
+                                  }
+                                  disabled={
+                                    uploading ===
+                                      `${expense.id}-${req.requirementID}` ||
+                                    !!getUploadedDocument(
+                                      expense.id,
+                                      req.requirementID
+                                    ) ||
+                                    request.status !== "draft" // Disable if not in draft status
+                                  }
+                                >
+                                  {uploading ===
+                                  `${expense.id}-${req.requirementID}`
+                                    ? "Uploading..."
+                                    : "Upload"}
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -481,19 +636,34 @@ const LiquidationPage = () => {
                   {expense.title} (₱{expense.amount.toLocaleString()})
                 </h4>
                 <ul className="space-y-2">
-                  {expense.documents
-                    .filter((doc) => doc.uploaded)
-                    .map((doc) => (
+                  {expense.requirements
+                    .map((req) =>
+                      getUploadedDocument(expense.id, req.requirementID)
+                    )
+                    .filter(Boolean)
+                    .map((doc, idx) => (
                       <li
-                        key={doc.type}
+                        key={doc?.id || idx}
                         className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                       >
                         <Paperclip className="h-4 w-4 text-gray-500" />
-                        {doc.type}
+                        {doc?.document_url ? (
+                          <a
+                            href={doc.document_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline"
+                          >
+                            {doc.document_url.split("/").pop()}
+                          </a>
+                        ) : (
+                          "Document"
+                        )}
                       </li>
                     ))}
-                  {expense.documents.filter((doc) => doc.uploaded).length ===
-                    0 && (
+                  {expense.requirements.filter((req) =>
+                    getUploadedDocument(expense.id, req.requirementID)
+                  ).length === 0 && (
                     <li className="text-sm text-gray-500 italic">
                       No documents uploaded yet
                     </li>
@@ -504,6 +674,104 @@ const LiquidationPage = () => {
           </div>
         </div>
       </div>
+      {/* Status History Timeline - Add right here */}
+
+      {/* {request.status !== "draft" && (
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            Status History
+          </h3>
+          <div className="relative pl-6"> */}
+      {/* Timeline item */}
+      {/* <div className="relative pb-6">
+              <div className="absolute left-0 top-1 h-full w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+              <div className="absolute left-0 top-1 flex h-4 w-4 -translate-x-1/2 items-center justify-center rounded-full bg-blue-500">
+                <CheckIcon className="h-3 w-3 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="font-medium text-gray-800 dark:text-white">
+                  Submitted for Review
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {new Date(request.created_at).toLocaleString()} by{" "}
+                  {user?.username}
+                </p>
+              </div>
+            </div> */}
+      {/* Add more timeline items as needed */}
+      {/* </div>
+        </div>
+      )} */}
+      {request.status !== "draft" && (
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <MessageCircleIcon className="h-5 w-5 text-gray-500" />
+              Reviewer Feedback
+            </h3>
+            {request.status === "resubmit" && (
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                Action Required
+              </span>
+            )}
+          </div>
+
+          {request.status === "resubmit" && (
+            <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800/30">
+              <p className="font-medium text-red-800 dark:text-red-200">
+                This request requires your attention. Please address the
+                feedback below.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {/* Sample Comment 1 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 dark:text-white">
+                    Official Receipt
+                  </h4>
+                  <p className="mt-1 text-gray-700 dark:text-gray-300">
+                    The receipt is unclear. Please provide a clearer scan with
+                    the vendor name visible.
+                  </p>
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Reviewed by: District Admin •{" "}
+                    {new Date().toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sample Comment 2 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 dark:text-white">
+                    Purchase Order
+                  </h4>
+                  <p className="mt-1 text-gray-700 dark:text-gray-300">
+                    The purchase order number doesn't match our records. Please
+                    verify the PO number.
+                  </p>
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Reviewed by: Division Accountant •{" "}
+                    {new Date(Date.now() - 86400000).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

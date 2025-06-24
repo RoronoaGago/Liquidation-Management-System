@@ -35,9 +35,9 @@ urlpatterns = [
     path('requests/', views.RequestManagementListCreateView.as_view(),
          name='request-list'),
 
-    path('requests/<int:pk>/',
+    path('requests/<str:request_id>/',
          views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
-    path('requests/<int:pk>/submit-liquidation/',
+    path('requests/<str:request_id>/submit-liquidation/',
          views.submit_for_liquidation, name='submit-liquidation'),
 
     # Liquidation Management URLs
@@ -45,6 +45,8 @@ urlpatterns = [
          name='liquidation-list-create'),
     path('liquidations/<str:LiquidationID>/',
          views.LiquidationManagementRetrieveUpdateDestroyAPIView.as_view(), name='liquidation-detail'),
+    path('liquidations/<str:LiquidationID>/submit/',
+         views.submit_liquidation, name='submit-liquidation'),
     path('liquidations/<str:LiquidationID>/documents/',
          views.LiquidationDocumentListCreateAPIView.as_view(), name='liquidation-document-list'),
     path('liquidations/<str:LiquidationID>/documents/<int:pk>/',
@@ -55,6 +57,6 @@ urlpatterns = [
     # Additional custom endpoints
     path('user-requests/', views.UserRequestListAPIView.as_view(),
          name='user-requests'),
-    path('pending-liquidations/', views.PendingLiquidationListAPIView.as_view(),
-         name='pending-liquidations'),
+    path('liquidation/', views.UserLiquidationsAPIView.as_view(),
+         name='liquidation'),
 ]
