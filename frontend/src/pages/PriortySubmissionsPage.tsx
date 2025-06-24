@@ -3,6 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -36,7 +37,9 @@ const PriortySubmissionsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const [, setSchools] = useState<School[]>([]);
-
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [submissionToReject, setSubmissionToReject] =
+    useState<Submission | null>(null);
   // Pagination, search, and sort state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
