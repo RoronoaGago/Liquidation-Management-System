@@ -7,7 +7,7 @@ from .tasks import check_liquidation_status, send_reminder
 
 @receiver(post_save, sender=RequestManagement)
 def start_unliquidated_timer(sender, instance, **kwargs):
-    if instance.status == 'unliquidated':
+    if instance.status == 'downloaded':
         now = timezone.now()
         request_id = instance.request_id
         
