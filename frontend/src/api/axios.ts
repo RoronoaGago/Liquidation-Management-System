@@ -1,11 +1,14 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://127.0.0.1:8000/api/', // Your Django backend URL
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    baseURL: 'http://127.0.0.1:8000/api/',
 });
+
+// Set initial token if available
+const token = localStorage.getItem('access_token');
+if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
 
 // Request interceptor to add auth token to requests
 api.interceptors.request.use(
@@ -13,6 +16,7 @@ api.interceptors.request.use(
         const token = localStorage.getItem('access_token');
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
+            console.log('Authorization header set:', config.headers['Authorization']); // Add this line
         }
         return config;
     },
