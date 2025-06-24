@@ -695,7 +695,7 @@ class UserRequestListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return RequestManagement.objects.filter(user=self.request.user)
+        return RequestManagement.objects.filter(user=self.request.user).order_by('-created_at')
 
 
 class PendingLiquidationListAPIView(generics.ListAPIView):
