@@ -171,6 +171,7 @@ class RequestManagement(models.Model):
     demand_letter_sent = models.BooleanField(default=False)
     demand_letter_date = models.DateField(null=True, blank=True)
     date_approved = models.DateField(null=True, blank=True)  # <-- Add this field
+    date_downloaded = models.DateField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         # Automatically set date_approved when status becomes 'approved'
@@ -179,6 +180,12 @@ class RequestManagement(models.Model):
         # If status is changed from approved to something else, clear date_approved
         elif self.status != 'approved' and self.date_approved is not None:
             self.date_approved = None
+
+          # Automatically set date_downloaded when status becomes 'downloaded'
+        if self.status == 'downloaded' and self.date_downloaded is None:
+            self.date_downloaded = timezone.now().date()
+        elif self.status != 'downloaded' and self.date_downloaded is not None:
+            self.date_downloaded = None  
         super().save(*args, **kwargs)
 
     def __str__(self):
