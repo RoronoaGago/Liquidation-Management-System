@@ -11,6 +11,8 @@ import {
   X,
   Plus,
   AlertCircle,
+  AlertTriangle,
+  ArrowRight,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
@@ -24,17 +26,8 @@ import {
   Dialog,
   DialogHeader,
 } from "@/components/ui/dialog";
+import api from "@/api/axios";
 
-axios.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 const FundRequestPage = () => {
   const [priorities, setPriorities] = useState<ListofPriorityData[]>([]);
   const [selected, setSelected] = useState<{ [key: string]: string }>({});
@@ -61,32 +54,17 @@ const FundRequestPage = () => {
       setLoading(true);
       setFetchError(null);
       try {
-        const token = localStorage.getItem("access_token");
-
-        // Fetch priorities
-        const prioritiesResponse = await axios.get(
-          "http://127.0.0.1:8000/api/priorities/",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        // Check for pending requests/liquidations
-        const pendingCheckResponse = await axios.get(
-          "http://127.0.0.1:8000/api/check-pending-requests/",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        // These will now automatically include the auth token
+        const [prioritiesResponse, pendingCheckResponse] = await Promise.all([
+          api.get("priorities/"),
+          api.get("check-pending-requests/"),
+        ]);
 
         const data = Array.isArray(prioritiesResponse.data)
           ? prioritiesResponse.data
           : prioritiesResponse.data.results || [];
         setPriorities(data);
+
         const hasPending = pendingCheckResponse.data.has_pending_request;
         const hasActive = pendingCheckResponse.data.has_active_liquidation;
 
@@ -95,13 +73,15 @@ const FundRequestPage = () => {
         setPendingRequestData(pendingCheckResponse.data.pending_request);
         setActiveLiquidationData(pendingCheckResponse.data.active_liquidation);
 
-        // Show dialog if there's a pending request or active liquidation
         if (hasPending || hasActive) {
           setShowStatusDialog(true);
         }
       } catch (error: any) {
-        setFetchError("Failed to fetch data.");
-        console.log("Error:", error);
+        setFetchError(
+          error.response?.data?.message ||
+            "Failed to fetch data. Please try again."
+        );
+        console.error("Error:", error);
       } finally {
         setLoading(false);
       }
@@ -159,7 +139,6 @@ const FundRequestPage = () => {
       return;
     }
 
-    // Validate all amounts are filled
     const emptyAmounts = selectedPriorities.filter(
       (item) => item && (!item.amount || item.amount === "0")
     );
@@ -170,38 +149,24 @@ const FundRequestPage = () => {
 
     setSubmitting(true);
     try {
-      const token = localStorage.getItem("access_token");
-      await axios.post(
-        "http://127.0.0.1:8000/api/requests/",
-        {
-          priority_amounts: selectedPriorities,
-          request_month: new Date().toLocaleString("default", {
-            month: "long",
-            year: "numeric",
-          }),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await api.post("requests/", {
+        priority_amounts: selectedPriorities,
+        request_month: new Date().toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        }),
+      });
+
       toast.success("Fund request submitted successfully!", {
         autoClose: 3000,
       });
       setSelected({});
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      console.log("Error:", error);
-      if (error.response && error.response.status === 401) {
-        toast.error("Unauthorized. Please log in again.", {
-          autoClose: 4000,
-        });
-      } else {
-        toast.error("Failed to submit fund request.", {
-          autoClose: 4000,
-        });
-      }
+      console.error("Error:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        "Failed to submit fund request. Please try again.";
+      toast.error(errorMessage, { autoClose: 4000 });
     } finally {
       setSubmitting(false);
     }
@@ -257,108 +222,111 @@ const FundRequestPage = () => {
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="List of Priorities" />
 
-      {/* Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl sm:max-w-lg">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              <AlertCircle className="h-6 w-6 text-yellow-500 dark:text-yellow-400" />
-              <span>Action Required</span>
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent
+          className="[&>button]:hidden w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-lg border border-gray-200 dark:border-gray-700 "
+          onInteractOutside={(e) => e.preventDefault()} // Prevents closing when clicking outside
+          onEscapeKeyDown={(e) => e.preventDefault()} // Optional: Prevents closing with ESC key
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 rounded-lg bg-brand-100/80 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Action Required
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Please review these important notification
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <div className="space-y-4">
+          {/* Content */}
+          <div className="space-y-4 px-6 py-5">
             {hasPendingRequest && (
-              <div className="p-4 bg-yellow-50/80 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5 text-yellow-500 dark:text-yellow-400">
-                    ⚠️
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2 text-base">
-                      Pending MOOE Request
-                    </h4>
-                    <div className="text-yellow-700 dark:text-yellow-300 text-sm">
-                      <p className="mb-2">
-                        You{" "}
-                        <span className="font-semibold underline">
-                          cannot submit
-                        </span>{" "}
-                        a new request because you have:
-                      </p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>
-                          An active request for{" "}
-                          <span className="font-semibold">
-                            {pendingRequestData?.request_month}
-                          </span>
-                        </li>
-                        <li>This request must be completed first</li>
-                      </ul>
-                    </div>
+              <div className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
+                <div className="flex-shrink-0 p-2 rounded-md text-brand-600 dark:text-brand-400">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div className="space-y-2.5">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    Pending MOOE Request
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100  text-brand-800 dark:text-brand-200">
+                      Attention needed
+                    </span>
+                  </h3>
+                  <div className="text-gray-600 dark:text-gray-300 text-sm space-y-2">
+                    <p>
+                      You{" "}
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        cannot submit
+                      </span>{" "}
+                      a new request because you have an active request for{" "}
+                      <span className="font-semibold text-brand-600 dark:text-brand-400">
+                        {pendingRequestData?.request_month}
+                      </span>
+                      , which must be completed first before submitting new
+                      requests.
+                    </p>
                   </div>
                 </div>
               </div>
             )}
 
             {hasActiveLiquidation && (
-              <div className="p-4 bg-orange-50/80 dark:bg-orange-900/10 rounded-lg border border-orange-200 dark:border-orange-800">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5 text-orange-500 dark:text-orange-400">
-                    ⚠️
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-orange-800 dark:text-orange-200 mb-2 text-base">
-                      Active Liquidation Process
-                    </h4>
-                    <div className="text-orange-700 dark:text-orange-300 text-sm">
-                      <p className="mb-2">
-                        You{" "}
-                        <span className="font-semibold underline">
-                          cannot submit
-                        </span>{" "}
-                        a new request because:
+              <div className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
+                <div className="flex-shrink-0 p-2 rounded-md text-brand-600 dark:text-brand-400">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div className="space-y-2.5">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Active Liquidation Process
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100  text-brand-800 dark:text-brand-200">
+                      Attention needed
+                    </span>
+                  </h3>
+                  <div className="text-gray-600 dark:text-gray-300 text-sm space-y-2">
+                    <p>
+                      You{" "}
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        cannot submit
+                      </span>{" "}
+                      a new request because there's an ongoing liquidation
+                      process for Request ID:{" "}
+                      <span className="font-mono font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                        {activeLiquidationData?.request?.request_id}
+                      </span>
+                    </p>
+                    <div className="space-y-2">
+                      <p>
+                        Current status:{" "}
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-100 dark:bg-brand-900/30 text-brand-800 dark:text-brand-200 capitalize">
+                          {activeLiquidationData?.status?.replace(/_/g, " ")}
+                        </span>
                       </p>
-                      <div className="space-y-1.5 pl-2">
-                        <p className="flex gap-1.5">
-                          <span>•</span>
-                          <span>
-                            Request ID:{" "}
-                            <span className="font-mono font-semibold">
-                              {activeLiquidationData?.request?.request_id}
-                            </span>
-                          </span>
-                        </p>
-                        <p className="flex gap-1.5">
-                          <span>•</span>
-                          <span>
-                            Status:{" "}
-                            <span className="capitalize font-medium bg-orange-100 dark:bg-orange-900/20 px-2 py-0.5 rounded text-sm">
-                              {activeLiquidationData?.status?.replace(
-                                /_/g,
-                                " "
-                              )}
-                            </span>
-                          </span>
-                        </p>
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
+          </div>
 
-            <div className="flex justify-end pt-2">
-              <Button variant="primary" className="mt-2">
-                <Link
-                  to="/liquidation"
-                  className="flex items-center gap-1.5 text-white hover:text-white/90"
-                >
-                  View Liquidation Details
-                  <ChevronRight className="h-4 w-4 ml-0.5" />
-                </Link>
-              </Button>
-            </div>
+          {/* Footer */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+            <div></div>
+            <Button
+              variant="primary"
+              className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 dark:from-brand-700 dark:to-brand-600 dark:hover:from-brand-800 dark:hover:to-brand-700 text-white shadow-sm"
+            >
+              <Link to="/liquidation" className="flex items-center gap-2">
+                View Full Details
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -505,7 +473,7 @@ const FundRequestPage = () => {
                                   )
                                 }
                                 disabled={isFormDisabled}
-                                className={`w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                                className={`w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
                                   isFormDisabled
                                     ? "opacity-50 cursor-not-allowed"
                                     : ""
