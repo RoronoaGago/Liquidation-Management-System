@@ -36,13 +36,13 @@ const allNavItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "Manage Users",
     path: "/users",
-    roles: ["admin", "school_admin", "school_head"], // Only admin
+    roles: ["admin"], // Only admin
   },
   {
     icon: <SchoolIcon />,
     name: "Manage Schools",
     path: "/schools",
-    roles: ["admin", "school_admin", "school_head"], // Only admin
+    roles: ["admin"], // Only admin
   },
   {
     icon: <BanknoteIcon />,
