@@ -191,6 +191,7 @@ class RequestManagement(models.Model):
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
 
+
 class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
     priority = models.ForeignKey(ListOfPriority, on_delete=models.CASCADE)
