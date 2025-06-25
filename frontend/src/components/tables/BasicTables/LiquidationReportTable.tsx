@@ -10,7 +10,6 @@ import {
   TableRow,
 } from "../../ui/table";
 import Button from "@/components/ui/button/Button";
-import { EyeIcon } from "@heroicons/react/outline";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +20,7 @@ import {
 import Input from "@/components/form/input/InputField";
 import { toast } from "react-toastify";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import Badge from "@/components/ui/badge/Badge";
+import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 
@@ -164,20 +163,6 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   };
 
   // Add this helper to map status to badge color
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "under_review_district":
-        return "warning";
-      case "approved":
-        return "success";
-      case "rejected":
-        return "error";
-      case "pending":
-        return "info";
-      default:
-        return "secondary";
-    }
-  };
 
   // Calculate completion
   const totalRequired = documents.length;
@@ -327,9 +312,13 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                       {liq.LiquidationID}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                      <Badge color={statusColor(liq.status)} variant="solid">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${statusBadgeStyle(
+                          liq.status
+                        )}`}
+                      >
                         {STATUS_LABELS[liq.status] || liq.status}
-                      </Badge>
+                      </span>
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
                       {/* Format created_at as YYYY-MM-DD or your preferred format */}
@@ -346,20 +335,25 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                       {liq.request?.user?.school?.schoolName || "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
-                      <Button
-                        size="sm"
-                        variant="outline"
+                      <a
                         onClick={() => handleView(liq)}
-                        className="flex items-center gap-2"
-                        disabled={liq.status === "resubmit"}
+                        className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline cursor-pointer font-medium"
                         title={
                           liq.status === "resubmit"
                             ? "Cannot review a liquidation that needs revision."
                             : "View"
                         }
+                        style={{
+                          opacity: liq.status === "resubmit" ? 0.5 : 1,
+                          pointerEvents:
+                            liq.status === "resubmit" ? "none" : "auto",
+                        }}
+                        tabIndex={liq.status === "resubmit" ? -1 : 0}
+                        role="link"
                       >
-                        View <EyeIcon className="w-4 h-4" />
-                      </Button>
+                        <LucideEye className="w-4 h-4 mr-1" />
+                        View
+                      </a>
                     </TableCell>
                   </TableRow>
                 ))
@@ -420,7 +414,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
 
       {/* Main Dialog: Expenses & Requirements */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-4xl w-full">
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Documents to Pre-Audit for {selected?.LiquidationID}
@@ -508,32 +502,41 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                               key={req.requirementID}
                               className="flex items-center justify-between bg-white dark:bg-gray-800 rounded px-3 py-2"
                             >
-                              <div>
-                                <div className="font-medium">
-                                  {req.requirementTitle}
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0">
+                                  {doc && doc.is_approved ? (
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  ) : (
+                                    <AlertCircle className="h-5 w-5 text-yellow-500" />
+                                  )}
                                 </div>
-                                <div className="text-xs text-gray-500">
-                                  {req.is_required ? "Required" : "Optional"}
-                                </div>
-                                {doc && (
-                                  <div className="text-xs mt-1">
-                                    Status:{" "}
-                                    {doc.is_approved ? (
-                                      <span className="text-green-600">
-                                        Approved
-                                      </span>
-                                    ) : (
-                                      <span className="text-yellow-600">
-                                        Pending
-                                      </span>
-                                    )}
-                                    {doc.reviewer_comment && (
-                                      <span className="ml-2 text-red-500">
-                                        {doc.reviewer_comment}
-                                      </span>
-                                    )}
+                                <div>
+                                  <div className="font-medium">
+                                    {req.requirementTitle}
                                   </div>
-                                )}
+                                  <div className="text-xs text-gray-500">
+                                    {req.is_required ? "Required" : "Optional"}
+                                  </div>
+                                  {doc && (
+                                    <div className="text-xs mt-1">
+                                      Status:{" "}
+                                      {doc.is_approved ? (
+                                        <span className="text-green-600">
+                                          Approved
+                                        </span>
+                                      ) : (
+                                        <span className="text-yellow-600">
+                                          Pending
+                                        </span>
+                                      )}
+                                      {doc.reviewer_comment && (
+                                        <span className="ml-2 text-red-500">
+                                          {doc.reviewer_comment}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               <div>
                                 {doc ? (
@@ -541,7 +544,9 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                                     size="sm"
                                     variant="outline"
                                     onClick={() => setViewDoc(doc)}
+                                    className="flex items-center gap-2"
                                   >
+                                    <LucideEye className="w-4 h-4" />
                                     View
                                   </Button>
                                 ) : (
@@ -567,6 +572,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                 onClick={handleApproveReport}
                 disabled={!canApprove}
                 color="success"
+                startIcon={<CheckCircle className="h-5 w-5" />}
               >
                 Approve Liquidation Report
               </Button>
@@ -574,6 +580,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                 onClick={handleRejectReport}
                 disabled={!canReject}
                 variant="destructive"
+                startIcon={<AlertCircle className="h-5 w-5" />}
               >
                 Reject Liquidation Report
               </Button>
@@ -584,7 +591,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
 
       {/* Document View Dialog */}
       <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
-        <DialogContent className="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl">
+        <DialogContent className="w-full max-w-2xl sm:max-w-3xl md:max-w-4xl xl:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {viewDoc?.requirement_obj.requirementTitle}
@@ -611,7 +618,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                   <img
                     src={viewDoc.document_url}
                     alt="Document Preview"
-                    className="w-full max-w-3xl max-h-[70vh] rounded border shadow object-contain"
+                    className="w-full max-w-3xl max-h-[60vh] rounded border shadow object-contain"
                     style={{ display: "block" }}
                   />
                 ) : (
@@ -619,7 +626,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                   <iframe
                     src={viewDoc.document_url}
                     title="Document Preview"
-                    className="w-full h-[70vh] border rounded"
+                    className="w-full h-[60vh] border rounded"
                   />
                 )}
               </div>
@@ -650,6 +657,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                   <Button
                     variant="success"
                     disabled={actionLoading || viewDoc.is_approved}
+                    startIcon={<CheckCircle className="h-5 w-5" />}
                     onClick={async () => {
                       setActionLoading(true);
                       try {
@@ -679,6 +687,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                   <Button
                     variant="destructive"
                     disabled={actionLoading}
+                    startIcon={<AlertCircle className="h-5 w-5" />}
                     onClick={async () => {
                       if (!viewDoc.reviewer_comment?.trim()) {
                         toast.error("Comment is required to reject.");
@@ -733,4 +742,29 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "Rejected",
   completed: "Completed",
   cancelled: "Cancelled",
+};
+
+const statusBadgeStyle = (status: string) => {
+  switch (status) {
+    case "draft":
+      return "bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300";
+    case "submitted":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+    case "under_review_district":
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+    case "approved_district":
+    case "approved_division":
+    case "approved":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "resubmit":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    case "rejected":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    case "completed":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "cancelled":
+      return "bg-gray-200 text-gray-500 dark:bg-gray-700/30 dark:text-gray-400";
+    default:
+      return "bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300";
+  }
 };
