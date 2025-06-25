@@ -710,9 +710,11 @@ def submit_liquidation(request, LiquidationID):
                     break
             if required_docs_missing:
                 break
-        if liquidation.status != 'draft':
+
+        # Allow submission if status is 'draft' or 'resubmit'
+        if liquidation.status not in ['draft', 'resubmit']:
             return Response(
-                {'error': 'Liquidation has already been submitted'},
+                {'error': 'Liquidation must be in draft or resubmit status to be submitted'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if required_docs_missing:
@@ -727,7 +729,7 @@ def submit_liquidation(request, LiquidationID):
 
         serializer = LiquidationManagementSerializer(
             liquidation,
-            context={'request': request}  # <-- Add this line
+            context={'request': request}
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
