@@ -457,7 +457,7 @@ def check_pending_requests(request):
     # Check for pending/rejected requests
     user_requests = RequestManagement.objects.filter(
         user=request.user,
-        status__in=['pending', 'approved', 'rejected']  # Include rejected
+        status__in=['pending', 'approved']  # Include rejected
     ).order_by('-created_at')
 
     # Check for liquidations that aren't completed
