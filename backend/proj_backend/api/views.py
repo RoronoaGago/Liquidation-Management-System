@@ -454,7 +454,7 @@ def check_pending_requests(request):
     pending_requests = RequestManagement.objects.filter(
         user=request.user,
         # Add all statuses you want to include
-        status__in=['pending', 'rejected', 'pending', 'approved']
+        status__in=['pending', 'pending', 'approved']
     ).order_by('-created_at')
 
     # Check for liquidations that aren't completed
@@ -784,7 +784,7 @@ class UserRequestListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return RequestManagement.objects.filter(user=self.request.user)
+        return RequestManagement.objects.filter(user=self.request.user).order_by('-created_at')
 
 
 class PendingLiquidationListAPIView(generics.ListAPIView):
