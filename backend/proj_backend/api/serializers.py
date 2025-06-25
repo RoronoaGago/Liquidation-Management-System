@@ -142,7 +142,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class RequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Requirement
-        fields = ['requirementID', 'requirementTitle', 'is_required', 'is_active']  # <-- Add is_active
+        fields = ['requirementID', 'requirementTitle',
+                  'is_required', 'is_active']  # <-- Add is_active
 
 
 class PriorityRequirementSerializer(serializers.ModelSerializer):

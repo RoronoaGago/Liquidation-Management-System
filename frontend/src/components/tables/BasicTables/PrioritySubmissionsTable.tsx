@@ -17,6 +17,7 @@ interface PrioritySubmissionsTableProps {
   onView: (submission: Submission) => void;
   loading?: boolean;
   error?: string | null;
+  currentUserRole?: string; // Add this line
 }
 
 const PrioritySubmissionsTable: React.FC<
