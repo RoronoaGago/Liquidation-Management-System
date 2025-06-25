@@ -235,7 +235,7 @@ const MOOERequestPage = () => {
                     <Button
                       onClick={() => {
                         // Navigate to fund request page with previous data pre-filled
-                        navigate("/fund-request", {
+                        navigate("/prepare-list-of-priorities", {
                           state: {
                             rejectedRequestId: viewedSubmission.request_id,
                             priorities: viewedSubmission.priorities,

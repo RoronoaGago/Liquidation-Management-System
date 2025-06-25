@@ -214,7 +214,8 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'rejection_comment',
             'rejection_date'
         ]
-        read_only_fields = ['request_id', 'created_at', 'date_approved', 'date_downloaded', 'rejection_date']
+        read_only_fields = ['request_id', 'created_at',
+                            'date_approved', 'date_downloaded', 'rejection_date']
 
     def get_priorities(self, obj):
         request_priorities = obj.requestpriority_set.all()
@@ -326,6 +327,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                     'comment': doc.reviewer_comment
                 })
         return comments
+
 
 class NotificationSerializer(serializers.ModelSerializer):
     receiver = UserSerializer(read_only=True)
