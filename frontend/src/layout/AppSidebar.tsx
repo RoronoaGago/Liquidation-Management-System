@@ -20,7 +20,8 @@ import {
   SchoolIcon,
   FileText,
   ListOrdered, // <-- Add this
-  History, // <-- Add this
+  History,
+  FileSearch, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -62,7 +63,12 @@ const allNavItems: NavItem[] = [
     path: "/fund-request-approval",
     roles: ["liquidator"], // Only admin
   },
-
+  {
+    icon: <FileSearch />, // <-- Use FileSearch or any icon you prefer
+    name: "Pre Audit",
+    path: "/pre-auditing",
+    roles: ["district_admin"], // Only for district_admin
+  },
   {
     icon: <PhilippinePeso />,
     name: "MOOE",
