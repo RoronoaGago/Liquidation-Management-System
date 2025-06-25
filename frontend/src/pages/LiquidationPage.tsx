@@ -376,7 +376,7 @@ const LiquidationPage = () => {
       <div className="container mx-auto px-5 py-10">
         <PageBreadcrumb pageTitle="Liquidation Request" />
         <div className="mt-24 flex items-center justify-center">
-          <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <div className="mt-6 bg-white  p-6">
             <div className="text-center py-8">
               <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
                 <DocumentTextIcon className="h-8 w-8 text-gray-400" />
