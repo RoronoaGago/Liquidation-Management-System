@@ -109,22 +109,20 @@ const PriortySubmissionsPage = () => {
     try {
       await api.put(`requests/${submission.request_id}/`, {
         status: "rejected",
-        rejection_reason: reason, // Include the rejection reason
+        rejection_comment: reason,
       });
+
       setViewedSubmission(null);
-      setSubmissionsState((prev) =>
-        prev.map((s) =>
-          s.request_id === submission.request_id
-            ? { ...s, status: "rejected", rejection_reason: reason }
-            : s
-        )
-      );
+      setIsRejectDialogOpen(false);
+      setRejectionReason("");
+
       toast.success(`Request #${submission.request_id} has been rejected.`, {
         autoClose: 5000,
         position: "top-right",
         icon: <XCircle className="w-6 h-6" />,
       });
-      await fetchSubmissions(); // Refresh the list after rejection
+
+      await fetchSubmissions(); // Refresh the list
     } catch (err) {
       console.error("Failed to reject submission:", err);
       toast.error("Failed to reject submission. Please try again.");
@@ -381,7 +379,7 @@ const PriortySubmissionsPage = () => {
         open={!!viewedSubmission}
         onOpenChange={() => setViewedSubmission(null)}
       >
-        <DialogContent className="w-full max-w-[90vw] lg:max-w-3xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <DialogContent className="w-full max-w-[90vw] lg:max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Priority Submission Details
@@ -520,13 +518,13 @@ const PriortySubmissionsPage = () => {
 
               {/* Add this block right here */}
               {viewedSubmission?.status === "rejected" &&
-                viewedSubmission.rejection_reason && (
+                viewedSubmission.rejection_comment && (
                   <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-900/30">
                     <h4 className="font-medium text-red-800 dark:text-red-200">
                       Rejection Reason:
                     </h4>
                     <p className="text-red-700 dark:text-red-300 mt-1">
-                      {viewedSubmission.rejection_reason}
+                      {viewedSubmission.rejection_comment}
                     </p>
                   </div>
                 )}
@@ -581,45 +579,38 @@ const PriortySubmissionsPage = () => {
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Reject Submission
             </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400">
+              Please provide a reason for rejection
+            </DialogDescription>
           </DialogHeader>
+
           {submissionToReject && (
             <div className="space-y-4">
-              <p className="text-gray-600 dark:text-gray-400">
-                Are you sure you want to reject the submission from{" "}
-                <strong>
-                  {submissionToReject.user.first_name}{" "}
-                  {submissionToReject.user.last_name}
-                </strong>
-                ? This action cannot be undone.
-              </p>
-
-              {/* Add rejection reason textarea */}
               <div className="space-y-2">
                 <label
-                  htmlFor="rejectionReason"
+                  htmlFor="rejection-reason"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  Reason for rejection (required)
+                  Rejection Reason
                 </label>
                 <textarea
-                  id="rejectionReason"
-                  rows={3}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  placeholder="Enter the reason for rejection..."
+                  id="rejection-reason"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:text-white"
+                  rows={4}
+                  placeholder="Explain why this request is being rejected..."
                   required
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3 pt-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
                     setIsRejectDialogOpen(false);
-                    setRejectionReason(""); // Clear reason on cancel
-                    setSubmissionToReject(null);
+                    setRejectionReason("");
                   }}
                 >
                   Cancel
@@ -627,14 +618,16 @@ const PriortySubmissionsPage = () => {
                 <Button
                   type="button"
                   variant="destructive"
-                  disabled={!rejectionReason.trim()} // Disable if no reason provided
                   onClick={() => {
-                    handleReject(submissionToReject, rejectionReason);
-                    setIsRejectDialogOpen(false);
-                    setRejectionReason(""); // Clear reason after submission
+                    if (rejectionReason.trim()) {
+                      handleReject(submissionToReject, rejectionReason);
+                    } else {
+                      toast.error("Please provide a rejection reason");
+                    }
                   }}
+                  disabled={!rejectionReason.trim()}
                 >
-                  Confirm Reject
+                  Confirm Rejection
                 </Button>
               </div>
             </div>

@@ -215,33 +215,40 @@ const MOOERequestPage = () => {
                   </div>
                 </div>
               </div>
-
+              {/* Rejection Reason Section */}
               {viewedSubmission?.status === "rejected" &&
-                viewedSubmission.rejection_reason && (
+                viewedSubmission.rejection_comment && (
                   <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-900/30">
                     <h4 className="font-medium text-red-800 dark:text-red-200">
                       Rejection Reason:
                     </h4>
                     <p className="text-red-700 dark:text-red-300 mt-1">
-                      {viewedSubmission.rejection_reason}
+                      {viewedSubmission.rejection_comment}
                     </p>
-                    {user?.role === "school_head" && (
-                      <Button
-                        onClick={() => {
-                          // Navigate to new request with previous priorities pre-filled
-                          navigate("/new-request", {
-                            state: {
-                              cloneRequestId: viewedSubmission.request_id,
-                              priorities: viewedSubmission.priorities,
-                            },
-                          });
-                        }}
-                        variant="primary"
-                        className="mt-3"
-                      >
-                        Create Corrected Request
-                      </Button>
-                    )}
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                      Rejected on:{" "}
+                      {new Date(
+                        viewedSubmission.rejection_date
+                      ).toLocaleDateString()}
+                    </p>
+
+                    <Button
+                      onClick={() => {
+                        // Navigate to fund request page with previous data pre-filled
+                        navigate("/prepare-list-of-priorities", {
+                          state: {
+                            rejectedRequestId: viewedSubmission.request_id,
+                            priorities: viewedSubmission.priorities,
+                            rejectionComment:
+                              viewedSubmission.rejection_comment,
+                          },
+                        });
+                      }}
+                      variant="primary"
+                      className="mt-3"
+                    >
+                      Edit and Resubmit
+                    </Button>
                   </div>
                 )}
               {/* Action Buttons - Modified to check for superintendent role */}
