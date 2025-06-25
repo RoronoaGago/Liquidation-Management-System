@@ -2,22 +2,12 @@
 import { useState, useMemo, useEffect } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import LiquidationReportTable from "@/components/tables/BasicTables/LiquidationReportTable";
-import Input from "@/components/form/input/InputField";
-import Button from "@/components/ui/button/Button";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Search,
-} from "lucide-react";
 import api from "@/api/axios";
-
-const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 
 type Liquidation = {
   LiquidationID: string;
   status: string;
+  created_at: string; // Add this property to match the expected type
   request?: {
     request_id?: string;
     user?: {
@@ -34,9 +24,9 @@ type Liquidation = {
 const LiquidationReportPage = () => {
   const [liquidations, setLiquidations] = useState<Liquidation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm] = useState("");
+  const [itemsPerPage] = useState(10);
+  const [currentPage] = useState(1);
 
   // Fetch liquidations from backend
   useEffect(() => {
@@ -75,16 +65,12 @@ const LiquidationReportPage = () => {
     });
   }, [liquidations, searchTerm]);
 
-  const totalPages = Math.ceil(filteredLiquidations.length / itemsPerPage);
   const paginatedLiquidations = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredLiquidations.slice(start, start + itemsPerPage);
   }, [filteredLiquidations, currentPage, itemsPerPage]);
 
   // Pagination helpers
-  const goToPage = (pageNum: number) => {
-    setCurrentPage(Math.max(1, Math.min(pageNum, totalPages)));
-  };
 
   return (
     <div className="container mx-auto px-5 py-10">
