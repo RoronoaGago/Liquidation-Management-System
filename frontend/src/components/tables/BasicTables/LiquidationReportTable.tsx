@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import Input from "@/components/form/input/InputField";
 import { toast } from "react-toastify";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
@@ -87,6 +87,13 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [isEditingComment, setIsEditingComment] = useState(false); // Add this state
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>(null);
+  const [disabledLiquidationIDs, setDisabledLiquidationIDs] = useState<
+    string[]
+  >([]);
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
@@ -109,13 +116,58 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     });
   }, [liquidations, searchTerm]);
 
+  // Sorting logic
+  // Helper to safely access sortable fields
+  const getSortableValue = (
+    liq: Liquidation,
+    key: string
+  ): string | number | undefined => {
+    switch (key) {
+      case "LiquidationID":
+        return liq.LiquidationID;
+      case "status":
+        return liq.status;
+      case "created_at":
+        return liq.created_at;
+      case "school_head":
+        return liq.request?.user
+          ? `${liq.request.user.first_name} ${liq.request.user.last_name}`
+          : "";
+      case "school_name":
+        return liq.request?.user?.school?.schoolName || "";
+      default:
+        return "";
+    }
+  };
+
+  const sortedLiquidations = useMemo(() => {
+    if (!sortConfig) return filteredLiquidations;
+    const sorted = [...filteredLiquidations].sort((a, b) => {
+      const aValue = getSortableValue(a, sortConfig.key);
+      const bValue = getSortableValue(b, sortConfig.key);
+      if (aValue == null) return 1;
+      if (bValue == null) return -1;
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        return sortConfig.direction === "asc"
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortConfig.direction === "asc"
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+      return 0;
+    });
+    return sorted;
+  }, [filteredLiquidations, sortConfig]);
+
   const totalPages = Math.ceil(filteredLiquidations.length / itemsPerPage);
   const paginatedLiquidations = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredLiquidations.slice(start, start + itemsPerPage);
-  }, [filteredLiquidations, currentPage, itemsPerPage]);
+    return sortedLiquidations.slice(start, start + itemsPerPage);
+  }, [sortedLiquidations, currentPage, itemsPerPage]);
 
-  // Update status to under_review_district on view
   const handleView = async (liq: Liquidation) => {
     try {
       await api.patch(`/liquidations/${liq.LiquidationID}/`, {
@@ -149,10 +201,6 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     setDocLoading(false);
   };
 
-  // Find document for a requirement under an expense
-
-  // Approve/Reject document
-
   // Document completion calculation
   const getCompletion = () => {
     const totalRequired = documents.filter(
@@ -161,8 +209,6 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     const approved = documents.filter((doc) => doc.is_approved).length;
     return { approved, totalRequired };
   };
-
-  // Add this helper to map status to badge color
 
   // Calculate completion
   const totalRequired = documents.length;
@@ -187,6 +233,10 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     });
     refreshList();
     toast.success("Liquidation report approved!");
+    if (selected?.LiquidationID) {
+      setDisabledLiquidationIDs((prev) => [...prev, selected.LiquidationID]);
+    }
+    setSelected(null); // Close the dialog after approval
   };
 
   const handleRejectReport = async () => {
@@ -195,6 +245,19 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     });
     refreshList();
     toast.info("Liquidation report sent back for revision.");
+    if (selected?.LiquidationID) {
+      setDisabledLiquidationIDs((prev) => [...prev, selected.LiquidationID]);
+    }
+    setSelected(null); // Close the dialog after rejection
+  };
+
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => {
+      if (prev?.key === key) {
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { key, direction: "asc" };
+    });
   };
 
   return (
@@ -258,31 +321,141 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  Liquidation ID
+                  <div
+                    className="cursor-pointer select-none flex items-center"
+                    onClick={() => handleSort("LiquidationID")}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        handleSort("LiquidationID");
+                    }}
+                  >
+                    Liquidation ID
+                    <span className="inline-block align-middle ml-1">
+                      {sortConfig?.key === "LiquidationID" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp className="inline w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="inline w-4 h-4" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="inline w-4 h-4 text-gray-300" />
+                      )}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  Status
+                  <div
+                    className="cursor-pointer select-none flex items-center"
+                    onClick={() => handleSort("status")}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        handleSort("status");
+                    }}
+                  >
+                    Status
+                    <span className="inline-block align-middle ml-1">
+                      {sortConfig?.key === "status" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp className="inline w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="inline w-4 h-4" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="inline w-4 h-4 text-gray-300" />
+                      )}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  Date Submitted
+                  <div
+                    className="cursor-pointer select-none flex items-center"
+                    onClick={() => handleSort("created_at")}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        handleSort("created_at");
+                    }}
+                  >
+                    Date Submitted
+                    <span className="inline-block align-middle ml-1">
+                      {sortConfig?.key === "created_at" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp className="inline w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="inline w-4 h-4" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="inline w-4 h-4 text-gray-300" />
+                      )}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  School Head
+                  <div
+                    className="cursor-pointer select-none flex items-center"
+                    onClick={() => handleSort("school_head")}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        handleSort("school_head");
+                    }}
+                  >
+                    School Head
+                    <span className="inline-block align-middle ml-1">
+                      {sortConfig?.key === "school_head" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp className="inline w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="inline w-4 h-4" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="inline w-4 h-4 text-gray-300" />
+                      )}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  School Name
+                  <div
+                    className="cursor-pointer select-none flex items-center"
+                    onClick={() => handleSort("school_name")}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        handleSort("school_name");
+                    }}
+                  >
+                    School Name
+                    <span className="inline-block align-middle ml-1">
+                      {sortConfig?.key === "school_name" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp className="inline w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="inline w-4 h-4" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="inline w-4 h-4 text-gray-300" />
+                      )}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell
                   isHeader
@@ -335,25 +508,50 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                       {liq.request?.user?.school?.schoolName || "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
-                      <a
+                      <span
                         onClick={() => handleView(liq)}
                         className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline cursor-pointer font-medium"
                         title={
-                          liq.status === "resubmit"
-                            ? "Cannot review a liquidation that needs revision."
+                          liq.status === "resubmit" ||
+                          liq.status === "approved" ||
+                          liq.status === "approved_district" ||
+                          liq.status === "approved_division" ||
+                          liq.status === "completed"
+                            ? "Viewing is disabled for approved or completed liquidations."
                             : "View"
                         }
                         style={{
-                          opacity: liq.status === "resubmit" ? 0.5 : 1,
+                          opacity:
+                            liq.status === "resubmit" ||
+                            liq.status === "approved" ||
+                            liq.status === "approved_district" ||
+                            liq.status === "approved_division" ||
+                            liq.status === "completed"
+                              ? 0.5
+                              : 1,
                           pointerEvents:
-                            liq.status === "resubmit" ? "none" : "auto",
+                            liq.status === "resubmit" ||
+                            liq.status === "approved" ||
+                            liq.status === "approved_district" ||
+                            liq.status === "approved_division" ||
+                            liq.status === "completed"
+                              ? "none"
+                              : "auto",
                         }}
-                        tabIndex={liq.status === "resubmit" ? -1 : 0}
+                        tabIndex={
+                          liq.status === "resubmit" ||
+                          liq.status === "approved" ||
+                          liq.status === "approved_district" ||
+                          liq.status === "approved_division" ||
+                          liq.status === "completed"
+                            ? -1
+                            : 0
+                        }
                         role="link"
                       >
-                        <LucideEye className="w-4 h-4 mr-1" />
                         View
-                      </a>
+                        <LucideEye className="w-4 h-4 ml-1" />
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))
