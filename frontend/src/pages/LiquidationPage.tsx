@@ -26,7 +26,6 @@ import { toast } from "react-toastify";
 import api from "@/api/axios";
 import { DocumentTextIcon } from "@heroicons/react/outline";
 import { Skeleton } from "antd";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useNavigate } from "react-router";
 
 interface Requirement {
@@ -41,6 +40,7 @@ interface UploadedDocument {
   requirement_id: number | string;
   document_url?: string;
   uploaded_at?: string;
+  reviewer_comment?: string;
   // Add other fields as needed
 }
 
@@ -744,6 +744,11 @@ const LiquidationPage = () => {
                         ) : (
                           "Document"
                         )}
+                        {doc && doc.reviewer_comment && (
+                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Reviewer Comment: {doc.reviewer_comment}
+                          </div>
+                        )}
                       </li>
                     ))}
                   {expense.requirements.filter((req) =>
@@ -811,49 +816,60 @@ const LiquidationPage = () => {
           )}
 
           <div className="space-y-4">
-            {/* Sample Comment 1 */}
-            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <DocumentTextIcon className="h-5 w-5 text-gray-500" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-800 dark:text-white">
-                    Official Receipt
-                  </h4>
-                  <p className="mt-1 text-gray-700 dark:text-gray-300">
-                    The receipt is unclear. Please provide a clearer scan with
-                    the vendor name visible.
-                  </p>
-                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Reviewed by: District Admin •{" "}
-                    {new Date().toLocaleDateString()}
+            {request.uploadedDocuments
+              .filter(
+                (doc) =>
+                  doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
+              )
+              .map((doc, idx) => (
+                <div
+                  key={doc.id || idx}
+                  className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-white">
+                        {/* Show the requirement/document name if available */}
+                        {(() => {
+                          // Try to find the requirement title from the expense requirements
+                          let reqTitle = "Document";
+                          for (const expense of request.expenses) {
+                            const req = expense.requirements.find(
+                              (r) =>
+                                String(r.requirementID) ===
+                                String(doc.requirement_id)
+                            );
+                            if (req) {
+                              reqTitle = req.requirementTitle;
+                              break;
+                            }
+                          }
+                          return reqTitle;
+                        })()}
+                      </h4>
+                      <p className="mt-1 text-gray-700 dark:text-gray-300">
+                        {doc.reviewer_comment}
+                      </p>
+                      {/* Optionally, show who reviewed and when if you have that info */}
+                      {/* <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Reviewed by: {doc.reviewer_name || "District Admin"} • {doc.reviewed_at ? new Date(doc.reviewed_at).toLocaleDateString() : ""}
+                      </div> */}
+                    </div>
                   </div>
                 </div>
+              ))}
+            {/* If no feedback, show a message */}
+            {request.uploadedDocuments.filter(
+              (doc) =>
+                doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
+            ).length === 0 && (
+              <div className="text-gray-500 dark:text-gray-400 italic">
+                No reviewer feedback yet.
               </div>
-            </div>
-
-            {/* Sample Comment 2 */}
-            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <DocumentTextIcon className="h-5 w-5 text-gray-500" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-800 dark:text-white">
-                    Purchase Order
-                  </h4>
-                  <p className="mt-1 text-gray-700 dark:text-gray-300">
-                    The purchase order number doesn't match our records. Please
-                    verify the PO number.
-                  </p>
-                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Reviewed by: Division Accountant •{" "}
-                    {new Date(Date.now() - 86400000).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

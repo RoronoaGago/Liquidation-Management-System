@@ -638,8 +638,6 @@ def submit_liquidation(request, LiquidationID):
             status=status.HTTP_404_NOT_FOUND
         )
 
-# views.py
-
 
 @api_view(['GET'])
 def view_liquidation(request, LiquidationID):
