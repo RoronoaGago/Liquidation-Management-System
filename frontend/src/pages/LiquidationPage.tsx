@@ -684,7 +684,8 @@ const LiquidationPage = () => {
                                       expense.id,
                                       req.requirementID
                                     ) ||
-                                    request.status !== "draft" // Disable if not in draft status
+                                    (request.status !== "draft" &&
+                                      request.status !== "resubmit") // Disable if not in draft status
                                   }
                                 >
                                   {uploading ===
