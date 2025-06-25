@@ -38,7 +38,7 @@ urlpatterns = [
     path('requests/<str:request_id>/',
          views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),
     path('requests/<str:request_id>/submit-liquidation/',
-         views.submit_for_liquidation, name='submit-liquidation'),
+         views.submit_for_liquidation, name='submit-for-liquidation'),
     path('check-pending-requests/', views.check_pending_requests,
          name='check-pending-requests'),
 

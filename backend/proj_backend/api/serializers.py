@@ -310,8 +310,8 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'documents',
             'submitted_at',
             'reviewer_comments',
-            'created_at'
-            'date_approved',  # <-- add this
+            'created_at',
+            # 'date_approved',  # <-- add this
         ]
 
     def get_reviewer_comments(self, obj):
