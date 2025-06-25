@@ -312,7 +312,6 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'submitted_at',
             'reviewer_comments',
             'created_at',
-            'date_district',
             'date_districtApproved',
             'date_liquidated'
 
