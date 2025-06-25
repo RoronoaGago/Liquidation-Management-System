@@ -88,9 +88,7 @@ const ApprovedRequestPage = () => {
         `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been downloaded.`
       );
       // Refresh the list with a small delay to ensure backend processed
-      setTimeout(() => {
-        fetchSubmissions().catch(console.error);
-      }, 500);
+      fetchSubmissions();
     } catch (err) {
       console.error("Failed to submit for liquidation:", err);
       // Optionally show an error message to the user

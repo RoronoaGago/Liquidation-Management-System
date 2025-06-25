@@ -543,18 +543,20 @@ class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDes
 
 
 @api_view(['POST'])
-@transaction.atomic
 def submit_for_liquidation(request, request_id):
     try:
         with transaction.atomic():
             request_obj = RequestManagement.objects.select_for_update().get(request_id=request_id)
 
-            # Validate status transition
             if request_obj.status != 'approved':
                 return Response(
                     {'error': 'Request must be approved before liquidation'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            # First update the request status to 'downloaded' to satisfy LiquidationManagement validation
+            request_obj.status = 'downloaded'
+            request_obj.save(update_fields=['status'])
 
             # Create liquidation record
             liquidation, created = LiquidationManagement.objects.get_or_create(
@@ -568,7 +570,7 @@ def submit_for_liquidation(request, request_id):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Update request status
+            # Update request status to 'unliquidated' as final state
             request_obj.status = 'unliquidated'
             request_obj.save(update_fields=['status'])
 
@@ -586,8 +588,10 @@ def submit_for_liquidation(request, request_id):
             status=status.HTTP_400_BAD_REQUEST
         )
     except Exception as e:
+        logger.error(
+            f"Error submitting for liquidation: {str(e)}", exc_info=True)
         return Response(
-            {'error': 'An unexpected error occurred'},
+            {'error': 'An unexpected error occurred during liquidation submission'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
