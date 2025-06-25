@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -209,9 +209,12 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'request_id', 'user', 'request_month',
             'status', 'priorities', 'created_at',
             'priority_amounts',
-            'date_approved',  # <-- add this
+            'date_approved',
+            'date_downloaded',
+            'rejection_comment',
+            'rejection_date'
         ]
-        read_only_fields = ['request_id', 'created_at', 'date_approved']
+        read_only_fields = ['request_id', 'created_at', 'date_approved', 'date_downloaded', 'rejection_date']
 
     def get_priorities(self, obj):
         request_priorities = obj.requestpriority_set.all()
@@ -301,8 +304,6 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'request',
             'comment_id',
             'status',
-            'reviewed_by',
-            'reviewed_at',
             'reviewed_by_district',
             'reviewed_at_district',
             'reviewed_by_division',
@@ -311,7 +312,8 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'submitted_at',
             'reviewer_comments',
             'created_at',
-            # 'date_approved',  # <-- add this
+            'date_districtApproved',
+            'date_liquidated'
         ]
 
     def get_reviewer_comments(self, obj):
@@ -324,3 +326,18 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                     'comment': doc.reviewer_comment
                 })
         return comments
+
+class NotificationSerializer(serializers.ModelSerializer):
+    receiver = UserSerializer(read_only=True)
+    sender = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id',
+            'notification_title',
+            'details',
+            'receiver',
+            'sender',
+            'notification_date',
+        ]
