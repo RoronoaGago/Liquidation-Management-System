@@ -339,6 +339,7 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
         instance._status_changed_by = self.request.user
         serializer.save()
 
+
 class ApproveRequestView(generics.UpdateAPIView):
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
@@ -363,6 +364,7 @@ class ApproveRequestView(generics.UpdateAPIView):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
+
 class RejectRequestView(generics.UpdateAPIView):
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
@@ -381,16 +383,18 @@ class RejectRequestView(generics.UpdateAPIView):
                 {"detail": "Only pending requests can be rejected"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        rejection_reason = request.data.get('rejection_reason')
-        if not rejection_reason:
+        rejection_comment = request.data.get('rejection_comment')
+        if not rejection_comment:
             return Response(
-                {"detail": "Please provide a rejection reason"},
+                {"detail": "Please provide a rejection comment"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         instance.status = 'rejected'
-        instance.rejection_comment = rejection_reason
-        instance._status_changed_by = request.user
+        instance.rejection_comment = rejection_comment
+        instance.rejection_date = timezone.now().date()
+        instance._status_changed_by = request.user  # For notification
         instance.save()
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -450,11 +454,10 @@ def check_pending_requests(request):
     """
     Check if user has any pending requests or liquidations that aren't completed
     """
-    # Check for pending requests (status = 'pending')
-    pending_requests = RequestManagement.objects.filter(
+    # Check for pending/rejected requests
+    user_requests = RequestManagement.objects.filter(
         user=request.user,
-        # Add all statuses you want to include
-        status__in=['pending', 'pending', 'approved']
+        status__in=['pending', 'approved', 'rejected']  # Include rejected
     ).order_by('-created_at')
 
     # Check for liquidations that aren't completed
@@ -463,9 +466,9 @@ def check_pending_requests(request):
     ).exclude(status='completed').order_by('-created_at')
 
     response_data = {
-        'has_pending_request': pending_requests.exists(),
+        'has_pending_request': user_requests.exists(),
         'has_active_liquidation': active_liquidations.exists(),
-        'pending_request': RequestManagementSerializer(pending_requests.first()).data if pending_requests.exists() else None,
+        'pending_request': RequestManagementSerializer(user_requests.first()).data if user_requests.exists() else None,
         'active_liquidation': LiquidationManagementSerializer(active_liquidations.first(), context={'request': request}).data if active_liquidations.exists() else None
     }
 
@@ -565,10 +568,12 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         instance._status_changed_by = self.request.user
         serializer.save()
 
+
 @api_view(['POST'])
 def approve_liquidation(request, LiquidationID):
     try:
-        liquidation = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
+        liquidation = LiquidationManagement.objects.get(
+            LiquidationID=LiquidationID)
         if liquidation.status not in ['submitted', 'under_review_district', 'under_review_division']:
             return Response(
                 {'error': 'Liquidation is not in a reviewable state'},
@@ -587,6 +592,7 @@ def approve_liquidation(request, LiquidationID):
             {'error': 'Liquidation not found'},
             status=status.HTTP_404_NOT_FOUND
         )
+
 
 class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
     queryset = LiquidationDocument.objects.all()
