@@ -293,7 +293,6 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 class LiquidationManagementSerializer(serializers.ModelSerializer):
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
-    reviewed_by = UserSerializer(read_only=True)
     submitted_at = serializers.DateTimeField(
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
