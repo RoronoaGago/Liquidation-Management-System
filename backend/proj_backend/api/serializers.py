@@ -314,7 +314,6 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'created_at',
             'date_districtApproved',
             'date_liquidated'
-
         ]
 
     def get_reviewer_comments(self, obj):
