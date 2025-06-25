@@ -170,11 +170,11 @@ class RequestManagement(models.Model):
     last_reminder_sent = models.DateField(null=True, blank=True)
     demand_letter_sent = models.BooleanField(default=False)
     demand_letter_date = models.DateField(null=True, blank=True)
-    date_approved = models.DateField(null=True, blank=True)  # <-- Add this field
+    date_approved = models.DateField(
+        null=True, blank=True)  # <-- Add this field
     date_downloaded = models.DateField(null=True, blank=True)
     rejection_comment = models.TextField(null=True, blank=True)
     rejection_date = models.DateField(null=True, blank=True)
-
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -185,6 +185,15 @@ class RequestManagement(models.Model):
 
         # Status change logic
         status_changed = (old_status != self.status)
+
+        if status_changed:
+            from .models import Notification  # Avoid circular import
+            Notification.objects.create(
+                notification_title=f"Request {self.status.title()}",
+                details=self.rejection_comment if self.status == 'rejected' else None,
+                receiver=self.user,
+                sender=getattr(self, '_status_changed_by', None),
+            )
         # Automatically set date_approved when status becomes 'approved'
         if self.status == 'approved' and self.date_approved is None:
             self.date_approved = timezone.now().date()
@@ -212,7 +221,8 @@ class RequestManagement(models.Model):
                 notification_title=f"Request {self.status.title()}",
                 details=self.rejection_comment if self.status == 'rejected' else None,
                 receiver=self.user,
-                sender=getattr(self, '_status_changed_by', None),  # Set this in your view if needed
+                # Set this in your view if needed
+                sender=getattr(self, '_status_changed_by', None),
             )
 
     def __str__(self):
@@ -298,9 +308,9 @@ class LiquidationManagement(models.Model):
 
         # Automatically set date_districtApproved when status becomes 'approved_district'
         if self.status == 'approved_district' and self.date_districtApproved is None:
-            self.date_districtApproved = timezone.now().date()  
+            self.date_districtApproved = timezone.now().date()
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
-            self.date_districtApproved = None        
+            self.date_districtApproved = None
 
         super().save(*args, **kwargs)
 
@@ -311,7 +321,8 @@ class LiquidationManagement(models.Model):
                 notification_title=f"Liquidation {self.status.title()}",
                 details=self.comment_id if self.status == 'rejected' else None,
                 receiver=self.request.user,
-                sender=getattr(self, '_status_changed_by', None),  # Set this in your view if needed
+                # Set this in your view if needed
+                sender=getattr(self, '_status_changed_by', None),
             )
 
     def __str__(self):
@@ -377,7 +388,6 @@ class LiquidationDocument(models.Model):
             raise ValueError(
                 "Document's priority must belong to the liquidation's request")
         super().save(*args, **kwargs)
-
 
 
 class Notification(models.Model):

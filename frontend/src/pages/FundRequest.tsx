@@ -19,7 +19,7 @@ import Input from "@/components/form/input/InputField";
 import { ListofPriorityData } from "@/lib/types";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { Link } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
   DialogContent,
   DialogTitle,
@@ -27,8 +27,10 @@ import {
   DialogHeader,
 } from "@/components/ui/dialog";
 import api from "@/api/axios";
-
+// Add this near the top of the component
 const FundRequestPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [priorities, setPriorities] = useState<ListofPriorityData[]>([]);
   const [selected, setSelected] = useState<{ [key: string]: string }>({});
   const [filterOptions, setFilterOptions] = useState<{ searchTerm: string }>({
@@ -46,6 +48,35 @@ const FundRequestPage = () => {
   const [activeLiquidationData, setActiveLiquidationData] = useState<any>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
 
+  // Add this useEffect to handle pre-filling from a rejected request
+  useEffect(() => {
+    if (location.state?.rejectedRequestId) {
+      // Convert priorities from the rejected request to selected format
+      const initialSelected = location.state.priorities.reduce(
+        (acc: any, priority: any) => {
+          acc[priority.priority.expenseTitle] = priority.amount;
+          return acc;
+        },
+        {}
+      );
+
+      setSelected(initialSelected);
+
+      // Show a toast about the rejection
+      toast.info(
+        <div>
+          <p>You're editing a rejected request.</p>
+          <p className="font-medium">
+            Reason: {location.state.rejectionComment}
+          </p>
+        </div>,
+        {
+          autoClose: 8000,
+          closeButton: false,
+        }
+      );
+    }
+  }, [location.state]);
   // Fetch priorities from backend
   // Update your useEffect
   // Update your useEffect
@@ -107,7 +138,14 @@ const FundRequestPage = () => {
       setSelected((prev) => ({ ...prev, [expense]: value }));
     }
   };
-
+  const handleNavigation = () => {
+    if (hasPendingRequest) {
+      navigate("/requests-history");
+    } else if (hasActiveLiquidation) {
+      navigate("/liquidation");
+    }
+    // No navigation for the fallback case ('#')
+  };
   const handleQuickAdd = (expense: string, amount: number) => {
     setSelected((prev) => ({
       ...prev,
@@ -155,12 +193,20 @@ const FundRequestPage = () => {
           month: "long",
           year: "numeric",
         }),
+        // Add a note if this is a resubmission
+        notes: location.state?.rejectedRequestId
+          ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
+          : undefined,
       });
 
-      toast.success("Fund request submitted successfully!", {
-        autoClose: 3000,
-      });
+      toast.success(
+        location.state?.rejectedRequestId
+          ? "Resubmitted successfully!"
+          : "Fund request submitted successfully!",
+        { autoClose: 3000 }
+      );
       setSelected({});
+      navigate(".", { state: {}, replace: true });
     } catch (error: any) {
       console.error("Error:", error);
       const errorMessage =
@@ -321,21 +367,11 @@ const FundRequestPage = () => {
             <div></div>
             <Button
               variant="primary"
+              onClick={handleNavigation}
               className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 dark:from-brand-700 dark:to-brand-600 dark:hover:from-brand-800 dark:hover:to-brand-700 text-white shadow-sm"
             >
-              <Link
-                to={
-                  hasPendingRequest
-                    ? "/requests-history"
-                    : hasActiveLiquidation
-                    ? "/liquidation"
-                    : "#" // Fallback (shouldn't happen if logic is correct)
-                }
-                className="flex items-center gap-2"
-              >
-                View Full Details
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              View Full Details
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </DialogContent>

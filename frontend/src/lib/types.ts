@@ -188,7 +188,8 @@ export type Submission = {
   priorities: Priority[];
   status: "pending" | "approved" | "rejected" | "unliquidated";
   created_at: string;
-  rejection_reason?: string; // Optional field for rejection reason
+  rejection_comment: string; // Optional field for rejection reason
+  rejection_date: string; // Optional field for when the rejection occurred
 };
 
 type Priority = {
