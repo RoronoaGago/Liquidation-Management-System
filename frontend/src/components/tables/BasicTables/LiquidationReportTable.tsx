@@ -21,11 +21,13 @@ import {
 import Input from "@/components/form/input/InputField";
 import { toast } from "react-toastify";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import Badge from "@/components/ui/badge/Badge";
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 
 // Define the Liquidation type (or import it if shared)
 type Liquidation = {
+  created_at: any;
   LiquidationID: string;
   status: string;
   request?: {
@@ -85,6 +87,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isEditingComment, setIsEditingComment] = useState(false); // Add this state
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
@@ -150,31 +153,6 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   // Find document for a requirement under an expense
 
   // Approve/Reject document
-  const handleAction = async (
-    doc: Document,
-    approve: boolean,
-    closeDialog: () => void
-  ) => {
-    setActionLoading(true);
-    try {
-      await api.patch(
-        `/liquidations/${selected?.LiquidationID}/documents/${doc.id}/`,
-        { is_approved: approve }
-      );
-      toast.success(approve ? "Document approved!" : "Document rejected!");
-      // Refresh documents
-      const res = await api.get(
-        `/liquidations/${selected?.LiquidationID}/documents/`
-      );
-      setDocuments(res.data);
-      setViewDoc(null);
-      closeDialog();
-    } catch (err) {
-      toast.error("Failed to update document status.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   // Document completion calculation
   const getCompletion = () => {
@@ -183,6 +161,55 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     ).length;
     const approved = documents.filter((doc) => doc.is_approved).length;
     return { approved, totalRequired };
+  };
+
+  // Add this helper to map status to badge color
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "under_review_district":
+        return "warning";
+      case "approved":
+        return "success";
+      case "rejected":
+        return "error";
+      case "pending":
+        return "info";
+      default:
+        return "secondary";
+    }
+  };
+
+  // Calculate completion
+  const totalRequired = documents.length;
+  const approvedCount = documents.filter((doc) => doc.is_approved).length;
+  const hasAnyComment = documents.some(
+    (doc) => doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
+  );
+
+  // Approve enabled only if all required docs are approved
+  const canApprove = totalRequired > 0 && approvedCount === totalRequired;
+
+  // Reject enabled only if at least one reviewer comment exists
+  const canReject = hasAnyComment;
+
+  // At the bottom of the dialog, after all documents are reviewed:
+  const allReviewed = documents.every((doc) => doc.is_approved !== null);
+
+  const handleApproveReport = async () => {
+    await api.patch(`/liquidations/${selected?.LiquidationID}/`, {
+      status: "approved_district",
+      reviewed_at_district: new Date().toISOString(),
+    });
+    refreshList();
+    toast.success("Liquidation report approved!");
+  };
+
+  const handleRejectReport = async () => {
+    await api.patch(`/liquidations/${selected?.LiquidationID}/`, {
+      status: "resubmit",
+    });
+    refreshList();
+    toast.info("Liquidation report sent back for revision.");
   };
 
   return (
@@ -258,7 +285,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
-                  Request ID
+                  Date Submitted
                 </TableCell>
                 <TableCell
                   isHeader
@@ -300,10 +327,15 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                       {liq.LiquidationID}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                      {liq.status}
+                      <Badge color={statusColor(liq.status)} variant="solid">
+                        {STATUS_LABELS[liq.status] || liq.status}
+                      </Badge>
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                      {liq.request?.request_id}
+                      {/* Format created_at as YYYY-MM-DD or your preferred format */}
+                      {liq.created_at
+                        ? new Date(liq.created_at).toLocaleDateString()
+                        : "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
                       {liq.request?.user
@@ -319,6 +351,12 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                         variant="outline"
                         onClick={() => handleView(liq)}
                         className="flex items-center gap-2"
+                        disabled={liq.status === "resubmit"}
+                        title={
+                          liq.status === "resubmit"
+                            ? "Cannot review a liquidation that needs revision."
+                            : "View"
+                        }
                       >
                         View <EyeIcon className="w-4 h-4" />
                       </Button>
@@ -522,6 +560,25 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
               )}
             </div>
           )}
+          {/* Approve/Reject Report Buttons */}
+          {allReviewed && (
+            <div className="flex gap-2 justify-end mt-4">
+              <Button
+                onClick={handleApproveReport}
+                disabled={!canApprove}
+                color="success"
+              >
+                Approve Liquidation Report
+              </Button>
+              <Button
+                onClick={handleRejectReport}
+                disabled={!canReject}
+                variant="destructive"
+              >
+                Reject Liquidation Report
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -566,25 +623,93 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                   />
                 )}
               </div>
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="success"
-                  disabled={actionLoading || viewDoc.is_approved}
-                  onClick={() =>
-                    handleAction(viewDoc, true, () => setViewDoc(null))
+              {/* Comment and action buttons */}
+              <div>
+                <textarea
+                  value={viewDoc.reviewer_comment || ""}
+                  readOnly={!isEditingComment}
+                  onClick={() => setIsEditingComment(true)}
+                  onChange={(e) =>
+                    setViewDoc((prev) => ({
+                      ...prev!,
+                      reviewer_comment: e.target.value,
+                    }))
                   }
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={actionLoading || !viewDoc.is_approved}
-                  onClick={() =>
-                    handleAction(viewDoc, false, () => setViewDoc(null))
-                  }
-                >
-                  Reject
-                </Button>
+                  placeholder="Enter reviewer comment"
+                  className={`w-full border rounded p-2 mt-2 ${
+                    !isEditingComment ? "bg-gray-100 cursor-pointer" : ""
+                  }`}
+                  rows={3}
+                />
+                {!isEditingComment && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    Click to add or edit comment
+                  </div>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant="success"
+                    disabled={actionLoading || viewDoc.is_approved}
+                    onClick={async () => {
+                      setActionLoading(true);
+                      try {
+                        await api.patch(
+                          `/liquidations/${selected?.LiquidationID}/documents/${viewDoc.id}/`,
+                          {
+                            is_approved: true,
+                            reviewer_comment: viewDoc.reviewer_comment,
+                          }
+                        );
+                        toast.success("Document approved!");
+                        // Refresh documents
+                        const res = await api.get(
+                          `/liquidations/${selected?.LiquidationID}/documents/`
+                        );
+                        setDocuments(res.data);
+                        setViewDoc(null);
+                      } catch (err) {
+                        toast.error("Failed to update document status.");
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={actionLoading}
+                    onClick={async () => {
+                      if (!viewDoc.reviewer_comment?.trim()) {
+                        toast.error("Comment is required to reject.");
+                        return;
+                      }
+                      setActionLoading(true);
+                      try {
+                        await api.patch(
+                          `/liquidations/${selected?.LiquidationID}/documents/${viewDoc.id}/`,
+                          {
+                            is_approved: false,
+                            reviewer_comment: viewDoc.reviewer_comment,
+                          }
+                        );
+                        toast.success("Document rejected!");
+                        // Refresh documents
+                        const res = await api.get(
+                          `/liquidations/${selected?.LiquidationID}/documents/`
+                        );
+                        setDocuments(res.data);
+                        setViewDoc(null);
+                      } catch (err) {
+                        toast.error("Failed to update document status.");
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                  >
+                    Reject
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -595,3 +720,17 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
 };
 
 export default LiquidationReportTable;
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  submitted: "Submitted",
+  under_review_district: "Under Review (District)",
+  under_review_division: "Under Review (Division)",
+  resubmit: "Needs Revision",
+  approved_district: "Approved by District",
+  approved_division: "Approved by Division",
+  approved: "Fully Approved",
+  rejected: "Rejected",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
