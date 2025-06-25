@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
 import { Submission } from "@/lib/types";
@@ -20,6 +21,7 @@ import { Download } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 
 const MOOERequestPage = () => {
+  const navigate = useNavigate();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +159,6 @@ const MOOERequestPage = () => {
                   </span>
                 </div>
               </div>
-
               {/* Priorities Table */}
               <div className="space-y-2">
                 <h3 className="font-semibold text-lg text-gray-800 dark:text-white">
@@ -215,6 +216,34 @@ const MOOERequestPage = () => {
                 </div>
               </div>
 
+              {viewedSubmission?.status === "rejected" &&
+                viewedSubmission.rejection_reason && (
+                  <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-900/30">
+                    <h4 className="font-medium text-red-800 dark:text-red-200">
+                      Rejection Reason:
+                    </h4>
+                    <p className="text-red-700 dark:text-red-300 mt-1">
+                      {viewedSubmission.rejection_reason}
+                    </p>
+                    {user?.role === "school_head" && (
+                      <Button
+                        onClick={() => {
+                          // Navigate to new request with previous priorities pre-filled
+                          navigate("/new-request", {
+                            state: {
+                              cloneRequestId: viewedSubmission.request_id,
+                              priorities: viewedSubmission.priorities,
+                            },
+                          });
+                        }}
+                        variant="primary"
+                        className="mt-3"
+                      >
+                        Create Corrected Request
+                      </Button>
+                    )}
+                  </div>
+                )}
               {/* Action Buttons - Modified to check for superintendent role */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {user?.role === "superintendent" && (
