@@ -59,9 +59,9 @@ const allNavItems: NavItem[] = [
   },
   {
     icon: <BanknoteIcon />,
-    name: "Fund Request Approval",
-    path: "/fund-request-approval",
-    roles: ["liquidator"], // Only admin
+    name: "Liquidation Approval",
+    path: "/liquidation-approval",
+    roles: ["liquidator"], // Only liquidator
   },
   {
     icon: <FileSearch />, // <-- Use FileSearch or any icon you prefer

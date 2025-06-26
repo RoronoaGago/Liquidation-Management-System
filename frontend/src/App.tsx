@@ -27,6 +27,7 @@ import FundRequestPage from "./pages/FundRequest";
 import MOOERequestPage from "./pages/MOOERequestPage";
 import { ToastContainer } from "react-toastify";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
+import LiquidatorsPage from "./pages/LiquidatorsPage";
 
 const App = () => {
   return (
@@ -107,6 +108,12 @@ const App = () => {
               <Route
                 path="/fund-request-approval"
                 element={<FundRequestApproval />}
+              />
+            </Route>
+            <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
+              <Route
+                path="/liquidation-approval"
+                element={<LiquidatorsPage />}
               />
             </Route>
 
