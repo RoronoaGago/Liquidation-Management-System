@@ -9,8 +9,8 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -531,7 +531,28 @@ def resubmit_request(request, request_id):
 class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
     queryset = LiquidationManagement.objects.all()
     serializer_class = LiquidationManagementSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Only filter for liquidators
+        if user.role == 'liquidator':
+            assignments = LiquidatorAssignment.objects.filter(liquidator=user)
+            # If assigned to 'all', show all liquidations
+            if assignments.filter(district='all').exists():
+                return LiquidationManagement.objects.all()
+            # Otherwise, filter by assigned districts and/or schools
+            districts = assignments.exclude(district__isnull=True).exclude(district='').values_list('district', flat=True)
+            district_schools = School.objects.filter(district__in=districts)
+            # Get schools assigned directly
+            school_ids = assignments.exclude(school__isnull=True).exclude(school='').values_list('school', flat=True)
+            direct_schools = School.objects.filter(id__in=school_ids)
+            # Combine both sets of schools
+            all_schools = district_schools | direct_schools
+            all_schools = all_schools.distinct()
+            return LiquidationManagement.objects.filter(request__user__school__in=all_schools)
+        # For other roles, default behavior (e.g., admin sees all)
+        return super().get_queryset()
 
 
 class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -799,3 +820,12 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
             status='draft',
             request__user=self.request.user
         )
+
+
+class LiquidatorAssignmentListCreateAPIView(generics.ListCreateAPIView):
+    queryset = LiquidatorAssignment.objects.all()
+    serializer_class = LiquidatorAssignmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(assigned_by=self.request.user)
