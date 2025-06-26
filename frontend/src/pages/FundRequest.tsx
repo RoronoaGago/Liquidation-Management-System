@@ -13,6 +13,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
+  CheckCircle,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
@@ -42,6 +43,7 @@ const FundRequestPage = () => {
   const [hasActiveLiquidation, setHasActiveLiquidation] = useState(false);
   const [activeLiquidationData, setActiveLiquidationData] = useState<any>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   // Add this useEffect to handle pre-filling from a rejected request
   useEffect(() => {
@@ -188,20 +190,18 @@ const FundRequestPage = () => {
           month: "long",
           year: "numeric",
         }),
-        // Add a note if this is a resubmission
         notes: location.state?.rejectedRequestId
           ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
           : undefined,
       });
 
-      toast.success(
-        location.state?.rejectedRequestId
-          ? "Resubmitted successfully!"
-          : "Fund request submitted successfully!",
-        { autoClose: 3000 }
-      );
       setSelected({});
-      navigate(".", { state: {}, replace: true });
+      setShowSuccessDialog(true); // Show dialog
+
+      setTimeout(() => {
+        setShowSuccessDialog(false);
+        navigate("/requests-history");
+      }, 2500); // 2.5 seconds before redirect
     } catch (error: any) {
       console.error("Error:", error);
       const errorMessage =
@@ -262,6 +262,23 @@ const FundRequestPage = () => {
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="List of Priorities" />
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center py-8">
+            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Request Submitted!
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 text-center mb-2">
+              Your MOOE request was submitted successfully.
+              <br />
+              Redirecting to request history...
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent
