@@ -5,6 +5,9 @@ from django.core.files.base import ContentFile
 import base64
 import uuid
 import string
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -240,6 +243,21 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                     continue
         return request_obj
 
+    def update(self, instance, validated_data):
+        # Get status_changed_by from context
+        status_changed_by = self.context.get('status_changed_by')
+
+        # Save normally first
+        instance = super().update(instance, validated_data)
+
+        # Set the status_changed_by attribute AFTER saving
+        if status_changed_by:
+            instance.status_changed_by = status_changed_by
+            logger.info(
+                f"Serializer set status_changed_by: {status_changed_by.username}")
+
+        return instance
+
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
     request_priority = serializers.PrimaryKeyRelatedField(
@@ -340,4 +358,5 @@ class NotificationSerializer(serializers.ModelSerializer):
             'receiver',
             'sender',
             'notification_date',
+            'is_read',  # Add this field
         ]

@@ -5,6 +5,10 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
 import string
+import logging
+
+# Get a logger instance
+logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
@@ -178,52 +182,61 @@ class RequestManagement(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
-        old_status = None
-        if not is_new:
-            old = RequestManagement.objects.get(pk=self.pk)
-            old_status = old.status
+        old_status = None if is_new else RequestManagement.objects.get(
+            pk=self.pk).status
+        status_changed = old_status != self.status
 
-        # Status change logic
-        status_changed = (old_status != self.status)
+        # Get the user who changed the status (if available)
+        status_changed_by = kwargs.pop('status_changed_by', None)
+        if status_changed_by:
+            self.status_changed_by = status_changed_by
+        logger.info(
+            f"Status changed by in save: {status_changed_by.username if status_changed_by else 'None'}")
 
+        # Handle status-specific dates
         if status_changed:
-            from .models import Notification  # Avoid circular import
-            Notification.objects.create(
-                notification_title=f"Request {self.status.title()}",
-                details=self.rejection_comment if self.status == 'rejected' else None,
-                receiver=self.user,
-                sender=getattr(self, '_status_changed_by', None),
-            )
-        # Automatically set date_approved when status becomes 'approved'
-        if self.status == 'approved' and self.date_approved is None:
-            self.date_approved = timezone.now().date()
-        # If status is changed from approved to something else, clear date_approved
-        elif self.status != 'approved' and self.date_approved is not None:
+            # Reset all dates first
             self.date_approved = None
-
-          # Automatically set date_downloaded when status becomes 'downloaded'
-        if self.status == 'downloaded' and self.date_downloaded is None:
-            self.date_downloaded = timezone.now().date()
-        elif self.status != 'downloaded' and self.date_downloaded is not None:
             self.date_downloaded = None
-
-          # Automatically set rejection_date when status becomes 'rejected'
-        if self.status == 'rejected' and self.rejection_date is None:
-            self.rejection_date = timezone.now().date()
-        elif self.status != 'rejected' and self.rejection_date is not None:
             self.rejection_date = None
 
+            # Set appropriate date based on new status
+            if self.status == 'approved':
+                self.date_approved = timezone.now().date()
+            elif self.status == 'downloaded':
+                self.date_downloaded = timezone.now().date()
+            elif self.status == 'rejected':
+                self.rejection_date = timezone.now().date()
+
+        # Call the parent save() first to ensure the instance is saved
         super().save(*args, **kwargs)
 
+        # Handle notifications after saving
+        if is_new and self.status == 'pending':
+            # New pending request notification
+            admins = User.objects.filter(role__in=['admin', 'superintendent'])
+            for admin in admins:
+                Notification.objects.create(
+                    notification_title=f"New Request {self.request_id} Submitted",
+                    details=f"Request by {self.user.username} for {self.request_month}",
+                    receiver=admin,
+                    sender=self.user,
+                )
+
         if status_changed:
-            from .models import Notification  # Avoid circular import
-            Notification.objects.create(
-                notification_title=f"Request {self.status.title()}",
-                details=self.rejection_comment if self.status == 'rejected' else None,
-                receiver=self.user,
-                # Set this in your view if needed
-                sender=getattr(self, '_status_changed_by', None),
-            )
+            IMPORTANT_TRANSITIONS = {
+                ('pending', 'approved'),
+                ('pending', 'rejected'),
+                ('pending', 'downloaded'),
+            }
+
+            if (old_status, self.status) in IMPORTANT_TRANSITIONS:
+                Notification.objects.create(
+                    notification_title=f"Request {self.request_id} {self.status.title()}",
+                    details=self.rejection_comment if self.status == 'rejected' else None,
+                    receiver=self.user,
+                    sender=status_changed_by,
+                )
 
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
@@ -294,19 +307,21 @@ class LiquidationManagement(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
-        old_status = None
-        if not is_new:
-            old = LiquidationManagement.objects.get(pk=self.pk)
-            old_status = old.status
+        old_status = None if is_new else LiquidationManagement.objects.get(
+            pk=self.pk).status
+        status_changed = old_status != self.status
 
-        status_changed = (old_status != self.status)
-        # Automatically set date_liquidated when status becomes 'liquidated'
+        # Validation for new instances
+        if is_new and self.request.status != 'downloaded':
+            raise ValidationError(
+                "Liquidation can only be created for requests with 'downloaded' status."
+            )
+
         if self.status == 'liquidated' and self.date_liquidated is None:
             self.date_liquidated = timezone.now().date()
         elif self.status != 'liquidated' and self.date_liquidated is not None:
             self.date_liquidated = None
 
-        # Automatically set date_districtApproved when status becomes 'approved_district'
         if self.status == 'approved_district' and self.date_districtApproved is None:
             self.date_districtApproved = timezone.now().date()
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
@@ -314,16 +329,42 @@ class LiquidationManagement(models.Model):
 
         super().save(*args, **kwargs)
 
-        # Notification logic (after save, so PK exists)
-        if status_changed:
-            from .models import Notification  # Avoid circular import
+        IMPORTANT_TRANSITIONS = {
+            ('draft', 'submitted'),
+            ('submitted', 'under_review_district'),
+            ('under_review_district', 'approved_district'),
+            ('under_review_district', 'resubmit'),
+            ('approved_district', 'under_review_division'),
+            ('under_review_division', 'liquidated'),
+            ('under_review_division', 'resubmit'),
+        }
+
+        if status_changed and (old_status, self.status) in IMPORTANT_TRANSITIONS:
+
+            # Notify the user
             Notification.objects.create(
-                notification_title=f"Liquidation {self.status.title()}",
-                details=self.comment_id if self.status == 'rejected' else None,
+                notification_title=f"Liquidation {self.LiquidationID} {self.status.title()}",
+                details=self.comment_id if self.status == 'resubmit' else None,
                 receiver=self.request.user,
-                # Set this in your view if needed
-                sender=getattr(self, '_status_changed_by', None),
+                sender=getattr(self, 'status_changed_by', None),
             )
+
+        # Notify reviewers
+        if status_changed and self.status in ['submitted', 'under_review_district', 'under_review_division']:
+            roles = {
+                'submitted': ['district_admin'],
+                'under_review_district': ['district_admin'],
+                'under_review_division': ['superintendent'],
+            }
+            target_roles = roles.get(self.status, [])
+            reviewers = User.objects.filter(role__in=target_roles)
+            for reviewer in reviewers:
+                Notification.objects.create(
+                    notification_title=f"Liquidation {self.LiquidationID} {self.status.title()}",
+                    details=f"Liquidation by {self.request.user.username} requires your review.",
+                    receiver=reviewer,
+                    sender=self.request.user,
+                )
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
@@ -393,11 +434,13 @@ class LiquidationDocument(models.Model):
 class Notification(models.Model):
     notification_title = models.CharField(max_length=255)
     details = models.TextField(null=True, blank=True)
+
     receiver = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='notifications_received')
     sender = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications_sent')
     notification_date = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Notification to {self.receiver.username}: {self.notification_title}"

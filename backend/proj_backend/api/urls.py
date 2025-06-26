@@ -61,4 +61,11 @@ urlpatterns = [
          name='user-requests'),
     path('liquidation/', views.UserLiquidationsAPIView.as_view(),
          name='liquidation'),
+    # Existing URL patterns...
+    path('notifications/', views.NotificationListView.as_view(),
+         name='notification-list'),
+    path('notifications/<int:id>/',
+         views.NotificationDetailView.as_view(), name='notification-detail'),
+    path('notifications/mark-all-read/', views.mark_all_notifications_read,
+         name='mark-all-notifications-read')
 ]

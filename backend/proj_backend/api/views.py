@@ -9,15 +9,16 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
 from django.core.exceptions import ValidationError
-
+from rest_framework import generics
+from rest_framework import status
 
 logger = logging.getLogger(__name__)
 
@@ -335,9 +336,26 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        # Set the sender for notification
-        instance._status_changed_by = self.request.user
-        serializer.save()
+        old_status = instance.status
+        new_status = serializer.validated_data.get('status', old_status)
+
+        # Validate before saving
+        if new_status != old_status:
+            allowed_roles = ['admin', 'superintendent']
+            if self.request.user.role not in allowed_roles:
+                raise PermissionDenied(
+                    "Only admins or superintendents can change request status.")
+        if instance.status in ['approved', 'rejected']:
+            raise ValidationError(
+                "Cannot edit an already approved/rejected request")
+
+        # Set the user who is changing the status
+         # Pass status_changed_by through context instead of instance attribute
+
+        # Optional: Handle status_changed_by from serializer if provided (though not used in this case)
+
+        logger.info(f"Set status_changed_by to {self.request.user.username}")
+        serializer.save(status_changed_by=self.request.user)
 
 
 class ApproveRequestView(generics.UpdateAPIView):
@@ -359,8 +377,7 @@ class ApproveRequestView(generics.UpdateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         instance.status = 'approved'
-        instance._status_changed_by = request.user
-        instance.save()
+        instance.save(status_changed_by=request.user)  # Pass user here
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -392,36 +409,42 @@ class RejectRequestView(generics.UpdateAPIView):
         instance.status = 'rejected'
         instance.rejection_comment = rejection_comment
         instance.rejection_date = timezone.now().date()
-        instance._status_changed_by = request.user  # For notification
-        instance.save()
+        instance.save(status_changed_by=request.user)  # Pass user here
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
 
-class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    View for retrieving, updating or deleting a specific request
-    """
-    queryset = RequestManagement.objects.all()
-    serializer_class = RequestManagementSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = 'request_id'
+# class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
+#     """
+#     View for retrieving, updating or deleting a specific request
+#     """
+#     queryset = RequestManagement.objects.all()
+#     serializer_class = RequestManagementSerializer
+#     permission_classes = [IsAuthenticated]
+#     lookup_field = 'request_id'
 
-    def perform_update(self, serializer):
-        instance = self.get_object()
+#     def perform_update(self, serializer):
+#         instance = self.get_object()
 
-        # Check if user has permission to edit this request
-        if instance.user != self.request.user and self.request.user.role not in ['admin', 'superintendent']:
-            raise PermissionDenied(
-                "You don't have permission to edit this request")
+#        # Check if status is being changed
+#         old_status = instance.status
+#         # Set _status_changed_by to the authenticated user
+#         instance._status_changed_by = self.request.user
+#         serializer.save()
+#         # Optionally, validate that only authorized roles can change status
+#         if serializer.validated_data.get('status') != old_status:
+#             allowed_roles = ['admin', 'superintendent']
+#             if self.request.user.role not in allowed_roles:
+#                 raise PermissionDenied(
+#                     "Only admins or superintendents can change request status.")
 
-        # Prevent editing if request is already approved/rejected
-        if instance.status in ['approved', 'rejected']:
-            raise ValidationError(
-                "Cannot edit an already approved/rejected request")
+#         # Prevent editing if request is already approved/rejected
+#         if instance.status in ['approved', 'rejected']:
+#             raise ValidationError(
+#                 "Cannot edit an already approved/rejected request")
 
-        serializer.save()
+#         serializer.save()
 
 
 class RequestPriorityCreateView(generics.CreateAPIView):
@@ -476,9 +499,6 @@ def check_pending_requests(request):
 
 
 class ApproveRequestView(generics.UpdateAPIView):
-    """
-    View for approving a request (admin/superintendent only)
-    """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -486,24 +506,19 @@ class ApproveRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-
-        # Check if user has permission to approve
         if request.user.role not in ['admin', 'superintendent']:
             return Response(
                 {"detail": "Only administrators can approve requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
-
-        # Check if request is in pending state
         if instance.status != 'pending':
             return Response(
                 {"detail": "Only pending requests can be approved"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
         instance.status = 'approved'
+        instance._status_changed_by = request.user  # Set the sender
         instance.save()
-
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -807,3 +822,39 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
             status='draft',
             request__user=self.request.user
         )
+
+
+# List notifications for the current user
+class NotificationListView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(receiver=self.request.user).order_by('-notification_date')
+
+# Update individual notification (e.g., mark as read)
+
+
+class NotificationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Notification.objects.all()
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'
+
+    def perform_update(self, serializer):
+        # Ensure only the receiver can update their notifications
+        if serializer.instance.receiver != self.request.user:
+            raise PermissionDenied(
+                "You can only update your own notifications")
+        serializer.save()
+
+# Mark all notifications as read
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_all_notifications_read(request):
+    notifications = Notification.objects.filter(
+        receiver=request.user, is_read=False)
+    notifications.update(is_read=True)
+    return Response({'message': 'All notifications marked as read'}, status=status.HTTP_200_OK)

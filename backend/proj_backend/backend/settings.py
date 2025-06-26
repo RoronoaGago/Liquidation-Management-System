@@ -66,7 +66,6 @@ MIDDLEWARE = [
 ]
 
 
-
 ROOT_URLCONF = 'backend.urls'
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173",
                         "http://192.168.1.147:5173", "http://192.168.1.111:5173", "http://192.168.1.232:5173", "http://192.168.0.231:5173", "http://172.20.10.2:5173", "http://172.20.10.7:5173"]
@@ -196,7 +195,8 @@ EMAIL_HOST = 'smtp.gmail.com'  # Or your SMTP server
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'your-email@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'your-email-password-or-app-password'  # Your email password or app password
+# Your email password or app password
+EMAIL_HOST_PASSWORD = 'your-email-password-or-app-password'
 DEFAULT_FROM_EMAIL = 'your-email@gmail.com'  # Sender email address
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
@@ -205,3 +205,29 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+            'level': 'INFO',  # Ensure INFO level is included
+        },
+    },
+    'loggers': {
+        'api': {  # Replace with your app name or use '' for root logger
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}
