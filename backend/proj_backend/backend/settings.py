@@ -196,7 +196,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'your-random-password'            # Use an app password, not your Gmail password!
+EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'            # Use an app password, not your Gmail password!
 DEFAULT_FROM_EMAIL = 'riverajanlester.st.maria@gmail.com'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
