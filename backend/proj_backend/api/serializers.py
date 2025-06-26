@@ -202,6 +202,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
+    reviewed_by = UserSerializer(read_only=True)
 
     class Meta:
         model = RequestManagement
@@ -212,10 +213,12 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'date_approved',
             'date_downloaded',
             'rejection_comment',
-            'rejection_date'
+            'rejection_date',
+            'reviewed_by',
+            'reviewed_at',
         ]
         read_only_fields = ['request_id', 'created_at',
-                            'date_approved', 'date_downloaded', 'rejection_date']
+                            'date_approved', 'date_downloaded', 'reviewed_by', 'reviewed_at']
 
     def get_priorities(self, obj):
         request_priorities = obj.requestpriority_set.all()

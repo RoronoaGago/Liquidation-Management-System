@@ -176,6 +176,14 @@ class RequestManagement(models.Model):
     date_downloaded = models.DateField(null=True, blank=True)
     rejection_comment = models.TextField(null=True, blank=True)
     rejection_date = models.DateField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_requests'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -184,35 +192,37 @@ class RequestManagement(models.Model):
             old = RequestManagement.objects.get(pk=self.pk)
             old_status = old.status
 
-        # Status change logic
         status_changed = (old_status != self.status)
 
         if status_changed:
-            from .models import Notification  # Avoid circular import
+            if self.status in ['approved', 'rejected']:
+                if hasattr(self, '_status_changed_by'):
+                    self.reviewed_by = self._status_changed_by
+                self.reviewed_at = timezone.now()
+            from .models import Notification
             Notification.objects.create(
                 notification_title=f"Request {self.status.title()}",
                 details=self.rejection_comment if self.status == 'rejected' else None,
                 receiver=self.user,
                 sender=getattr(self, '_status_changed_by', None),
             )
+
         # Automatically set date_approved when status becomes 'approved'
         if self.status == 'approved' and self.date_approved is None:
             self.date_approved = timezone.now().date()
-        # If status is changed from approved to something else, clear date_approved
         elif self.status != 'approved' and self.date_approved is not None:
             self.date_approved = None
 
-          # Automatically set date_downloaded when status becomes 'downloaded'
+        # Automatically set date_downloaded when status becomes 'downloaded'
         if self.status == 'downloaded' and self.date_downloaded is None:
             self.date_downloaded = timezone.now().date()
         elif self.status != 'downloaded' and self.date_downloaded is not None:
             self.date_downloaded = None
 
-          # Automatically set rejection_date when status becomes 'rejected'
+        # Only set rejection_date when status becomes 'rejected'
         if self.status == 'rejected' and self.rejection_date is None:
             self.rejection_date = timezone.now().date()
-        elif self.status != 'rejected' and self.rejection_date is not None:
-            self.rejection_date = None
+        # Do not reset rejection_date when status changes from 'rejected' to another status
 
         super().save(*args, **kwargs)
 
@@ -222,7 +232,6 @@ class RequestManagement(models.Model):
                 notification_title=f"Request {self.status.title()}",
                 details=self.rejection_comment if self.status == 'rejected' else None,
                 receiver=self.user,
-                # Set this in your view if needed
                 sender=getattr(self, '_status_changed_by', None),
             )
 
