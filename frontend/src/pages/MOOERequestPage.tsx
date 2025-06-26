@@ -303,8 +303,8 @@ const MOOERequestPage = () => {
                           viewedSubmission.status === "pending"
                             ? "warning"
                             : viewedSubmission.status === "approved"
-                            ? "success"
-                            : "error"
+                            ? "error"
+                            : "success"
                         }
                       >
                         {viewedSubmission.status}
