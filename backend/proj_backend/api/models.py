@@ -99,14 +99,28 @@ class Requirement(models.Model):
 
 
 class ListOfPriority(models.Model):
+    CATEGORY_CHOICES = [
+        ('travel', 'Travel-Related Expenses'),
+        ('communication', 'Communication & Utilities'),
+        ('office', 'Office & Supplies Expenses'),
+        ('services', 'Services & Maintenance'),
+        ('medical', 'Medical & Food Supplies'),
+        ('misc', 'Miscellaneous Expenses'),
+    ]
+
     LOPID = models.AutoField(primary_key=True)
     expenseTitle = models.CharField(max_length=255)
+    category = models.CharField(
+        max_length=30,
+        choices=CATEGORY_CHOICES,
+        default='misc'
+    )
     requirements = models.ManyToManyField(
         'Requirement',
         through='PriorityRequirement',
-        related_name='priority_requirement'  # Changed from 'priorities'
+        related_name='priority_requirement'
     )
-    is_active = models.BooleanField(default=True)  # Add this field
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.expenseTitle

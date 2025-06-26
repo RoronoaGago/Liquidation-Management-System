@@ -163,8 +163,14 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'expenseTitle', 'requirements',
-                  'requirement_ids', 'is_active']
+        fields = [
+            'LOPID',
+            'expenseTitle',
+            'category',        # <-- Add this line
+            'requirements',
+            'requirement_ids',
+            'is_active'
+        ]
 
     def create(self, validated_data):
         requirements = validated_data.pop('requirements', [])
