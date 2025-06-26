@@ -21,9 +21,9 @@ import { ListofPriorityData } from "@/lib/types";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useLocation, useNavigate } from "react-router";
-import { DialogContent, Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import api from "@/api/axios";
-// Add this near the top of the component
+
 const MOOERequestPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -45,10 +45,9 @@ const MOOERequestPage = () => {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  // Add this useEffect to handle pre-filling from a rejected request
+  // Handle pre-filling from a rejected request
   useEffect(() => {
     if (location.state?.rejectedRequestId) {
-      // Convert priorities from the rejected request to selected format
       const initialSelected = location.state.priorities.reduce(
         (acc: any, priority: any) => {
           acc[priority.priority.expenseTitle] = priority.amount;
@@ -56,10 +55,7 @@ const MOOERequestPage = () => {
         },
         {}
       );
-
       setSelected(initialSelected);
-
-      // Show a toast about the rejection
       toast.info(
         <div>
           <p>You're editing a rejected request.</p>
@@ -74,9 +70,8 @@ const MOOERequestPage = () => {
       );
     }
   }, [location.state]);
-  // Fetch priorities from backend
-  // Update your useEffect
-  // Update your useEffect
+
+  // Fetch priorities and check for pending requests or active liquidations
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -93,7 +88,6 @@ const MOOERequestPage = () => {
         setPriorities(data);
 
         const hasPending = pendingCheckResponse.data.has_pending_request;
-        // Only consider as "active" if status is NOT liquidated
         const activeLiquidation = pendingCheckResponse.data.active_liquidation;
         const hasActive =
           !!activeLiquidation && activeLiquidation.status !== "liquidated";
@@ -103,7 +97,6 @@ const MOOERequestPage = () => {
         setPendingRequestData(pendingCheckResponse.data.pending_request);
         setActiveLiquidationData(activeLiquidation);
 
-        // Only show dialog if there is a pending request or a non-liquidated liquidation
         if (hasPending || hasActive) {
           setShowStatusDialog(true);
         } else {
@@ -121,11 +114,12 @@ const MOOERequestPage = () => {
     };
     fetchData();
   }, []);
+
   const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
+
   const handleCheck = (expense: string) => {
     setSelected((prev) => {
       if (expense in prev) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [expense]: _, ...rest } = prev;
         return rest;
       } else {
@@ -135,19 +129,19 @@ const MOOERequestPage = () => {
   };
 
   const handleAmountChange = (expense: string, value: string) => {
-    // Only allow positive numbers
     if (value === "" || (!isNaN(Number(value)) && Number(value) >= 0)) {
       setSelected((prev) => ({ ...prev, [expense]: value }));
     }
   };
+
   const handleNavigation = () => {
     if (hasPendingRequest) {
       navigate("/requests-history");
     } else if (hasActiveLiquidation) {
       navigate("/liquidation");
     }
-    // No navigation for the fallback case ('#')
   };
+
   const handleQuickAdd = (expense: string, amount: number) => {
     setSelected((prev) => ({
       ...prev,
@@ -167,11 +161,11 @@ const MOOERequestPage = () => {
   const selectedPriorities = Object.entries(selected)
     .map(([expenseTitle, amount]) => {
       const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
-      return priority ? { LOPID: priority.LOPID, amount } : null;
+      return priority ? { LOPID: priority.LOPID.toString(), amount } : null;
     })
-    .filter(Boolean);
+    .filter(Boolean) as { LOPID: string; amount: string }[];
 
-  // Submit handler
+  // Submit handler with resubmission logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedPriorities.length === 0) {
@@ -180,7 +174,7 @@ const MOOERequestPage = () => {
     }
 
     const emptyAmounts = selectedPriorities.filter(
-      (item) => item && (!item.amount || item.amount === "0")
+      (item) => !item.amount || item.amount === "0"
     );
     if (emptyAmounts.length > 0) {
       toast.error("Please enter amounts for all selected expenses.");
@@ -189,19 +183,32 @@ const MOOERequestPage = () => {
 
     setSubmitting(true);
     try {
-      await api.post("requests/", {
-        priority_amounts: selectedPriorities,
-        request_month: new Date().toLocaleString("default", {
-          month: "long",
-          year: "numeric",
-        }),
-        notes: location.state?.rejectedRequestId
-          ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
-          : undefined,
-      });
+      if (location.state?.rejectedRequestId) {
+        // Resubmit existing request
+        await api.put(
+          `requests/${location.state.rejectedRequestId}/resubmit/`,
+          {
+            priority_amounts: selectedPriorities,
+          }
+        );
+        toast.success("Resubmitted successfully!");
+      } else {
+        // Create new request
+        await api.post("requests/", {
+          priority_amounts: selectedPriorities,
+          request_month: new Date().toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+          }),
+          notes: location.state?.rejectedRequestId
+            ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
+            : undefined,
+        });
+        toast.success("Fund request submitted successfully!");
+      }
 
       setSelected({});
-      setShowSuccessDialog(true); // Show dialog
+      setShowSuccessDialog(true);
 
       setTimeout(() => {
         setShowSuccessDialog(false);
@@ -285,14 +292,14 @@ const MOOERequestPage = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent
-          className="[&>button]:hidden w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-lg border border-gray-200 dark:border-gray-700 "
-          onInteractOutside={(e) => e.preventDefault()} // Prevents closing when clicking outside
-          onEscapeKeyDown={(e) => e.preventDefault()} // Optional: Prevents closing with ESC key
+          className="[&>button]:hidden w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-lg border border-gray-200 dark:border-gray-700"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          {/* Header */}
-          <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+          <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-5 border-b border  -gray-100 dark:border-gray-700">
             <div className="flex items-center gap-4">
               <div className="p-2.5 rounded-lg bg-brand-100/80 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
                 <AlertCircle className="h-6 w-6" />
@@ -302,13 +309,12 @@ const MOOERequestPage = () => {
                   Action Required
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Please review these important notification
+                  Please review these important notifications
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Content */}
           <div className="space-y-4 px-6 py-5">
             {hasPendingRequest && (
               <div className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
@@ -318,7 +324,7 @@ const MOOERequestPage = () => {
                 <div className="space-y-2.5">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     Pending MOOE Request
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100  text-brand-800 dark:text-brand-200">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800 dark:text-brand-200">
                       Attention needed
                     </span>
                   </h3>
@@ -348,7 +354,7 @@ const MOOERequestPage = () => {
                 <div className="space-y-2.5">
                   <h3 className="font-semibold text-gray-900 dark:text-white">
                     Active Liquidation Process
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100  text-brand-800 dark:text-brand-200">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800 dark:text-brand-200">
                       Attention needed
                     </span>
                   </h3>
@@ -378,8 +384,6 @@ const MOOERequestPage = () => {
             )}
           </div>
 
-          {/* Footer */}
-          {/* Footer */}
           <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
             <div></div>
             <Button
@@ -393,11 +397,12 @@ const MOOERequestPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
       <div className="mt-8">
         {!isFormDisabled && (
           <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
             <h3 className="text-lg font-medium text-brand-800 dark:text-brand-200 flex items-center gap-2 mb-2">
-              <Info className="h-5 w-5" /> How to request MOOE(Maintenance and
+              <Info className="h-5 w-5" /> How to request MOOE (Maintenance and
               Other Operating Expenses)
             </h3>
             <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
