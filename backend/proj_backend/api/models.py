@@ -100,12 +100,13 @@ class Requirement(models.Model):
 
 class ListOfPriority(models.Model):
     CATEGORY_CHOICES = [
-        ('travel', 'Travel-Related Expenses'),
+        ('trainDev', 'Training and Development'),
+        ('transport', 'Travel & Transportation'),
         ('communication', 'Communication & Utilities'),
-        ('office', 'Office & Supplies Expenses'),
+        ('office', 'Office Operations & Supplies'),
         ('services', 'Services & Maintenance'),
         ('medical', 'Medical & Food Supplies'),
-        ('misc', 'Miscellaneous Expenses'),
+        ('misc', 'Miscellaneous'),
     ]
 
     LOPID = models.AutoField(primary_key=True)
