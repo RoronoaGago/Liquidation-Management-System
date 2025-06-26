@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidatorAssignment
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -163,8 +163,14 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'expenseTitle', 'requirements',
-                  'requirement_ids', 'is_active']
+        fields = [
+            'LOPID',
+            'expenseTitle',
+            'category',        # <-- Add this line
+            'requirements',
+            'requirement_ids',
+            'is_active'
+        ]
 
     def create(self, validated_data):
         requirements = validated_data.pop('requirements', [])
@@ -328,6 +334,66 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                     'comment': doc.reviewer_comment
                 })
         return comments
+
+
+class LiquidatorAssignmentSerializer(serializers.ModelSerializer):
+    liquidator = UserSerializer(read_only=True)
+    liquidator_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='liquidator'),
+        source='liquidator',
+        write_only=True
+    )
+    assigned_by = UserSerializer(read_only=True)
+    assigned_by_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='assigned_by',
+        write_only=True,
+        required=False
+    )
+    school = SchoolSerializer(read_only=True)
+    school_id = serializers.PrimaryKeyRelatedField(
+        queryset=School.objects.all(),
+        source='school',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+
+    class Meta:
+        model = LiquidatorAssignment
+        fields = [
+            'id',
+            'liquidator', 'liquidator_id',
+            'district',
+            'school', 'school_id',
+            'assigned_by', 'assigned_by_id',
+            'assigned_at'
+        ]
+        read_only_fields = ['id', 'assigned_at', 'liquidator', 'assigned_by', 'school']
+
+    def create(self, validated_data):
+        liquidator = validated_data['liquidator']
+        district = validated_data['district']
+        assigned_by = validated_data.get('assigned_by', None)
+
+        # Get all schools in the district
+        schools = School.objects.filter(district=district)
+        assignments = []
+        for school in schools:
+            # Prevent duplicate assignments
+            if not LiquidatorAssignment.objects.filter(liquidator=liquidator, district=district, school=school).exists():
+                assignments.append(
+                    LiquidatorAssignment(
+                        liquidator=liquidator,
+                        district=district,
+                        school=school,
+                        assigned_by=assigned_by
+                    )
+                )
+        # Bulk create assignments
+        LiquidatorAssignment.objects.bulk_create(assignments)
+        # Return the first assignment for serializer response
+        return assignments[0] if assignments else None
 
 
 class NotificationSerializer(serializers.ModelSerializer):

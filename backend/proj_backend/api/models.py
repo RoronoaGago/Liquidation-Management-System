@@ -77,7 +77,7 @@ class User(AbstractUser):
 
 class School(models.Model):
     schoolId = models.CharField(
-        max_length=10, primary_key=True, editable=False)  # Primary Key
+        max_length=10, primary_key=True, editable=True)  # Primary Key
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     district = models.CharField(max_length=100)
@@ -99,14 +99,29 @@ class Requirement(models.Model):
 
 
 class ListOfPriority(models.Model):
+    CATEGORY_CHOICES = [
+        ('trainDev', 'Training and Development'),
+        ('transport', 'Travel & Transportation'),
+        ('communication', 'Communication & Utilities'),
+        ('office', 'Office Operations & Supplies'),
+        ('services', 'Services & Maintenance'),
+        ('medical', 'Medical & Food Supplies'),
+        ('misc', 'Miscellaneous'),
+    ]
+
     LOPID = models.AutoField(primary_key=True)
     expenseTitle = models.CharField(max_length=255)
+    category = models.CharField(
+        max_length=30,
+        choices=CATEGORY_CHOICES,
+        default='misc'
+    )
     requirements = models.ManyToManyField(
         'Requirement',
         through='PriorityRequirement',
-        related_name='priority_requirement'  # Changed from 'priorities'
+        related_name='priority_requirement'
     )
-    is_active = models.BooleanField(default=True)  # Add this field
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.expenseTitle
@@ -411,3 +426,26 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification to {self.receiver.username}: {self.notification_title}"
+
+
+class LiquidatorAssignment(models.Model):
+    DISTRICT_CHOICES = [
+        ('all', 'All District'),
+        ('1st', '1st District'),
+        ('2nd', '2nd District')
+    ]
+    liquidator = models.ForeignKey(
+        User, on_delete=models.CASCADE, limit_choices_to={'role': 'liquidator'})
+    district = models.CharField(max_length=100, choices=DISTRICT_CHOICES, default='all')
+    # Optionally, you can use a ForeignKey to School if you want assignment per school
+    school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
+
+    assigned_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assignments_made')
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('liquidator', 'district')
+
+    def __str__(self):
+        return f"{self.liquidator} assigned to {self.district}"
