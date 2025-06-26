@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import Badge from "@/components/ui/badge/Badge";
 import { handleExport } from "@/lib/pdfHelpers";
-import { Download } from "lucide-react";
+import { Download, XCircle } from "lucide-react";
+import { format } from "date-fns";
 import Button from "@/components/ui/button/Button";
 
 const MOOERequestPage = () => {
@@ -216,41 +217,73 @@ const MOOERequestPage = () => {
                 </div>
               </div>
               {/* Rejection Reason Section */}
-              {viewedSubmission?.status === "rejected" &&
-                viewedSubmission.rejection_comment && (
-                  <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-900/30">
-                    <h4 className="font-medium text-red-800 dark:text-red-200">
-                      Rejection Reason:
-                    </h4>
-                    <p className="text-red-700 dark:text-red-300 mt-1">
-                      {viewedSubmission.rejection_comment}
-                    </p>
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-                      Rejected on:{" "}
-                      {new Date(
-                        viewedSubmission.rejection_date
-                      ).toLocaleDateString()}
-                    </p>
+              {viewedSubmission?.status === "rejected" && (
+                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900/30">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 pt-0.5">
+                      <XCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-red-800 dark:text-red-200">
+                        Rejection Details
+                      </h4>
 
-                    <Button
-                      onClick={() => {
-                        // Navigate to fund request page with previous data pre-filled
-                        navigate("/prepare-list-of-priorities", {
-                          state: {
-                            rejectedRequestId: viewedSubmission.request_id,
-                            priorities: viewedSubmission.priorities,
-                            rejectionComment:
-                              viewedSubmission.rejection_comment,
-                          },
-                        });
-                      }}
-                      variant="primary"
-                      className="mt-3"
-                    >
-                      Edit and Resubmit
-                    </Button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Rejected on
+                          </p>
+                          <p className="text-red-700 dark:text-red-300">
+                            {viewedSubmission.rejection_date
+                              ? format(
+                                  new Date(viewedSubmission.rejection_date),
+                                  "MMM dd, yyyy hh:mm a"
+                                )
+                              : "N/A"}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Reviewed by
+                          </p>
+                          <p className="text-red-700 dark:text-red-300">
+                            {viewedSubmission.reviewed_by
+                              ? `${viewedSubmission.reviewed_by.first_name} ${viewedSubmission.reviewed_by.last_name}`
+                              : "Division Superintendent"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Reason for rejection
+                        </p>
+                        <p className="text-red-700 dark:text-red-300 mt-1 bg-red-100/50 dark:bg-red-900/30 p-3 rounded-md">
+                          {viewedSubmission.rejection_comment ||
+                            "No reason provided"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                )}
+
+                  <Button
+                    onClick={() => {
+                      navigate("/prepare-list-of-priorities", {
+                        state: {
+                          rejectedRequestId: viewedSubmission.request_id,
+                          priorities: viewedSubmission.priorities,
+                          rejectionComment: viewedSubmission.rejection_comment,
+                        },
+                      });
+                    }}
+                    variant="primary"
+                    className="mt-4 w-full"
+                  >
+                    Edit and Resubmit Request
+                  </Button>
+                </div>
+              )}
               {/* Action Buttons - Modified to check for superintendent role */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {user?.role === "superintendent" && (

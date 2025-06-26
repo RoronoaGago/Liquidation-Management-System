@@ -186,36 +186,54 @@ const FundRequestPage = () => {
     }
 
     setSubmitting(true);
-    try {
-      await api.post("requests/", {
-        priority_amounts: selectedPriorities,
-        request_month: new Date().toLocaleString("default", {
-          month: "long",
-          year: "numeric",
-        }),
-        // Add a note if this is a resubmission
-        notes: location.state?.rejectedRequestId
-          ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
-          : undefined,
-      });
 
-      toast.success(
-        location.state?.rejectedRequestId
-          ? "Resubmitted successfully!"
-          : "Fund request submitted successfully!",
-        { autoClose: 3000 }
-      );
-      setSelected({});
-      navigate(".", { state: {}, replace: true });
-    } catch (error: any) {
-      console.error("Error:", error);
-      const errorMessage =
-        error.response?.data?.message ||
-        "Failed to submit fund request. Please try again.";
-      toast.error(errorMessage, { autoClose: 4000 });
-    } finally {
-      setSubmitting(false);
+    if (location.state?.rejectedRequestId) {
+      // RESUBMIT EXISTING REQUEST
+      try {
+        await api.put(
+          `requests/${location.state.rejectedRequestId}/resubmit/`,
+          {
+            priority_amounts: selectedPriorities,
+          }
+        );
+
+        toast.success("Resubmitted successfully!");
+        navigate("/requests-history");
+      } catch (error) {
+        toast.error("Resubmission failed");
+      }
+    } else {
+      // CREATE NEW REQUEST
+      try {
+        await api.post("requests/", {
+          priority_amounts: selectedPriorities,
+          request_month: new Date().toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+          }),
+          // Add a note if this is a resubmission
+          notes: location.state?.rejectedRequestId
+            ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
+            : undefined,
+        });
+
+        toast.success(
+          location.state?.rejectedRequestId
+            ? "Resubmitted successfully!"
+            : "Fund request submitted successfully!",
+          { autoClose: 3000 }
+        );
+        setSelected({});
+        navigate(".", { state: {}, replace: true });
+      } catch (error: any) {
+        console.error("Error:", error);
+        const errorMessage =
+          error.response?.data?.message ||
+          "Failed to submit fund request. Please try again.";
+        toast.error(errorMessage, { autoClose: 4000 });
+      }
     }
+    setSubmitting(false);
   };
 
   // Debounced search handler
