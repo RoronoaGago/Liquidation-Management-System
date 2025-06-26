@@ -540,9 +540,23 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
     permission_classes = [IsAuthenticated]
     lookup_field = 'LiquidationID'
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        partial = kwargs.pop('partial', False)
+        data = request.data.copy()
+
+        # If approving at district level, set reviewed_by_district
+        if data.get("status") == "approved_district":
+            data["reviewed_by_district"] = request.user.id
+            data["reviewed_at_district"] = timezone.now()
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
     def perform_update(self, serializer):
         instance = self.get_object()
-        # Set the sender for notification
         instance._status_changed_by = self.request.user
         serializer.save()
 
@@ -688,9 +702,11 @@ def submit_liquidation(request, LiquidationID):
                     break
             if required_docs_missing:
                 break
-        if liquidation.status != 'draft':
+
+        # Allow submission if status is 'draft' or 'resubmit'
+        if liquidation.status not in ['draft', 'resubmit']:
             return Response(
-                {'error': 'Liquidation has already been submitted'},
+                {'error': 'Liquidation must be in draft or resubmit status to be submitted'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if required_docs_missing:
@@ -705,7 +721,7 @@ def submit_liquidation(request, LiquidationID):
 
         serializer = LiquidationManagementSerializer(
             liquidation,
-            context={'request': request}  # <-- Add this line
+            context={'request': request}
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -714,8 +730,6 @@ def submit_liquidation(request, LiquidationID):
             {'error': 'Liquidation not found'},
             status=status.HTTP_404_NOT_FOUND
         )
-
-# views.py
 
 
 @api_view(['GET'])

@@ -148,6 +148,7 @@ class RequestManagement(models.Model):
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
         ('downloaded', 'Downloaded'),
+        ('liquidated', 'Liquidated'),
     ]
 
     request_id = models.CharField(
