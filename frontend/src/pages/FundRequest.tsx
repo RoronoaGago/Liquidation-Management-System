@@ -82,7 +82,6 @@ const FundRequestPage = () => {
       setLoading(true);
       setFetchError(null);
       try {
-        // These will now automatically include the auth token
         const [prioritiesResponse, pendingCheckResponse] = await Promise.all([
           api.get("priorities/"),
           api.get("check-pending-requests/"),
@@ -94,15 +93,21 @@ const FundRequestPage = () => {
         setPriorities(data);
 
         const hasPending = pendingCheckResponse.data.has_pending_request;
-        const hasActive = pendingCheckResponse.data.has_active_liquidation;
+        // Only consider as "active" if status is NOT liquidated
+        const activeLiquidation = pendingCheckResponse.data.active_liquidation;
+        const hasActive =
+          !!activeLiquidation && activeLiquidation.status !== "liquidated";
 
         setHasPendingRequest(hasPending);
         setHasActiveLiquidation(hasActive);
         setPendingRequestData(pendingCheckResponse.data.pending_request);
-        setActiveLiquidationData(pendingCheckResponse.data.active_liquidation);
+        setActiveLiquidationData(activeLiquidation);
 
+        // Only show dialog if there is a pending request or a non-liquidated liquidation
         if (hasPending || hasActive) {
           setShowStatusDialog(true);
+        } else {
+          setShowStatusDialog(false);
         }
       } catch (error: any) {
         setFetchError(

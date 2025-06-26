@@ -1,6 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import api from "@/api/axios";
 import {
   Table,
@@ -21,12 +22,15 @@ import Input from "@/components/form/input/InputField";
 import { toast } from "react-toastify";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
+import Badge from "@/components/ui/badge/Badge"; // Add this if you want to match PrioritySubmissions dialog badge
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 
 // Define the Liquidation type (or import it if shared)
 type Liquidation = {
-  created_at: any;
+  reviewed_at_district?: any; // <-- make optional
+  reviewed_by_district?: any; // <-- make optional
+  created_at?: any; // <-- make optional
   LiquidationID: string;
   status: string;
   request?: {
@@ -38,7 +42,7 @@ type Liquidation = {
         schoolName: string;
       };
     };
-    priorities?: any[]; // Add this line to include priorities
+    priorities?: any[];
   };
   // Add other fields as needed
 };
@@ -72,7 +76,7 @@ interface LiquidationReportTableProps {
   refreshList: () => Promise<void>;
 }
 
-const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
+const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
   liquidations,
   refreshList,
 }) => {
@@ -92,6 +96,9 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     direction: "asc" | "desc";
   } | null>(null);
   const [, setDisabledLiquidationIDs] = useState<string[]>([]);
+  const [districtAdmins, setDistrictAdmins] = useState<
+    Record<number, { first_name: string; last_name: string }>
+  >({});
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
@@ -166,16 +173,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     return sortedLiquidations.slice(start, start + itemsPerPage);
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
+  // Remove status change on view!
   const handleView = async (liq: Liquidation) => {
-    try {
-      await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-        status: "under_review_district",
-      });
-      // Optionally refresh the list for instant feedback
-      await refreshList();
-    } catch (err) {
-      toast.error("Failed to update status.");
-    }
     setSelected(liq);
     setExpandedExpense(null);
     setDocLoading(true);
@@ -257,6 +256,38 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
       return { key, direction: "asc" };
     });
   };
+
+  useEffect(() => {
+    // Find all unique district admin IDs that are numbers
+    const ids = Array.from(
+      new Set(
+        liquidations
+          .map((liq) =>
+            typeof liq.reviewed_by_district === "number"
+              ? liq.reviewed_by_district
+              : null
+          )
+          .filter((id): id is number => !!id)
+      )
+    );
+    if (ids.length === 0) return;
+
+    // Fetch all district admins in parallel
+    Promise.all(
+      ids.map((id) =>
+        api.get(`/users/${id}/`).then((res) => ({ id, ...res.data }))
+      )
+    ).then((results) => {
+      const map: Record<number, { first_name: string; last_name: string }> = {};
+      results.forEach((user) => {
+        map[user.id] = {
+          first_name: user.first_name,
+          last_name: user.last_name,
+        };
+      });
+      setDistrictAdmins(map);
+    });
+  }, [liquidations]);
 
   return (
     <div>
@@ -385,9 +416,37 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                         handleSort("created_at");
                     }}
                   >
-                    Date Submitted
+                    Date Reviewed
                     <span className="inline-block align-middle ml-1">
                       {sortConfig?.key === "created_at" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp className="inline w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="inline w-4 h-4" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="inline w-4 h-4 text-gray-300" />
+                      )}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+                >
+                  <div
+                    className="cursor-pointer select-none flex items-center"
+                    onClick={() => handleSort("reviewed_by_district")}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        handleSort("reviewed_by_district");
+                    }}
+                  >
+                    Reviewed By
+                    <span className="inline-block align-middle ml-1">
+                      {sortConfig?.key === "reviewed_by_district" ? (
                         sortConfig.direction === "asc" ? (
                           <ChevronUp className="inline w-4 h-4" />
                         ) : (
@@ -493,8 +552,23 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
                       {/* Format created_at as YYYY-MM-DD or your preferred format */}
-                      {liq.created_at
-                        ? new Date(liq.created_at).toLocaleDateString()
+                      {liq.reviewed_at_district
+                        ? new Date(
+                            liq.reviewed_at_district
+                          ).toLocaleDateString()
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                      {typeof liq.reviewed_by_district === "object" &&
+                      liq.reviewed_by_district
+                        ? `${liq.reviewed_by_district.first_name} ${liq.reviewed_by_district.last_name}`
+                        : typeof liq.reviewed_by_district === "number" &&
+                          districtAdmins[liq.reviewed_by_district]
+                        ? `${
+                            districtAdmins[liq.reviewed_by_district].first_name
+                          } ${
+                            districtAdmins[liq.reviewed_by_district].last_name
+                          }`
                         : "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
@@ -509,42 +583,12 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                       <span
                         onClick={() => handleView(liq)}
                         className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline cursor-pointer font-medium"
-                        title={
-                          liq.status === "resubmit" ||
-                          liq.status === "approved" ||
-                          liq.status === "approved_district" ||
-                          liq.status === "approved_division" ||
-                          liq.status === "completed"
-                            ? "Viewing is disabled for approved or completed liquidations."
-                            : "View"
-                        }
+                        title="View"
                         style={{
-                          opacity:
-                            liq.status === "resubmit" ||
-                            liq.status === "approved" ||
-                            liq.status === "approved_district" ||
-                            liq.status === "approved_division" ||
-                            liq.status === "completed"
-                              ? 0.5
-                              : 1,
-                          pointerEvents:
-                            liq.status === "resubmit" ||
-                            liq.status === "approved" ||
-                            liq.status === "approved_district" ||
-                            liq.status === "approved_division" ||
-                            liq.status === "completed"
-                              ? "none"
-                              : "auto",
+                          opacity: 1,
+                          pointerEvents: "auto",
                         }}
-                        tabIndex={
-                          liq.status === "resubmit" ||
-                          liq.status === "approved" ||
-                          liq.status === "approved_district" ||
-                          liq.status === "approved_division" ||
-                          liq.status === "completed"
-                            ? -1
-                            : 0
-                        }
+                        tabIndex={0}
                         role="link"
                       >
                         View
@@ -608,178 +652,171 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
         </div>
       </div>
 
-      {/* Main Dialog: Expenses & Requirements */}
+      {/* Main Dialog: Match PrioritySubmissionsPage style */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Documents to Pre-Audit for {selected?.LiquidationID}
+        <DialogContent className="w-full max-w-[90vw] lg:max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
+              Liquidation Report Details
             </DialogTitle>
-            <DialogDescription>
-              Expand an expense to view its requirements and uploaded documents.
+            <DialogDescription className="text-gray-600 dark:text-gray-400">
+              Review and finalize this liquidation report.
             </DialogDescription>
           </DialogHeader>
-          {/* Document Completion Progress */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Document Completion
-              </h3>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {getCompletion().approved}/{getCompletion().totalRequired}{" "}
-                approved
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-              <div
-                className="bg-blue-600 h-2.5 rounded-full"
-                style={{
-                  width: getCompletion().totalRequired
-                    ? `${
-                        (getCompletion().approved /
-                          getCompletion().totalRequired) *
-                        100
-                      }%`
-                    : "0%",
-                }}
-              ></div>
-            </div>
-          </div>
-          {docLoading ? (
-            <div className="py-8 text-center">Loading...</div>
-          ) : (
-            <div className="space-y-4">
-              {expenseList.length === 0 ? (
-                <div className="text-gray-500">No expenses found.</div>
-              ) : (
-                expenseList.map((expense) => (
-                  <div
-                    key={expense.id}
-                    className="bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-                  >
-                    {/* Expense Header */}
-                    <div
-                      className="flex items-center justify-between p-3 cursor-pointer"
-                      onClick={() =>
-                        setExpandedExpense(
-                          expandedExpense === String(expense.id)
-                            ? null
-                            : String(expense.id)
-                        )
-                      }
-                    >
-                      <div>
-                        <div className="font-semibold text-gray-800 dark:text-white">
-                          {expense.title}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          ₱{expense.amount.toLocaleString()}
-                        </div>
-                      </div>
-                      <div>
-                        {expandedExpense === String(expense.id) ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
-                        )}
-                      </div>
+          {selected && (
+            <div className="space-y-6">
+              {/* Details Card */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1 col-span-2">
+                    <div className="flex items-start">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
+                        Liquidation ID:
+                      </span>
+                      <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
+                        {selected.LiquidationID}
+                      </span>
                     </div>
-                    {/* Requirements/Docs */}
-                    {expandedExpense === String(expense.id) && (
-                      <div className="p-3 space-y-2">
-                        {expense.requirements.map((req) => {
-                          const doc = documents.find(
-                            (d) =>
-                              d.requirement_obj.requirementTitle ===
-                              req.requirementTitle
-                          );
-                          return (
-                            <div
-                              key={req.requirementID}
-                              className="flex items-center justify-between bg-white dark:bg-gray-800 rounded px-3 py-2"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="flex-shrink-0">
-                                  {doc && doc.is_approved ? (
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  ) : (
-                                    <AlertCircle className="h-5 w-5 text-yellow-500" />
-                                  )}
-                                </div>
-                                <div>
-                                  <div className="font-medium">
-                                    {req.requirementTitle}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {req.is_required ? "Required" : "Optional"}
-                                  </div>
-                                  {doc && (
-                                    <div className="text-xs mt-1">
-                                      Status:{" "}
-                                      {doc.is_approved ? (
-                                        <span className="text-green-600">
-                                          Approved
-                                        </span>
-                                      ) : (
-                                        <span className="text-yellow-600">
-                                          Pending
-                                        </span>
-                                      )}
-                                      {doc.reviewer_comment && (
-                                        <span className="ml-2 text-red-500">
-                                          {doc.reviewer_comment}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div>
-                                {doc ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setViewDoc(doc)}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <LucideEye className="w-4 h-4" />
-                                    View
-                                  </Button>
-                                ) : (
-                                  <span className="text-xs text-gray-400">
-                                    No document
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
+                        School Head:
+                      </span>
+                      <span className="text-gray-900 dark:text-white">
+                        {selected.request?.user
+                          ? `${selected.request.user.first_name} ${selected.request.user.last_name}`
+                          : "N/A"}
+                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                          (School Head)
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                ))
-              )}
-            </div>
-          )}
-          {/* Approve/Reject Report Buttons */}
-          {allReviewed && (
-            <div className="flex gap-2 justify-end mt-4">
-              <Button
-                onClick={handleApproveReport}
-                disabled={!canApprove}
-                color="success"
-                startIcon={<CheckCircle className="h-5 w-5" />}
-              >
-                Approve Liquidation Report
-              </Button>
-              <Button
-                onClick={handleRejectReport}
-                disabled={!canReject}
-                variant="destructive"
-                startIcon={<AlertCircle className="h-5 w-5" />}
-              >
-                Reject Liquidation Report
-              </Button>
+                  <div className="space-y-1">
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
+                        School:
+                      </span>
+                      <span className="text-gray-900 dark:text-white">
+                        {selected.request?.user?.school?.schoolName || "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
+                        Status:
+                      </span>
+                      <Badge
+                        color={
+                          selected.status === "approved_district"
+                            ? "success"
+                            : selected.status === "resubmit"
+                            ? "error"
+                            : selected.status === "under_review_district"
+                            ? "warning"
+                            : "info"
+                        }
+                      >
+                        {STATUS_LABELS[selected.status] || selected.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    Reviewed at:{" "}
+                    {selected.reviewed_at_district
+                      ? new Date(selected.reviewed_at_district).toLocaleString()
+                      : "N/A"}
+                    <br />
+                    Reviewed by:{" "}
+                    {selected.reviewed_by_district
+                      ? `${selected.reviewed_by_district.first_name} ${selected.reviewed_by_district.last_name}`
+                      : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Priorities Table */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg text-gray-800 dark:text-white">
+                  List of Priorities
+                </h3>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Expense
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Amount
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {expenseList.map((exp, idx) => (
+                          <tr
+                            key={idx}
+                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                          >
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                              {exp.title}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
+                              ₱
+                              {Number(exp.amount).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-50/50 dark:bg-gray-700/30 font-semibold">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                            TOTAL
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
+                            ₱
+                            {expenseList
+                              .reduce((sum, p) => sum + Number(p.amount), 0)
+                              .toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Finalize Button */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                  type="button"
+                  variant="success"
+                  onClick={async () => {
+                    try {
+                      // Only mark the liquidation as liquidated
+                      await api.patch(
+                        `/liquidations/${selected.LiquidationID}/`,
+                        {
+                          status: "liquidated",
+                        }
+                      );
+                      toast.success(
+                        "Liquidation report finalized and marked as liquidated!"
+                      );
+                      setSelected(null);
+                      refreshList();
+                    } catch (err) {
+                      toast.error("Failed to finalize liquidation report.");
+                    }
+                  }}
+                  disabled={selected.status === "liquidated"}
+                >
+                  Finalize the liquidation report
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
@@ -924,9 +961,9 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   );
 };
 
-export default LiquidationReportTable;
+export default LiquidatorsTable;
 
-const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   submitted: "Submitted",
   under_review_district: "Under Review (District)",
@@ -940,7 +977,7 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-const statusBadgeStyle = (status: string) => {
+export const statusBadgeStyle = (status: string) => {
   switch (status) {
     case "draft":
       return "bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300";
