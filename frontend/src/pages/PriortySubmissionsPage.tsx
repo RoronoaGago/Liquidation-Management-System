@@ -560,29 +560,30 @@ const PriortySubmissionsPage = () => {
                   </div>
                 )}
 
-              {viewedSubmission?.status === "pending" && (
-                <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-900/30">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 pt-0.5">
-                      <AlertTriangleIcon className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
-                        Previously Rejected
-                      </h4>
+              {viewedSubmission?.status === "pending" &&
+                viewedSubmission.rejection_comment && (
+                  <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-900/30">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 pt-0.5">
+                        <AlertTriangleIcon className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
+                          Previously Rejected
+                        </h4>
 
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Previous rejection reason
-                        </p>
-                        <p className="text-yellow-700 dark:text-yellow-300 mt-1 bg-yellow-100/50 dark:bg-yellow-900/30 p-3 rounded-md">
-                          {viewedSubmission.rejection_comment}
-                        </p>
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Previous rejection reason
+                          </p>
+                          <p className="text-yellow-700 dark:text-yellow-300 mt-1 bg-yellow-100/50 dark:bg-yellow-900/30 p-3 rounded-md">
+                            {viewedSubmission.rejection_comment}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button

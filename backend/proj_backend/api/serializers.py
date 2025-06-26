@@ -218,7 +218,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'reviewed_at',
         ]
         read_only_fields = ['request_id', 'created_at',
-                            'date_approved', 'date_downloaded', 'reviewed_by' 'reviewed_at']
+                            'date_approved', 'date_downloaded', 'reviewed_by', 'reviewed_at']
 
     def get_priorities(self, obj):
         request_priorities = obj.requestpriority_set.all()
@@ -296,7 +296,6 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 class LiquidationManagementSerializer(serializers.ModelSerializer):
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
-    reviewed_by = UserSerializer(read_only=True)
     submitted_at = serializers.DateTimeField(
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
