@@ -1,13 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useMemo, useEffect } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import LiquidationReportTable from "@/components/tables/BasicTables/LiquidationReportTable";
+import LiquidatorsTable from "@/components/tables/BasicTables/LiquidatorsTable";
 import api from "@/api/axios";
 
+// Define the Liquidation type if not imported from elsewhere
 type Liquidation = {
   LiquidationID: string;
   status: string;
-  created_at: string; // Add this property to match the expected type
+  reviewed_by_district?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_district?: string; // Add this property
+  created_at?: string; // Add this property
   request?: {
     request_id?: string;
     user?: {
@@ -18,17 +24,15 @@ type Liquidation = {
       };
     };
   };
-  // Add other fields as needed
 };
 
-const LiquidationReportPage = () => {
+const LiquidatorsPage = () => {
   const [liquidations, setLiquidations] = useState<Liquidation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm] = useState("");
   const [itemsPerPage] = useState(10);
   const [currentPage] = useState(1);
 
-  // Fetch liquidations from backend
   useEffect(() => {
     const fetchLiquidations = async () => {
       setLoading(true);
@@ -50,9 +54,13 @@ const LiquidationReportPage = () => {
     return liquidations.filter((liq) => {
       const user = liq.request?.user;
       const school = user?.school?.schoolName || "";
+      const reviewer = liq.reviewed_by_district
+        ? `${liq.reviewed_by_district.first_name} ${liq.reviewed_by_district.last_name}`
+        : "";
       return (
         liq.LiquidationID.toLowerCase().includes(searchTerm.toLowerCase()) ||
         liq.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        reviewer.toLowerCase().includes(searchTerm.toLowerCase()) ||
         liq.request?.request_id
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
@@ -70,14 +78,10 @@ const LiquidationReportPage = () => {
     return filteredLiquidations.slice(start, start + itemsPerPage);
   }, [filteredLiquidations, currentPage, itemsPerPage]);
 
-  // Pagination helpers
-
   return (
     <div className="container mx-auto px-5 py-10">
-      <PageBreadcrumb pageTitle="District Liquidation Management" />
-
-      {/* Table */}
-      <LiquidationReportTable
+      <PageBreadcrumb pageTitle="Division Liquidators" />
+      <LiquidatorsTable
         liquidations={paginatedLiquidations}
         loading={loading}
         refreshList={async () => {
@@ -92,10 +96,8 @@ const LiquidationReportPage = () => {
           }
         }}
       />
-
-      {/* Pagination */}
     </div>
   );
 };
 
-export default LiquidationReportPage;
+export default LiquidatorsPage;

@@ -14,19 +14,20 @@ import RequestDetailPage from "./pages/RequestDetailPage";
 // import StudentPerformanceReport from "./pages/StudentPerformanceReport";
 import UserProfile from "./pages/UserProfiles";
 // import MyClasses from "./pages/MyClasses";
-import ManageListOfPriorities from "./pages/ManageListOfPriorities";
+import ManageListOfPrioritiesPage from "./pages/ManageListOfPrioritiesPage";
 import NotAuthorized from "./pages/NotAuthorized";
 import FundRequestApproval from "./pages/FundRequestApproval";
-import ListOfPrioritiesPage from "./pages/FundRequest";
+import ListOfPrioritiesPage from "./pages/MOOERequestPage";
 import ManageSchools from "./pages/ManageSchools";
 import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
 import LiquidationPage from "./pages/LiquidationPage";
 import ApprovedRequestPage from "./pages/ApprovedRequestPage";
-import ManageRequirement from "./pages/ManageRequirement";
-import FundRequestPage from "./pages/FundRequest";
+import ManageRequirementsPage from "./pages/ManageRequirementsPage";
 import MOOERequestPage from "./pages/MOOERequestPage";
+import MOOERequestHistory from "./pages/MOOERequestHistory";
 import { ToastContainer } from "react-toastify";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
+import LiquidatorsPage from "./pages/LiquidatorsPage";
 
 const App = () => {
   return (
@@ -63,9 +64,12 @@ const App = () => {
               <Route path="/schools" element={<ManageSchools />} />
               <Route
                 path="/list-of-priorities"
-                element={<ManageListOfPriorities />}
+                element={<ManageListOfPrioritiesPage />}
               />
-              <Route path="/requirements" element={<ManageRequirement />} />
+              <Route
+                path="/requirements"
+                element={<ManageRequirementsPage />}
+              />
             </Route>
 
             <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
@@ -77,9 +81,12 @@ const App = () => {
             <Route element={<RequireAuth allowedRoles={["school_head"]} />}>
               <Route
                 path="/prepare-list-of-priorities"
-                element={<FundRequestPage />}
+                element={<MOOERequestPage />}
               />
-              <Route path="/requests-history" element={<MOOERequestPage />} />
+              <Route
+                path="/requests-history"
+                element={<MOOERequestHistory />}
+              />
               {/* <Route
                 path="/list-of-priorities"
                 element={<ListOfPrioritiesPage />}
@@ -107,6 +114,12 @@ const App = () => {
               <Route
                 path="/fund-request-approval"
                 element={<FundRequestApproval />}
+              />
+            </Route>
+            <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
+              <Route
+                path="/liquidation-approval"
+                element={<LiquidatorsPage />}
               />
             </Route>
 

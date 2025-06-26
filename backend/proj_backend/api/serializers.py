@@ -299,6 +299,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
     submitted_at = serializers.DateTimeField(
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
+    reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
 
     class Meta:
         model = LiquidationManagement
@@ -307,7 +308,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'request',
             'comment_id',
             'status',
-            'reviewed_by_district',
+            'reviewed_by_district',      # <-- ENSURE THIS IS INCLUDED
             'reviewed_at_district',
             'reviewed_by_division',
             'reviewed_at_division',
@@ -315,8 +316,6 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'submitted_at',
             'reviewer_comments',
             'created_at',
-            'date_districtApproved',
-            'date_liquidated'
         ]
 
     def get_reviewer_comments(self, obj):
