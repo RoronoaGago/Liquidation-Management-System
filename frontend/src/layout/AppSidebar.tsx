@@ -21,7 +21,8 @@ import {
   FileText,
   ListOrdered, // <-- Add this
   History,
-  FileSearch, // <-- Add this
+  FileSearch,
+  UserRoundPenIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -134,10 +135,16 @@ const allNavItems: NavItem[] = [
   //   ],
   // },
   {
-    icon: <UserCircleIcon />,
+    icon: <UserRoundPenIcon />,
     name: "User Profile",
     path: "/profile",
-    roles: ["school_admin", "school_head", "teacher"], // All roles
+    roles: [
+      "school_admin",
+      "school_head",
+      "district_admin",
+      "superintendent",
+      "admin",
+    ], // All roles
   },
   {
     icon: <UserCircleIcon />,

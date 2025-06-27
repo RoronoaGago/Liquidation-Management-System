@@ -359,11 +359,11 @@ export default function UserProfiles() {
           Profile
         </h3>
         <div className="space-y-6">
-          <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-col items-center w-full gap-6 xl:flex-row">
+          <div className="p-8 border border-gray-200 rounded-2xl dark:border-gray-800 bg-gradient-to-br from-white via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 shadow-lg mb-8">
+            <div className="flex flex-col items-center gap-6">
+              <div className="relative">
                 <div
-                  className={`flex items-center justify-center w-20 h-20 rounded-full ${getAvatarColor()} text-white text-3xl font-bold`}
+                  className={`flex items-center justify-center w-32 h-32 rounded-full shadow-lg border-4 border-white dark:border-gray-900 ${getAvatarColor()} text-white text-5xl font-bold transition-all duration-300`}
                 >
                   {displayUser?.profile_picture ? (
                     <img
@@ -375,20 +375,83 @@ export default function UserProfiles() {
                     <span>{getUserInitials()}</span>
                   )}
                 </div>
-                <div className="order-3 xl:order-2">
-                  <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-                    {displayUser?.first_name} {displayUser?.last_name}
-                  </h4>
-                  <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Administrator
-                    </p>
-                    <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {displayUser?.username}
-                    </p>
-                  </div>
+                <button
+                  className="absolute bottom-2 right-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full p-2 shadow hover:bg-blue-100 dark:hover:bg-gray-700 transition"
+                  onClick={handleEditUser}
+                  title="Edit Profile"
+                >
+                  <svg
+                    className="fill-current text-blue-600 dark:text-blue-400"
+                    width="22"
+                    height="22"
+                    viewBox="0 0 18 18"
+                    fill="none"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M15.0911 2.78206C14.2125 1.90338 12.7878 1.90338 11.9092 2.78206L4.57524 10.116C4.26682 10.4244 4.0547 10.8158 3.96468 11.2426L3.31231 14.3352C3.25997 14.5833 3.33653 14.841 3.51583 15.0203C3.69512 15.1996 3.95286 15.2761 4.20096 15.2238L7.29355 14.5714C7.72031 14.4814 8.11172 14.2693 8.42013 13.9609L15.7541 6.62695C16.6327 5.74827 16.6327 4.32365 15.7541 3.44497L15.0911 2.78206ZM12.9698 3.84272C13.2627 3.54982 13.7376 3.54982 14.0305 3.84272L14.6934 4.50563C14.9863 4.79852 14.9863 5.2734 14.6934 5.56629L14.044 6.21573L12.3204 4.49215L12.9698 3.84272ZM11.2597 5.55281L5.6359 11.1766C5.53309 11.2794 5.46238 11.4099 5.43238 11.5522L5.01758 13.5185L6.98394 13.1037C7.1262 13.0737 7.25666 13.003 7.35947 12.9002L12.9833 7.27639L11.2597 5.55281Z"
+                      fill=""
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">
+                  {displayUser?.first_name || "-"}{" "}
+                  {displayUser?.last_name || ""}
+                </h2>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-base text-blue-600 dark:text-blue-400 font-medium">
+                    {displayUser?.role
+                      ? displayUser.role
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (l) => l.toUpperCase())
+                      : "User"}
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    @{displayUser?.username || "-"}
+                  </span>
                 </div>
+              </div>
+            </div>
+            <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
+              <div>
+                <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                  Email
+                </p>
+                <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                  {displayUser?.email || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                  Phone
+                </p>
+                <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                  {displayUser?.phone_number || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                  Birthdate
+                </p>
+                <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                  {displayUser?.date_of_birth
+                    ? new Date(displayUser.date_of_birth).toLocaleDateString()
+                    : "-"}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                  Age
+                </p>
+                <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                  {displayUser?.date_of_birth
+                    ? calculateAge(displayUser.date_of_birth)
+                    : "-"}
+                </p>
               </div>
             </div>
           </div>
@@ -474,7 +537,7 @@ export default function UserProfiles() {
 
         {/* Edit User Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+          <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
             <DialogHeader className="mb-8">
               <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
                 Edit Profile
@@ -486,6 +549,90 @@ export default function UserProfiles() {
 
             {editUser && (
               <form className="space-y-4" onSubmit={handleSubmit}>
+                {/* Profile Picture Upload */}
+                <div className="space-y-2">
+                  <Label htmlFor="profile_picture" className="text-base">
+                    Profile Picture
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    {editUser.profile_picture_base64 ||
+                    editUser.profile_picture ? (
+                      <div className="relative">
+                        <img
+                          src={
+                            editUser.profile_picture_base64 ||
+                            `http://127.0.0.1:8000${editUser.profile_picture}`
+                          }
+                          className="w-16 h-16 rounded-full object-cover"
+                          alt="Preview"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditUser((prev) => ({
+                              ...prev!,
+                              profile_picture: "",
+                              profile_picture_base64: "",
+                            }));
+                            // Clear the file input value too
+                            const fileInput = document.getElementById(
+                              "profile_picture"
+                            ) as HTMLInputElement;
+                            if (fileInput) fileInput.value = "";
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                          aria-label="Remove profile picture"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-2xl font-bold text-gray-500">
+                          {getUserInitials()}
+                        </span>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      id="profile_picture"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setEditUser((prev) => ({
+                              ...prev!,
+                              profile_picture_base64: event.target
+                                ?.result as string,
+                            }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Label
+                      htmlFor="profile_picture"
+                      className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                    >
+                      {editUser.profile_picture ||
+                      editUser.profile_picture_base64
+                        ? "Change Photo"
+                        : "Upload Photo"}
+                    </Label>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="first_name" className="text-base">
@@ -577,6 +724,7 @@ export default function UserProfiles() {
                       type="button"
                       className="absolute right-3 top-1/2 transform -translate-y-1/2"
                       onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
                     >
                       {showPassword ? (
                         <EyeCloseIcon className="h-5 w-5 text-gray-400" />
@@ -601,7 +749,7 @@ export default function UserProfiles() {
                       id="date_of_birth"
                       name="date_of_birth"
                       className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                      value={editUser?.date_of_birth}
+                      value={editUser?.date_of_birth || ""}
                       onChange={handleChange}
                       max={new Date().toISOString().split("T")[0]}
                     />

@@ -597,6 +597,7 @@ const ManageUsers = () => {
                       phone_number: value || "",
                     }))
                   }
+                  error={errors.phone_number}
                 />
                 <div className="space-y-2">
                   <Label htmlFor="username" className="text-base">
