@@ -44,7 +44,7 @@ const allNavItems: NavItem[] = [
     icon: <SchoolIcon />,
     name: "Manage Schools",
     path: "/schools",
-    roles: ["admin"], // Only admin
+    roles: ["admin", "accountant"], // Only admin and accountant
   },
   {
     icon: <BanknoteIcon />,

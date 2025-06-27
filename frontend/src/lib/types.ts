@@ -33,7 +33,7 @@ export type User = {
   is_active: boolean;
   password: string;
   confirm_password: string;
-  school: number | School | null;
+  school: School | null;
   profile_picture_base64?: string;
 };
 export type SortDirection = "asc" | "desc" | null;
