@@ -66,4 +66,6 @@ urlpatterns = [
          name='user-requests'),
     path('liquidation/', views.UserLiquidationsAPIView.as_view(),
          name='liquidation'),
+
+    path('liquidator-assignments/', views.LiquidatorAssignmentListCreateAPIView.as_view(), name='liquidator-assignment-list-create'),
 ]

@@ -10,8 +10,16 @@ Request Details:
 {% for priority in request.priorities.all %}
   - {{ priority.expenseTitle }}
 {% endfor %}
+Dear {{ request.user.get_full_name }},
 
-Please complete the liquidation process before the deadline to avoid expiration.
+Failure to liquidate by the deadline will result in:
+1. Automatic expiration of the request
+2. A formal demand letter from our legal department
+3. Possible suspension of future fund requests
+
+
+Please complete the liquidation process before the deadline to avoid expiration and legal action.
 
 Regards,
-The System Admin
+La Union Schools Division Office
+Department of Education 

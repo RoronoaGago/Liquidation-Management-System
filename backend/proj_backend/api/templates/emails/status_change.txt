@@ -1,0 +1,13 @@
+Hello {{ user.first_name }},
+
+Your {{ object_type }} (ID: {{ object.request_id|default:object.LiquidationID }}) status has changed to: {{ status|title }}.
+
+{% if object.rejection_comment %}
+Reason: {{ object.rejection_comment }}
+{% endif %}
+
+If you have questions, please contact the office.
+
+Thank you,
+La Union Schools Division Office
+Department of Education 
