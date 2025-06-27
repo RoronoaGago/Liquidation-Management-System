@@ -394,7 +394,7 @@ export default function SchoolsTable({
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setIsArchiveDialogOpen(true)}
+                  onClick={() => setIsBulkArchiveDialogOpen(true)}
                   startIcon={
                     isSubmitting ? (
                       <Loader2Icon className="h-4 w-4 animate-spin" />
@@ -1153,6 +1153,55 @@ export default function SchoolsTable({
         </DialogContent>
       </Dialog>
       {/* Bulk Archive Confirmation Dialog */}
+      <Dialog
+        open={isBulkArchiveDialogOpen}
+        onOpenChange={setIsBulkArchiveDialogOpen}
+      >
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+          <DialogHeader className="mb-8">
+            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+              {showArchived ? "Restore Schools" : "Archive Schools"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Are you sure you want to {showArchived ? "restore" : "archive"}{" "}
+              {selectedSchools.length} selected school
+              {selectedSchools.length > 1 ? "s" : ""}?{" "}
+              {showArchived
+                ? "Restored schools will be available for selection."
+                : "Archived schools will not be available for selection."}
+            </p>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsBulkArchiveDialogOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                color={showArchived ? "success" : "warning"}
+                onClick={() => handleBulkArchive(!showArchived)}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="animate-spin size-4" />
+                    {showArchived ? "Restoring..." : "Archiving..."}
+                  </span>
+                ) : showArchived ? (
+                  "Restore Schools"
+                ) : (
+                  "Archive Schools"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={isBulkArchiveDialogOpen}
         onOpenChange={setIsBulkArchiveDialogOpen}
