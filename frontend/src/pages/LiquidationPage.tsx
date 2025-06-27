@@ -862,14 +862,14 @@ const LiquidationPage = () => {
                   </h4>
                   <ul className="space-y-2">
                     {/* Pending requirements first */}
-                    {pendingReqs.length > 0 && pendingReqs.map((req, idx) => (
+                    {pendingReqs.length > 0 && pendingReqs.map((req) => (
                       <li
                         key={`pending-${req.requirementID}`}
-                        className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300 font-semibold"
+                        className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 font-semibold"
                       >
-                        <Paperclip className="h-4 w-4 text-red-500" />
+                        <Paperclip className="h-4 w-4 text-gray-400" />
                         <span>{req.requirementTitle}</span>
-                        <span className="ml-2 text-xs bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full px-2 py-0.5">Not uploaded</span>
+                        <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 rounded-full px-2 py-0.5">Not uploaded</span>
                       </li>
                     ))}
                     {/* Uploaded requirements after */}
