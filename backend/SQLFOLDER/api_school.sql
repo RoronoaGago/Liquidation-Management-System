@@ -1,43 +1,3 @@
--- phpMyAdmin SQL Dump
--- version 5.2.1
--- https://www.phpmyadmin.net/
---
--- Host: 127.0.0.1
--- Generation Time: Jun 17, 2025 at 12:19 PM
--- Server version: 11.8.2-MariaDB
--- PHP Version: 8.2.12
-
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
-
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
-
---
--- Database: `db_liquidation_management_system`
---
-
--- --------------------------------------------------------
-
---
--- Table structure for table `api_school`
---
-
-CREATE TABLE `api_school` (
-  `schoolId` varchar(50) NOT NULL,
-  `schoolName` varchar(255) NOT NULL,
-  `municipality` varchar(100) NOT NULL,
-  `district` varchar(100) NOT NULL,
-  `legislativeDistrict` varchar(100) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
-
---
--- Dumping data for table `api_school`
---
 
 INSERT INTO `api_school` (`schoolId`, `schoolName`, `municipality`, `district`, `legislativeDistrict`, `is_active`) VALUES
 ('100801', 'Agoo East CES', 'AGOO', 'Agoo East', '2nd District', 1),
@@ -428,18 +388,4 @@ INSERT INTO `api_school` (`schoolId`, `schoolName`, `municipality`, `district`, 
 ('502748', 'Dasay Integrated School', 'SAN JUAN', 'San Juan', '1st District', 1),
 ('502791', 'Basig Integrated School', 'SUDIPEN', 'Sudipen', '1st District', 1);
 
---
--- Indexes for dumped tables
---
 
---
--- Indexes for table `api_school`
---
-ALTER TABLE `api_school`
-  ADD PRIMARY KEY (`schoolId`),
-  ADD UNIQUE KEY `schoolId` (`schoolId`);
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
