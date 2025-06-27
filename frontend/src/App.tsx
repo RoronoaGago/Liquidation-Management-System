@@ -25,7 +25,7 @@ import ApprovedRequestPage from "./pages/ApprovedRequestPage";
 import ManageRequirementsPage from "./pages/ManageRequirementsPage";
 import MOOERequestPage from "./pages/MOOERequestPage";
 import MOOERequestHistory from "./pages/MOOERequestHistory";
-import { ToastContainer } from "react-toastify";
+import { Bounce, ToastContainer } from "react-toastify";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
 import LiquidatorsPage from "./pages/LiquidatorsPage";
 
@@ -34,7 +34,7 @@ const App = () => {
     <Router>
       <AuthProvider>
         <ToastContainer
-          position="top-right"
+          position="top-center"
           autoClose={5000}
           hideProgressBar={false}
           newestOnTop={false}
@@ -44,6 +44,8 @@ const App = () => {
           draggable
           pauseOnHover
           theme="colored" // optional - match your app's theme
+          transition={Bounce}
+          style={{ fontFamily: "Outfit, sans-serif" }} // Fixed: Style should be an object
         />
         <Routes>
           {/* Public routes */}
