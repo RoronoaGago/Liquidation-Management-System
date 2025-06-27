@@ -17,6 +17,7 @@ import {
 import { EyeIcon, Loader2 } from "lucide-react";
 import { User } from "@/lib/types";
 import Label from "@/components/form/Label";
+import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 
 interface FormErrors {
   first_name?: string;
@@ -568,28 +569,19 @@ export default function UserProfiles() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="phone_number" className="text-base">
-                      Phone Number
-                    </Label>
-                    <Input
-                      type="tel"
-                      id="phone_number"
-                      name="phone_number"
-                      value={editUser.phone_number || ""}
-                      onChange={handleChange}
-                      onInput={handlePhoneNumberInput}
-                      className={
-                        formErrors.phone_number ? "border-red-500" : ""
-                      }
-                    />
-                    {formErrors.phone_number && (
-                      <p className="text-red-500 text-sm">
-                        {formErrors.phone_number}
-                      </p>
-                    )}
-                  </div>
-
+                  <PhoneNumberInput
+                    value={editUser.phone_number || ""}
+                    onChange={(value) =>
+                      setEditUser((prev) => ({
+                        ...prev!,
+                        phone_number: value || "",
+                      }))
+                    }
+                    error={formErrors.phone_number}
+                    id="phone_number"
+                    required={false}
+                    autoComplete="tel"
+                  />
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-base">
                       Email *
