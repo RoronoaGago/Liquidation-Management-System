@@ -62,8 +62,8 @@ const App = () => {
 
             {/* Admin-only routes */}
             <Route element={<RequireAuth allowedRoles={["admin"]} />}>
-              {/* <Route path="/users" element={<ManageUsers />} /> */}
-              <Route path="/schools" element={<ManageSchools />} />
+              <Route path="/users" element={<ManageUsers />} />
+
               <Route
                 path="/list-of-priorities"
                 element={<ManageListOfPrioritiesPage />}
@@ -138,7 +138,6 @@ const App = () => {
             <Route
               element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
             >
-              <Route path="/users" element={<ManageUsers />} />
               <Route
                 path="/fund-requests/:id"
                 element={<RequestDetailPage />}
@@ -147,6 +146,11 @@ const App = () => {
                 path="/prepare-list-of-priorities"
                 element={<ListOfPrioritiesPage />}
               />
+            </Route>
+            <Route
+              element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
+            >
+              <Route path="/schools" element={<ManageSchools />} />
             </Route>
           </Route>
 
