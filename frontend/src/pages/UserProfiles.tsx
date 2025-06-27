@@ -569,20 +569,23 @@ export default function UserProfiles() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-base">
-                      Username *
+                    <Label htmlFor="phone_number" className="text-base">
+                      Phone Number
                     </Label>
                     <Input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={editUser.username}
+                      type="tel"
+                      id="phone_number"
+                      name="phone_number"
+                      value={editUser.phone_number || ""}
                       onChange={handleChange}
-                      className={formErrors.username ? "border-red-500" : ""}
+                      onInput={handlePhoneNumberInput}
+                      className={
+                        formErrors.phone_number ? "border-red-500" : ""
+                      }
                     />
-                    {formErrors.username && (
+                    {formErrors.phone_number && (
                       <p className="text-red-500 text-sm">
-                        {formErrors.username}
+                        {formErrors.phone_number}
                       </p>
                     )}
                   </div>
@@ -601,6 +604,24 @@ export default function UserProfiles() {
                     />
                     {formErrors.email && (
                       <p className="text-red-500 text-sm">{formErrors.email}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="text-base">
+                      Username *
+                    </Label>
+                    <Input
+                      type="text"
+                      id="username"
+                      name="username"
+                      value={editUser.username}
+                      onChange={handleChange}
+                      className={formErrors.username ? "border-red-500" : ""}
+                    />
+                    {formErrors.username && (
+                      <p className="text-red-500 text-sm">
+                        {formErrors.username}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -653,28 +674,6 @@ export default function UserProfiles() {
                         <CalenderIcon className="size-5" />
                       </span>
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone_number" className="text-base">
-                      Phone Number
-                    </Label>
-                    <Input
-                      type="tel"
-                      id="phone_number"
-                      name="phone_number"
-                      value={editUser.phone_number || ""}
-                      onChange={handleChange}
-                      onInput={handlePhoneNumberInput}
-                      className={
-                        formErrors.phone_number ? "border-red-500" : ""
-                      }
-                    />
-                    {formErrors.phone_number && (
-                      <p className="text-red-500 text-sm">
-                        {formErrors.phone_number}
-                      </p>
-                    )}
                   </div>
 
                   <div className="flex justify-end gap-3 pt-4">
