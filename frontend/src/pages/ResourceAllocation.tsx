@@ -1,17 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "@/api/axios";
 import { School } from "@/lib/types";
 import { toast } from "react-toastify";
 import Button from "../components/ui/button/Button";
+import { Loader2, Undo2, Search, Plus, Minus } from "lucide-react";
 import {
-  Loader2,
-  Undo2,
-  ChevronUp,
-  ChevronDown,
-  Filter,
-  Plus,
-  Minus,
-} from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import Input from "@/components/form/input/InputField";
+import ResourceAllocationTable from "../components/tables/ResourceAllocationTable"; // <-- You need to create this
+
+type SortConfig = {
+  key: keyof School | "difference";
+  direction: "asc" | "desc";
+};
 
 const ResourceAllocation = () => {
   const [schools, setSchools] = useState<School[]>([]);
@@ -20,12 +26,14 @@ const ResourceAllocation = () => {
   );
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<
-    "all" | "changed" | "increases" | "decreases"
-  >("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: "schoolName",
+    direction: "asc",
+  });
   const [quickAddAmount, setQuickAddAmount] = useState(50000);
 
-  // Fetch schools on mount (remove total budget fetch)
+  // Fetch schools on mount
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -34,7 +42,7 @@ const ResourceAllocation = () => {
         setSchools(schoolsRes.data);
 
         // Initialize editing budgets
-        const initialBudgets = schoolsRes.data.reduce((acc, school: School) => {
+        const initialBudgets = schoolsRes.data.reduce((acc, school) => {
           acc[school.schoolId] = school.maxBudget || 0;
           return acc;
         }, {} as Record<string, number>);
@@ -107,23 +115,74 @@ const ResourceAllocation = () => {
     }
   };
 
-  // Filter schools based on current filter
-  const filteredSchools = schools.filter((school) => {
-    const original = school.maxBudget || 0;
-    const edited = editingBudgets[school.schoolId] || 0;
+  // Request sort
+  const requestSort = (key: keyof School | "difference") => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
 
-    if (filter === "all") return true;
-    if (filter === "changed") return original !== edited;
-    if (filter === "increases") return edited > original;
-    if (filter === "decreases") return edited < original;
-    return true;
-  });
+  // Sort and filter schools
+  const filteredAndSortedSchools = useCallback(() => {
+    let filtered = [...schools];
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (school) =>
+          school.schoolName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          school.schoolId.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Calculate differences for sorting
+    filtered = filtered.map((school) => ({
+      ...school,
+      difference:
+        (editingBudgets[school.schoolId] || 0) - (school.maxBudget || 0),
+    }));
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        const aValue =
+          sortConfig.key === "difference"
+            ? a.difference
+            : a[sortConfig.key as keyof School];
+        const bValue =
+          sortConfig.key === "difference"
+            ? b.difference
+            : b[sortConfig.key as keyof School];
+
+        if (aValue < bValue) {
+          return sortConfig.direction === "asc" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [schools, searchTerm, sortConfig, editingBudgets]);
 
   // Common quick add amounts
   const quickAddAmounts = [10000, 25000, 50000, 100000];
 
+  // Format currency
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      maximumFractionDigits: 0,
+    });
+  };
+
   return (
-    <div className="p-4 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 max-w-7xl mx-auto space-y-6">
       {/* Budget Summary */}
       <div className="bg-white p-4 rounded-lg shadow">
         <div className="flex flex-wrap justify-between items-center gap-4">
@@ -136,49 +195,37 @@ const ResourceAllocation = () => {
 
       {/* Controls */}
       <div className="flex flex-wrap justify-between items-center gap-4">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Button
-              variant="outline"
-              onClick={() => setFilter("all")}
-              className={
-                filter === "all" ? "border-blue-500 text-blue-600" : ""
-              }
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              All Schools
-            </Button>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:flex-none md:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search schools..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+              }}
+            />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setFilter("changed")}
-            className={
-              filter === "changed" ? "border-blue-500 text-blue-600" : ""
-            }
-          >
-            Changed Only
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setFilter("increases")}
-            className={
-              filter === "increases" ? "border-blue-500 text-blue-600" : ""
-            }
-          >
-            Increases
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setFilter("decreases")}
-            className={
-              filter === "decreases" ? "border-blue-500 text-blue-600" : ""
-            }
-          >
-            Decreases
-          </Button>
         </div>
 
         <div className="flex items-center gap-2">
+          <Select
+            value={quickAddAmount.toString()}
+            onValueChange={(value) => setQuickAddAmount(parseInt(value))}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Quick add" />
+            </SelectTrigger>
+            <SelectContent>
+              {quickAddAmounts.map((amount) => (
+                <SelectItem key={amount} value={amount.toString()}>
+                  +{formatCurrency(amount)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button
             variant="secondary"
             onClick={() => applyPercentageIncrease(5)}
@@ -199,7 +246,7 @@ const ResourceAllocation = () => {
             disabled={isSaving}
           >
             <Undo2 className="w-4 h-4 mr-2" />
-            Reset All
+            Reset
           </Button>
           <Button variant="primary" onClick={saveBudgets} disabled={isSaving}>
             {isSaving ? (
@@ -208,153 +255,24 @@ const ResourceAllocation = () => {
                 Saving...
               </>
             ) : (
-              "Save All Changes"
+              "Save Changes"
             )}
           </Button>
         </div>
       </div>
 
-      {/* Quick Add Amount Selector */}
-      <div className="flex items-center gap-2">
-        <p className="text-sm">Quick add amount:</p>
-        {quickAddAmounts.map((amount) => (
-          <Button
-            key={amount}
-            variant={quickAddAmount === amount ? "primary" : "outline"}
-            size="sm"
-            onClick={() => setQuickAddAmount(amount)}
-          >
-            +
-            {amount.toLocaleString("en-PH", {
-              style: "currency",
-              currency: "PHP",
-              maximumFractionDigits: 0,
-            })}
-          </Button>
-        ))}
-      </div>
-
-      {/* School Cards */}
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSchools.map((school) => {
-            const original = school.maxBudget || 0;
-            const edited = editingBudgets[school.schoolId] || 0;
-            const difference = edited - original;
-
-            return (
-              <div
-                key={school.schoolId}
-                className={`bg-white p-4 rounded-lg shadow border ${
-                  difference > 0
-                    ? "border-green-200"
-                    : difference < 0
-                    ? "border-red-200"
-                    : "border-gray-200"
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-bold">{school.schoolName}</h3>
-                    <p className="text-sm text-gray-600">
-                      ID: {school.schoolId}
-                    </p>
-                  </div>
-                  {difference !== 0 && (
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        difference > 0
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {difference > 0 ? (
-                        <ChevronUp className="inline w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="inline w-4 h-4" />
-                      )}
-                      {Math.abs(difference).toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-sm text-gray-600">Current</p>
-                    <p className="font-medium">
-                      {original.toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
-                      })}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">New</p>
-                    <p className="font-medium">
-                      {edited.toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
-                      })}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() =>
-                        quickAdjust(school.schoolId, -quickAddAmount)
-                      }
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() =>
-                        quickAdjust(school.schoolId, quickAddAmount)
-                      }
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={edited}
-                      onChange={(e) =>
-                        handleBudgetChange(
-                          school.schoolId,
-                          parseFloat(e.target.value) || 0
-                        )
-                      }
-                      className="w-full p-2 border rounded text-right"
-                      min="0"
-                      step="1000"
-                    />
-                    <span className="absolute left-3 top-2.5 text-gray-400">
-                      ₱
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Table with Pagination */}
+      <ResourceAllocationTable
+        schools={filteredAndSortedSchools()}
+        editingBudgets={editingBudgets}
+        handleBudgetChange={handleBudgetChange}
+        quickAdjust={quickAdjust}
+        quickAddAmount={quickAddAmount}
+        requestSort={requestSort}
+        sortConfig={sortConfig}
+        loading={loading}
+        formatCurrency={formatCurrency}
+      />
     </div>
   );
 };
