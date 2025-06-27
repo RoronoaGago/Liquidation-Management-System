@@ -315,6 +315,10 @@ const LiquidationPage = () => {
     return (
       <div className="container mx-auto px-5 py-10">
         <PageBreadcrumb pageTitle="Liquidation Request" />
+        {/* Feedback skeleton placeholder at top */}
+        <div className="mb-6">
+          <Skeleton className="h-12 w-full rounded-lg" />
+        </div>
         <div className="mt-8 space-y-6">
           {/* Loading Skeleton for Summary Card */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
@@ -374,6 +378,17 @@ const LiquidationPage = () => {
     return (
       <div className="container mx-auto px-5 py-10">
         <PageBreadcrumb pageTitle="Liquidation Request" />
+        {/* Feedback placeholder at top for error state */}
+        <div className="mb-6">
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3 flex items-center gap-3">
+            <AlertCircle className="h-6 w-6 text-red-500" />
+            <span>
+              {fetchError
+                ? "Failed to load liquidation data. Please try again later."
+                : "You don't have any pending liquidation requests at this time."}
+            </span>
+          </div>
+        </div>
         <div className="mt-24 flex items-center justify-center">
           <div className="mt-6 bg-white  p-6">
             <div className="text-center py-8">
@@ -418,6 +433,84 @@ const LiquidationPage = () => {
       }`}
     >
       <PageBreadcrumb pageTitle="Liquidation Request" />
+
+      {/* --- FEEDBACK SECTION AT TOP --- */}
+      <div className="mb-8">
+        {/* Action Required Banner */}
+        {request.status === "resubmit" && (
+          <div className="mb-4 flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3">
+            <AlertCircle className="h-6 w-6 text-red-500" />
+            <span className="font-semibold">Action Required:</span>
+            <span>This request requires your attention. Please address the feedback below.</span>
+          </div>
+        )}
+        {/* Feedback Panel */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <MessageCircleIcon className="h-5 w-5 text-gray-500" />
+              Reviewer Feedback
+            </h3>
+            {request.status === "resubmit" && (
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                Action Required
+              </span>
+            )}
+          </div>
+          <div className="space-y-4">
+            {request.uploadedDocuments
+              .filter(
+                (doc) =>
+                  doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
+              )
+              .map((doc, idx) => (
+                <div
+                  key={doc.id || idx}
+                  className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-white">
+                        {/* Show the requirement/document name if available */}
+                        {(() => {
+                          // Try to find the requirement title from the expense requirements
+                          let reqTitle = "Document";
+                          for (const expense of request.expenses) {
+                            const req = expense.requirements.find(
+                              (r) =>
+                                String(r.requirementID) ===
+                                String(doc.requirement_id)
+                            );
+                            if (req) {
+                              reqTitle = req.requirementTitle;
+                              break;
+                            }
+                          }
+                          return reqTitle;
+                        })()}
+                      </h4>
+                      <p className="mt-1 text-gray-700 dark:text-gray-300">
+                        {doc.reviewer_comment}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            {/* If no feedback, show a message */}
+            {request.uploadedDocuments.filter(
+              (doc) =>
+                doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
+            ).length === 0 && (
+              <div className="text-gray-500 dark:text-gray-400 italic">
+                No reviewer feedback yet.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="mt-8">
         {/* Request Summary Card */}
@@ -766,114 +859,7 @@ const LiquidationPage = () => {
         </div>
       </div>
       {/* Status History Timeline - Add right here */}
-
-      {/* {request.status !== "draft" && (
-        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            Status History
-          </h3>
-          <div className="relative pl-6"> */}
-      {/* Timeline item */}
-      {/* <div className="relative pb-6">
-              <div className="absolute left-0 top-1 h-full w-0.5 bg-gray-200 dark:bg-gray-700"></div>
-              <div className="absolute left-0 top-1 flex h-4 w-4 -translate-x-1/2 items-center justify-center rounded-full bg-blue-500">
-                <CheckIcon className="h-3 w-3 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="font-medium text-gray-800 dark:text-white">
-                  Submitted for Review
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(request.created_at).toLocaleString()} by{" "}
-                  {user?.username}
-                </p>
-              </div>
-            </div> */}
-      {/* Add more timeline items as needed */}
-      {/* </div>
-        </div>
-      )} */}
-      {request.status !== "draft" && (
-        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-              <MessageCircleIcon className="h-5 w-5 text-gray-500" />
-              Reviewer Feedback
-            </h3>
-            {request.status === "resubmit" && (
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                Action Required
-              </span>
-            )}
-          </div>
-
-          {request.status === "resubmit" && (
-            <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800/30">
-              <p className="font-medium text-red-800 dark:text-red-200">
-                This request requires your attention. Please address the
-                feedback below.
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {request.uploadedDocuments
-              .filter(
-                (doc) =>
-                  doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
-              )
-              .map((doc, idx) => (
-                <div
-                  key={doc.id || idx}
-                  className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <DocumentTextIcon className="h-5 w-5 text-gray-500" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-800 dark:text-white">
-                        {/* Show the requirement/document name if available */}
-                        {(() => {
-                          // Try to find the requirement title from the expense requirements
-                          let reqTitle = "Document";
-                          for (const expense of request.expenses) {
-                            const req = expense.requirements.find(
-                              (r) =>
-                                String(r.requirementID) ===
-                                String(doc.requirement_id)
-                            );
-                            if (req) {
-                              reqTitle = req.requirementTitle;
-                              break;
-                            }
-                          }
-                          return reqTitle;
-                        })()}
-                      </h4>
-                      <p className="mt-1 text-gray-700 dark:text-gray-300">
-                        {doc.reviewer_comment}
-                      </p>
-                      {/* Optionally, show who reviewed and when if you have that info */}
-                      {/* <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Reviewed by: {doc.reviewer_name || "District Admin"} • {doc.reviewed_at ? new Date(doc.reviewed_at).toLocaleDateString() : ""}
-                      </div> */}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            {/* If no feedback, show a message */}
-            {request.uploadedDocuments.filter(
-              (doc) =>
-                doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
-            ).length === 0 && (
-              <div className="text-gray-500 dark:text-gray-400 italic">
-                No reviewer feedback yet.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* ...existing code... */}
     </div>
   );
 };
