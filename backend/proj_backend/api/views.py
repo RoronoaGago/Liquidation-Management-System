@@ -1,3 +1,4 @@
+from rest_framework.permissions import IsAuthenticated
 from .serializers import CustomTokenObtainPairSerializer
 from datetime import datetime, timedelta
 from rest_framework.decorators import api_view, permission_classes
@@ -198,6 +199,16 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
                 Q(municipality__icontains=search_term)
             )
         return queryset.order_by('schoolName')
+
+    def create(self, request, *args, **kwargs):
+        # Add budget validation
+        max_budget = request.data.get('max_budget')
+        if max_budget and float(max_budget) < 0:
+            return Response(
+                {"error": "Budget must be a positive number"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return super().create(request, *args, **kwargs)
 
 # Add a new endpoint for school search
 
@@ -542,10 +553,12 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
             if assignments.filter(district='all').exists():
                 return LiquidationManagement.objects.all()
             # Otherwise, filter by assigned districts and/or schools
-            districts = assignments.exclude(district__isnull=True).exclude(district='').values_list('district', flat=True)
+            districts = assignments.exclude(district__isnull=True).exclude(
+                district='').values_list('district', flat=True)
             district_schools = School.objects.filter(district__in=districts)
             # Get schools assigned directly
-            school_ids = assignments.exclude(school__isnull=True).exclude(school='').values_list('school', flat=True)
+            school_ids = assignments.exclude(school__isnull=True).exclude(
+                school='').values_list('school', flat=True)
             direct_schools = School.objects.filter(id__in=school_ids)
             # Combine both sets of schools
             all_schools = district_schools | direct_schools
@@ -829,3 +842,41 @@ class LiquidatorAssignmentListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(assigned_by=self.request.user)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def batch_update_school_budgets(request):
+    """
+    Batch update max_budget for multiple schools.
+    Expects: { "updates": [ { "schoolId": "...", "maxBudget": ... }, ... ] }
+    """
+    updates = request.data.get("updates", [])
+    if not isinstance(updates, list):
+        return Response({"error": "Invalid data format."}, status=400)
+
+    updated_ids = []
+    errors = []
+    with transaction.atomic():
+        for upd in updates:
+            school_id = upd.get("schoolId")
+            max_budget = upd.get("maxBudget")
+            try:
+                school = School.objects.get(schoolId=school_id)
+                if max_budget is not None and float(max_budget) >= 0:
+                    school.max_budget = float(max_budget)
+                    school.save()
+                    updated_ids.append(school_id)
+                else:
+                    errors.append(
+                        {"schoolId": school_id, "error": "Invalid budget"})
+            except School.DoesNotExist:
+                errors.append(
+                    {"schoolId": school_id, "error": "School not found"})
+            except Exception as e:
+                errors.append({"schoolId": school_id, "error": str(e)})
+
+    return Response({
+        "updated": updated_ids,
+        "errors": errors
+    }, status=200 if not errors else 207)

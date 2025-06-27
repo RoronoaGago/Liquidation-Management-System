@@ -22,7 +22,8 @@ import {
   ListOrdered, // <-- Add this
   History,
   FileSearch,
-  UserRoundPenIcon, // <-- Add this
+  UserRoundPenIcon,
+  HandCoinsIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -44,6 +45,12 @@ const allNavItems: NavItem[] = [
     icon: <SchoolIcon />,
     name: "Manage Schools",
     path: "/schools",
+    roles: ["admin", "accountant"], // Only admin and accountant
+  },
+  {
+    icon: <HandCoinsIcon />,
+    name: "Resource Allocation",
+    path: "/resource-allocation",
     roles: ["admin", "accountant"], // Only admin and accountant
   },
   {

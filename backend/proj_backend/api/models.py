@@ -83,6 +83,12 @@ class School(models.Model):
     district = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)  # Added for archiving
+    max_budget = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Maximum Budget"
+    )
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
@@ -436,9 +442,11 @@ class LiquidatorAssignment(models.Model):
     ]
     liquidator = models.ForeignKey(
         User, on_delete=models.CASCADE, limit_choices_to={'role': 'liquidator'})
-    district = models.CharField(max_length=100, choices=DISTRICT_CHOICES, default='all')
+    district = models.CharField(
+        max_length=100, choices=DISTRICT_CHOICES, default='all')
     # Optionally, you can use a ForeignKey to School if you want assignment per school
-    school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
+    school = models.ForeignKey(
+        School, on_delete=models.CASCADE, null=True, blank=True)
 
     assigned_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assignments_made')

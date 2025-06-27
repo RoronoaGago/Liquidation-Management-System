@@ -18,6 +18,7 @@ export interface School {
   municipality: string;
   legislativeDistrict: string;
   is_active?: boolean;
+  maxBudget?: number; // Optional field for budget allocation
 }
 export type User = {
   id: number;
@@ -151,6 +152,7 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   size?: "sm" | "md"; // Button size
   variant?:
   | "primary"
+  | "secondary" // Added secondary variant
   | "outline"
   | "error"
   | "success"
