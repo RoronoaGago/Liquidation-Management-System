@@ -4,6 +4,9 @@ from django.utils.crypto import get_random_string
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
 import string
 
 
@@ -250,6 +253,22 @@ class RequestManagement(models.Model):
                 sender=getattr(self, '_status_changed_by', None),
             )
 
+            # Email notification
+            subject = f"Request Status Update: {self.status.title()}"
+            message = render_to_string('emails/status_change.txt', {
+                'object_type': 'Request',
+                'object': self,
+                'user': self.user,
+                'status': self.status,
+            })
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [self.user.email],
+                fail_silently=True,
+            )
+
     def __str__(self):
         return f"Request {self.request_id} by {self.user.username}"
 
@@ -348,6 +367,22 @@ class LiquidationManagement(models.Model):
                 receiver=self.request.user,
                 # Set this in your view if needed
                 sender=getattr(self, '_status_changed_by', None),
+            )
+
+            # Email notification
+            subject = f"Liquidation Status Update: {self.status.title()}"
+            message = render_to_string('emails/status_change.txt', {
+                'object_type': 'Liquidation',
+                'object': self,
+                'user': self.request.user,
+                'status': self.status,
+            })
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [self.request.user.email],
+                fail_silently=True,
             )
 
     def __str__(self):
