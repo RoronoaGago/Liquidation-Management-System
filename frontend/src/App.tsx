@@ -28,6 +28,7 @@ import MOOERequestHistory from "./pages/MOOERequestHistory";
 import { Bounce, ToastContainer } from "react-toastify";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
 import LiquidatorsPage from "./pages/LiquidatorsPage";
+import ResourceAllocation from "./pages/ResourceAllocation";
 
 const App = () => {
   return (
@@ -151,6 +152,10 @@ const App = () => {
               element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
             >
               <Route path="/schools" element={<ManageSchools />} />
+              <Route
+                path="/resource-allocation"
+                element={<ResourceAllocation />}
+              />
             </Route>
           </Route>
 
