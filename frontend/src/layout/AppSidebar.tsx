@@ -51,7 +51,7 @@ const allNavItems: NavItem[] = [
     icon: <HandCoinsIcon />,
     name: "Resource Allocation",
     path: "/resource-allocation",
-    roles: ["admin", "accountant"], // Only admin and accountant
+    roles: ["accountant"], // Only admin and accountant
   },
   {
     icon: <BanknoteIcon />,
