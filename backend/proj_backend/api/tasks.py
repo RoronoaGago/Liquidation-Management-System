@@ -12,7 +12,7 @@ def check_liquidation_status(request_id):
     request = RequestManagement.objects.get(request_id=request_id)
     
     if not hasattr(request, 'liquidation'):
-        request.status = 'expired'
+        request.status = 'unliquidated'
         request.save()
         send_demand_letter(request)
 
@@ -48,8 +48,8 @@ def send_demand_letter(request):
     send_mail(
         subject,
         message,
-        'legal@yourdomain.com',  # From legal department
-        [request.user.email, 'finance@yourdomain.com', 'management@yourdomain.com'],
+        'legal@deped.gov.ph',  # From legal department
+        [request.user.email, 'finance@deped.gov.ph', 'management@deped.gov.ph'],
         fail_silently=False,
     )
     request.demand_letter_sent = True

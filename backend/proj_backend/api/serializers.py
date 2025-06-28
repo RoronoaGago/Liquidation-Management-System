@@ -212,7 +212,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
     class Meta:
         model = RequestManagement
         fields = [
-            'request_id', 'user', 'request_month',
+            'request_id', 'user', 'request_monthyear',
             'status', 'priorities', 'created_at',
             'priority_amounts',
             'date_approved',
@@ -310,6 +310,7 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
+    remaining_days = serializers.IntegerField(read_only=True)
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     submitted_at = serializers.DateTimeField(
@@ -334,6 +335,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'reviewer_comments',
             'created_at',
             'liquidation_priorities',  # <-- Add this line
+            'remaining_days',  # <-- Add this
         ]
 
     def get_reviewer_comments(self, obj):
