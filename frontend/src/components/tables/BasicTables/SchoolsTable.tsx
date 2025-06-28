@@ -48,7 +48,6 @@ import { School } from "@/lib/types";
 interface SchoolsTableProps {
   schools: School[];
   setSchools: React.Dispatch<React.SetStateAction<any[]>>;
-  sortedSchools: School[];
   filterOptions: any;
   setFilterOptions: React.Dispatch<React.SetStateAction<any>>;
   showArchived: boolean;
@@ -58,23 +57,33 @@ interface SchoolsTableProps {
   fetchSchools: () => Promise<void>;
   loading?: boolean;
   error?: Error | null;
+  currentPage: number;
+  setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
+  itemsPerPage: number;
+  setItemsPerPage: React.Dispatch<React.SetStateAction<number>>;
+  totalSchools: number;
+  ITEMS_PER_PAGE_OPTIONS: number[];
 }
 
 export default function SchoolsTable({
+  schools,
   setSchools,
   showArchived,
   setShowArchived,
   fetchSchools,
-  sortedSchools,
   filterOptions,
   setFilterOptions,
   onRequestSort,
   currentSort,
   loading,
   error,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
+  setItemsPerPage,
+  totalSchools,
+  ITEMS_PER_PAGE_OPTIONS,
 }: SchoolsTableProps) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
@@ -128,18 +137,16 @@ export default function SchoolsTable({
     };
   }, [searchTerm, setFilterOptions]);
 
-  const totalPages = Math.ceil(sortedSchools.length / itemsPerPage);
-  const currentItems = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return sortedSchools.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedSchools, currentPage, itemsPerPage]);
+  // Remove local pagination and sorting logic
+  // Remove currentItems, totalPages, etc. (use backend values)
+  const totalPages = Math.ceil(totalSchools / itemsPerPage);
 
   // Bulk selection handlers
   const toggleSelectAll = () => {
     if (selectAll) {
       setSelectedSchools([]);
     } else {
-      setSelectedSchools(currentItems.map((school) => Number(school.schoolId))); // FIXED
+      setSelectedSchools(schools.map((school) => Number(school.schoolId))); // FIXED
     }
     setSelectAll(!selectAll);
   };
@@ -180,6 +187,7 @@ export default function SchoolsTable({
     }
   };
 
+  // Pagination controls
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -361,9 +369,13 @@ export default function SchoolsTable({
             <Input
               type="text"
               placeholder="Search schools..."
-              value={searchTerm}
+              value={filterOptions.searchTerm}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setSearchTerm(e.target.value);
+                setFilterOptions((prev: any) => ({
+                  ...prev,
+                  searchTerm: e.target.value,
+                }));
+                setCurrentPage(1);
               }}
               className="pl-10"
             />
@@ -414,15 +426,17 @@ export default function SchoolsTable({
             )}
             <select
               value={itemsPerPage.toString()}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setItemsPerPage(Number(e.target.value))
-              }
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
               className="min-w-[100px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
             >
-              <option value="5">5 per page</option>
-              <option value="10">10 per page</option>
-              <option value="20">20 per page</option>
-              <option value="50">50 per page</option>
+              {ITEMS_PER_PAGE_OPTIONS.map((num) => (
+                <option key={num} value={num}>
+                  {num} per page
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -672,8 +686,8 @@ export default function SchoolsTable({
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : currentItems.length > 0 ? (
-                currentItems.map((school) => (
+              ) : schools.length > 0 ? (
+                schools.map((school) => (
                   <TableRow
                     key={school.schoolId}
                     className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -773,10 +787,7 @@ export default function SchoolsTable({
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          Showing{" "}
-          {currentItems.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}{" "}
-          to {Math.min(currentPage * itemsPerPage, sortedSchools.length)} of{" "}
-          {sortedSchools.length} entries
+          Page {currentPage} of {totalPages} • {totalSchools} total schools
           {selectedSchools.length > 0 && (
             <span className="ml-2">({selectedSchools.length} selected)</span>
           )}
@@ -1153,55 +1164,6 @@ export default function SchoolsTable({
         </DialogContent>
       </Dialog>
       {/* Bulk Archive Confirmation Dialog */}
-      <Dialog
-        open={isBulkArchiveDialogOpen}
-        onOpenChange={setIsBulkArchiveDialogOpen}
-      >
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
-          <DialogHeader className="mb-8">
-            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              {showArchived ? "Restore Schools" : "Archive Schools"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-gray-600 dark:text-gray-400">
-              Are you sure you want to {showArchived ? "restore" : "archive"}{" "}
-              {selectedSchools.length} selected school
-              {selectedSchools.length > 1 ? "s" : ""}?{" "}
-              {showArchived
-                ? "Restored schools will be available for selection."
-                : "Archived schools will not be available for selection."}
-            </p>
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsBulkArchiveDialogOpen(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                color={showArchived ? "success" : "warning"}
-                onClick={() => handleBulkArchive(!showArchived)}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="animate-spin size-4" />
-                    {showArchived ? "Restoring..." : "Archiving..."}
-                  </span>
-                ) : showArchived ? (
-                  "Restore Schools"
-                ) : (
-                  "Archive Schools"
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog
         open={isBulkArchiveDialogOpen}
         onOpenChange={setIsBulkArchiveDialogOpen}
