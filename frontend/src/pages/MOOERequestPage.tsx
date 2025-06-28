@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -24,6 +25,29 @@ import { useLocation, useNavigate } from "react-router";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import api from "@/api/axios";
 
+const CATEGORY_LABELS: Record<string, string> = {
+  travel: "Travel Expenses",
+  training: "Training Expenses",
+  scholarship: "Scholarship Grants/Expenses",
+  supplies: "Office Supplies & Materials Expenses",
+  utilities: "Utilities Expenses",
+  communication: "Communication Expenses",
+  awards: "Awards/Rewards/Prizes Expenses",
+  survey: "Survey, Research, Exploration and Development Expenses",
+  confidential: "Confidential & Intelligence Expenses",
+  extraordinary: "Extraordinary and Miscellaneous Expenses",
+  professional: "Professional Service Expenses",
+  services: "General Services",
+  maintenance: "Repairs and Maintenance Expenses",
+  financial_assistance: "Financial Assistance/Subsidy Expenses",
+  taxes: "Taxes, Duties and Licenses Expenses",
+  labor: "Labor and Wages Expenses",
+  other_maintenance: "Other Maintenance and Operating Expenses",
+  financial: "Financial Expenses",
+  non_cash: "Non-cash Expenses",
+  losses: "Losses",
+};
+
 const MOOERequestPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,7 +57,6 @@ const MOOERequestPage = () => {
     searchTerm: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -44,6 +67,7 @@ const MOOERequestPage = () => {
   const [activeLiquidationData, setActiveLiquidationData] = useState<any>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [categoriesPerPage, setCategoriesPerPage] = useState(5);
 
   // Handle pre-filling from a rejected request
   useEffect(() => {
@@ -142,15 +166,6 @@ const MOOERequestPage = () => {
     }
   };
 
-  const handleQuickAdd = (expense: string, amount: number) => {
-    setSelected((prev) => ({
-      ...prev,
-      [expense]: prev[expense]
-        ? String(Number(prev[expense]) + amount)
-        : String(amount),
-    }));
-  };
-
   // Calculate total amount
   const totalAmount = Object.values(selected).reduce(
     (sum, amount) => sum + (amount ? Number(amount) : 0),
@@ -247,28 +262,56 @@ const MOOERequestPage = () => {
       .includes(filterOptions.searchTerm.toLowerCase())
   );
 
-  // Separate checked and unchecked items
-  const checkedItems = filteredExpenses.filter(
-    (priority) => selected[priority.expenseTitle] !== undefined
-  );
-  const uncheckedItems = filteredExpenses.filter(
-    (priority) => selected[priority.expenseTitle] === undefined
-  );
+  // Group priorities by category
+  const categories = React.useMemo(() => {
+    const map: { [cat: string]: ListofPriorityData[] } = {};
+    priorities.forEach((p) => {
+      if (!map[p.category]) map[p.category] = [];
+      map[p.category].push(p);
+    });
+    return map;
+  }, [priorities]);
 
-  // Combine checked (first) and unchecked items
-  const sortedItems = [...checkedItems, ...uncheckedItems];
+  // For pagination: get all category keys with unchecked items
+  const allCategoryKeys = Object.keys(categories).filter((cat) =>
+    categories[cat].some((p) => selected[p.expenseTitle] === undefined)
+  );
 
   // Pagination logic
-  const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
-  const currentItems = sortedItems.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const totalPages = Math.ceil(allCategoryKeys.length / categoriesPerPage);
+  const paginatedCategoryKeys = allCategoryKeys.slice(
+    (currentPage - 1) * categoriesPerPage,
+    currentPage * categoriesPerPage
   );
 
-  const goToPage = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
+  // For pagination: flatten all unchecked priorities (not categories)
+
+  // For rendering: group paginated items by category
+
+  // Confirmation dialog state for select all and submit
+  const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+
+  // Handle select all with confirmation
+  const handleCategorySelectAll = (cat: string) => {
+    const itemsToCheck = categories[cat].filter(
+      (p) => selected[p.expenseTitle] === undefined
+    );
+    if (itemsToCheck.length > 3) {
+      setCategoryToSelect(cat);
+    } else {
+      doCategorySelectAll(cat);
     }
+  };
+  const doCategorySelectAll = (cat: string) => {
+    setSelected((prev) => {
+      const newSel = { ...prev };
+      categories[cat].forEach((p) => {
+        if (!newSel[p.expenseTitle]) newSel[p.expenseTitle] = "";
+      });
+      return newSel;
+    });
+    setCategoryToSelect(null);
   };
 
   return (
@@ -398,6 +441,68 @@ const MOOERequestPage = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Select All Confirmation Dialog */}
+      <Dialog
+        open={!!categoryToSelect}
+        onOpenChange={() => setCategoryToSelect(null)}
+      >
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h2 className="text-lg font-bold mb-2">Select All in Category</h2>
+            <p>
+              Are you sure you want to select all items under{" "}
+              <span className="font-semibold">
+                {CATEGORY_LABELS[categoryToSelect ?? ""] || categoryToSelect}
+              </span>
+              ?
+            </p>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setCategoryToSelect(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => doCategorySelectAll(categoryToSelect!)}
+              >
+                Yes, Select All
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Submit Confirmation Dialog */}
+      <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h2 className="text-lg font-bold mb-2">Confirm Submission</h2>
+            <p className="mb-4">
+              Are you sure you want to submit this MOOE request?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowSubmitDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  setShowSubmitDialog(false);
+                  await handleSubmit(new Event("submit") as any);
+                }}
+              >
+                Confirm & Submit
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="mt-8">
         {!isFormDisabled && (
           <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
@@ -414,7 +519,24 @@ const MOOERequestPage = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            // Only show confirmation dialog if all amounts are filled
+            const emptyAmounts = Object.entries(selected).filter(
+              ([, amount]) => !amount || amount === "0"
+            );
+            if (Object.keys(selected).length === 0) {
+              toast.error("Please select at least one expense.");
+              return;
+            }
+            if (emptyAmounts.length > 0) {
+              toast.error("Please enter amounts for all selected expenses.");
+              return;
+            }
+            setShowSubmitDialog(true);
+          }}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column - Expense List */}
             <div>
@@ -438,17 +560,17 @@ const MOOERequestPage = () => {
 
                 <div className="flex gap-4 w-full md:w-auto items-center">
                   <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    Items per page:
+                    Categories per page:
                   </label>
                   <select
-                    value={itemsPerPage.toString()}
+                    value={categoriesPerPage}
                     onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
+                      setCategoriesPerPage(Number(e.target.value));
                       setCurrentPage(1);
                     }}
                     className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
                   >
-                    {[5, 10, 20, 50].map((num) => (
+                    {[3, 5, 10, 20].map((num) => (
                       <option key={num} value={num}>
                         Show {num}
                       </option>
@@ -469,89 +591,60 @@ const MOOERequestPage = () => {
                     {fetchError}
                   </div>
                 )}
-                {!loading && !fetchError && currentItems.length === 0 && (
-                  <div className="col-span-2 text-gray-500 text-center py-8">
-                    No expenses found matching your search.
-                  </div>
-                )}
+
                 {!loading &&
                   !fetchError &&
-                  currentItems.map((priority) => {
-                    const isSelected =
-                      selected[priority.expenseTitle] !== undefined;
+                  paginatedCategoryKeys.map((cat) => {
+                    const items = categories[cat].filter(
+                      (p) => selected[p.expenseTitle] === undefined
+                    );
+                    if (items.length === 0) return null;
                     return (
                       <div
-                        key={priority.LOPID}
-                        className={`p-4 rounded-lg border transition-all flex items-center justify-between group ${
-                          isSelected
-                            ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20"
-                            : "border-gray-200 hover:border-brand-400 dark:border-gray-700 dark:hover:border-brand-500"
-                        }`}
+                        key={cat}
+                        className="mb-4 border border-gray-300 rounded-lg transition-colors"
                       >
-                        <div className="flex items-center space-x-4">
+                        {/* Category Header */}
+                        <div className="flex items-center mb-2 w-full bg-gray-50 dark:bg-gray-700/40 rounded-t-lg px-3 py-2">
                           <input
                             type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleCheck(priority.expenseTitle)}
+                            checked={items.every(
+                              (p) => selected[p.expenseTitle] !== undefined
+                            )}
+                            onChange={() => handleCategorySelectAll(cat)}
                             disabled={isFormDisabled}
-                            className={`h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 transform group-hover:scale-110 transition-transform cursor-pointer ${
-                              isFormDisabled
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
-                            }`}
+                            className="mr-3 h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
+                            style={{ cursor: "pointer" }}
                           />
-                          <span className="font-medium text-gray-700 dark:text-gray-300">
-                            {priority.expenseTitle}
+                          <span className="font-semibold text-brand-700 dark:text-brand-200 w-full">
+                            {CATEGORY_LABELS[cat] || cat}
                           </span>
                         </div>
-
-                        {isSelected && (
-                          <div className="flex items-center gap-2">
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleQuickAdd(priority.expenseTitle, 1000)
-                                }
-                                className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-                              >
-                                +1000
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleQuickAdd(priority.expenseTitle, 500)
-                                }
-                                className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-                              >
-                                +500
-                              </button>
-                            </div>
-                            <div className="relative w-32">
-                              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                                ₱
-                              </span>
+                        {/* Items under category, indented */}
+                        <div className="pl-8 space-y-2 pb-2">
+                          {items.map((priority) => (
+                            <div
+                              key={priority.LOPID}
+                              className="flex items-center py-2 pr-4 rounded-lg transition-colors hover:bg-brand-50/60 dark:hover:bg-brand-900/20"
+                            >
                               <input
-                                type="text"
-                                value={selected[priority.expenseTitle] || ""}
-                                onChange={(e) =>
-                                  handleAmountChange(
-                                    priority.expenseTitle,
-                                    e.target.value
-                                  )
+                                type="checkbox"
+                                checked={
+                                  selected[priority.expenseTitle] !== undefined
+                                }
+                                onChange={() =>
+                                  handleCheck(priority.expenseTitle)
                                 }
                                 disabled={isFormDisabled}
-                                className={`w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
-                                  isFormDisabled
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : ""
-                                }`}
-                                placeholder="0.00"
-                                onClick={(e) => e.stopPropagation()}
+                                className="h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
+                                style={{ cursor: "pointer" }}
                               />
+                              <span className="ml-3 text-gray-700 dark:text-gray-300">
+                                {priority.expenseTitle}
+                              </span>
                             </div>
-                          </div>
-                        )}
+                          ))}
+                        </div>
                       </div>
                     );
                   })}
@@ -560,13 +653,13 @@ const MOOERequestPage = () => {
               {/* Pagination */}
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {currentPage} of {totalPages} • {sortedItems.length}{" "}
-                  total items
+                  Page {currentPage} of {totalPages} • {allCategoryKeys.length}{" "}
+                  total categories
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    onClick={() => goToPage(1)}
+                    onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                     variant="outline"
                     size="sm"
@@ -575,7 +668,7 @@ const MOOERequestPage = () => {
                   </Button>
                   <Button
                     type="button"
-                    onClick={() => goToPage(currentPage - 1)}
+                    onClick={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     variant="outline"
                     size="sm"
@@ -583,36 +676,22 @@ const MOOERequestPage = () => {
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      return (
-                        <Button
-                          type="button"
-                          key={pageNum}
-                          onClick={() => goToPage(pageNum)}
-                          variant={
-                            currentPage === pageNum ? "primary" : "outline"
-                          }
-                          size="sm"
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
+                    {Array.from({ length: totalPages }, (_, i) => (
+                      <Button
+                        type="button"
+                        key={i + 1}
+                        onClick={() => setCurrentPage(i + 1)}
+                        variant={currentPage === i + 1 ? "primary" : "outline"}
+                        size="sm"
+                      >
+                        {i + 1}
+                      </Button>
+                    ))}
                   </div>
                   <Button
                     type="button"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
                     variant="outline"
                     size="sm"
                   >
@@ -620,8 +699,8 @@ const MOOERequestPage = () => {
                   </Button>
                   <Button
                     type="button"
-                    onClick={() => goToPage(totalPages)}
-                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
                     variant="outline"
                     size="sm"
                   >
@@ -640,12 +719,12 @@ const MOOERequestPage = () => {
                   </h3>
                 </div>
 
-                {checkedItems.length > 0 ? (
+                {Object.keys(selected).length > 0 ? (
                   <>
                     <div className="p-4">
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-gray-600 dark:text-gray-300">
-                          {checkedItems.length} item(s) selected
+                          {Object.keys(selected).length} item(s) selected
                         </span>
                         <span className="font-medium text-brand-600 dark:text-brand-400">
                           Total: ₱{totalAmount.toLocaleString()}
@@ -653,33 +732,58 @@ const MOOERequestPage = () => {
                       </div>
 
                       <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                        {checkedItems.map((priority) => (
-                          <div
-                            key={priority.LOPID}
-                            className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-                          >
-                            <div className="truncate pr-2">
-                              {priority.expenseTitle}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                ₱{selected[priority.expenseTitle] || "0"}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleCheck(priority.expenseTitle)
-                                }
-                                className="text-gray-400 hover:text-red-500"
+                        {Object.entries(selected).map(
+                          ([expenseTitle, amount]) => {
+                            const priority = priorities.find(
+                              (p) => p.expenseTitle === expenseTitle
+                            );
+                            if (!priority) return null;
+                            return (
+                              <div
+                                key={priority.LOPID}
+                                className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
                               >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                                <div className="truncate pr-2">
+                                  {expenseTitle}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="relative w-24">
+                                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500">
+                                      ₱
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={amount}
+                                      onChange={(e) =>
+                                        handleAmountChange(
+                                          expenseTitle,
+                                          e.target.value
+                                        )
+                                      }
+                                      disabled={isFormDisabled}
+                                      className={`w-full pl-6 pr-2 py-1 text-sm border border-gray-300 rounded focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                                        isFormDisabled
+                                          ? "opacity-50 cursor-not-allowed"
+                                          : ""
+                                      }`}
+                                      placeholder="0.00"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCheck(expenseTitle)}
+                                    className="text-gray-400 hover:text-red-500"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+                        )}
                       </div>
                     </div>
-
                     <div className="p-4 border-t border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex justify-between items-center">
                         <Button

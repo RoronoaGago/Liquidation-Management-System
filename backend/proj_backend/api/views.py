@@ -216,14 +216,24 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
         return queryset.order_by('schoolName')
 
     def create(self, request, *args, **kwargs):
-        # Add budget validation
-        max_budget = request.data.get('max_budget')
-        if max_budget and float(max_budget) < 0:
-            return Response(
-                {"error": "Budget must be a positive number"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        return super().create(request, *args, **kwargs)
+        # Support both batch and single creation
+        is_many = isinstance(request.data, list)
+        data = request.data if is_many else [request.data]
+
+        # Validate max_budget for each item
+        for item in data:
+            max_budget = item.get('max_budget')
+            if max_budget is not None and float(max_budget) < 0:
+                return Response(
+                    {"error": "Budget must be a positive number"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 # Add a new endpoint for school search
 
 
