@@ -19,10 +19,10 @@ urlpatterns = [
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
-    path('schools/<str:schoolId>/',
-         views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
     path('schools/batch_update/', batch_update_school_budgets,
          name='schools-batch-update'),
+    path('schools/<str:schoolId>/',
+         views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
 
     path('requirements/', views.RequirementListCreateAPIView.as_view(),
          name='requirement-list-create'),
