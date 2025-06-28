@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidatorAssignment
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidatorAssignment, LiquidationPriority
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
@@ -246,6 +246,19 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                     continue
         return request_obj
 
+class LiquidationPrioritySerializer(serializers.ModelSerializer):
+    priority = ListOfPrioritySerializer(read_only=True)
+    priority_id = serializers.PrimaryKeyRelatedField(
+        queryset=ListOfPriority.objects.all(),
+        source='priority',
+        write_only=True
+    )
+
+    class Meta:
+        model = LiquidationPriority
+        fields = ['id', 'liquidation', 'priority', 'priority_id', 'amount']
+        read_only_fields = ['id', 'liquidation', 'priority']
+
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
     request_priority = serializers.PrimaryKeyRelatedField(
@@ -303,6 +316,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
     reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
+    liquidation_priorities = LiquidationPrioritySerializer(many=True, read_only=True)
 
     class Meta:
         model = LiquidationManagement
@@ -319,6 +333,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'submitted_at',
             'reviewer_comments',
             'created_at',
+            'liquidation_priorities',  # <-- Add this line
         ]
 
     def get_reviewer_comments(self, obj):
@@ -407,3 +422,6 @@ class NotificationSerializer(serializers.ModelSerializer):
             'sender',
             'notification_date',
         ]
+
+
+
