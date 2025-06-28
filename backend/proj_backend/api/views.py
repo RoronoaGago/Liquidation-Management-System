@@ -9,14 +9,13 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
-from django.core.exceptions import ValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -200,6 +199,16 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
             )
         return queryset.order_by('schoolName')
 
+    def create(self, request, *args, **kwargs):
+        # Check if request.data is a list (batch)
+        is_many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
 # Add a new endpoint for school search
 
 
@@ -341,6 +350,9 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
 
 
 class ApproveRequestView(generics.UpdateAPIView):
+    """
+    View for approving a request (admin/superintendent only)
+    """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -348,24 +360,32 @@ class ApproveRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        instance._status_changed_by = request.user  # Set reviewer
+        # Check if user has permission to approve
         if request.user.role not in ['admin', 'superintendent']:
             return Response(
                 {"detail": "Only administrators can approve requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
+
+        # Check if request is in pending state
         if instance.status != 'pending':
             return Response(
                 {"detail": "Only pending requests can be approved"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
         instance.status = 'approved'
-        instance._status_changed_by = request.user
         instance.save()
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
 
 class RejectRequestView(generics.UpdateAPIView):
+    """
+    View for rejecting a request (admin/superintendent only)
+    """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -373,26 +393,32 @@ class RejectRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        instance._status_changed_by = request.user  # Set reviewer
+
+        # Check if user has permission to reject
         if request.user.role not in ['admin', 'superintendent']:
             return Response(
                 {"detail": "Only administrators can reject requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
+
+        # Check if request is in pending state
         if instance.status != 'pending':
             return Response(
                 {"detail": "Only pending requests can be rejected"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Require a rejection comment
         rejection_comment = request.data.get('rejection_comment')
         if not rejection_comment:
             return Response(
                 {"detail": "Please provide a rejection comment"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
         instance.status = 'rejected'
         instance.rejection_comment = rejection_comment
-        instance.rejection_date = timezone.now().date()
-        instance._status_changed_by = request.user  # For notification
         instance.save()
 
         serializer = self.get_serializer(instance)
@@ -401,7 +427,7 @@ class RejectRequestView(generics.UpdateAPIView):
 
 class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    View for retrieving, updating or deleting a specific request
+    View for retrieving, updating, or deleting a specific request.
     """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
@@ -411,17 +437,22 @@ class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         instance = self.get_object()
 
+        # Prevent editing if request is already approved
+        if instance.status == 'approved':
+            raise ValidationError("Cannot edit an already approved request")
+
         # Check if user has permission to edit this request
         if instance.user != self.request.user and self.request.user.role not in ['admin', 'superintendent']:
             raise PermissionDenied(
                 "You don't have permission to edit this request")
 
-        # Prevent editing if request is already approved/rejected
-        if instance.status in ['approved', 'rejected']:
-            raise ValidationError(
-                "Cannot edit an already approved/rejected request")
-
-        serializer.save()
+        # Allow updates for rejected requests and reset status to pending
+        if instance.status == 'rejected':
+            # Assuming status_changed_by is a model field
+            serializer.save(status='pending',
+                            status_changed_by=self.request.user)
+        else:
+            serializer.save()
 
 
 class RequestPriorityCreateView(generics.CreateAPIView):
@@ -475,85 +506,63 @@ def check_pending_requests(request):
     return Response(response_data)
 
 
-class ApproveRequestView(generics.UpdateAPIView):
-    """
-    View for approving a request (admin/superintendent only)
-    """
-    queryset = RequestManagement.objects.all()
-    serializer_class = RequestManagementSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def resubmit_request(request, request_id):
+    try:
+        req = RequestManagement.objects.get(
+            request_id=request_id, user=request.user)
 
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
+        if req.status != 'rejected':
+            return Response({"error": "Only rejected requests can be resubmitted"}, status=400)
 
-        # Check if user has permission to approve
-        if request.user.role not in ['admin', 'superintendent']:
-            return Response(
-                {"detail": "Only administrators can approve requests"},
-                status=status.HTTP_403_FORBIDDEN
+        # Update priorities
+        RequestPriority.objects.filter(request=req).delete()
+        for pa in request.data.get('priority_amounts', []):
+            priority = ListOfPriority.objects.get(LOPID=pa['LOPID'])
+            RequestPriority.objects.create(
+                request=req,
+                priority=priority,
+                amount=pa['amount']
             )
 
-        # Check if request is in pending state
-        if instance.status != 'pending':
-            return Response(
-                {"detail": "Only pending requests can be approved"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Reset status and clear rejection fields
+        req.status = 'pending'
+        # req.rejection_comment = None
+        # req.rejection_date = None
+        req.save()
 
-        instance.status = 'approved'
-        instance.save()
+        return Response(RequestManagementSerializer(req).data)
 
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-
-
-class RejectRequestView(generics.UpdateAPIView):
-    """
-    View for rejecting a request (admin/superintendent only)
-    """
-    queryset = RequestManagement.objects.all()
-    serializer_class = RequestManagementSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
-
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-
-        # Check if user has permission to reject
-        if request.user.role not in ['admin', 'superintendent']:
-            return Response(
-                {"detail": "Only administrators can reject requests"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        # Check if request is in pending state
-        if instance.status != 'pending':
-            return Response(
-                {"detail": "Only pending requests can be rejected"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Require a rejection reason
-        rejection_reason = request.data.get('rejection_reason')
-        if not rejection_reason:
-            return Response(
-                {"detail": "Please provide a rejection reason"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        instance.status = 'rejected'
-        instance.rejection_reason = rejection_reason
-        instance.save()
-
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+    except RequestManagement.DoesNotExist:
+        return Response({"error": "Request not found"}, status=404)
 
 
 class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
     queryset = LiquidationManagement.objects.all()
     serializer_class = LiquidationManagementSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Only filter for liquidators
+        if user.role == 'liquidator':
+            assignments = LiquidatorAssignment.objects.filter(liquidator=user)
+            # If assigned to 'all', show all liquidations
+            if assignments.filter(district='all').exists():
+                return LiquidationManagement.objects.all()
+            # Otherwise, filter by assigned districts and/or schools
+            districts = assignments.exclude(district__isnull=True).exclude(district='').values_list('district', flat=True)
+            district_schools = School.objects.filter(district__in=districts)
+            # Get schools assigned directly
+            school_ids = assignments.exclude(school__isnull=True).exclude(school='').values_list('school', flat=True)
+            direct_schools = School.objects.filter(id__in=school_ids)
+            # Combine both sets of schools
+            all_schools = district_schools | direct_schools
+            all_schools = all_schools.distinct()
+            return LiquidationManagement.objects.filter(request__user__school__in=all_schools)
+        # For other roles, default behavior (e.g., admin sees all)
+        return super().get_queryset()
 
 
 class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -821,3 +830,12 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
             status='draft',
             request__user=self.request.user
         )
+
+
+class LiquidatorAssignmentListCreateAPIView(generics.ListCreateAPIView):
+    queryset = LiquidatorAssignment.objects.all()
+    serializer_class = LiquidatorAssignmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(assigned_by=self.request.user)

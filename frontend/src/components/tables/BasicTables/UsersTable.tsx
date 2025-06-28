@@ -68,6 +68,7 @@ import SkeletonRow from "@/components/ui/skeleton";
 import { roleMap } from "@/lib/constants";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
+import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 
 interface UsersTableProps {
   users: User[];
@@ -1214,24 +1215,6 @@ export default function UsersTable({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-base">
-                  Username *
-                </Label>
-                <Input
-                  type="text"
-                  id="username"
-                  name="username"
-                  placeholder="johndoe123"
-                  value={selectedUser.username}
-                  onChange={handleChange}
-                  disabled // Username shouldn't be editable
-                />
-                {formErrors.username && (
-                  <p className="text-red-500 text-sm">{formErrors.username}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="email" className="text-base">
                   Email *
                 </Label>
@@ -1248,7 +1231,75 @@ export default function UsersTable({
                   <p className="text-red-500 text-sm">{formErrors.email}</p>
                 )}
               </div>
+              <PhoneNumberInput
+                value={selectedUser.phone_number || ""}
+                onChange={(value) =>
+                  setSelectedUser((prev) => ({
+                    ...prev!,
+                    phone_number: value || "",
+                  }))
+                }
+                error={formErrors.phone_number}
+                id="phone_number"
+                required={false}
+                autoComplete="tel"
+              />
+              <div className="space-y-2">
+                <Label htmlFor="username" className="text-base">
+                  Username *
+                </Label>
+                <Input
+                  type="text"
+                  id="username"
+                  name="username"
+                  placeholder="johndoe123"
+                  value={selectedUser.username}
+                  onChange={handleChange}
+                  disabled // Username shouldn't be editable
+                />
+                {formErrors.username && (
+                  <p className="text-red-500 text-sm">{formErrors.username}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role" className="text-base">
+                  Role *
+                </Label>
+                <select
+                  id="role"
+                  name="role"
+                  value={selectedUser.role}
+                  onChange={handleChange}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  {roleOptions.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      className="text-gray-700"
+                      disabled={
+                        option.value === "admin" &&
+                        currentUser?.role !== "admin"
+                      }
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.role && (
+                  <p className="text-red-500 text-sm">{formErrors.role}</p>
+                )}
+              </div>
 
+              {(selectedUser.role === "school_head" ||
+                selectedUser.role === "school_admin") && (
+                <SchoolSelect
+                  value={selectedUser.school}
+                  onChange={handleSchoolChange}
+                  required
+                  error={formErrors.school}
+                />
+              )}
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-base">
                   New Password (leave blank to keep current)
@@ -1320,46 +1371,6 @@ export default function UsersTable({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role" className="text-base">
-                  Role *
-                </Label>
-                <select
-                  id="role"
-                  name="role"
-                  value={selectedUser.role}
-                  onChange={handleChange}
-                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                >
-                  {roleOptions.map((option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                      className="text-gray-700"
-                      disabled={
-                        option.value === "admin" &&
-                        currentUser?.role !== "admin"
-                      }
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.role && (
-                  <p className="text-red-500 text-sm">{formErrors.role}</p>
-                )}
-              </div>
-
-              {(selectedUser.role === "school_head" ||
-                selectedUser.role === "school_admin") && (
-                <SchoolSelect
-                  value={selectedUser.school}
-                  onChange={handleSchoolChange}
-                  required
-                  error={formErrors.school}
-                />
-              )}
-
-              <div className="space-y-2">
                 <Label htmlFor="date_of_birth" className="text-base">
                   Birthdate
                 </Label>
@@ -1380,27 +1391,6 @@ export default function UsersTable({
                 {formErrors.date_of_birth && (
                   <p className="text-red-500 text-sm">
                     {formErrors.date_of_birth}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone_number" className="text-base">
-                  Phone Number
-                </Label>
-                <Input
-                  type="tel"
-                  id="phone_number"
-                  name="phone_number"
-                  className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                  placeholder="+1 (555) 123-4567"
-                  value={selectedUser.phone_number || ""}
-                  onChange={handleChange}
-                  onInput={handlePhoneNumberInput}
-                />
-                {formErrors.phone_number && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.phone_number}
                   </p>
                 )}
               </div>

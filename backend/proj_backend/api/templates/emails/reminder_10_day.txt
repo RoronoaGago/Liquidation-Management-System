@@ -1,7 +1,7 @@
 Dear {{ request.user.get_full_name }},
 
 This is a reminder that your request (ID: {{ request.request_id }}) 
-needs to be liquidated within the next 10 days.
+needs to be liquidated within the next 15 days.
 
 Request Details:
 - Created: {{ request.created_at|date:"Y-m-d" }}
@@ -14,4 +14,5 @@ Request Details:
 Please complete the liquidation process before the deadline to avoid expiration.
 
 Regards,
-The System Admin
+La Union Schools Division Office
+Department of Education 
