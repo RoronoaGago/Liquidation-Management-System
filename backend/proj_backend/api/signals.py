@@ -28,9 +28,9 @@ def start_unliquidated_timer(sender, instance, **kwargs):
     # Define reminder schedule
     REMINDER_SCHEDULE = [
         (20, 10),  # 10-day reminder (20 days after status change)
-        (25, 5),   # 5-day reminder
-        (28, 2),   # 2-day reminder
-        (29, 1),   # 1-day reminder
+        #(25, 5),   # 5-day reminder
+        #(28, 2),   # 2-day reminder
+        #(29, 1),   # 1-day reminder
         (30, 0),   # Final day reminder
         (31, -1),  # Demand letter (check_liquidation_status)
     ]
