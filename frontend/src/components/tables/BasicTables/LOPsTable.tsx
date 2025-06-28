@@ -464,7 +464,7 @@ export default function LOPsTable({
                     onClick={() => onRequestSort("LOPID")}
                     style={{ cursor: "pointer", userSelect: "none" }}
                   >
-                    List of Priority ID
+                    LOPID
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 ${

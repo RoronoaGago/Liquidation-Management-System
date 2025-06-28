@@ -66,7 +66,6 @@ MIDDLEWARE = [
 ]
 
 
-
 ROOT_URLCONF = 'backend.urls'
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173",
                         "http://192.168.1.147:5173", "http://192.168.1.111:5173", "http://192.168.1.232:5173", "http://192.168.0.231:5173", "http://172.20.10.2:5173", "http://172.20.10.7:5173"]
@@ -198,7 +197,8 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'            # Use an app password, not your Gmail password!
+# Use an app password, not your Gmail password!
+EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
 DEFAULT_FROM_EMAIL = 'riverajanlester.st.maria@gmail.com'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
@@ -207,3 +207,30 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',  # Show all logs, including debug
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',  # You can set this to 'DEBUG' if you want more Django internals
+            'propagate': False,
+        },
+        # Your app logger
+        'api': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}

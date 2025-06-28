@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -19,6 +19,8 @@ urlpatterns = [
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
+    path('schools/batch_update/', batch_update_school_budgets,
+         name='schools-batch-update'),
     path('schools/<str:schoolId>/',
          views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
 
@@ -67,5 +69,6 @@ urlpatterns = [
     path('liquidation/', views.UserLiquidationsAPIView.as_view(),
          name='liquidation'),
 
-    path('liquidator-assignments/', views.LiquidatorAssignmentListCreateAPIView.as_view(), name='liquidator-assignment-list-create'),
+    path('liquidator-assignments/', views.LiquidatorAssignmentListCreateAPIView.as_view(),
+         name='liquidator-assignment-list-create'),
 ]

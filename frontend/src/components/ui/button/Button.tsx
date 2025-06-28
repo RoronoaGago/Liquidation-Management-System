@@ -23,6 +23,8 @@ const Button = ({
   const variantClasses = {
     primary:
       "bg-brand-500 text-white shadow-theme-xs hover:bg-brand-600 disabled:bg-brand-300",
+    secondary:
+      "bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:bg-gray-100", // <-- Added secondary variant
     outline:
       "bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300",
     error:
@@ -30,9 +32,9 @@ const Button = ({
     success:
       "bg-green-600 text-white shadow-theme-xs hover:bg-green-700 disabled:bg-green-300",
     destructive:
-      "bg-red-600 text-white shadow-theme-xs hover:bg-red-700 disabled:bg-red-300", // <-- Added destructive variant
+      "bg-red-600 text-white shadow-theme-xs hover:bg-red-700 disabled:bg-red-300",
     ghost:
-      "bg-transparent text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800/60 shadow-none ring-0", // Added ghost variant
+      "bg-transparent text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800/60 shadow-none ring-0",
   };
 
   return (
