@@ -9,30 +9,30 @@ from .tasks import check_liquidation_status, send_reminder
 @receiver(post_save, sender=RequestManagement)
 def start_unliquidated_timer(sender, instance, **kwargs):
     """
-    Schedule reminders when request status changes to 'unliquidated'
+    Schedule reminders when request status changes to 'downloaded'
     """
-    # Only proceed if status changed to 'unliquidated'
+    # Only proceed if status changed to 'downloaded' and not yet liquidated
     if instance.status != 'downloaded':
         return
 
-    # Check if this is a new status change (not just saving the same status)
+    # Prevent duplicate scheduling
     if kwargs.get('created', False) or not hasattr(instance, '_previous_status'):
         instance._previous_status = None
 
     if instance._previous_status == 'downloaded':
         return  # Already processed
 
+    # If already liquidated, do not schedule reminders
+    if hasattr(instance, 'liquidation'):
+        return
+
     now = timezone.now()
     request_id = instance.request_id
 
     # Define reminder schedule
     REMINDER_SCHEDULE = [
-        (20, 10),  # 10-day reminder (20 days after status change)
-        (25, 5),   # 5-day reminder
-        (28, 2),   # 2-day reminder
-        (29, 1),   # 1-day reminder
-        (30, 0),   # Final day reminder
-        (31, -1),  # Demand letter (check_liquidation_status)
+        (15, 15),  # 15-day reminder
+        (30, 0),   # Demand letter (check_liquidation_status)
     ]
 
     try:
@@ -52,7 +52,6 @@ def start_unliquidated_timer(sender, instance, **kwargs):
         instance._previous_status = instance.status
 
     except Exception as e:
-        # Log any errors that occur during scheduling
         import logging
         logger = logging.getLogger(__name__)
         logger.error(
