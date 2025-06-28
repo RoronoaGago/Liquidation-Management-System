@@ -33,10 +33,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import { Skeleton } from "antd";
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const QUICK_ADD_AMOUNTS = [1000, 5000, 10000];
 const MIN_SEARCH_LENGTH = 3;
+const SEARCH_DEBOUNCE_MS = 500;
+
 const ResourceAllocation = () => {
   const [schools, setSchools] = useState<School[]>([]);
   const [editingBudgets, setEditingBudgets] = useState<Record<string, number>>(
@@ -54,6 +57,8 @@ const ResourceAllocation = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [adjustmentAmount, setAdjustmentAmount] = useState(1000); // Default adjustment amount
   const [expandedCards, setExpandedCards] = useState<string[]>([]);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+
   // Fetch schools from backend with pagination and filtering
   useEffect(() => {
     const fetchData = async () => {
@@ -63,8 +68,8 @@ const ResourceAllocation = () => {
           page: currentPage,
           page_size: itemsPerPage,
         };
-        if (searchTerm.length >= MIN_SEARCH_LENGTH) {
-          params.search = searchTerm;
+        if (debouncedSearch.length >= MIN_SEARCH_LENGTH) {
+          params.search = debouncedSearch;
         }
         const res = await api.get("schools/", { params });
         console.log("Fetched schools:", res.data);
@@ -85,20 +90,28 @@ const ResourceAllocation = () => {
         setLoading(false);
       }
     };
-    fetchData();
+    // Only fetch if search is empty or meets min length
+    if (
+      debouncedSearch.length === 0 ||
+      debouncedSearch.length >= MIN_SEARCH_LENGTH
+    ) {
+      fetchData();
+    } else {
+      setSchools([]);
+      setTotalSchools(0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, itemsPerPage, searchTerm]);
+  }, [currentPage, itemsPerPage, debouncedSearch]);
 
-  // Debounced search handler
-  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    debounceTimeout.current = setTimeout(() => {
-      setCurrentPage(1);
-    }, 500);
-  };
+  // Debounced search handler (with 300ms delay)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1); // Reset to first page on new search
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   // Toggle selection
   const toggleSchoolSelection = (schoolId: string) => {
@@ -174,12 +187,21 @@ const ResourceAllocation = () => {
         setShowSuccessDialog(false);
       }, 2500);
 
-      // Refresh data after save
-      const schoolsRes = await api.get("schools/");
-      setSchools(schoolsRes.data);
+      // Refresh data after save with current params
+      const params: any = {
+        page: currentPage,
+        page_size: itemsPerPage,
+      };
+      if (searchTerm.length >= MIN_SEARCH_LENGTH) {
+        params.search = searchTerm;
+      }
+      const schoolsRes = await api.get("schools/", { params });
+      setSchools(schoolsRes.data.results || schoolsRes.data);
+      setTotalSchools(schoolsRes.data.count ?? schoolsRes.data.length);
 
       // Clear selected schools after successful save
       setSelectedSchools([]);
+      setExpandedCards([]);
     } catch (error: any) {
       console.error("Error updating budgets:", error);
       toast.error("Failed to update budgets");
@@ -187,6 +209,9 @@ const ResourceAllocation = () => {
       setIsSaving(false);
       setShowSaveConfirm(false);
     }
+  };
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
   };
 
   // Format currency
@@ -227,8 +252,13 @@ const ResourceAllocation = () => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
-  // Get border color based on difference
-  const getBorderColor = (difference: number) => {
+  const getBorderColor = (
+    difference: number,
+    isSelected: boolean,
+    isExpanded: boolean
+  ) => {
+    if (!isSelected || !isExpanded)
+      return "border-gray-200 dark:border-gray-700";
     if (difference > 0) return "border-green-500";
     if (difference < 0) return "border-red-500";
     return "border-gray-200 dark:border-gray-700";
@@ -386,7 +416,7 @@ const ResourceAllocation = () => {
                   Type {MIN_SEARCH_LENGTH - searchTerm.length} more
                 </span>
               ) : (
-                `${schools.length} schools`
+                `${totalSchools} schools`
               )}
             </span>
           </div>
@@ -484,17 +514,24 @@ const ResourceAllocation = () => {
 
         {/* School Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {loading && (
-            <div className="col-span-full text-gray-500 text-center py-8">
-              Loading schools...
-            </div>
-          )}
-          {!loading && schools.length === 0 && (
+          {loading ? (
+            // Skeletons for loading state
+            Array.from({ length: itemsPerPage }).map((_, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 flex flex-col gap-3"
+              >
+                <Skeleton className="h-6 w-2/3 mb-2" />
+                <Skeleton className="h-4 w-1/3 mb-4" />
+                <Skeleton className="h-4 w-1/2 mb-2" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ))
+          ) : schools.length === 0 ? (
             <div className="col-span-full text-gray-500 text-center py-8">
               No schools found matching your search.
             </div>
-          )}
-          {!loading &&
+          ) : (
             sortedSchools.map((school) => {
               const isSelected = selectedSchools.includes(school.schoolId);
               const isExpanded = expandedCards.includes(school.schoolId); // Use this for expansion state
@@ -505,12 +542,11 @@ const ResourceAllocation = () => {
               return (
                 <div
                   key={school.schoolId}
-                  className={`rounded-lg border transition-all overflow-hidden cursor-pointer flex flex-col ${
-                    isExpanded ? "h-auto" : "h-[120px]"
-                  } ${
+                  className={`rounded-lg border transition-all overflow-hidden cursor-pointer flex flex-col 
+                    ${isExpanded ? "h-auto" : "h-[120px]"} ${
                     isSelected
                       ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
-                      : getBorderColor(difference)
+                      : getBorderColor(difference, isSelected, isExpanded)
                   } hover:border-brand-400 dark:hover:border-brand-500`}
                   onClick={(e) => {
                     if (
@@ -623,13 +659,14 @@ const ResourceAllocation = () => {
                   </div>
                 </div>
               );
-            })}
+            })
+          )}
         </div>
 
         {/* Pagination */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage} of {totalPages} • {schools.length} total schools
+            Page {currentPage} of {totalPages} • {totalSchools} total schools
           </div>
           <div className="flex items-center gap-2">
             <Button
