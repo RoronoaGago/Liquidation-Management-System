@@ -4,6 +4,10 @@ from django.utils.crypto import get_random_string
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
+from datetime import date
 import string
 
 
@@ -77,7 +81,7 @@ class User(AbstractUser):
 
 class School(models.Model):
     schoolId = models.CharField(
-        max_length=10, primary_key=True, editable=True)  # Primary Key
+        max_length=10, primary_key=True, editable=True)
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     district = models.CharField(max_length=100)
@@ -89,6 +93,11 @@ class School(models.Model):
         default=0.00,
         verbose_name="Maximum Budget"
     )
+    is_active = models.BooleanField(default=True)
+    last_liquidated_month = models.PositiveSmallIntegerField(
+        null=True, blank=True)  # 1-12
+    last_liquidated_year = models.PositiveSmallIntegerField(
+        null=True, blank=True)
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
@@ -106,13 +115,26 @@ class Requirement(models.Model):
 
 class ListOfPriority(models.Model):
     CATEGORY_CHOICES = [
-        ('trainDev', 'Training and Development'),
-        ('transport', 'Travel & Transportation'),
-        ('communication', 'Communication & Utilities'),
-        ('office', 'Office Operations & Supplies'),
-        ('services', 'Services & Maintenance'),
-        ('medical', 'Medical & Food Supplies'),
-        ('misc', 'Miscellaneous'),
+        ('travel', 'Travel Expenses'),
+        ('training', 'Training Expenses'),
+        ('scholarship', 'Scholarship Grants/Expenses'),
+        ('supplies', 'Office Supplies & Materials Expenses'),
+        ('utilities', 'Utilities Expenses'),
+        ('communication', 'Communication Expenses'),
+        ('awards', 'Awards/Rewards/Prizes Expenses'),
+        ('survey', 'Survey, Research, Exploration and Development Expenses'),
+        ('confidential', 'Confidential & Intelligence Expenses'),
+        ('extraordinary', 'Extraordinary and Miscellaneous Expenses'),
+        ('professional', 'Professional Service Expenses'),
+        ('services', 'General Services'),
+        ('maintenance', 'Repairs and Maintenance Expenses'),
+        ('financial_assistance', 'Financial Assistance/Subsidy Expenses'),
+        ('taxes', 'Taxes, Duties and Licenses Expenses'),
+        ('labor', 'Labor and Wages Expenses'),
+        ('other_maintenance', 'Other Maintenance and Operating Expenses'),
+        ('financial', 'Financial Expenses'),
+        ('non_cash', 'Non-cash Expenses'),
+        ('losses', 'Losses'),
     ]
 
     LOPID = models.AutoField(primary_key=True)
@@ -120,7 +142,7 @@ class ListOfPriority(models.Model):
     category = models.CharField(
         max_length=30,
         choices=CATEGORY_CHOICES,
-        default='misc'
+        default='other_maintenance'
     )
     requirements = models.ManyToManyField(
         'Requirement',
@@ -165,11 +187,13 @@ def generate_request_id():
 
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
+
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
         ('downloaded', 'Downloaded'),
         ('liquidated', 'Liquidated'),
+        ('advanced', 'Advanced'),  # <-- Add this
     ]
 
     request_id = models.CharField(
@@ -180,7 +204,8 @@ class RequestManagement(models.Model):
         unique=True
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    request_month = models.CharField(max_length=20, null=True, blank=True)
+    request_monthyear = models.CharField(
+        max_length=7, null=True, blank=True)  # Format: YYYY-MM
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default='pending')
     priorities = models.ManyToManyField(
@@ -207,6 +232,34 @@ class RequestManagement(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
+        # Set request_monthyear automatically
+        if not self.pk:  # Only on creation
+            school = self.user.school
+            if school:
+                if school.last_liquidated_month and school.last_liquidated_year:
+                    # Set to next month after last liquidated
+                    year = school.last_liquidated_year
+                    month = school.last_liquidated_month + 1
+                    if month > 12:
+                        month = 1
+                        year += 1
+                    self.request_monthyear = f"{year:04d}-{month:02d}"
+                else:
+                    # If no liquidation yet, allow manual input or default to current month
+                    if not self.request_monthyear:
+                        today = date.today()
+                        self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
+
+        # Set status based on request_monthyear
+        if self.request_monthyear:
+            today = date.today()
+            req_year, req_month = map(int, self.request_monthyear.split('-'))
+            if req_year > today.year or (req_year == today.year and req_month > today.month):
+                self.status = 'advanced'
+            elif req_year == today.year and req_month == today.month:
+                self.status = 'pending'
+        super().save(*args, **kwargs)
+
         is_new = self._state.adding
         old_status = None
         if not is_new:
@@ -254,6 +307,22 @@ class RequestManagement(models.Model):
                 details=self.rejection_comment if self.status == 'rejected' else None,
                 receiver=self.user,
                 sender=getattr(self, '_status_changed_by', None),
+            )
+
+            # Email notification
+            subject = f"Request Status Update: {self.status.title()}"
+            message = render_to_string('emails/status_change.txt', {
+                'object_type': 'Request',
+                'object': self,
+                'user': self.user,
+                'status': self.status,
+            })
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [self.user.email],
+                fail_silently=True,
             )
 
     def __str__(self):
@@ -305,16 +374,16 @@ class LiquidationManagement(models.Model):
         on_delete=models.CASCADE,
         related_name='liquidation'
     )
+    refund = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True)
     comment_id = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(
         max_length=30, choices=STATUS_CHOICES, default='draft'
     )
-
     reviewed_by_district = models.ForeignKey(
         User, null=True, blank=True, related_name='district_reviewed_liquidations', on_delete=models.SET_NULL
     )
     reviewed_at_district = models.DateTimeField(null=True, blank=True)
-
     reviewed_by_division = models.ForeignKey(
         User, null=True, blank=True, related_name='division_reviewed_liquidations', on_delete=models.SET_NULL
     )
@@ -322,6 +391,35 @@ class LiquidationManagement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     date_districtApproved = models.DateField(null=True, blank=True)
     date_liquidated = models.DateField(null=True, blank=True)
+    remaining_days = models.IntegerField(
+        null=True, blank=True)  # <-- Add this field
+
+    def calculate_refund(self):
+        # Calculate total requested amount
+        total_requested = sum(
+            rp.amount for rp in self.request.requestpriority_set.all()
+        )
+        # Calculate total liquidated amount
+        total_liquidated = sum(
+            lp.amount for lp in self.liquidation_priorities.all()
+        )
+        # Refund is the difference, or None if equal
+        if total_requested == total_liquidated:
+            return None
+        return total_requested - total_liquidated
+
+    def calculate_remaining_days(self):
+        """
+        Calculates how many days are left to liquidate the request.
+        Assumes you want 30 days from the request's approval date.
+        """
+        if self.request and self.request.date_downloaded:
+            deadline = self.request.date_downloaded + \
+                timezone.timedelta(days=30)
+            today = date.today()
+            remaining = (deadline - today).days
+            return max(remaining, 0)
+        return None
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -343,6 +441,10 @@ class LiquidationManagement(models.Model):
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
             self.date_districtApproved = None
 
+        # Calculate refund amount
+        self.refund = self.calculate_refund()
+        self.remaining_days = self.calculate_remaining_days()
+
         super().save(*args, **kwargs)
 
         # Notification logic (after save, so PK exists)
@@ -354,6 +456,22 @@ class LiquidationManagement(models.Model):
                 receiver=self.request.user,
                 # Set this in your view if needed
                 sender=getattr(self, '_status_changed_by', None),
+            )
+
+            # Email notification
+            subject = f"Liquidation Status Update: {self.status.title()}"
+            message = render_to_string('emails/status_change.txt', {
+                'object_type': 'Liquidation',
+                'object': self,
+                'user': self.request.user,
+                'status': self.status,
+            })
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [self.request.user.email],
+                fail_silently=True,
             )
 
     def __str__(self):
@@ -457,3 +575,22 @@ class LiquidatorAssignment(models.Model):
 
     def __str__(self):
         return f"{self.liquidator} assigned to {self.district}"
+
+
+class LiquidationPriority(models.Model):
+    liquidation = models.ForeignKey(
+        'LiquidationManagement',
+        on_delete=models.CASCADE,
+        related_name='liquidation_priorities'
+    )
+    priority = models.ForeignKey(
+        'ListOfPriority',
+        on_delete=models.CASCADE
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        unique_together = ('liquidation', 'priority')
+
+    def __str__(self):
+        return f"{self.liquidation} - {self.priority} (${self.amount})"

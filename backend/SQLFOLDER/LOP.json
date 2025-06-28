@@ -1,112 +1,118 @@
 [
   {
-    "expenseTitle": "Travelling Expense",
-    "category": "transport",
+    "expenseTitle": "TRAVELLING EXPENSE",
+    "category": "travel",
     "requirement_ids": [1, 2, 3, 4, 5, 6, 7]
   },
   {
-    "expenseTitle": "Internet Expense (Pocket Wifi)",
-    "category": "communication",
-    "requirement_ids": [1, 8, 26, 27]
-  },
-  {
-    "expenseTitle": "Training Expense",
-    "category": "trainDev",
+    "expenseTitle": "TRAINING EXPENSE",
+    "category": "training",
     "requirement_ids": [1, 11, 3, 4, 5, 6, 7]
   },
   {
-    "expenseTitle": "Office/Other Supplies Expense (DBM)",
-    "category": "office",
-    "requirement_ids": [1, 13, 14, 11, 15, 16, 17, 18, 19]
+    "expenseTitle": "TRAINING EXPENSES (GAD / INSET)",
+    "category": "training",
+    "requirement_ids": [
+      1, 9, 10, 29, 16, 37, 19, 20, 21, 22, 23, 24, 36, 33, 34, 35
+    ]
   },
   {
-    "expenseTitle": "Training Expenses (GAD/INSET)",
-    "category": "trainDev",
-    "requirement_ids": [1, 9, 10, 29, 16, 37, 19, 20, 21, 22, 23, 24, 36, 33, 34, 35]
-  },
-  {
-    "expenseTitle": "Office/Other Supplies Expense (Outside DBM)",
-    "category": "office",
-    "requirement_ids": [1, 13, 28, 9, 10, 25, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
-  },
-  {
-    "expenseTitle": "Training Expenses (LAC Session)",
-    "category": "trainDev",
+    "expenseTitle": "TRAINING EXPENSES (LAC SESSION)",
+    "category": "training",
     "requirement_ids": [1, 9, 29, 16, 37, 32, 36, 38, 7]
   },
   {
-    "expenseTitle": "Fidelity Bond Premium",
-    "category": "misc",
-    "requirement_ids": [41, 42, 43, 44]
+    "expenseTitle": "OFFICE / OTHER SUPPLIES EXPENSE (DBM)",
+    "category": "supplies",
+    "requirement_ids": [1, 13, 14, 11, 15, 16, 17, 18, 19]
   },
   {
-    "expenseTitle": "Drugs and Medicines / Medical / Dental / Lab Supplies",
-    "category": "medical",
-    "requirement_ids": [1, 9, 10, 25, 15, 16, 45, 19, 20, 21, 22, 23, 24]
+    "expenseTitle": "OFFICE / OTHER SUPPLIES EXPENSE (OUTSIDE DBM)",
+    "category": "supplies",
+    "requirement_ids": [
+      1, 13, 28, 9, 10, 25, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24
+    ]
   },
   {
-    "expenseTitle": "Electricity Expense",
-    "category": "communication",
+    "expenseTitle": "ELECTRICITY EXPENSE",
+    "category": "utilities",
     "requirement_ids": [1, 8, 10, 11, 12]
   },
   {
-    "expenseTitle": "Water Expense",
-    "category": "communication",
+    "expenseTitle": "WATER EXPENSE",
+    "category": "utilities",
     "requirement_ids": [1, 8, 10, 11, 12]
   },
   {
-    "expenseTitle": "Mobile Expense",
-    "category": "communication",
-    "requirement_ids": [1, 8, 11, 26, 50, 51, 49, 24]
-  },
-  {
-    "expenseTitle": "Internet Expense (DSL/Globe)",
+    "expenseTitle": "INTERNET EXPENSE (DSL / GLOBE)",
     "category": "communication",
     "requirement_ids": [1, 9, 10, 11, 12]
   },
   {
-    "expenseTitle": "Security Services (Tanod/Non-Agency)",
+    "expenseTitle": "INTERNET EXPENSE (POCKET WIFI)",
+    "category": "communication",
+    "requirement_ids": [1, 8, 26, 27]
+  },
+  {
+    "expenseTitle": "MOBILE EXPENSE",
+    "category": "communication",
+    "requirement_ids": [1, 8, 11, 26, 50, 51, 49, 24]
+  },
+  {
+    "expenseTitle": "SECURITY SERVICES (TANOD / NON-AGENCY)",
     "category": "services",
     "requirement_ids": [1, 29, 30, 31, 48, 47, 32]
   },
   {
-    "expenseTitle": "Food Supplies Expense (Feeding)",
-    "category": "medical",
-    "requirement_ids": [1, 9, 10, 25, 16, 37, 19, 20, 21, 22, 23, 24, 43, 44, 52, 53, 35]
-  },
-  {
-    "expenseTitle": "Security Services (Agency)",
+    "expenseTitle": "SECURITY SERVICES (AGENCY)",
     "category": "services",
     "requirement_ids": [1, 8, 10, 11, 12, 30, 31, 32, 22, 23, 21]
   },
   {
-    "expenseTitle": "Labor and Wages",
-    "category": "services",
-    "requirement_ids": [1, 9, 29, 47, 54, 16, 19, 39, 40, 22, 23, 55]
-  },
-  {
-    "expenseTitle": "Janitorial Services (Non-Agency)",
+    "expenseTitle": "JANITORIAL SERVICES (NON-AGENCY)",
     "category": "services",
     "requirement_ids": [1, 29, 30, 31, 32]
   },
   {
-    "expenseTitle": "Representation Expense",
-    "category": "misc",
-    "requirement_ids": [1, 9, 29, 16, 37, 36, 22, 23, 33, 38, 7]
-  },
-  {
-    "expenseTitle": "Fuel, Oil, and Lubricants Expense",
-    "category": "transport",
-    "requirement_ids": [1, 9, 10, 25, 16, 19, 20, 21, 22, 23, 24, 52]
-  },
-  {
-    "expenseTitle": "Repair and Maintenance - B/SB/OE/FF/MV/OPPE",
-    "category": "services",
+    "expenseTitle": "REPAIR AND MAINTENANCE - B/SB/OE/FF/MV/OPPE",
+    "category": "maintenance",
     "requirement_ids": [1, 9, 10, 25, 15, 16, 19, 39, 40, 20, 21, 22, 23, 24]
   },
   {
-    "expenseTitle": "Transportation and Delivery Expense (Hauling)",
-    "category": "transport",
+    "expenseTitle": "FIDELITY BOND PREMIUM",
+    "category": "taxes",
+    "requirement_ids": [41, 42, 43, 44]
+  },
+  {
+    "expenseTitle": "LABOR AND WAGES",
+    "category": "labor",
+    "requirement_ids": [1, 9, 29, 47, 54, 16, 19, 39, 40, 22, 23, 55]
+  },
+  {
+    "expenseTitle": "REPRESENTATION EXPENSE",
+    "category": "other_maintenance",
+    "requirement_ids": [1, 9, 29, 16, 37, 36, 22, 23, 33, 38, 7]
+  },
+  {
+    "expenseTitle": "FUEL, OIL, AND LUBRICANTS EXPENSE",
+    "category": "other_maintenance",
+    "requirement_ids": [1, 9, 10, 25, 16, 19, 20, 21, 22, 23, 24, 52]
+  },
+  {
+    "expenseTitle": "TRANSPORTATION AND DELIVERY EXPENSE (HAULING)",
+    "category": "other_maintenance",
     "requirement_ids": [1, 29, 16, 42, 41, 32]
+  },
+  {
+    "expenseTitle": "DRUGS AND MEDICINES / MEDICAL / DENTAL / LAB SUPPLIES",
+    "category": "other_maintenance",
+    "requirement_ids": [1, 9, 10, 25, 15, 16, 45, 19, 20, 21, 22, 23, 24]
+  },
+  {
+    "expenseTitle": "FOOD SUPPLIES EXPENSE (FEEDING)",
+    "category": "other_maintenance",
+    "requirement_ids": [
+      1, 9, 10, 25, 16, 37, 19, 20, 21, 22, 23, 24, 43, 44, 52, 53, 35
+    ]
   }
 ]

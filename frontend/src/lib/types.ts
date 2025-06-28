@@ -112,6 +112,7 @@ export type UserFormData = {
   phone_number: string;
 };
 export type ListofPriorityData = {
+  category: never;
   LOPID: number;
   expenseTitle: string;
 };
@@ -193,7 +194,7 @@ export type Submission = {
   rejection_comment: string; // Optional field for rejection reason
   rejection_date: string; // Optional field for when the rejection occurred
   reviewed_by: User;
-  reviewed_at?: string
+  reviewed_at?: string;
 };
 
 type Priority = {
