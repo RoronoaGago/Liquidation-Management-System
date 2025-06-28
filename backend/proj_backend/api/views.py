@@ -17,6 +17,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
+from rest_framework.pagination import PageNumberPagination
+
+
+class SchoolPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 logger = logging.getLogger(__name__)
@@ -186,8 +193,16 @@ def user_detail(request, pk):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+# Add this pagination class if you don't have a global one
+class SchoolPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class SchoolListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = SchoolSerializer
+    pagination_class = SchoolPagination  # <-- Enable pagination
 
     def get_queryset(self):
         queryset = School.objects.all()
@@ -209,7 +224,6 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         return super().create(request, *args, **kwargs)
-
 # Add a new endpoint for school search
 
 
