@@ -27,7 +27,7 @@ export interface Requirement {
 
 const requiredFields = ["requirementTitle"];
 
-const ManageRequirement = () => {
+const ManageRequirementsPage = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,4 +223,4 @@ const ManageRequirement = () => {
   );
 };
 
-export default ManageRequirement;
+export default ManageRequirementsPage;

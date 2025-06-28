@@ -796,13 +796,22 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                   variant="success"
                   onClick={async () => {
                     try {
-                      // Only mark the liquidation as liquidated
+                      // 1. Mark the liquidation as liquidated
                       await api.patch(
                         `/liquidations/${selected.LiquidationID}/`,
                         {
                           status: "liquidated",
                         }
                       );
+                      // 2. Also mark the connected request as liquidated
+                      if (selected.request?.request_id) {
+                        await api.patch(
+                          `/requests/${selected.request.request_id}/`,
+                          {
+                            status: "liquidated",
+                          }
+                        );
+                      }
                       toast.success(
                         "Liquidation report finalized and marked as liquidated!"
                       );
