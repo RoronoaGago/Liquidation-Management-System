@@ -18,7 +18,7 @@ export interface School {
   municipality: string;
   legislativeDistrict: string;
   is_active?: boolean;
-  maxBudget?: number; // Optional field for budget allocation
+  max_budget?: number; // Optional field for budget allocation
 }
 export type User = {
   id: number;

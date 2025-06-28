@@ -845,25 +845,37 @@ class LiquidatorAssignmentListCreateAPIView(generics.ListCreateAPIView):
 
 
 @api_view(['PATCH'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def batch_update_school_budgets(request):
-    """
-    Batch update max_budget for multiple schools.
-    Expects: { "updates": [ { "schoolId": "...", "maxBudget": ... }, ... ] }
-    """
+    logger.debug(f"Incoming data: {request.data}")
     updates = request.data.get("updates", [])
+
     if not isinstance(updates, list):
         return Response({"error": "Invalid data format."}, status=400)
 
     updated_ids = []
     errors = []
+
     with transaction.atomic():
         for upd in updates:
-            school_id = upd.get("schoolId")
-            max_budget = upd.get("maxBudget")
+
+            school_id = str(upd.get("schoolId")).strip()
+            max_budget = upd.get("max_budget")
+
+            logger.debug(f"Processing school ID: {school_id}")
+
             try:
+                # Add debug logging before query
+                logger.debug(f"Looking for school with ID: {school_id}")
+                logger.debug(
+                    f"Existing school IDs: {list(School.objects.values_list('schoolId', flat=True)[:10])}")
+
                 school = School.objects.get(schoolId=school_id)
+
                 if max_budget is not None and float(max_budget) >= 0:
+                    # Debug log
+                    logger.debug(
+                        f"Updating school {school_id} budget from {school.max_budget} to {max_budget}")
                     school.max_budget = float(max_budget)
                     school.save()
                     updated_ids.append(school_id)
@@ -871,9 +883,11 @@ def batch_update_school_budgets(request):
                     errors.append(
                         {"schoolId": school_id, "error": "Invalid budget"})
             except School.DoesNotExist:
+                logger.warning(f"School not found: {school_id}")
                 errors.append(
                     {"schoolId": school_id, "error": "School not found"})
             except Exception as e:
+                logger.error(f"Error processing school {school_id}: {str(e)}")
                 errors.append({"schoolId": school_id, "error": str(e)})
 
     return Response({
