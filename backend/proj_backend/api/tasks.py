@@ -20,6 +20,7 @@ def send_reminder(request_id, days_remaining):
     """Generic reminder email sender"""
     request = RequestManagement.objects.get(request_id=request_id)
     
+    # Only send reminder if NOT liquidated
     if not hasattr(request, 'liquidation'):
         subject = f"URGENT: {days_remaining} day(s) remaining for liquidation (Request {request.request_id})"
         template = f'emails/reminder_{days_remaining}_day.txt'
@@ -31,27 +32,31 @@ def send_reminder(request_id, days_remaining):
             subject,
             message,
             settings.DEFAULT_FROM_EMAIL,
-            [request.user.email, 'finance@yourdomain.com'],  # CC finance department
+            [request.user.email, 'finance@yourdomain.com'],
             fail_silently=False,
         )
         request.last_reminder_sent = timezone.now().date()
         request.save()
+    # If already liquidated, do nothing
 
 def send_demand_letter(request):
-    """Final demand letter on day 31"""
-    subject = f"DEMAND LETTER: Unliquidated Request {request.request_id}"
-    message = render_to_string('emails/demand_letter.txt', {
-        'request': request,
-        'user': request.user,
-        'today': timezone.now().date()
-    })
-    send_mail(
-        subject,
-        message,
-        'legal@deped.gov.ph',  # From legal department
-        [request.user.email, 'finance@deped.gov.ph', 'management@deped.gov.ph'],
-        fail_silently=False,
-    )
-    request.demand_letter_sent = True
-    request.demand_letter_date = timezone.now().date()
-    request.save()
+    """Final demand letter on day 30/31"""
+    # Only send demand letter if NOT liquidated
+    if not hasattr(request, 'liquidation'):
+        subject = f"DEMAND LETTER: Unliquidated Request {request.request_id}"
+        message = render_to_string('emails/demand_letter.txt', {
+            'request': request,
+            'user': request.user,
+            'today': timezone.now().date()
+        })
+        send_mail(
+            subject,
+            message,
+            'legal@deped.gov.ph',
+            [request.user.email, 'finance@deped.gov.ph', 'management@deped.gov.ph'],
+            fail_silently=False,
+        )
+        request.demand_letter_sent = True
+        request.demand_letter_date = timezone.now().date()
+        request.save()
+    # If already liquidated, do nothing
