@@ -386,7 +386,8 @@ class LiquidatorAssignmentSerializer(serializers.ModelSerializer):
             'assigned_by', 'assigned_by_id',
             'assigned_at'
         ]
-        read_only_fields = ['id', 'assigned_at', 'liquidator', 'assigned_by', 'school']
+        read_only_fields = ['id', 'assigned_at',
+                            'liquidator', 'assigned_by', 'school']
 
     def create(self, validated_data):
         liquidator = validated_data['liquidator']

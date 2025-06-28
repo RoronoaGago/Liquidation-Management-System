@@ -40,11 +40,14 @@ const requiredFields = [
 ];
 //TODO - Add validation for schoolId to ensure it is unique and follows a specific format if needed
 //TODO - Filtering options in the backend
+const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
+
 const ManageSchools = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [allSchools, setAllSchools] = useState<any[]>([]);
+  const [schools, setSchools] = useState<any[]>([]);
+  const [totalSchools, setTotalSchools] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -57,6 +60,8 @@ const ManageSchools = () => {
     key: string;
     direction: "asc" | "desc";
   } | null>({ key: "schoolName", direction: "asc" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [formData, setFormData] = useState<SchoolFormData>({
     schoolId: "",
     schoolName: "",
@@ -72,19 +77,29 @@ const ManageSchools = () => {
       (field) => formData[field as keyof SchoolFormData]?.trim() !== ""
     ) && Object.keys(errors).length === 0;
 
+  // Fetch schools from backend with pagination, filtering, sorting
   const fetchSchools = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("http://127.0.0.1:8000/api/schools/", {
-        params: {
-          archived: showArchived,
-          search: filterOptions.searchTerm || undefined,
-          district: filterOptions.district || undefined,
-          municipality: filterOptions.municipality || undefined,
-        },
-      });
-      setAllSchools(response.data);
+      const params: any = {
+        page: currentPage,
+        page_size: itemsPerPage,
+        archived: showArchived,
+      };
+      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+      if (filterOptions.district) params.district = filterOptions.district;
+      if (filterOptions.municipality)
+        params.municipality = filterOptions.municipality;
+      if (sortConfig) {
+        params.ordering =
+          sortConfig.direction === "asc"
+            ? sortConfig.key
+            : `-${sortConfig.key}`;
+      }
+      const response = await api.get("schools/", { params });
+      setSchools(response.data.results || response.data);
+      setTotalSchools(response.data.count ?? response.data.length);
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error("Failed to fetch schools");
@@ -97,46 +112,7 @@ const ManageSchools = () => {
   useEffect(() => {
     fetchSchools();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchived, filterOptions]);
-
-  const filteredSchools = useMemo(() => {
-    return allSchools.filter((school) => {
-      // Filter by archive status
-      if (showArchived) {
-        if (school.is_active !== false) return false;
-      } else {
-        if (school.is_active === false) return false;
-      }
-      if (filterOptions.searchTerm) {
-        const term = filterOptions.searchTerm.toLowerCase();
-        return (
-          school.schoolName.toLowerCase().includes(term) ||
-          school.schoolId.toLowerCase().includes(term) ||
-          school.district.toLowerCase().includes(term) ||
-          school.municipality.toLowerCase().includes(term) ||
-          school.legislativeDistrict.toLowerCase().includes(term)
-        );
-      }
-      return true;
-    });
-  }, [allSchools, filterOptions, showArchived]);
-
-  const sortedSchools = useMemo(() => {
-    if (!sortConfig) return filteredSchools;
-    return [...filteredSchools].sort((a, b) => {
-      const aValue = a[sortConfig.key] ?? "";
-      const bValue = b[sortConfig.key] ?? "";
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        const comparison = aValue.localeCompare(bValue, undefined, {
-          sensitivity: "base",
-        });
-        return sortConfig.direction === "asc" ? comparison : -comparison;
-      }
-      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [filteredSchools, sortConfig]);
+  }, [showArchived, filterOptions, sortConfig, currentPage, itemsPerPage]);
 
   const requestSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
@@ -144,6 +120,7 @@ const ManageSchools = () => {
       direction = sortConfig.direction === "asc" ? "desc" : "asc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -436,19 +413,23 @@ const ManageSchools = () => {
           </Dialog>
         </div>
         <SchoolsTable
-          schools={allSchools}
-          setSchools={setAllSchools}
+          schools={schools}
+          setSchools={setSchools}
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           fetchSchools={fetchSchools}
-          sortedSchools={sortedSchools}
           filterOptions={filterOptions}
           setFilterOptions={setFilterOptions}
           onRequestSort={requestSort}
           currentSort={sortConfig}
           loading={loading}
           error={error}
-          // Add archive props if needed
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+          totalSchools={totalSchools}
+          ITEMS_PER_PAGE_OPTIONS={ITEMS_PER_PAGE_OPTIONS}
         />
       </div>
     </div>
