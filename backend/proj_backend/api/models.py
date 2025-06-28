@@ -103,13 +103,26 @@ class Requirement(models.Model):
 
 class ListOfPriority(models.Model):
     CATEGORY_CHOICES = [
-        ('trainDev', 'Training and Development'),
-        ('transport', 'Travel & Transportation'),
-        ('communication', 'Communication & Utilities'),
-        ('office', 'Office Operations & Supplies'),
-        ('services', 'Services & Maintenance'),
-        ('medical', 'Medical & Food Supplies'),
-        ('misc', 'Miscellaneous'),
+        ('travel', 'Travel Expenses'),
+        ('training', 'Training Expenses'),
+        ('scholarship', 'Scholarship Grants/Expenses'),
+        ('supplies', 'Office Supplies & Materials Expenses'),
+        ('utilities', 'Utilities Expenses'),
+        ('communication', 'Communication Expenses'),
+        ('awards', 'Awards/Rewards/Prizes Expenses'),
+        ('survey', 'Survey, Research, Exploration and Development Expenses'),
+        ('confidential', 'Confidential & Intelligence Expenses'),
+        ('extraordinary', 'Extraordinary and Miscellaneous Expenses'),
+        ('professional', 'Professional Service Expenses'),
+        ('services', 'General Services'),
+        ('maintenance', 'Repairs and Maintenance Expenses'),
+        ('financial_assistance', 'Financial Assistance/Subsidy Expenses'),
+        ('taxes', 'Taxes, Duties and Licenses Expenses'),
+        ('labor', 'Labor and Wages Expenses'),
+        ('other_maintenance', 'Other Maintenance and Operating Expenses'),
+        ('financial', 'Financial Expenses'),
+        ('non_cash', 'Non-cash Expenses'),
+        ('losses', 'Losses'),
     ]
 
     LOPID = models.AutoField(primary_key=True)
@@ -117,7 +130,7 @@ class ListOfPriority(models.Model):
     category = models.CharField(
         max_length=30,
         choices=CATEGORY_CHOICES,
-        default='misc'
+        default='other_maintenance'
     )
     requirements = models.ManyToManyField(
         'Requirement',
