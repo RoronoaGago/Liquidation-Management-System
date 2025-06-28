@@ -190,6 +190,8 @@ export type Submission = {
   created_at: string;
   rejection_comment: string; // Optional field for rejection reason
   rejection_date: string; // Optional field for when the rejection occurred
+  reviewed_by: User;
+  reviewed_at?: string
 };
 
 type Priority = {

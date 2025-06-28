@@ -41,7 +41,12 @@ urlpatterns = [
          views.submit_for_liquidation, name='submit-for-liquidation'),
     path('check-pending-requests/', views.check_pending_requests,
          name='check-pending-requests'),
-
+    path('requests/<str:request_id>/resubmit/',
+         views.resubmit_request, name='resubmit-request'),
+    path('requests/<str:pk>/approve/',
+         views.ApproveRequestView.as_view(), name='approve-request'),
+    path('requests/<str:pk>/reject/',
+         views.RejectRequestView.as_view(), name='reject-request'),
     # Liquidation Management URLs
     path('liquidations/', views.LiquidationManagementListCreateAPIView.as_view(),
          name='liquidation-list-create'),

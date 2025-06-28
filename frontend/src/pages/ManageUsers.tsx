@@ -8,6 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Bounce, toast } from "react-toastify";
+import { CheckCircleIcon, XCircleIcon } from "lucide-react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import UsersTable from "../components/tables/BasicTables/UsersTable";
 import Button from "../components/ui/button/Button";
@@ -33,6 +34,7 @@ import {
 } from "@/lib/types";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
+import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 
 interface UserFormData {
   first_name: string;
@@ -76,7 +78,7 @@ const ManageUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
-
+  const [isValid, setIsValid] = useState<boolean | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -287,7 +289,8 @@ const ManageUsers = () => {
           break;
         case "phone_number":
           if (value && !validatePhoneNumber(value)) {
-            newErrors.phone_number = "Please enter a valid phone number.";
+            newErrors.phone_number =
+              "Please enter a valid phone number (e.g., +1 (555) 123-4567).";
           } else {
             delete newErrors.phone_number;
           }
@@ -586,26 +589,16 @@ const ManageUsers = () => {
                     <p className="text-red-500 text-sm">{errors.email}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number" className="text-base">
-                    Phone Number
-                  </Label>
-                  <Input
-                    type="tel"
-                    id="phone_number"
-                    name="phone_number"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="+1 (555) 123-4567"
-                    value={formData.phone_number}
-                    onChange={handleChange}
-                    onInput={handlePhoneNumberInput}
-                  />
-                  {errors.phone_number && (
-                    <p className="text-red-500 text-sm">
-                      {errors.phone_number}
-                    </p>
-                  )}
-                </div>
+                <PhoneNumberInput
+                  value={formData.phone_number}
+                  onChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      phone_number: value || "",
+                    }))
+                  }
+                  error={errors.phone_number}
+                />
                 <div className="space-y-2">
                   <Label htmlFor="username" className="text-base">
                     Username *
