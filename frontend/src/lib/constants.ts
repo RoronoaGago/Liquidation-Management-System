@@ -18,11 +18,27 @@ export const laUnionMunicipalities = [
 // Map municipality to possible districts
 export const municipalityDistricts: Record<string, string[]> = {
   AGOO: ["AGOO EAST", "AGOO WEST"],
-  ARINGAY: ["ARINGAY EAST", "ARINGAY WEST"],
-  BACNOTAN: ["BACNOTAN EAST", "BACNOTAN WEST"],
+  LUNA: ["LUNA I", "LUNA II"],
+  BAUANG: ["BAUANG NORTH", "BAUANG SOUTH"],
   // ...add other mappings as needed...
   // For municipalities with only one district, use a single-element array
   "SAN FERNANDO CITY": ["SAN FERNANDO CITY"],
+  "ARINGAY": ["ARINGAY"],
+  "BACNOTAN": ["BACNOTAN"],
+  "BAGULIN": ["BAGULIN"],
+  "BALAOAN": ["BALAOAN"],
+  "BANGAR": ["BANGAR"],
+  "BURGOS": ["BURGOS"],
+  "CABA": ["CABA"],
+  "NAGUILIAN": ["NAGUILIAN"],
+  "ROSARIO": ["ROSARIO"],
+  "SAN GABRIEL": ["SAN GABRIEL"],
+  "SAN JUAN": ["SAN JUAN"],
+  "SANTO TOMAS": ["SANTO TOMAS"],
+  "SANTOL": ["SANTOL"],
+  "SUDIPEN": ["SUDIPEN"],
+  "TUBAO": ["TUBAO"],
+
   // etc.
 };
 

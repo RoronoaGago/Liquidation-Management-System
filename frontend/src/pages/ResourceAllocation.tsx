@@ -550,7 +550,7 @@ const ResourceAllocation = () => {
           <Button
             variant="primary"
             onClick={saveBudgets}
-            disabled={isSaving}
+            disabled={isSaving || totalDifference === 0}
             className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 dark:from-brand-700 dark:to-brand-600 dark:hover:from-brand-800 dark:hover:to-brand-700 text-white shadow-sm"
           >
             {isSaving ? "Saving..." : "Confirm Changes"}
@@ -585,7 +585,24 @@ const ResourceAllocation = () => {
       {/* (Reset confirmation dialog, search controls, adjustment controls, etc.) */}
 
       <div className="mt-8">
-        {/* ... existing instructional content ... */}
+        <div className="mt-8">
+          <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
+            <h3 className="text-lg font-medium text-brand-800 dark:text-brand-200 flex items-center gap-2 mb-2">
+              <Info className="h-5 w-5" /> How to allocate resource
+            </h3>
+            <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
+              <li>Click on school cards to select them</li>
+              <li>Select an adjustment amount from the top controls</li>
+              <li>
+                Use the + and - buttons in each selected school to adjust the
+                budget
+              </li>
+              <li>Click "Save Selected" when ready</li>
+            </ol>
+          </div>
+        </div>
+
+        {/* Reset Confirmation Dialog */}
 
         {/* Search and Controls */}
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
@@ -704,10 +721,10 @@ const ResourceAllocation = () => {
                   type="button"
                   onClick={() => setShowSaveConfirm(true)}
                   variant="primary"
-                  disabled={isSaving}
+                  disabled={isSaving || totalDifference === 0}
                   className="min-w-[120px]"
                 >
-                  {isSaving ? "Saving..." : "Save Changes"}
+                  {isSaving ? "Saving..." : "Save Selected"}
                 </Button>
               </div>
             </div>
@@ -715,7 +732,7 @@ const ResourceAllocation = () => {
         )}
 
         {/* School Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {renderSchoolCards()}
         </div>
 
