@@ -474,3 +474,22 @@ class LiquidatorAssignment(models.Model):
 
     def __str__(self):
         return f"{self.liquidator} assigned to {self.district}"
+
+
+class LiquidationPriority(models.Model):
+    liquidation = models.ForeignKey(
+        'LiquidationManagement',
+        on_delete=models.CASCADE,
+        related_name='liquidation_priorities'
+    )
+    priority = models.ForeignKey(
+        'ListOfPriority',
+        on_delete=models.CASCADE
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        unique_together = ('liquidation', 'priority')
+
+    def __str__(self):
+        return f"{self.liquidation} - {self.priority} (${self.amount})"
