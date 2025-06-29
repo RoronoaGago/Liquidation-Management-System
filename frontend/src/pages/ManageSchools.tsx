@@ -13,7 +13,7 @@ import Button from "../components/ui/button/Button";
 import { PlusIcon } from "../icons";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import axios from "axios";
 import api from "@/api/axios";
 import { Loader2Icon } from "lucide-react";
@@ -53,6 +53,7 @@ const ManageSchools = () => {
   const [error, setError] = useState<Error | null>(null);
   const [filterOptions, setFilterOptions] = useState({
     searchTerm: "",
+    legislative_district: "",
     district: "",
     municipality: "",
   });
@@ -71,6 +72,12 @@ const ManageSchools = () => {
   });
   const [districtOptions, setDistrictOptions] = useState<string[]>([]);
   const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
+  const [legislativeDistricts, setLegislativeDistricts] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
+    string[]
+  >([]);
 
   const isFormValid =
     requiredFields.every(
@@ -85,12 +92,14 @@ const ManageSchools = () => {
       const params: any = {
         page: currentPage,
         page_size: itemsPerPage,
-        archived: showArchived,
+        archived: showArchived, // <-- this is important!
       };
       if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
-      if (filterOptions.district) params.district = filterOptions.district;
+      if (filterOptions.legislative_district)
+        params.legislative_district = filterOptions.legislative_district;
       if (filterOptions.municipality)
         params.municipality = filterOptions.municipality;
+      if (filterOptions.district) params.district = filterOptions.district;
       if (sortConfig) {
         params.ordering =
           sortConfig.direction === "asc"
@@ -108,6 +117,14 @@ const ManageSchools = () => {
       setLoading(false);
     }
   };
+
+  // Fetch legislative districts mapping from backend
+  useEffect(() => {
+    api.get("/legislative-districts/").then((res) => {
+      setLegislativeDistricts(res.data);
+      setLegislativeDistrictOptions(Object.keys(res.data));
+    });
+  }, []);
 
   useEffect(() => {
     fetchSchools();
@@ -219,32 +236,49 @@ const ManageSchools = () => {
     }
   };
 
-  // When municipality changes, update district and legislative district
+  // When legislativeDistrict changes, update municipality options
+  const [municipalityOptions, setMunicipalityOptions] = useState<string[]>([]);
+  useEffect(() => {
+    if (
+      formData.legislativeDistrict &&
+      legislativeDistricts[formData.legislativeDistrict]
+    ) {
+      setMunicipalityOptions(
+        legislativeDistricts[formData.legislativeDistrict]
+      );
+      setFormData((prev) => ({
+        ...prev,
+        municipality: "",
+        district: "",
+      }));
+    } else {
+      setMunicipalityOptions([]);
+      setFormData((prev) => ({
+        ...prev,
+        municipality: "",
+        district: "",
+      }));
+    }
+    // eslint-disable-next-line
+  }, [formData.legislativeDistrict, legislativeDistricts]);
+
+  // When municipality changes, update district options (if needed)
   useEffect(() => {
     const mun = formData.municipality;
     if (mun) {
       setDistrictOptions(municipalityDistricts[mun] || []);
-      if (firstDistrictMunicipalities.includes(mun)) {
-        setAutoLegislativeDistrict("1st District");
-      } else {
-        setAutoLegislativeDistrict("2nd District");
-      }
-      setFormData((prev) => ({
-        ...prev,
-        district: "", // reset district when municipality changes
-        legislativeDistrict: firstDistrictMunicipalities.includes(mun)
-          ? "1st District"
-          : "2nd District",
-      }));
-    } else {
-      setDistrictOptions([]);
-      setAutoLegislativeDistrict("");
       setFormData((prev) => ({
         ...prev,
         district: "",
-        legislativeDistrict: "",
+      }));
+    } else {
+      setDistrictOptions([]);
+      setFormData((prev) => ({
+        ...prev,
+        district: "",
       }));
     }
+    // eslint-disable-next-line
   }, [formData.municipality]);
 
   return (
@@ -307,6 +341,30 @@ const ManageSchools = () => {
                   )}
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="legislativeDistrict" className="text-base">
+                    Legislative District *
+                  </Label>
+                  <select
+                    id="legislativeDistrict"
+                    name="legislativeDistrict"
+                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                    value={formData.legislativeDistrict}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select Legislative District</option>
+                    {legislativeDistrictOptions.map((ld) => (
+                      <option key={ld} value={ld}>
+                        {ld}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.legislativeDistrict && (
+                    <p className="text-red-500 text-sm">
+                      {errors.legislativeDistrict}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="municipality" className="text-base">
                     Municipality *
                   </Label>
@@ -316,9 +374,10 @@ const ManageSchools = () => {
                     className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     value={formData.municipality}
                     onChange={handleChange}
+                    disabled={!formData.legislativeDistrict}
                   >
                     <option value="">Select Municipality</option>
-                    {laUnionMunicipalities.map((mun) => (
+                    {municipalityOptions.map((mun) => (
                       <option key={mun} value={mun}>
                         {mun}
                       </option>
@@ -338,7 +397,7 @@ const ManageSchools = () => {
                   <select
                     id="district"
                     name="district"
-                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 text-gray-800 "
+                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     value={formData.district}
                     onChange={handleChange}
                     disabled={!formData.municipality}
@@ -354,25 +413,7 @@ const ManageSchools = () => {
                     <p className="text-red-500 text-sm">{errors.district}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="legislativeDistrict" className="text-base">
-                    Legislative District *
-                  </Label>
-                  <Input
-                    type="text"
-                    id="legislativeDistrict"
-                    name="legislativeDistrict"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="Legislative District"
-                    value={autoLegislativeDistrict}
-                    disabled
-                  />
-                  {errors.legislativeDistrict && (
-                    <p className="text-red-500 text-sm">
-                      {errors.legislativeDistrict}
-                    </p>
-                  )}
-                </div>
+
                 <div className="flex justify-end gap-3 pt-4">
                   <Button
                     type="button"

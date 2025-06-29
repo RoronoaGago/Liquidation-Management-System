@@ -371,7 +371,7 @@ export default function LOPsTable({
       {/* Filters and Search */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full md:w-64">
+          <div className="relative w-full md:w-1/2">
             <Input
               type="text"
               placeholder="Search LOPs..."
