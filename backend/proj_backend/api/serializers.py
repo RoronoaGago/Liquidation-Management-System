@@ -249,6 +249,13 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                     continue
         return request_obj
 
+    def validate_priority_amounts(self, value):
+        priority_ids = [item['priority_id'] for item in value]
+        if len(priority_ids) != len(set(priority_ids)):
+            raise serializers.ValidationError("Duplicate priorities are not allowed.")
+        return value
+
+
 class LiquidationPrioritySerializer(serializers.ModelSerializer):
     priority = ListOfPrioritySerializer(read_only=True)
     priority_id = serializers.PrimaryKeyRelatedField(
