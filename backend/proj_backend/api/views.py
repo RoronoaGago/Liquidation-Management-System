@@ -28,6 +28,12 @@ class SchoolPagination(PageNumberPagination):
     max_page_size = 100
 
 
+class UserPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class ProtectedView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -52,6 +58,7 @@ def user_list(request):
         role_filter = request.query_params.get('role', None)
         school_filter = request.query_params.get('school', None)
         search_term = request.query_params.get('search', None)
+        ordering = request.query_params.get('ordering', '-date_joined')
 
         queryset = User.objects.exclude(id=request.user.id)
         # Archive filter
@@ -86,9 +93,15 @@ def user_list(request):
                 Q(school__schoolId__icontains=search_term)
             )
 
-        queryset = queryset.order_by('-date_joined')
-        serializer = UserSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Add ordering support
+        if ordering:
+            queryset = queryset.order_by(ordering)
+
+        # Paginate
+        paginator = UserPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = UserSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     elif request.method == 'POST':
         # Only allow admins to create admin users

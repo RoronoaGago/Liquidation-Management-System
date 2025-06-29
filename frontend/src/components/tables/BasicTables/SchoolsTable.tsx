@@ -360,7 +360,7 @@ export default function SchoolsTable({
   const handleBulkArchive = async (restore: boolean) => {
     if (selectedSchools.length === 0) return;
     setIsSubmitting(true);
-
+    console.log(restore);
     try {
       await Promise.all(
         selectedSchools.map((schoolId) =>
@@ -1301,7 +1301,7 @@ export default function SchoolsTable({
               <Button
                 type="button"
                 color={showArchived ? "success" : "warning"}
-                onClick={() => handleBulkArchive(!showArchived)}
+                onClick={() => handleBulkArchive(showArchived)}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
