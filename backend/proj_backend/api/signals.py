@@ -4,6 +4,10 @@ from django.utils import timezone
 from datetime import timedelta
 from .models import RequestManagement
 from .tasks import check_liquidation_status, send_reminder
+from django.contrib.auth.signals import user_logged_in
+from django.core.mail import send_mail
+from django.conf import settings
+from django.template.loader import render_to_string
 
 
 @receiver(post_save, sender=RequestManagement)
@@ -58,3 +62,16 @@ def start_unliquidated_timer(sender, instance, **kwargs):
             f"Failed to schedule reminders for request {request_id}: {str(e)}",
             exc_info=True
         )
+
+
+@receiver(user_logged_in)
+def send_login_email(sender, user, request, **kwargs):
+    subject = "Login Notification"
+    message = render_to_string('emails/login_notification.txt', {'user': user})
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=True,
+    )

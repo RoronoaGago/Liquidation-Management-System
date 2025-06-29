@@ -1,0 +1,8 @@
+Hello {{ user.first_name|default:user.username }},
+
+You have successfully logged in to the Liquidation Management System.
+
+If this wasn't you, please contact the administrator immediately.
+
+Thank you,
+Liquidation Management System Team
