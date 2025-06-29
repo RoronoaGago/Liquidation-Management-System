@@ -9,6 +9,9 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import date
 import string
+import uuid
+import logging
+logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
@@ -176,13 +179,9 @@ class PriorityRequirement(models.Model):
 
 
 def generate_request_id():
-    """Generate REQ-ABC123 format ID"""
-    prefix = "REQ-"
-    random_part = get_random_string(
-        length=6,
-        allowed_chars=string.ascii_uppercase + string.digits
-    )
-    return f"{prefix}{random_part}"
+    request_id = f"REQ-{uuid.uuid4().hex[:6].upper()}"
+    logger.info(f"Generated ID: {request_id}")
+    return request_id
 
 
 class RequestManagement(models.Model):

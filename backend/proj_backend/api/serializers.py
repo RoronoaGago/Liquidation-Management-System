@@ -5,6 +5,7 @@ from django.core.files.base import ContentFile
 import base64
 import uuid
 import string
+from django.db import transaction
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -231,23 +232,25 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         return RequestPrioritySerializer(request_priorities, many=True).data
 
     def create(self, validated_data):
-        priority_amounts = validated_data.pop('priority_amounts', [])
-        request_obj = RequestManagement.objects.create(**validated_data)
-        # Save priorities and amounts
-        for pa in priority_amounts:
-            lopid = pa.get('LOPID')
-            amount = pa.get('amount')
-            if lopid and amount is not None:
-                try:
-                    priority = ListOfPriority.objects.get(LOPID=lopid)
-                    RequestPriority.objects.create(
-                        request=request_obj,
-                        priority=priority,
-                        amount=amount
-                    )
-                except ListOfPriority.DoesNotExist:
-                    continue
-        return request_obj
+        print(f"Validated data: {validated_data}")
+        with transaction.atomic():
+            priority_amounts = validated_data.pop('priority_amounts', [])
+            request_obj = RequestManagement.objects.create(**validated_data)
+            for pa in priority_amounts:
+                lopid = pa.get('LOPID')
+                amount = pa.get('amount')
+                if lopid and amount is not None:
+                    try:
+                        priority = ListOfPriority.objects.get(LOPID=lopid)
+                        RequestPriority.objects.create(
+                            request=request_obj,
+                            priority=priority,
+                            amount=amount
+                        )
+                    except ListOfPriority.DoesNotExist:
+                        continue
+            return request_obj
+
 
 class LiquidationPrioritySerializer(serializers.ModelSerializer):
     priority = ListOfPrioritySerializer(read_only=True)
@@ -320,7 +323,8 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
     reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
-    liquidation_priorities = LiquidationPrioritySerializer(many=True, read_only=True)
+    liquidation_priorities = LiquidationPrioritySerializer(
+        many=True, read_only=True)
 
     class Meta:
         model = LiquidationManagement
@@ -428,6 +432,3 @@ class NotificationSerializer(serializers.ModelSerializer):
             'sender',
             'notification_date',
         ]
-
-
-
