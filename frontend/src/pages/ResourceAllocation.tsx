@@ -143,6 +143,15 @@ const ResourceAllocation = () => {
         }
       );
 
+      const initialBudgets = schoolsWithBacklog.reduce(
+        (acc: Record<string, number>, school: School) => {
+          acc[school.schoolId] = school.max_budget || 0;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      setEditingBudgets(initialBudgets);
       setSchools(schoolsWithBacklog);
     } catch (error) {
       console.error("Error fetching schools data:", error);
@@ -359,11 +368,8 @@ const ResourceAllocation = () => {
       const isSelected = selectedSchools.includes(school.schoolId);
       const isExpanded = expandedCards.includes(school.schoolId);
       const prevBudget = Number(school.max_budget || 0);
-      const currentBudget =
-        school.schoolId in editingBudgets
-          ? editingBudgets[school.schoolId]
-          : school.max_budget || 0;
-      const difference = currentBudget - (school.max_budget || 0);
+      const currentBudget = editingBudgets[school.schoolId] ?? 0;
+      const difference = currentBudget - prevBudget;
 
       return (
         <div
