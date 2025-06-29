@@ -32,6 +32,7 @@ export const municipalityDistricts: Record<string, string[]> = {
   "CABA": ["CABA"],
   "NAGUILIAN": ["NAGUILIAN"],
   "ROSARIO": ["ROSARIO"],
+  "PUGO": ["PUGO"],
   "SAN GABRIEL": ["SAN GABRIEL"],
   "SAN JUAN": ["SAN JUAN"],
   "SANTO TOMAS": ["SANTO TOMAS"],
@@ -46,6 +47,10 @@ export const municipalityDistricts: Record<string, string[]> = {
 export const firstDistrictMunicipalities = [
   "BANGAR", "LUNA", "SUDIPEN", "BALAOAN", "SANTOL", "BACNOTAN",
   "SAN GABRIEL", "SAN JUAN", "SAN FERNANDO CITY"
+];
+export const secondDistrictMunicipalities = [
+  "AGOO", "ARINGAY", "BAGULIN", "BAUANG", "BURGOS", "CABA",
+  "NAGUILIAN", "PUGO", "ROSARIO", "SANTO TOMAS", "TUBAO"
 ];
 
 export const roleMap: Record<string, string> = {
