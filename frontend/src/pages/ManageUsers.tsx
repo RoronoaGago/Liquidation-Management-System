@@ -80,6 +80,9 @@ const ManageUsers = () => {
   const { user: currentUser } = useAuth();
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -123,17 +126,26 @@ const ManageUsers = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("users/", {
-        params: {
-          archived: showArchived, // This is now the single source of truth for archive status
-          role: filterOptions.role || undefined,
-          search: filterOptions.searchTerm || undefined,
-          date_joined_after: filterOptions.dateRange.start || undefined,
-          date_joined_before: filterOptions.dateRange.end || undefined,
-        },
-      });
-      setAllUsers(response.data);
-      console.log(response);
+      const params: any = {
+        page: currentPage,
+        page_size: itemsPerPage,
+        archived: showArchived,
+      };
+      if (filterOptions.role) params.role = filterOptions.role;
+      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+      if (filterOptions.dateRange?.start)
+        params.date_joined_after = filterOptions.dateRange.start;
+      if (filterOptions.dateRange?.end)
+        params.date_joined_before = filterOptions.dateRange.end;
+      if (sortConfig) {
+        params.ordering =
+          sortConfig.direction === "asc"
+            ? sortConfig.key
+            : `-${sortConfig.key}`;
+      }
+      const response = await api.get("users/", { params });
+      setAllUsers(response.data.results || response.data);
+      setTotalUsers(response.data.count ?? response.data.length);
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error("Failed to fetch users");
@@ -144,12 +156,12 @@ const ManageUsers = () => {
   };
   useEffect(() => {
     fetchUsers();
-    const response = api.get("schools/");
+    const response = api.get("schools/", { params: { page_size: 10000 } });
     response.then((res) => {
-      setSchools(res.data);
+      setSchools(res.data.results || []); // Only the array of schools
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchived, filterOptions]);
+  }, [showArchived, filterOptions, sortConfig, currentPage, itemsPerPage]);
 
   // Add filtering and sorting logic
   const filteredUsers = useMemo(() => {
@@ -817,14 +829,18 @@ const ManageUsers = () => {
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           fetchUsers={fetchUsers}
-          sortedUsers={sortedUsers}
           filterOptions={filterOptions}
           setFilterOptions={setFilterOptions}
           onRequestSort={requestSort}
           currentSort={sortConfig}
           loading={loading}
           error={error}
-          schools={schools} // <-- Add this line
+          schools={schools}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+          totalUsers={totalUsers}
         />
       </div>
     </div>

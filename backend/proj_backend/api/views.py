@@ -19,6 +19,8 @@ import logging
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
 
+logger = logging.getLogger(__name__)
+
 
 class SchoolPagination(PageNumberPagination):
     page_size = 10
@@ -26,7 +28,10 @@ class SchoolPagination(PageNumberPagination):
     max_page_size = 100
 
 
-logger = logging.getLogger(__name__)
+class UserPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class ProtectedView(APIView):
@@ -53,6 +58,7 @@ def user_list(request):
         role_filter = request.query_params.get('role', None)
         school_filter = request.query_params.get('school', None)
         search_term = request.query_params.get('search', None)
+        ordering = request.query_params.get('ordering', '-date_joined')
 
         queryset = User.objects.exclude(id=request.user.id)
         # Archive filter
@@ -87,9 +93,15 @@ def user_list(request):
                 Q(school__schoolId__icontains=search_term)
             )
 
-        queryset = queryset.order_by('-date_joined')
-        serializer = UserSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Add ordering support
+        if ordering:
+            queryset = queryset.order_by(ordering)
+
+        # Paginate
+        paginator = UserPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = UserSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     elif request.method == 'POST':
         # Only allow admins to create admin users
@@ -193,26 +205,39 @@ def user_detail(request, pk):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# Add this pagination class if you don't have a global one
-class SchoolPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
-
 class SchoolListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = SchoolSerializer
-    pagination_class = SchoolPagination  # <-- Enable pagination
+    pagination_class = SchoolPagination
 
     def get_queryset(self):
         queryset = School.objects.all()
         search_term = self.request.query_params.get('search', None)
+        legislative_district = self.request.query_params.get(
+            'legislative_district', None)
+        municipality = self.request.query_params.get('municipality', None)
+        district = self.request.query_params.get('district', None)
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
+
+        # Archive filter
+        if not archived:
+            queryset = queryset.filter(is_active=True)
+        else:
+            queryset = queryset.filter(is_active=False)
+
         if search_term:
             queryset = queryset.filter(
                 Q(schoolName__icontains=search_term) |
                 Q(district__icontains=search_term) |
                 Q(municipality__icontains=search_term)
             )
+        if legislative_district:
+            queryset = queryset.filter(
+                legislativeDistrict=legislative_district)
+        if municipality:
+            queryset = queryset.filter(municipality=municipality)
+        if district:
+            queryset = queryset.filter(district=district)
         return queryset.order_by('schoolName')
 
     def create(self, request, *args, **kwargs):
@@ -918,3 +943,21 @@ def batch_update_school_budgets(request):
         "updated": updated_ids,
         "errors": errors
     }, status=200 if not errors else 207)
+
+
+@api_view(['GET'])
+def legislative_districts(request):
+    """
+    Returns mapping of legislative districts to their municipalities.
+    """
+    data = {
+        "1st District": [
+            "BANGAR", "LUNA", "SUDIPEN", "BALAOAN", "SANTOL", "BACNOTAN",
+            "SAN GABRIEL", "SAN JUAN", "SAN FERNANDO CITY"
+        ],
+        "2nd District": [
+            "AGOO", "ARINGAY", "BAGULIN", "BAUANG", "BURGOS", "CABA",
+            "NAGUILIAN", "PUGO", "ROSARIO", "SANTO TOMAS", "TUBAO"
+        ]
+    }
+    return Response(data)

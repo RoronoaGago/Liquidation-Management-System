@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Loader2Icon,
+  Filter,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -89,6 +90,13 @@ export default function SchoolsTable({
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [legislativeDistricts, setLegislativeDistricts] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
+    string[]
+  >([]);
+  const [municipalityOptions, setMunicipalityOptions] = useState<string[]>([]);
 
   // Dialogs and form state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -118,6 +126,13 @@ export default function SchoolsTable({
     const noErrors = Object.keys(formErrors).length === 0;
     return requiredValid && noErrors;
   }, [selectedSchool, formErrors]);
+
+  useEffect(() => {
+    api.get("/legislative-districts/").then((res) => {
+      setLegislativeDistricts(res.data);
+      setLegislativeDistrictOptions(Object.keys(res.data));
+    });
+  }, []);
 
   useEffect(() => {
     setSelectedSchools([]);
@@ -293,29 +308,39 @@ export default function SchoolsTable({
   };
   useEffect(() => {
     if (!isDialogOpen || !selectedSchool) return;
+
+    // Set municipality options based on legislative district
+    if (
+      selectedSchool.legislativeDistrict &&
+      legislativeDistricts[selectedSchool.legislativeDistrict]
+    ) {
+      setMunicipalityOptions(
+        legislativeDistricts[selectedSchool.legislativeDistrict]
+      );
+    } else {
+      setMunicipalityOptions([]);
+    }
+
+    // Set district options based on municipality
     const mun = selectedSchool.municipality;
     if (mun) {
       setDistrictOptions(municipalityDistricts[mun] || []);
-      if (firstDistrictMunicipalities.includes(mun)) {
+      // Auto-set legislative district if municipality is selected
+      if (legislativeDistricts["1st District"]?.includes(mun)) {
         setAutoLegislativeDistrict("1st District");
-      } else {
+        setSelectedSchool((prev) =>
+          prev ? { ...prev, legislativeDistrict: "1st District" } : prev
+        );
+      } else if (legislativeDistricts["2nd District"]?.includes(mun)) {
         setAutoLegislativeDistrict("2nd District");
+        setSelectedSchool((prev) =>
+          prev ? { ...prev, legislativeDistrict: "2nd District" } : prev
+        );
       }
-      // If the current district is not in the new options, reset it
+      // Reset district if not in options
       if (!municipalityDistricts[mun]?.includes(selectedSchool.district)) {
         setSelectedSchool((prev) => prev && { ...prev, district: "" });
       }
-      // Always sync legislativeDistrict
-      setSelectedSchool((prev) =>
-        prev
-          ? {
-              ...prev,
-              legislativeDistrict: firstDistrictMunicipalities.includes(mun)
-                ? "1st District"
-                : "2nd District",
-            }
-          : prev
-      );
     } else {
       setDistrictOptions([]);
       setAutoLegislativeDistrict("");
@@ -324,13 +349,18 @@ export default function SchoolsTable({
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSchool?.municipality, isDialogOpen]);
+  }, [
+    selectedSchool?.municipality,
+    selectedSchool?.legislativeDistrict,
+    isDialogOpen,
+    legislativeDistricts,
+  ]);
 
   const [isBulkArchiveDialogOpen, setIsBulkArchiveDialogOpen] = useState(false);
   const handleBulkArchive = async (restore: boolean) => {
     if (selectedSchools.length === 0) return;
     setIsSubmitting(true);
-
+    console.log(restore);
     try {
       await Promise.all(
         selectedSchools.map((schoolId) =>
@@ -360,12 +390,66 @@ export default function SchoolsTable({
       setIsBulkArchiveDialogOpen(false);
     }
   };
+
+  // --- Filter State ---
+  const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
+    useState<string>("");
+  const [filterMunicipality, setFilterMunicipality] = useState<string>("");
+  const [filterDistrict, setFilterDistrict] = useState<string>("");
+
+  const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
+    string[]
+  >([]);
+  const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
+    []
+  );
+
+  // --- Update filter options dynamically ---
+  useEffect(() => {
+    // Update municipality options when legislative district changes
+    if (
+      filterLegislativeDistrict &&
+      legislativeDistricts[filterLegislativeDistrict]
+    ) {
+      setFilterMunicipalityOptions(
+        legislativeDistricts[filterLegislativeDistrict]
+      );
+    } else {
+      setFilterMunicipalityOptions([]);
+    }
+    setFilterMunicipality(""); // Reset municipality when district changes
+    setFilterDistrict("");
+    setFilterDistrictOptions([]);
+  }, [filterLegislativeDistrict, legislativeDistricts]);
+
+  useEffect(() => {
+    // Update district options when municipality changes
+    if (filterMunicipality && municipalityDistricts[filterMunicipality]) {
+      setFilterDistrictOptions(municipalityDistricts[filterMunicipality]);
+    } else {
+      setFilterDistrictOptions([]);
+    }
+    setFilterDistrict("");
+  }, [filterMunicipality]);
+
+  // --- Sync filterOptions with dropdowns ---
+  useEffect(() => {
+    setFilterOptions((prev: any) => ({
+      ...prev,
+      legislative_district: filterLegislativeDistrict,
+      municipality: filterMunicipality,
+      district: filterDistrict,
+    }));
+    setCurrentPage(1);
+    // eslint-disable-next-line
+  }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
+
   return (
     <div className="space-y-4">
       {/* Filters and Search */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full md:w-64">
+          <div className="relative w-full md:w-1/2">
             <Input
               type="text"
               placeholder="Search schools..."
@@ -385,7 +469,7 @@ export default function SchoolsTable({
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
-              startIcon={<Loader2 className="size-4" />}
+              startIcon={<Filter className="size-4" />}
             >
               Filters
             </Button>
@@ -443,37 +527,76 @@ export default function SchoolsTable({
         {showFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
             <div className="space-y-2">
-              <Label htmlFor="district-filter" className="text-sm font-medium">
-                District
+              <Label
+                htmlFor="filter-legislative-district"
+                className="text-sm font-medium"
+              >
+                Legislative District
               </Label>
-              <Input
-                id="district-filter"
-                value={filterOptions.district || ""}
-                onChange={(e) => handleFilterChange("district", e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
+              <select
+                id="filter-legislative-district"
+                value={filterLegislativeDistrict}
+                onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
+                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              >
+                <option value="">All</option>
+                {legislativeDistrictOptions.map((ld) => (
+                  <option key={ld} value={ld}>
+                    {ld}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label
-                htmlFor="municipality-filter"
+                htmlFor="filter-municipality"
                 className="text-sm font-medium"
               >
                 Municipality
               </Label>
-              <Input
-                id="municipality-filter"
-                value={filterOptions.municipality || ""}
-                onChange={(e) =>
-                  handleFilterChange("municipality", e.target.value)
-                }
-                className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
+              <select
+                id="filter-municipality"
+                value={filterMunicipality}
+                onChange={(e) => setFilterMunicipality(e.target.value)}
+                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                disabled={!filterLegislativeDistrict}
+              >
+                <option value="">All</option>
+                {filterMunicipalityOptions.map((mun) => (
+                  <option key={mun} value={mun}>
+                    {mun}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="filter-district" className="text-sm font-medium">
+                District
+              </Label>
+              <select
+                id="filter-district"
+                value={filterDistrict}
+                onChange={(e) => setFilterDistrict(e.target.value)}
+                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                disabled={!filterMunicipality}
+              >
+                <option value="">All</option>
+                {filterDistrictOptions.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="md:col-span-3 flex justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={resetFilters}
+                onClick={() => {
+                  setFilterLegislativeDistrict("");
+                  setFilterMunicipality("");
+                  setFilterDistrict("");
+                }}
                 startIcon={<X className="size-4" />}
               >
                 Clear Filters
@@ -902,6 +1025,30 @@ export default function SchoolsTable({
                 )}
               </div>
               <div className="space-y-2">
+                <Label htmlFor="legislativeDistrict" className="text-base">
+                  Legislative District *
+                </Label>
+                <select
+                  id="legislativeDistrict"
+                  name="legislativeDistrict"
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  value={selectedSchool.legislativeDistrict}
+                  onChange={handleChange}
+                >
+                  <option value="">Select Legislative District</option>
+                  {legislativeDistrictOptions.map((ld) => (
+                    <option key={ld} value={ld}>
+                      {ld}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.legislativeDistrict && (
+                  <p className="text-red-500 text-sm">
+                    {formErrors.legislativeDistrict}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="municipality" className="text-base">
                   Municipality *
                 </Label>
@@ -911,9 +1058,10 @@ export default function SchoolsTable({
                   className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                   value={selectedSchool.municipality}
                   onChange={handleChange}
+                  disabled={!selectedSchool.legislativeDistrict}
                 >
                   <option value="">Select Municipality</option>
-                  {laUnionMunicipalities.map((mun) => (
+                  {municipalityOptions.map((mun) => (
                     <option key={mun} value={mun}>
                       {mun}
                     </option>
@@ -922,48 +1070,6 @@ export default function SchoolsTable({
                 {formErrors.municipality && (
                   <p className="text-red-500 text-sm">
                     {formErrors.municipality}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="district" className="text-base">
-                  District *
-                </Label>
-                <select
-                  id="district"
-                  name="district"
-                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 text-gray-800"
-                  value={selectedSchool.district}
-                  onChange={handleChange}
-                  disabled={!selectedSchool.municipality}
-                >
-                  <option value="">Select District</option>
-                  {districtOptions.map((district) => (
-                    <option key={district} value={district}>
-                      {district}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.district && (
-                  <p className="text-red-500 text-sm">{formErrors.district}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="legislativeDistrict" className="text-base">
-                  Legislative District *
-                </Label>
-                <Input
-                  type="text"
-                  id="legislativeDistrict"
-                  name="legislativeDistrict"
-                  className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                  placeholder="Legislative District"
-                  value={autoLegislativeDistrict}
-                  disabled
-                />
-                {formErrors.legislativeDistrict && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.legislativeDistrict}
                   </p>
                 )}
               </div>
@@ -1195,7 +1301,7 @@ export default function SchoolsTable({
               <Button
                 type="button"
                 color={showArchived ? "success" : "warning"}
-                onClick={() => handleBulkArchive(!showArchived)}
+                onClick={() => handleBulkArchive(showArchived)}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
