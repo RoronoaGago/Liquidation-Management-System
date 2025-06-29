@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
@@ -68,6 +69,11 @@ const MOOERequestPage = () => {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [categoriesPerPage, setCategoriesPerPage] = useState(5);
+  const [showRequirementsDialog, setShowRequirementsDialog] = useState(false);
+  const [currentPriorityRequirements, setCurrentPriorityRequirements] =
+    useState<string[]>([]);
+  const [currentPriorityTitle, setCurrentPriorityTitle] = useState("");
+  const ALLOCATED_BUDGET = 10000; // Hard-coded allocated budget
 
   // Handle pre-filling from a rejected request
   useEffect(() => {
@@ -152,9 +158,28 @@ const MOOERequestPage = () => {
     });
   };
 
+  const formatNumberWithCommas = (value: string) => {
+    const num = value.replace(/,/g, "");
+    if (num === "") return "";
+    if (isNaN(Number(num))) return value;
+    return Number(num).toLocaleString();
+  };
+
   const handleAmountChange = (expense: string, value: string) => {
-    if (value === "" || (!isNaN(Number(value)) && Number(value) >= 0)) {
-      setSelected((prev) => ({ ...prev, [expense]: value }));
+    // Remove all non-digit characters except decimal point
+    const cleanValue = value.replace(/[^0-9.]/g, "");
+
+    // If empty string, allow it
+    if (cleanValue === "") {
+      setSelected((prev) => ({ ...prev, [expense]: "" }));
+      return;
+    }
+
+    // Check if it's a valid number
+    if (!isNaN(Number(cleanValue)) && Number(cleanValue) >= 0) {
+      // Format with commas
+      const formattedValue = formatNumberWithCommas(cleanValue);
+      setSelected((prev) => ({ ...prev, [expense]: formattedValue }));
     }
   };
 
@@ -166,9 +191,9 @@ const MOOERequestPage = () => {
     }
   };
 
-  // Calculate total amount
+  // Calculate total amount without commas
   const totalAmount = Object.values(selected).reduce(
-    (sum, amount) => sum + (amount ? Number(amount) : 0),
+    (sum, amount) => sum + (amount ? Number(amount.replace(/,/g, "")) : 0),
     0
   );
 
@@ -176,15 +201,24 @@ const MOOERequestPage = () => {
   const selectedPriorities = Object.entries(selected)
     .map(([expenseTitle, amount]) => {
       const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
-      return priority ? { LOPID: priority.LOPID.toString(), amount } : null;
+      return priority
+        ? { LOPID: priority.LOPID.toString(), amount: amount.replace(/,/g, "") }
+        : null;
     })
     .filter(Boolean) as { LOPID: string; amount: string }[];
 
   // Submit handler with resubmission logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedPriorities.length === 0) {
-      toast.error("Please select at least one expense.");
+    if (selectedPriorities.length < 2) {
+      toast.error("Please select at least two expenses.");
+      return;
+    }
+
+    if (totalAmount > ALLOCATED_BUDGET) {
+      toast.error(
+        `Total amount cannot exceed allocated budget of ₱${ALLOCATED_BUDGET.toLocaleString()}`
+      );
       return;
     }
 
@@ -314,6 +348,34 @@ const MOOERequestPage = () => {
     setCategoryToSelect(null);
   };
 
+  // Show requirements for a priority
+  const showRequirements = (expenseTitle: string) => {
+    const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
+
+    if (priority && priority.requirements) {
+      // Filter out only requirement objects (not ListofPriorityData)
+      const requirementTitles = priority.requirements
+        .filter(
+          (
+            req
+          ): req is {
+            requirementID: number;
+            requirementTitle: string;
+            is_required: boolean;
+          } => "requirementTitle" in req
+        )
+        .map((req) => req.requirementTitle);
+
+      setCurrentPriorityRequirements(requirementTitles);
+      setCurrentPriorityTitle(expenseTitle);
+      setShowRequirementsDialog(true);
+    } else {
+      setCurrentPriorityRequirements([]);
+      setCurrentPriorityTitle(expenseTitle);
+      setShowRequirementsDialog(true);
+    }
+  };
+
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="List of Priorities" />
@@ -331,6 +393,41 @@ const MOOERequestPage = () => {
               <br />
               Redirecting to request history...
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Requirements Dialog */}
+      <Dialog
+        open={showRequirementsDialog}
+        onOpenChange={setShowRequirementsDialog}
+      >
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h2 className="text-lg font-bold mb-4">
+              Required Documents for {currentPriorityTitle}
+            </h2>
+            {currentPriorityRequirements.length > 0 ? (
+              <ul className="list-disc pl-5 space-y-2">
+                {currentPriorityRequirements.map((req, index) => (
+                  <li key={index} className="text-gray-700 dark:text-gray-300">
+                    {req}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">
+                No specific requirements for this priority.
+              </p>
+            )}
+            <div className="flex justify-end mt-6">
+              <Button
+                variant="primary"
+                onClick={() => setShowRequirementsDialog(false)}
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -526,8 +623,14 @@ const MOOERequestPage = () => {
             const emptyAmounts = Object.entries(selected).filter(
               ([, amount]) => !amount || amount === "0"
             );
-            if (Object.keys(selected).length === 0) {
-              toast.error("Please select at least one expense.");
+            if (Object.keys(selected).length < 2) {
+              toast.error("Please select at least two expenses.");
+              return;
+            }
+            if (totalAmount > ALLOCATED_BUDGET) {
+              toast.error(
+                `Total amount cannot exceed allocated budget of ₱${ALLOCATED_BUDGET.toLocaleString()}`
+              );
               return;
             }
             if (emptyAmounts.length > 0) {
@@ -722,6 +825,25 @@ const MOOERequestPage = () => {
                 {Object.keys(selected).length > 0 ? (
                   <>
                     <div className="p-4">
+                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Allocated Budget:
+                          </span>
+                          <span className="font-bold text-blue-800 dark:text-blue-200">
+                            ₱{ALLOCATED_BUDGET.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Remaining Budget:
+                          </span>
+                          <span className="font-bold text-blue-800 dark:text-blue-200">
+                            ₱{(ALLOCATED_BUDGET - totalAmount).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-gray-600 dark:text-gray-300">
                           {Object.keys(selected).length} item(s) selected
@@ -743,8 +865,27 @@ const MOOERequestPage = () => {
                                 key={priority.LOPID}
                                 className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
                               >
-                                <div className="truncate pr-2">
-                                  {expenseTitle}
+                                <div className="pr-2">
+                                  <div className="truncate">{expenseTitle}</div>
+                                  <div className="flex items-center mt-1">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {CATEGORY_LABELS[priority.category] ||
+                                        priority.category}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        showRequirements(expenseTitle)
+                                      }
+                                      className="ml-2 text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      {priority.requirements
+                                        ? priority.requirements.length
+                                        : 0}{" "}
+                                      docs
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="relative w-24">
