@@ -23,6 +23,8 @@ urlpatterns = [
          name='schools-batch-update'),
     path('schools/<str:schoolId>/',
          views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
+    path('legislative-districts/', views.legislative_districts,
+         name='legislative-districts'),
 
     path('requirements/', views.RequirementListCreateAPIView.as_view(),
          name='requirement-list-create'),

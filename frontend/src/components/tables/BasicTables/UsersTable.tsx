@@ -72,35 +72,25 @@ import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 
 interface UsersTableProps {
   users: User[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setUsers: React.Dispatch<React.SetStateAction<any[]>>;
-  // Data display props
-  currentPage?: number; // Current pagination page
-  setCurrentPage?: (page: number) => void; // To handle page changes
-  itemsPerPage?: number; // Items per page setting
-  // setItemsPerPage: (count: number) => void; // To change items per page
-
-  sortedUsers: User[]; // The pre-filtered and sorted users to display
-  // Filtering/sorting controls
-  filterOptions: FilterOptions;
-  setFilterOptions: React.Dispatch<React.SetStateAction<FilterOptions>>;
-
-  // Archive controls
   showArchived: boolean;
   setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
+  fetchUsers: () => Promise<void>;
+  filterOptions: FilterOptions;
+  setFilterOptions: React.Dispatch<React.SetStateAction<FilterOptions>>;
   onRequestSort: (key: SortableField) => void;
   currentSort: {
     key: SortableField;
     direction: SortDirection;
   } | null;
-  // Data operations
-  fetchUsers: () => Promise<void>; // For refreshing data
-
-  // Current user context (for excluding from operations)
-  currentUserId?: number;
   loading?: boolean;
   error?: Error | null;
-  schools: School[]; // <-- Add this line
+  schools: School[];
+  currentPage: number;
+  setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
+  itemsPerPage: number;
+  setItemsPerPage: React.Dispatch<React.SetStateAction<number>>;
+  totalUsers: number;
 }
 
 interface FormErrors {
@@ -117,11 +107,11 @@ interface FormErrors {
 }
 
 export default function UsersTable({
-  // setUsers,
+  users,
+  setUsers,
   showArchived,
   setShowArchived,
   fetchUsers,
-  sortedUsers,
   filterOptions,
   setFilterOptions,
   onRequestSort,
@@ -129,10 +119,13 @@ export default function UsersTable({
   loading,
   error,
   schools,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
+  setItemsPerPage,
+  totalUsers,
 }: UsersTableProps) {
   const { user: currentUser } = useAuth();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState(filterOptions.searchTerm || "");
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
@@ -163,26 +156,18 @@ export default function UsersTable({
 
   const isFormValid = useMemo(() => {
     if (!selectedUser) return false;
-
-    // Check required fields are filled
     const requiredValid = requiredFields.every(
       (field) => selectedUser[field as keyof User]?.toString().trim() !== ""
     );
-
-    // Check role-specific requirements
     const roleValid =
       selectedUser.role === "school_head" ||
       selectedUser.role === "school_admin"
         ? selectedUser.school !== null
         : true;
-
-    // Check no validation errors
     const noErrors = Object.keys(formErrors).length === 0;
-
     return requiredValid && roleValid && noErrors;
   }, [selectedUser, formErrors]);
 
-  // Apply filters whenever filterOptions or users change
   // Helper to get school name
   const getSchoolName = (school: any) => {
     if (!school) return "";
@@ -197,7 +182,7 @@ export default function UsersTable({
     }
     return "";
   };
-
+  console.log(schools);
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -232,7 +217,6 @@ export default function UsersTable({
           }
           break;
         case "date_of_birth":
-          // eslint-disable-next-line no-case-declarations
           const dateError = validateDateOfBirth(value);
           if (dateError) {
             newErrors.date_of_birth = dateError;
@@ -253,7 +237,6 @@ export default function UsersTable({
           } else {
             delete newErrors.role;
           }
-          // When role changes, validate school if needed
           if (
             (value === "school_head" || value === "school_admin") &&
             !selectedUser.school
@@ -282,14 +265,10 @@ export default function UsersTable({
   }, []);
 
   useEffect(() => {
-    // Reset selected users when switching between active/archived views
     setSelectedUsers([]);
     setSelectAll(false);
-  }, [showArchived]);
-  const handlePhoneNumberInput = (e: React.FormEvent<HTMLInputElement>) => {
-    const input = e.target as HTMLInputElement;
-    input.value = input.value.replace(/[^0-9+]/g, "");
-  };
+  }, [showArchived, users]);
+
   // Debounce searchTerm -> filterOptions.searchTerm
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -298,23 +277,20 @@ export default function UsersTable({
         ...prev,
         searchTerm,
       }));
-    }, 400); // 400ms debounce
+    }, 400);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, [searchTerm, setFilterOptions]);
-  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
-  const currentItems = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return sortedUsers.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedUsers, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(totalUsers / itemsPerPage);
 
   // Bulk selection handlers
   const toggleSelectAll = () => {
     if (selectAll) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(currentItems.map((user) => user.id));
+      setSelectedUsers(users.map((user) => user.id));
     }
     setSelectAll(!selectAll);
   };
@@ -352,7 +328,6 @@ export default function UsersTable({
       await fetchUsers();
       setSelectedUsers([]);
       setSelectAll(false);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error(
         `Failed to ${archive ? "archive" : "restore"} users. Please try again.`
@@ -391,24 +366,19 @@ export default function UsersTable({
   };
   const handleSchoolChange = (schoolId: number | null) => {
     if (!selectedUser) return;
-
+    if (!Array.isArray(schools)) return; // Defensive: only proceed if schools is an array
+    console.log(schoolId);
     setSelectedUser((prev) => ({
       ...prev!,
-      school: schoolId,
+      school:
+        schoolId === null
+          ? null
+          : schools.find((s) => Number(s.schoolId) === Number(schoolId)) ||
+            null,
     }));
+    console.log("Selected User School:", selectedUser.school);
 
-    // Handle validation specifically for school
-    const newErrors = { ...formErrors };
-    if (
-      (selectedUser.role === "school_head" ||
-        selectedUser.role === "school_admin") &&
-      !schoolId
-    ) {
-      newErrors.school = "School is required for this role";
-    } else {
-      delete newErrors.school;
-    }
-    setFormErrors(newErrors);
+    // ...rest of your validation logic...
   };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -444,14 +414,13 @@ export default function UsersTable({
 
       // Account info
       formData.append("role", selectedUser.role);
-      if (selectedUser.school) {
-        formData.append(
-          "school",
-          typeof selectedUser.school === "object"
-            ? selectedUser.school.schoolId.toString()
-            : selectedUser.school.toString()
-        );
-      }
+      formData.append(
+        "school_id",
+        selectedUser.school && "schoolId" in selectedUser.school
+          ? selectedUser.school.schoolId
+          : ""
+      );
+      console.log("Selected User School ID:", selectedUser.school?.schoolId);
 
       // Password (only if changed)
       if (selectedUser.password) {
@@ -464,7 +433,10 @@ export default function UsersTable({
       } else if (!selectedUser.profile_picture) {
         formData.append("profile_picture", ""); // Clear existing picture
       }
-
+      // Log all FormData entries before sending
+      for (const pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
       await api.put(
         `http://127.0.0.1:8000/api/users/${selectedUser.id}/`,
         formData,
@@ -572,7 +544,7 @@ export default function UsersTable({
       {/* Filters and Search */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full md:w-64">
+          <div className="relative w-full md:w-1/2">
             <Input
               type="text"
               placeholder="Search users..."
@@ -656,7 +628,12 @@ export default function UsersTable({
               <select
                 id="role-filter"
                 value={filterOptions.role || ""}
-                onChange={(e) => handleFilterChange("role", e.target.value)}
+                onChange={(e) =>
+                  setFilterOptions((prev) => ({
+                    ...prev,
+                    role: e.target.value,
+                  }))
+                }
                 className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               >
                 <option value="">All Roles</option>
@@ -679,7 +656,10 @@ export default function UsersTable({
                     id="date-range-start"
                     value={filterOptions.dateRange.start}
                     onChange={(e) =>
-                      handleDateRangeChange("start", e.target.value)
+                      setFilterOptions((prev) => ({
+                        ...prev,
+                        dateRange: { ...prev.dateRange, start: e.target.value },
+                      }))
                     }
                     className="w-full p-2 pr-8"
                   />
@@ -691,7 +671,10 @@ export default function UsersTable({
                     id="date-range-end"
                     value={filterOptions.dateRange.end}
                     onChange={(e) =>
-                      handleDateRangeChange("end", e.target.value)
+                      setFilterOptions((prev) => ({
+                        ...prev,
+                        dateRange: { ...prev.dateRange, end: e.target.value },
+                      }))
                     }
                     className="w-full p-2 pr-8"
                   />
@@ -704,7 +687,14 @@ export default function UsersTable({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={resetFilters}
+                onClick={() => {
+                  setFilterOptions({
+                    role: "",
+                    dateRange: { start: "", end: "" },
+                    searchTerm: "",
+                  });
+                  setSearchTerm("");
+                }}
                 startIcon={<X className="size-4" />}
               >
                 Clear Filters
@@ -895,12 +885,12 @@ export default function UsersTable({
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : currentItems.length > 0 ? (
-                currentItems.map((user) => (
+              ) : users.length > 0 ? (
+                users.map((user) => (
                   <TableRow
                     key={user.id}
                     className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                    onClick={() => handleViewUser(user)}
+                    onClick={() => setUserToView(user)}
                   >
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                       <input
@@ -1011,15 +1001,13 @@ export default function UsersTable({
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          Showing{" "}
-          {currentItems.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}{" "}
-          to {Math.min(currentPage * itemsPerPage, sortedUsers.length)} of{" "}
-          {sortedUsers.length} entries
+          Showing {users.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}{" "}
+          to {Math.min(currentPage * itemsPerPage, totalUsers)} of {totalUsers}{" "}
+          entries
           {selectedUsers.length > 0 && (
             <span className="ml-2">({selectedUsers.length} selected)</span>
           )}
         </div>
-
         <div className="flex items-center gap-2">
           <Button
             onClick={() => goToPage(1)}
@@ -1037,7 +1025,6 @@ export default function UsersTable({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let pageNum;
@@ -1050,7 +1037,6 @@ export default function UsersTable({
               } else {
                 pageNum = currentPage - 2 + i;
               }
-
               return (
                 <Button
                   key={pageNum}
@@ -1063,7 +1049,6 @@ export default function UsersTable({
               );
             })}
           </div>
-
           <Button
             onClick={() => goToPage(currentPage + 1)}
             disabled={currentPage === totalPages || totalPages === 0}
@@ -1295,7 +1280,17 @@ export default function UsersTable({
                 selectedUser.role === "school_admin") && (
                 <SchoolSelect
                   value={selectedUser.school}
-                  onChange={handleSchoolChange}
+                  onChange={(schoolId: number | null) => {
+                    setSelectedUser((prev) => ({
+                      ...prev!,
+                      school:
+                        schoolId === null
+                          ? null
+                          : schools.find(
+                              (s) => Number(s.schoolId) === Number(schoolId)
+                            ) || null,
+                    }));
+                  }}
                   required
                   error={formErrors.school}
                 />

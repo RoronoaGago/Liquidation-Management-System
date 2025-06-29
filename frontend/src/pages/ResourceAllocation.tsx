@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle,
+  Filter,
 } from "lucide-react";
 import {
   Dialog,
@@ -27,6 +28,8 @@ import {
 } from "@/components/ui/dialog";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Skeleton } from "antd";
+import { municipalityDistricts } from "@/lib/constants";
+import Label from "@/components/form/Label";
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const QUICK_ADD_AMOUNTS = [1000, 5000, 10000];
@@ -58,12 +61,30 @@ const ResourceAllocation = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalSchools, setTotalSchools] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [adjustmentAmount, setAdjustmentAmount] = useState(1000);
   const [expandedCards, setExpandedCards] = useState<string[]>([]);
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+  const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
+    useState<string>("");
+  const [filterMunicipality, setFilterMunicipality] = useState<string>("");
+  const [filterDistrict, setFilterDistrict] = useState<string>("");
+
+  const [legislativeDistricts, setLegislativeDistricts] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
+    string[]
+  >([]);
+  const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
+    string[]
+  >([]);
+  const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
+    []
+  );
 
   // Fetch backlog data for schools
   const fetchBacklogData = async (schoolIds: string[]) => {
@@ -92,59 +113,59 @@ const ResourceAllocation = () => {
       if (debouncedSearch.length >= MIN_SEARCH_LENGTH) {
         params.search = debouncedSearch;
       }
+      if (filterLegislativeDistrict)
+        params.legislative_district = filterLegislativeDistrict;
+      if (filterMunicipality) params.municipality = filterMunicipality;
+      if (filterDistrict) params.district = filterDistrict;
 
       // Fetch schools
       const schoolsRes = await api.get("schools/", { params });
-      const schoolsData = schoolsRes.data.results || schoolsRes.data;
-      const schoolIds = schoolsData.map((s: School) => s.schoolId);
-
-      // Fetch backlog data in parallel
-      const [backlogData] = await Promise.all([fetchBacklogData(schoolIds)]);
-
-      // Map backlog info to schools
-      const schoolsWithBacklog = schoolsData.map((school: School) => {
-        const schoolRequests = backlogData.filter(
-          (req: any) => req.user?.school?.schoolId === school.schoolId
-        );
-
-        const pendingAmount = schoolRequests.reduce(
-          (sum: number, req: any) =>
-            sum +
-            (req.priorities?.reduce(
-              (pSum: number, p: any) => pSum + (p.amount || 0),
-              0
-            ) || 0,
-            0),
-          0
-        );
-
-        return {
-          ...school,
-          hasBacklog: schoolRequests.length > 0,
-          pendingAmount,
-        };
-      });
-
-      setSchools(schoolsWithBacklog);
+      setSchools(schoolsRes.data.results || schoolsRes.data);
       setTotalSchools(schoolsRes.data.count ?? schoolsRes.data.length);
 
-      // Set initial budgets
+      // Fetch backlog data for the fetched schools
+      const schoolIds = schoolsRes.data.results.map(
+        (school: School) => school.schoolId
+      );
+      const backlogData = await fetchBacklogData(schoolIds);
+
+      // Map backlog data to schools
+      const schoolsWithBacklog = schoolsRes.data.results.map(
+        (school: School) => {
+          const backlog = backlogData.find(
+            (b: any) => b.schoolId === school.schoolId
+          );
+          return {
+            ...school,
+            hasBacklog: !!backlog,
+            pendingAmount: backlog?.totalAmount || 0,
+          };
+        }
+      );
+
       const initialBudgets = schoolsWithBacklog.reduce(
         (acc: Record<string, number>, school: School) => {
-          acc[school.schoolId] = school.max_budget ?? 0;
+          acc[school.schoolId] = school.max_budget || 0;
           return acc;
         },
-        {}
+        {} as Record<string, number>
       );
+
       setEditingBudgets(initialBudgets);
+      setSchools(schoolsWithBacklog);
     } catch (error) {
-      toast.error("Failed to load data");
-      console.error("Error:", error);
+      console.error("Error fetching schools data:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    api.get("/legislative-districts/").then((res) => {
+      setLegislativeDistricts(res.data);
+      setLegislativeDistrictOptions(Object.keys(res.data));
+    });
+  }, []);
   useEffect(() => {
     if (
       debouncedSearch.length === 0 ||
@@ -560,6 +581,36 @@ const ResourceAllocation = () => {
     </Dialog>
   );
 
+  useEffect(() => {
+    if (
+      filterLegislativeDistrict &&
+      legislativeDistricts[filterLegislativeDistrict]
+    ) {
+      setFilterMunicipalityOptions(
+        legislativeDistricts[filterLegislativeDistrict]
+      );
+    } else {
+      setFilterMunicipalityOptions([]);
+    }
+    setFilterMunicipality("");
+    setFilterDistrict("");
+    setFilterDistrictOptions([]);
+  }, [filterLegislativeDistrict, legislativeDistricts]);
+
+  useEffect(() => {
+    if (filterMunicipality && municipalityDistricts[filterMunicipality]) {
+      setFilterDistrictOptions(municipalityDistricts[filterMunicipality]);
+    } else {
+      setFilterDistrictOptions([]);
+    }
+    setFilterDistrict("");
+  }, [filterMunicipality]);
+
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line
+  }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
+
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="Resource Allocation" />
@@ -605,51 +656,149 @@ const ResourceAllocation = () => {
         {/* Reset Confirmation Dialog */}
 
         {/* Search and Controls */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-          <div className="relative w-full">
-            <Input
-              type="text"
-              placeholder={`Search schools (min ${MIN_SEARCH_LENGTH} chars)...`}
-              value={searchTerm}
-              onChange={handleSearchChange}
-              className="pl-10"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
-              {searchTerm.length > 0 &&
-              searchTerm.length < MIN_SEARCH_LENGTH ? (
-                <span className="text-yellow-600 dark:text-yellow-400">
-                  Type {MIN_SEARCH_LENGTH - searchTerm.length} more
-                </span>
-              ) : (
-                `${totalSchools} schools`
-              )}
-            </span>
+        <div className="flex flex-col gap-4">
+          {/* Top controls row */}
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            {/* Search */}
+            <div className="relative w-full md:w-1/2">
+              <Input
+                type="text"
+                placeholder={`Search schools (min ${MIN_SEARCH_LENGTH} chars)...`}
+                value={searchTerm}
+                onChange={handleSearchChange}
+                className="pl-10"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
+                {searchTerm.length > 0 &&
+                searchTerm.length < MIN_SEARCH_LENGTH ? (
+                  <span className="text-yellow-600 dark:text-yellow-400">
+                    Type {MIN_SEARCH_LENGTH - searchTerm.length} more
+                  </span>
+                ) : (
+                  `${totalSchools} schools`
+                )}
+              </span>
+            </div>
+            {/* Filters button */}
+            <div className="flex gap-4 items-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                startIcon={<Filter className="size-4" />}
+              >
+                Filters
+              </Button>
+              {/* Items per page */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  Items per page:
+                </label>
+                <select
+                  value={itemsPerPage.toString()}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
+                >
+                  {ITEMS_PER_PAGE_OPTIONS.map((num) => (
+                    <option key={num} value={num}>
+                      Show {num}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-
-          <div className="flex gap-4 w-full md:w-auto items-center">
-            <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-              Items per page:
-            </label>
-            <select
-              value={itemsPerPage.toString()}
-              onChange={(e) => {
-                setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
-            >
-              {ITEMS_PER_PAGE_OPTIONS.map((num) => (
-                <option key={num} value={num}>
-                  Show {num}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Filters panel */}
+          {showFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+              <div className="space-y-2">
+                <Label
+                  htmlFor="filter-legislative-district"
+                  className="text-sm font-medium"
+                >
+                  Legislative District
+                </Label>
+                <select
+                  id="filter-legislative-district"
+                  value={filterLegislativeDistrict}
+                  onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  <option value="">All</option>
+                  {legislativeDistrictOptions.map((ld) => (
+                    <option key={ld} value={ld}>
+                      {ld}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="filter-municipality"
+                  className="text-sm font-medium"
+                >
+                  Municipality
+                </Label>
+                <select
+                  id="filter-municipality"
+                  value={filterMunicipality}
+                  onChange={(e) => setFilterMunicipality(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  disabled={!filterLegislativeDistrict}
+                >
+                  <option value="">All</option>
+                  {filterMunicipalityOptions.map((mun) => (
+                    <option key={mun} value={mun}>
+                      {mun}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="filter-district"
+                  className="text-sm font-medium"
+                >
+                  District
+                </Label>
+                <select
+                  id="filter-district"
+                  value={filterDistrict}
+                  onChange={(e) => setFilterDistrict(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  disabled={!filterMunicipality}
+                >
+                  <option value="">All</option>
+                  {filterDistrictOptions.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-3 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFilterLegislativeDistrict("");
+                    setFilterMunicipality("");
+                    setFilterDistrict("");
+                  }}
+                  startIcon={<X className="size-4" />}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Adjustment Controls */}
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mt-4">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Adjustment Amount
           </h3>
@@ -732,7 +881,7 @@ const ResourceAllocation = () => {
         )}
 
         {/* School Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {renderSchoolCards()}
         </div>
 

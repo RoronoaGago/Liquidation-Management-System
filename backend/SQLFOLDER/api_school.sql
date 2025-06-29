@@ -418,15 +418,15 @@ INSERT INTO `api_school` (`schoolId`, `schoolName`, `municipality`, `district`, 
 ('501197', 'Dulao Integrated School', 'ARINGAY', 'Aringay', '2nd District', 1),
 ('501362', 'Cabaritan Sur Integrated School', 'NAGUILIAN', 'Naguilian', '2nd District', 1),
 ('502074', 'Cubal Integrated School', 'AGOO', 'Agoo West', '2nd District', 1),
-('502075', 'Nayba Integrated School', 'SAN GABRIEL', 'San Gabriel', '1st District, 1'),
-('502238', 'Lacong Integrated School', 'SAN GABRIEL', 'San Gabriel', '1st District, 1'),
-('502572', 'Zaragosa Integrated School', 'BACNOTAN', 'Bacnotan', '1st District, 1'),
+('502075', 'Nayba Integrated School', 'SAN GABRIEL', 'San Gabriel', '1st District', 1),
+('502238', 'Lacong Integrated School', 'SAN GABRIEL', 'San Gabriel', '1st District', 1),
+('502572', 'Zaragosa Integrated School', 'BACNOTAN', 'Bacnotan', '1st District', 1),
 ('502574', 'Delles Integrated School', 'BURGOS', 'Burgos', '2nd District', 1),
-('502578', 'Paratong Integrated School', 'BANGAR', 'Bangar', '1st District, 1'),
-('502579', 'Quirino Integrated School', 'BACNOTAN', 'Bacnotan', '1st District, 1'),
+('502578', 'Paratong Integrated School', 'BANGAR', 'Bangar', '1st District', 1),
+('502579', 'Quirino Integrated School', 'BACNOTAN', 'Bacnotan', '1st District', 1),
 ('502580', 'Bucayab Integrated School', 'BAUANG', 'Bauang South', '2nd District', 1),
-('502748', 'Dasay Integrated School', 'SAN JUAN', 'San Juan', '1st District, 1'),
-('502791', 'Basig Integrated School', 'SUDIPEN', 'Sudipen', '1st District, 1');
+('502748', 'Dasay Integrated School', 'SAN JUAN', 'San Juan', '1st District', 1),
+('502791', 'Basig Integrated School', 'SUDIPEN', 'Sudipen', '1st District', 1);
 
 --
 -- Indexes for dumped tables
