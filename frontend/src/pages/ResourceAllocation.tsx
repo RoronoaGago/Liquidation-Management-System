@@ -359,8 +359,11 @@ const ResourceAllocation = () => {
       const isSelected = selectedSchools.includes(school.schoolId);
       const isExpanded = expandedCards.includes(school.schoolId);
       const prevBudget = Number(school.max_budget || 0);
-      const currentBudget = editingBudgets[school.schoolId] ?? 0;
-      const difference = currentBudget - prevBudget;
+      const currentBudget =
+        school.schoolId in editingBudgets
+          ? editingBudgets[school.schoolId]
+          : school.max_budget || 0;
+      const difference = currentBudget - (school.max_budget || 0);
 
       return (
         <div
