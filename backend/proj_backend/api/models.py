@@ -23,6 +23,7 @@ class User(AbstractUser):
         ('district_admin', 'District Administrative Assistant'),
         ('superintendent', 'Division Superintendent'),
         ('liquidator', 'Liquidator'),
+        ('auditor', 'COA Auditor'),
         ('accountant', 'Division Accountant'),
     ]
 
