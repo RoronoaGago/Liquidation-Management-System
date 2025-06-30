@@ -84,7 +84,8 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            os.path.join(BASE_DIR, 'proj_backend', 'api', 'templates'),
+            os.path.join(BASE_DIR, 'proj_backend',
+                         'api', 'templates', 'emails'),
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -205,7 +206,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
 
 EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
-DEFAULT_FROM_EMAIL = 'riverajanlester.st.maria@gmail.com'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'

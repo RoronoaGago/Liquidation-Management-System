@@ -6,6 +6,7 @@
 # from .models import RequestManagement, LiquidationManagement
 # from datetime import timedelta
 
+
 # @shared_task
 # def check_liquidation_status(request_id):
 #     """Final check on day 31 with demand letter"""
@@ -15,6 +16,7 @@
 #         request.status = 'unliquidated'
 #         request.save()
 #         send_demand_letter(request)
+
 
 # def send_reminder(request_id, days_remaining):
 #     """Generic reminder email sender"""
@@ -39,6 +41,7 @@
 #         request.save()
 #     # If already liquidated, do nothing
 
+
 # def send_demand_letter(request):
 #     """Final demand letter on day 30/31"""
 #     # Only send demand letter if NOT liquidated
@@ -59,4 +62,4 @@
 #         request.demand_letter_sent = True
 #         request.demand_letter_date = timezone.now().date()
 #         request.save()
-#     # If already liquidated, do nothing
+# If already liquidated, do nothing
