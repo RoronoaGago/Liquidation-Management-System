@@ -210,6 +210,7 @@ const MOOERequestPage = () => {
   // Submit handler with resubmission logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("location.state:", location.state);
     if (selectedPriorities.length < 2) {
       toast.error("Please select at least two expenses.");
       return;

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { EyeIcon, EyeClosedIcon } from "lucide-react";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
-import companyLogo from "../../images/bubble-magic/company-logo.png";
+import companyLogo from "../../images/company-logo.png";
 import { useAuth } from "@/context/AuthContext";
 
 export default function SignInForm() {
