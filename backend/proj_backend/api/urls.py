@@ -9,6 +9,8 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     # User URLs
+    path('requests/', views.RequestManagementListCreateView.as_view(),
+         name='request-list'),
     path("users/", views.user_list, name="user-list"),
     path("users/<int:pk>/", views.user_detail, name="user-detail"),
     path('token/', CustomTokenObtainPairView.as_view(),
@@ -35,9 +37,6 @@ urlpatterns = [
          name='priority-list-create'),
     path('priorities/<int:LOPID>/',
          views.ListOfPriorityRetrieveUpdateDestroyAPIView.as_view(), name='priority-detail'),
-
-    path('requests/', views.RequestManagementListCreateView.as_view(),
-         name='request-list'),
 
     path('requests/<str:request_id>/',
          views.RequestManagementRetrieveUpdateDestroyAPIView.as_view(), name='request-detail'),

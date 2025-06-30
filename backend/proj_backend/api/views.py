@@ -18,6 +18,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
+import string
+from django.utils.crypto import get_random_string
 
 logger = logging.getLogger(__name__)
 
@@ -368,19 +370,27 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        # Automatically set the current user as the request creator
-        serializer.save(user=self.request.user)
+        try:
+            # Save with atomic transaction
+            with transaction.atomic():
+                instance = serializer.save(user=self.request.user)
+                # Force save to ensure signals fire
+                instance.save()
+                logger.info(
+                    f"Successfully created request {instance.request_id}")
+        except Exception as e:
+            logger.error(f"Failed to create request: {str(e)}")
+            raise
 
     def get_queryset(self):
         queryset = RequestManagement.objects.all()
 
         # Filter by status if provided
-        status_param = self.request.query_params.get('status')
-        if status_param:
+        if status_param := self.request.query_params.get('status'):
             queryset = queryset.filter(status=status_param)
 
         # For non-admin users, only show their own requests
-        if not self.request.user.role in ['admin', 'superintendent', 'accountant']:
+        if self.request.user.role not in ['admin', 'superintendent', 'accountant']:
             queryset = queryset.filter(user=self.request.user)
 
         return queryset.order_by('-created_at')
@@ -400,9 +410,6 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
 
 
 class ApproveRequestView(generics.UpdateAPIView):
-    """
-    View for approving a request (admin/superintendent only)
-    """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -410,32 +417,38 @@ class ApproveRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance._status_changed_by = request.user  # Set reviewer
-        # Check if user has permission to approve
+
+        # Permission check
         if request.user.role not in ['admin', 'superintendent']:
             return Response(
                 {"detail": "Only administrators can approve requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Check if request is in pending state
+        # State validation
         if instance.status != 'pending':
             return Response(
                 {"detail": "Only pending requests can be approved"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Prepare for notification
+        instance._status_changed_by = request.user
+        instance._old_status = instance.status  # Explicitly set old status
+
+        # Update fields
         instance.status = 'approved'
+        instance.date_approved = timezone.now().date()
+        instance.reviewed_by = request.user
+        instance.reviewed_at = timezone.now()
+
+        # Save will trigger signals
         instance.save()
 
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return Response(self.get_serializer(instance).data)
 
 
 class RejectRequestView(generics.UpdateAPIView):
-    """
-    View for rejecting a request (admin/superintendent only)
-    """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -443,36 +456,44 @@ class RejectRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance._status_changed_by = request.user  # Set reviewer
 
-        # Check if user has permission to reject
+        # Permission check
         if request.user.role not in ['admin', 'superintendent']:
             return Response(
                 {"detail": "Only administrators can reject requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Check if request is in pending state
+        # State validation
         if instance.status != 'pending':
             return Response(
                 {"detail": "Only pending requests can be rejected"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Require a rejection comment
-        rejection_comment = request.data.get('rejection_comment')
+        # Comment validation
+        rejection_comment = request.data.get('rejection_comment', '').strip()
         if not rejection_comment:
             return Response(
                 {"detail": "Please provide a rejection comment"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Prepare for notification
+        instance._status_changed_by = request.user
+        instance._old_status = instance.status
+
+        # Update fields
         instance.status = 'rejected'
         instance.rejection_comment = rejection_comment
+        instance.rejection_date = timezone.now().date()
+        instance.reviewed_by = request.user
+        instance.reviewed_at = timezone.now()
+
+        # Save will trigger signals
         instance.save()
 
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return Response(self.get_serializer(instance).data)
 
 
 class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -961,3 +982,12 @@ def legislative_districts(request):
         ]
     }
     return Response(data)
+
+
+def generate_request_id():
+    prefix = "REQ-"
+    random_part = get_random_string(
+        length=6,
+        allowed_chars=string.ascii_uppercase + string.digits
+    )
+    return f"{prefix}{random_part}"
