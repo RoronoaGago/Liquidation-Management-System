@@ -87,6 +87,39 @@ export default function NotificationDropdown() {
     return `${Math.floor(diffInSeconds / 86400)} days ago`;
   };
 
+  // Generate initials from a user object
+  const getSenderInitials = (sender: Notification["sender"]) => {
+    if (!sender) return "U";
+    const firstNameChar = sender.first_name?.charAt(0) || "";
+    const lastNameChar = sender.last_name?.charAt(0) || "";
+    return `${firstNameChar}${lastNameChar}`.toUpperCase() || "U";
+  };
+
+  // Generate a color based on sender id or name
+  const getSenderAvatarColor = (sender: Notification["sender"]) => {
+    if (!sender) return "bg-gray-500";
+    const colors = [
+      "bg-blue-500",
+      "bg-green-500",
+      "bg-purple-500",
+      "bg-pink-500",
+      "bg-orange-500",
+      "bg-indigo-500",
+    ];
+    let stringId = sender.id?.toString() || "";
+    const hash =
+      stringId && typeof stringId === "string"
+        ? stringId.charCodeAt(0) + stringId.charCodeAt(stringId.length - 1)
+        : (typeof sender.first_name === "string"
+            ? sender.first_name.charCodeAt(0)
+            : 0) +
+          (typeof sender.last_name === "string"
+            ? sender.last_name.charCodeAt(0)
+            : 0);
+
+    return colors[hash % colors.length];
+  };
+
   return (
     <div className="relative">
       <button
@@ -157,16 +190,23 @@ export default function NotificationDropdown() {
                   }`}
                 >
                   <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                    <img
-                      width={40}
-                      height={40}
-                      src={
-                        notification.sender.profile_picture ||
-                        "/images/user/user-default.jpg"
-                      }
-                      alt={notification.sender.first_name}
-                      className="w-full overflow-hidden rounded-full"
-                    />
+                    {notification.sender.profile_picture ? (
+                      <img
+                        width={40}
+                        height={40}
+                        src={notification.sender.profile_picture}
+                        alt={notification.sender.first_name}
+                        className="w-full overflow-hidden rounded-full"
+                      />
+                    ) : (
+                      <span
+                        className={`flex items-center justify-center w-full h-full rounded-full text-white font-bold text-lg ${getSenderAvatarColor(
+                          notification.sender
+                        )}`}
+                      >
+                        {getSenderInitials(notification.sender)}
+                      </span>
+                    )}
                     <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
                   </span>
 
