@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { getNotifications, markAsRead } from "@/services/notificationService";
 
@@ -24,6 +24,7 @@ export default function NotificationDropdown() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user?.user_id) {
@@ -48,6 +49,7 @@ export default function NotificationDropdown() {
 
   const handleNotificationClick = async (notificationId: string) => {
     try {
+      const notification = notifications.find((n) => n.id === notificationId);
       await markAsRead(notificationId);
       setNotifications(
         notifications.map((n) =>
@@ -57,6 +59,20 @@ export default function NotificationDropdown() {
       setHasUnread(
         notifications.some((n) => !n.is_read && n.id !== notificationId)
       );
+
+      // Navigation logic based on notification title
+      if (notification) {
+        if (
+          notification.notification_title === "Request ready for liquidation"
+        ) {
+          navigate("/liquidation");
+        } else if (
+          notification.notification_title === "Your request was approved"
+        ) {
+          navigate("/requests-history");
+        }
+        // Add more conditions as needed for other notification types
+      }
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }

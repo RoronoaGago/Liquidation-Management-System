@@ -206,7 +206,8 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
 
 EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email
+# Default sender email
+DEFAULT_FROM_EMAIL = 'DEPED LUSDO <riverajanlester.st.maria@gmail.com>'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
