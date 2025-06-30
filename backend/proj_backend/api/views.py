@@ -621,6 +621,16 @@ def resubmit_request(request, request_id):
         # req.rejection_date = None
         req.save()
 
+        # --- Notification logic ---
+        from .models import Notification
+        Notification.objects.create(
+            notification_title="Request Resubmitted",
+            details="Your request has been resubmitted and is pending review.",
+            receiver=req.user,
+            sender=request.user,
+        )
+        # --- End notification logic ---
+
         return Response(RequestManagementSerializer(req).data)
 
     except RequestManagement.DoesNotExist:
@@ -764,6 +774,7 @@ def submit_for_liquidation(request, request_id):
                 )
 
             # First update the request status to 'downloaded' to satisfy LiquidationManagement validation
+            request_obj._status_changed_by = request.user  # <-- Add this line
             request_obj.status = 'downloaded'
             request_obj.save(update_fields=['status'])
 
@@ -782,6 +793,16 @@ def submit_for_liquidation(request, request_id):
             # Update request status to 'unliquidated' as final state
             request_obj.status = 'unliquidated'
             request_obj.save(update_fields=['status'])
+
+            # --- Notification logic ---
+            # from .models import Notification
+            # Notification.objects.create(
+            #     notification_title="Request for Liquidation",
+            #     details="Your request has been submitted for liquidation.",
+            #     receiver=request_obj.user,
+            #     sender=request.user,
+            # )
+            # --- End notification logic ---
 
             serializer = LiquidationManagementSerializer(liquidation)
             return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -1,7 +1,7 @@
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { Bounce, ToastContainer, toast } from "react-toastify";
+import { Bounce, toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { EyeCloseIcon, CalenderIcon } from "@/icons";
 import { calculateAge } from "@/lib/helpers";
@@ -760,16 +760,6 @@ export default function UserProfiles() {
             </div>
           </DialogContent>
         </Dialog>
-
-        <ToastContainer
-          position="top-center"
-          autoClose={2000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick={false}
-          rtl={false}
-          pauseOnFocusLoss
-        />
       </div>
     </>
   );

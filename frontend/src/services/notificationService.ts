@@ -31,7 +31,7 @@ export const getNotifications = async (userId: string | undefined | number) => {
 
 export const markAsRead = async (notificationId: string) => {
     try {
-        await api.patch(`notifications/${notificationId}/read`);
+        await api.patch(`notifications/${notificationId}/read/`);
     } catch (error) {
         console.error('Error marking notification as read:', error);
     }

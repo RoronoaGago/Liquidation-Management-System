@@ -434,4 +434,5 @@ class NotificationSerializer(serializers.ModelSerializer):
             'receiver',
             'sender',
             'notification_date',
+            'is_read'
         ]
