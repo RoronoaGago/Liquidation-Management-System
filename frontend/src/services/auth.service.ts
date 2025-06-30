@@ -54,13 +54,14 @@ export const refreshAccessToken = async (): Promise<string | null> => {
     if (!refreshToken) return null;
 
     try {
-        const response = await axios.post(`${API_URL}refresh/`, { refresh: refreshToken });
+        // Use the correct endpoint for Django SimpleJWT
+        const response = await axios.post('http://127.0.0.1:8000/api/token/refresh/', { refresh: refreshToken });
         if (response.data.access) {
             localStorage.setItem('accessToken', response.data.access);
             return response.data.access;
         }
     } catch (error) {
-        logout();
+        await logout();
     }
     return null;
 };
