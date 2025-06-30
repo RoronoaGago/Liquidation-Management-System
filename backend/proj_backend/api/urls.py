@@ -72,4 +72,8 @@ urlpatterns = [
 
     path('liquidator-assignments/', views.LiquidatorAssignmentListCreateAPIView.as_view(),
          name='liquidator-assignment-list-create'),
+    path('notifications/', views.NotificationListAPIView.as_view(),
+         name='notification-list'),
+    path('notifications/<int:pk>/read/',
+         views.MarkNotificationAsReadAPIView.as_view(), name='mark-notification-read'),
 ]

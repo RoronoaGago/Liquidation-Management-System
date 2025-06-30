@@ -1,3 +1,4 @@
+from urllib import request
 from rest_framework.permissions import IsAuthenticated
 from .serializers import CustomTokenObtainPairSerializer
 from datetime import datetime, timedelta
@@ -10,8 +11,8 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment, Notification
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer, NotificationSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -416,36 +417,55 @@ class ApproveRequestView(generics.UpdateAPIView):
     lookup_field = 'pk'
 
     def update(self, request, *args, **kwargs):
-        instance = self.get_object()
+        with transaction.atomic():  # Ensure atomic transaction
+            # Lock the row to prevent race conditions
+            instance = RequestManagement.objects.select_for_update().get(
+                pk=kwargs['pk'])
 
-        # Permission check
-        if request.user.role not in ['admin', 'superintendent']:
-            return Response(
-                {"detail": "Only administrators can approve requests"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            print(f"Current status: {instance.status}")  # Debug log
 
-        # State validation
-        if instance.status != 'pending':
-            return Response(
-                {"detail": "Only pending requests can be approved"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # Permission check
+            if request.user.role not in ['admin', 'superintendent']:
+                return Response(
+                    {"detail": "Only administrators can approve requests"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-        # Prepare for notification
-        instance._status_changed_by = request.user
-        instance._old_status = instance.status  # Explicitly set old status
+            # State validation
+            if instance.status != 'pending':
+                return Response(
+                    {"detail": f"Current status is '{instance.status}', must be 'pending'"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        # Update fields
-        instance.status = 'approved'
-        instance.date_approved = timezone.now().date()
-        instance.reviewed_by = request.user
-        instance.reviewed_at = timezone.now()
+            # Prepare for notification
+            instance._old_status = instance.status
+            instance._status_changed_by = request.user
+            instance._skip_auto_status = True  # Add this line
+            instance.status = 'approved'
+            instance.date_approved = timezone.now().date()
+            instance.reviewed_by = request.user
+            instance.reviewed_at = timezone.now()
 
-        # Save will trigger signals
-        instance.save()
+            print(f"New status before save: {instance.status}")  # Debug log
 
-        return Response(self.get_serializer(instance).data)
+            try:
+                instance.save(update_fields=[
+                    'status',
+                    'date_approved',
+                    'reviewed_by',
+                    'reviewed_at'
+                ])
+                print(f"Status after save: {instance.status}")  # Debug log
+            except Exception as e:
+                print(f"Save failed: {str(e)}")  # Debug log
+                raise
+
+            # Verify in database
+            refreshed = RequestManagement.objects.get(pk=instance.pk)
+            print(f"Database status: {refreshed.status}")  # Debug log
+
+            return Response(self.get_serializer(instance).data)
 
 
 class RejectRequestView(generics.UpdateAPIView):
@@ -456,6 +476,9 @@ class RejectRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        instance._old_status = instance.status  # CRITICAL: Track previous state
+        instance._status_changed_by = request.user
+        instance._skip_auto_status = True  # Add this line
 
         # Permission check
         if request.user.role not in ['admin', 'superintendent']:
@@ -479,19 +502,14 @@ class RejectRequestView(generics.UpdateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Prepare for notification
-        instance._status_changed_by = request.user
-        instance._old_status = instance.status
-
-        # Update fields
-        instance.status = 'rejected'
-        instance.rejection_comment = rejection_comment
-        instance.rejection_date = timezone.now().date()
-        instance.reviewed_by = request.user
-        instance.reviewed_at = timezone.now()
-
         # Save will trigger signals
-        instance.save()
+        instance.status = 'rejected'
+        instance.rejection_comment = request.data.get('rejection_comment')
+        instance.rejection_date = timezone.now().date()
+
+        # Explicit save
+        instance.save(
+            update_fields=['status', 'rejection_comment', 'rejection_date'])
 
         return Response(self.get_serializer(instance).data)
 
@@ -991,3 +1009,26 @@ def generate_request_id():
         allowed_chars=string.ascii_uppercase + string.digits
     )
     return f"{prefix}{random_part}"
+
+
+class NotificationListAPIView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(receiver=self.request.user).order_by('-notification_date')
+
+
+class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
+    queryset = Notification.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        notification = self.get_object()
+        if notification.receiver != request.user:
+            return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Here you might want to add an 'is_read' field to your Notification model
+        notification.is_read = True
+        notification.save()
+        return Response({"status": "marked as read"})

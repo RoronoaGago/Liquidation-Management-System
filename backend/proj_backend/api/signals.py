@@ -13,6 +13,8 @@ def handle_request_notifications(sender, instance, created, **kwargs):
     """
     Handles notifications when a RequestManagement instance is created or updated.
     """
+    logger.debug(
+        f"Signal triggered for {instance.request_id} (Status: {instance.status}, Created: {created})")
     try:
         if created:
             # New request notification - use direct function call
