@@ -233,49 +233,67 @@ class RequestManagement(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._old_status = self.status  # Initialize old status
+        self._old_status = self.status  # Track initial status
+        self._skip_auto_status = False  # Explicit control flag
 
     def save(self, *args, **kwargs):
-        # Store old status before any changes
-        if self.pk:
-            try:
-                old_instance = RequestManagement.objects.get(pk=self.pk)
-                self._old_status = old_instance.status
-            except RequestManagement.DoesNotExist:
-                logger.warning(
-                    f"Couldn't find existing request with pk {self.pk}")
-                self._old_status = None
+        """Atomic save with protected status changes"""
+        from django.db import transaction
 
-        # Handle business logic
-        if not self.pk or not self.request_monthyear:
-            self.set_initial_monthyear()
+        try:
+            with transaction.atomic():
+                # Fetch existing status safely
+                if self.pk:
+                    current_status = RequestManagement.objects.filter(
+                        pk=self.pk).values_list('status', flat=True).first()
+                    self._old_status = current_status or self.status
 
-        self.set_automatic_status()
+                # Set initial month/year if needed (won't affect status)
+                self.set_initial_monthyear()
 
-        super().save(*args, **kwargs)
+                # Only auto-set status if not explicitly skipped
+                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status):
+                    self.set_automatic_status()
+
+                logger.debug(
+                    f"Saving request {self.request_id} with status {self.status}")
+                super().save(*args, **kwargs)
+
+        except Exception as e:
+            logger.error(
+                f"Failed to save request {getattr(self, 'request_id', 'new')}: {str(e)}")
+            raise
 
     def set_initial_monthyear(self):
-        school = self.user.school
-        if school:
-            if school.last_liquidated_month and school.last_liquidated_year:
-                year = school.last_liquidated_year
-                month = school.last_liquidated_month + 1
-                if month > 12:
-                    month = 1
-                    year += 1
-                self.request_monthyear = f"{year:04d}-{month:02d}"
-            elif not self.request_monthyear:
-                today = date.today()
-                self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
+        """Safe month/year initialization without status side effects"""
+        if not self.request_monthyear:
+            school = getattr(self.user, 'school', None)
+            if school:
+                if school.last_liquidated_month and school.last_liquidated_year:
+                    year = school.last_liquidated_year
+                    month = school.last_liquidated_month + 1
+                    self.request_monthyear = f"{year+(month//12):04d}-{(month % 12) or 12:02d}"
+                else:
+                    today = date.today()
+                    self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
 
     def set_automatic_status(self):
-        if self.request_monthyear:
+        """Only runs when not manually approving/rejecting"""
+        if (not hasattr(self, '_status_changed_by')
+                and not self._skip_auto_status
+                and self.request_monthyear
+            ):
             today = date.today()
-            req_year, req_month = map(int, self.request_monthyear.split('-'))
-            if req_year > today.year or (req_year == today.year and req_month > today.month):
-                self.status = 'advanced'
-            elif req_year == today.year and req_month == today.month:
-                self.status = 'pending'
+            try:
+                req_year, req_month = map(
+                    int, self.request_monthyear.split('-'))
+                if (req_year, req_month) > (today.year, today.month):
+                    self.status = 'advanced'
+                elif (req_year, req_month) == (today.year, today.month):
+                    self.status = 'pending'
+            except (ValueError, AttributeError):
+                logger.warning(
+                    f"Invalid request_monthyear: {self.request_monthyear}")
 
 
 class RequestPriority(models.Model):
@@ -496,6 +514,7 @@ class Notification(models.Model):
     sender = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications_sent')
     notification_date = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Notification to {self.receiver.username}: {self.notification_title}"
