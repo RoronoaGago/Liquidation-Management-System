@@ -5,6 +5,8 @@ from django.core.files.base import ContentFile
 import base64
 import uuid
 import string
+import logging
+logger = logging.getLogger(__name__)
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -232,7 +234,10 @@ class RequestManagementSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         priority_amounts = validated_data.pop('priority_amounts', [])
+        # Accept request_id if present
         request_obj = RequestManagement.objects.create(**validated_data)
+        logger.info("Serializer create() called with request_id: %s",
+                    validated_data.get('request_id'))
         # Save priorities and amounts
         for pa in priority_amounts:
             lopid = pa.get('LOPID')
@@ -248,6 +253,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                 except ListOfPriority.DoesNotExist:
                     continue
         return request_obj
+
 
 class LiquidationPrioritySerializer(serializers.ModelSerializer):
     priority = ListOfPrioritySerializer(read_only=True)
@@ -320,7 +326,8 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
     reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
-    liquidation_priorities = LiquidationPrioritySerializer(many=True, read_only=True)
+    liquidation_priorities = LiquidationPrioritySerializer(
+        many=True, read_only=True)
 
     class Meta:
         model = LiquidationManagement
@@ -428,6 +435,3 @@ class NotificationSerializer(serializers.ModelSerializer):
             'sender',
             'notification_date',
         ]
-
-
-

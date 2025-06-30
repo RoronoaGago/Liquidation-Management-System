@@ -9,6 +9,9 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import date
 import string
+import logging
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
@@ -176,7 +179,6 @@ class PriorityRequirement(models.Model):
 
 
 def generate_request_id():
-    """Generate REQ-ABC123 format ID"""
     prefix = "REQ-"
     random_part = get_random_string(
         length=6,
@@ -187,21 +189,20 @@ def generate_request_id():
 
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
-
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
         ('downloaded', 'Downloaded'),
         ('liquidated', 'Liquidated'),
-        ('advanced', 'Advanced'),  # <-- Add this
+        ('advanced', 'Advanced'),
     ]
 
     request_id = models.CharField(
         max_length=10,
         primary_key=True,
-        default=generate_request_id,
         editable=False,
-        unique=True
+        unique=True,
+        default=generate_request_id  # <-- Add this line
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     request_monthyear = models.CharField(
@@ -217,8 +218,7 @@ class RequestManagement(models.Model):
     last_reminder_sent = models.DateField(null=True, blank=True)
     demand_letter_sent = models.BooleanField(default=False)
     demand_letter_date = models.DateField(null=True, blank=True)
-    date_approved = models.DateField(
-        null=True, blank=True)  # <-- Add this field
+    date_approved = models.DateField(null=True, blank=True)
     date_downloaded = models.DateField(null=True, blank=True)
     rejection_comment = models.TextField(null=True, blank=True)
     rejection_date = models.DateField(null=True, blank=True)
@@ -231,26 +231,44 @@ class RequestManagement(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
-    def save(self, *args, **kwargs):
-        # Set request_monthyear automatically
-        if not self.pk:  # Only on creation
-            school = self.user.school
-            if school:
-                if school.last_liquidated_month and school.last_liquidated_year:
-                    # Set to next month after last liquidated
-                    year = school.last_liquidated_year
-                    month = school.last_liquidated_month + 1
-                    if month > 12:
-                        month = 1
-                        year += 1
-                    self.request_monthyear = f"{year:04d}-{month:02d}"
-                else:
-                    # If no liquidation yet, allow manual input or default to current month
-                    if not self.request_monthyear:
-                        today = date.today()
-                        self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._old_status = self.status  # Initialize old status
 
-        # Set status based on request_monthyear
+    def save(self, *args, **kwargs):
+        # Store old status before any changes
+        if self.pk:
+            try:
+                old_instance = RequestManagement.objects.get(pk=self.pk)
+                self._old_status = old_instance.status
+            except RequestManagement.DoesNotExist:
+                logger.warning(
+                    f"Couldn't find existing request with pk {self.pk}")
+                self._old_status = None
+
+        # Handle business logic
+        if not self.pk or not self.request_monthyear:
+            self.set_initial_monthyear()
+
+        self.set_automatic_status()
+
+        super().save(*args, **kwargs)
+
+    def set_initial_monthyear(self):
+        school = self.user.school
+        if school:
+            if school.last_liquidated_month and school.last_liquidated_year:
+                year = school.last_liquidated_year
+                month = school.last_liquidated_month + 1
+                if month > 12:
+                    month = 1
+                    year += 1
+                self.request_monthyear = f"{year:04d}-{month:02d}"
+            elif not self.request_monthyear:
+                today = date.today()
+                self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
+
+    def set_automatic_status(self):
         if self.request_monthyear:
             today = date.today()
             req_year, req_month = map(int, self.request_monthyear.split('-'))
@@ -258,75 +276,6 @@ class RequestManagement(models.Model):
                 self.status = 'advanced'
             elif req_year == today.year and req_month == today.month:
                 self.status = 'pending'
-        super().save(*args, **kwargs)
-
-        is_new = self._state.adding
-        old_status = None
-        if not is_new:
-            old = RequestManagement.objects.get(pk=self.pk)
-            old_status = old.status
-
-        status_changed = (old_status != self.status)
-
-        if status_changed:
-            if self.status in ['approved', 'rejected']:
-                if hasattr(self, '_status_changed_by'):
-                    self.reviewed_by = self._status_changed_by
-                self.reviewed_at = timezone.now()
-            from .models import Notification
-            Notification.objects.create(
-                notification_title=f"Request {self.status.title()}",
-                details=self.rejection_comment if self.status == 'rejected' else None,
-                receiver=self.user,
-                sender=getattr(self, '_status_changed_by', None),
-            )
-
-        # Automatically set date_approved when status becomes 'approved'
-        if self.status == 'approved' and self.date_approved is None:
-            self.date_approved = timezone.now().date()
-        elif self.status != 'approved' and self.date_approved is not None:
-            self.date_approved = None
-
-        # Automatically set date_downloaded when status becomes 'downloaded'
-        if self.status == 'downloaded' and self.date_downloaded is None:
-            self.date_downloaded = timezone.now().date()
-        elif self.status != 'downloaded' and self.date_downloaded is not None:
-            self.date_downloaded = None
-
-        # Only set rejection_date when status becomes 'rejected'
-        if self.status == 'rejected' and self.rejection_date is None:
-            self.rejection_date = timezone.now().date()
-        # Do not reset rejection_date when status changes from 'rejected' to another status
-
-        super().save(*args, **kwargs)
-
-        if status_changed:
-            from .models import Notification  # Avoid circular import
-            Notification.objects.create(
-                notification_title=f"Request {self.status.title()}",
-                details=self.rejection_comment if self.status == 'rejected' else None,
-                receiver=self.user,
-                sender=getattr(self, '_status_changed_by', None),
-            )
-
-            # Email notification
-            subject = f"Request Status Update: {self.status.title()}"
-            message = render_to_string('emails/status_change.txt', {
-                'object_type': 'Request',
-                'object': self,
-                'user': self.user,
-                'status': self.status,
-            })
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [self.user.email],
-                fail_silently=True,
-            )
-
-    def __str__(self):
-        return f"Request {self.request_id} by {self.user.username}"
 
 
 class RequestPriority(models.Model):
