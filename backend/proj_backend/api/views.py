@@ -704,10 +704,10 @@ def approve_liquidation(request, LiquidationID):
                 status=status.HTTP_400_BAD_REQUEST
             )
         # ... (other checks as needed) ...
+        liquidation._status_changed_by = request.user
         liquidation.status = 'liquidated'
         liquidation.reviewed_by = request.user
         liquidation.reviewed_at = timezone.now()
-        liquidation._status_changed_by = request.user
         liquidation.save()
         serializer = LiquidationManagementSerializer(liquidation)
         return Response(serializer.data)
@@ -858,7 +858,8 @@ def submit_liquidation(request, LiquidationID):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Update status to submitted
+        # Update status to submitted and track who changed it
+        liquidation._status_changed_by = request.user  # <-- Add this line
         liquidation.status = 'submitted'
         liquidation.save()
 
