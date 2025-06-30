@@ -190,7 +190,8 @@ export default function NotificationDropdown() {
                   }`}
                 >
                   <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                    {notification.sender.profile_picture ? (
+                    {notification.sender &&
+                    notification.sender.profile_picture ? (
                       <img
                         width={40}
                         height={40}
@@ -201,10 +202,10 @@ export default function NotificationDropdown() {
                     ) : (
                       <span
                         className={`flex items-center justify-center w-full h-full rounded-full text-white font-bold text-lg ${getSenderAvatarColor(
-                          notification.sender
+                          notification.sender || {}
                         )}`}
                       >
-                        {getSenderInitials(notification.sender)}
+                        {getSenderInitials(notification.sender || {})}
                       </span>
                     )}
                     <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
@@ -213,12 +214,18 @@ export default function NotificationDropdown() {
                   <span className="block">
                     <span className="mb-1.5 block text-theme-sm text-gray-500 dark:text-gray-400">
                       <span className="font-medium text-gray-800 dark:text-white/90">
-                        {notification.sender.first_name}{" "}
-                        {notification.sender.last_name}
+                        {notification.sender
+                          ? `${notification.sender.first_name} ${notification.sender.last_name}`
+                          : "Unknown Sender"}
                       </span>
                       <span> {notification.notification_title}</span>
                     </span>
-
+                    {/* Display notification details here */}
+                    {notification.details && (
+                      <span className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
+                        {notification.details}
+                      </span>
+                    )}
                     <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
                       <span>{formatDate(notification.notification_date)}</span>
                     </span>
@@ -232,12 +239,12 @@ export default function NotificationDropdown() {
             </li>
           )}
         </ul>
-        <Link
+        {/* <Link
           to="/notifications"
           className="block px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
         >
           View All Notifications
-        </Link>
+        </Link> */}
       </Dropdown>
     </div>
   );

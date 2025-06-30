@@ -280,9 +280,9 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-                and not self._skip_auto_status
-                and self.request_monthyear
-            ):
+                    and not self._skip_auto_status
+                    and self.request_monthyear
+                ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -318,6 +318,7 @@ def generate_liquidation_id():
     return f"{prefix}{random_part}"
 
 
+# models.py - LiquidationManagement modifications
 class LiquidationManagement(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Draft'),
@@ -358,28 +359,25 @@ class LiquidationManagement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     date_districtApproved = models.DateField(null=True, blank=True)
     date_liquidated = models.DateField(null=True, blank=True)
-    remaining_days = models.IntegerField(
-        null=True, blank=True)  # <-- Add this field
+    remaining_days = models.IntegerField(null=True, blank=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._old_status = self.status  # Track initial status
+        self._status_changed_by = None  # Track who changed the status
 
     def calculate_refund(self):
-        # Calculate total requested amount
         total_requested = sum(
             rp.amount for rp in self.request.requestpriority_set.all()
         )
-        # Calculate total liquidated amount
         total_liquidated = sum(
             lp.amount for lp in self.liquidation_priorities.all()
         )
-        # Refund is the difference, or None if equal
         if total_requested == total_liquidated:
             return None
         return total_requested - total_liquidated
 
     def calculate_remaining_days(self):
-        """
-        Calculates how many days are left to liquidate the request.
-        Assumes you want 30 days from the request's approval date.
-        """
         if self.request and self.request.date_downloaded:
             deadline = self.request.date_downloaded + \
                 timezone.timedelta(days=30)
@@ -390,81 +388,36 @@ class LiquidationManagement(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
-        old_status = None
+
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
-            old_status = old.status
+            self._old_status = old.status
 
-        status_changed = (old_status != self.status)
-        # Automatically set date_liquidated when status becomes 'liquidated'
+        # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:
             self.date_liquidated = timezone.now().date()
         elif self.status != 'liquidated' and self.date_liquidated is not None:
             self.date_liquidated = None
 
-        # Automatically set date_districtApproved when status becomes 'approved_district'
         if self.status == 'approved_district' and self.date_districtApproved is None:
             self.date_districtApproved = timezone.now().date()
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
             self.date_districtApproved = None
 
-        # Calculate refund amount
+        # Calculate fields
         self.refund = self.calculate_refund()
         self.remaining_days = self.calculate_remaining_days()
 
         super().save(*args, **kwargs)
 
-        # Notification logic (after save, so PK exists)
-        if status_changed:
-            from .models import Notification  # Avoid circular import
-            Notification.objects.create(
-                notification_title=f"Liquidation {self.status.title()}",
-                details=self.comment_id if self.status == 'rejected' else None,
-                receiver=self.request.user,
-                # Set this in your view if needed
-                sender=getattr(self, '_status_changed_by', None),
-            )
-
-            # Email notification
-            subject = f"Liquidation Status Update: {self.status.title()}"
-            message = render_to_string('emails/status_change.txt', {
-                'object_type': 'Liquidation',
-                'object': self,
-                'user': self.request.user,
-                'status': self.status,
-            })
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [self.request.user.email],
-                fail_silently=True,
-            )
-
-    def __str__(self):
-        return f"Liquidation {self.LiquidationID} for {self.request}"
-
     def clean(self):
-        """
-        Validate that the request status is 'downloaded' before saving.
-        This works with Django forms and admin interface.
-        """
-        if self.request.status != 'downloaded':
-            raise ValidationError(
-                "Liquidation can only be created for requests with 'downloaded' status."
-            )
-
-    def save(self, *args, **kwargs):
-        """
-        Ensure the request status is 'downloaded' before saving to database.
-        """
-        # Skip validation when updating existing instance (optional)
         if not self.pk and self.request.status != 'downloaded':
             raise ValidationError(
                 "Liquidation can only be created for requests with 'downloaded' status."
             )
 
-        super().save(*args, **kwargs)
+    def __str__(self):
+        return f"Liquidation {self.LiquidationID} for {self.request}"
 
 
 class LiquidationDocument(models.Model):
