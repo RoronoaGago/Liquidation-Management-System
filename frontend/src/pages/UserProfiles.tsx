@@ -217,8 +217,8 @@ export default function UserProfiles() {
       if (user?.user_id === editUser.id) {
         // Case 1: Sensitive data changed → Update token & user
         if (response.data.token) {
-          localStorage.setItem("access_token", response.data.token.access);
-          localStorage.setItem("refresh_token", response.data.token.refresh);
+          localStorage.setItem("accessToken", response.data.token.access);
+          localStorage.setItem("refreshToken", response.data.token.refresh);
           updateUser(
             {
               user_id: response.data.id,
