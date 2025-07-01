@@ -412,18 +412,7 @@ const ManageUsers = () => {
       console.log(formData);
       await fetchUsers(); // Explicitly refetch the latest list
 
-      toast.success("User Added Successfully!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.success("User Added Successfully!");
 
       // Reset form
       setFormData({

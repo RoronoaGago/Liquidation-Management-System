@@ -156,7 +156,7 @@ def handle_liquidation_status_change(instance):
         },
         'under_review_division': {
             'title': "Liquidation Under Division Review",
-            'details': f"Your liquidation {instance.LiquidationID} is now under review by the division accountant",
+            'details': f"Your liquidation {instance.LiquidationID} is now under review by the liquidator",
             'receivers': [instance.request.user],
             'additional_receivers': []
         },

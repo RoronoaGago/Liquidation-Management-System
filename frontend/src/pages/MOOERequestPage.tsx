@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from "react";
+import { Disclosure, Transition } from "@headlessui/react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import {
   Search,
@@ -8,6 +9,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
   Info,
   X,
   Plus,
@@ -15,6 +17,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
@@ -68,6 +71,13 @@ const MOOERequestPage = () => {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [categoriesPerPage, setCategoriesPerPage] = useState(5);
+  const [showRequirementsDialog, setShowRequirementsDialog] = useState(false);
+  const [currentPriorityRequirements, setCurrentPriorityRequirements] =
+    useState<string[]>([]);
+  const [currentPriorityTitle, setCurrentPriorityTitle] = useState("");
+  const [allocatedBudget, setAllocatedBudget] = useState<number>(0);
+  const [expenseToRemove, setExpenseToRemove] = useState<string | null>(null);
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false);
 
   // Handle pre-filling from a rejected request
   useEffect(() => {
@@ -139,6 +149,28 @@ const MOOERequestPage = () => {
     fetchData();
   }, []);
 
+  // Fetch school max_budget on mount
+  useEffect(() => {
+    const fetchSchoolBudget = async () => {
+      try {
+        // Fetch current user info
+        const userRes = await api.get("/users/me/");
+        const schoolId = userRes.data.school?.schoolId;
+        if (!schoolId) {
+          setAllocatedBudget(0);
+          return;
+        }
+        // Fetch school info by ID
+        const schoolRes = await api.get(`/schools/${schoolId}/`);
+        setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
+      } catch (error) {
+        setAllocatedBudget(0);
+        console.error("Failed to fetch allocated budget:", error);
+      }
+    };
+    fetchSchoolBudget();
+  }, []);
+
   const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
 
   const handleCheck = (expense: string) => {
@@ -152,9 +184,46 @@ const MOOERequestPage = () => {
     });
   };
 
+  const formatNumberWithCommas = (value: string) => {
+    const num = value.replace(/,/g, "");
+    if (num === "") return "";
+    if (isNaN(Number(num))) return value;
+    return Number(num).toLocaleString();
+  };
+
   const handleAmountChange = (expense: string, value: string) => {
-    if (value === "" || (!isNaN(Number(value)) && Number(value) >= 0)) {
-      setSelected((prev) => ({ ...prev, [expense]: value }));
+    // Remove all non-digit characters except decimal point
+    const cleanValue = value.replace(/[^0-9.]/g, "");
+
+    // If empty string, allow it
+    if (cleanValue === "") {
+      setSelected((prev) => ({ ...prev, [expense]: "" }));
+      return;
+    }
+
+    // Check if it's a valid number
+    if (!isNaN(Number(cleanValue)) && Number(cleanValue) >= 0) {
+      // Calculate new total if this value is set
+      const newAmount = Number(cleanValue);
+      const currentTotal = Object.entries(selected).reduce(
+        (sum, [key, amt]) =>
+          key === expense
+            ? sum
+            : sum + (amt ? Number(amt.replace(/,/g, "")) : 0),
+        0
+      );
+      const newTotal = currentTotal + newAmount;
+
+      if (newTotal > allocatedBudget) {
+        toast.error(
+          `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
+        );
+        return;
+      }
+
+      // Format with commas
+      const formattedValue = formatNumberWithCommas(cleanValue);
+      setSelected((prev) => ({ ...prev, [expense]: formattedValue }));
     }
   };
 
@@ -166,9 +235,9 @@ const MOOERequestPage = () => {
     }
   };
 
-  // Calculate total amount
+  // Calculate total amount without commas
   const totalAmount = Object.values(selected).reduce(
-    (sum, amount) => sum + (amount ? Number(amount) : 0),
+    (sum, amount) => sum + (amount ? Number(amount.replace(/,/g, "")) : 0),
     0
   );
 
@@ -176,15 +245,25 @@ const MOOERequestPage = () => {
   const selectedPriorities = Object.entries(selected)
     .map(([expenseTitle, amount]) => {
       const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
-      return priority ? { LOPID: priority.LOPID.toString(), amount } : null;
+      return priority
+        ? { LOPID: priority.LOPID.toString(), amount: amount.replace(/,/g, "") }
+        : null;
     })
     .filter(Boolean) as { LOPID: string; amount: string }[];
 
   // Submit handler with resubmission logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedPriorities.length === 0) {
-      toast.error("Please select at least one expense.");
+    console.log("location.state:", location.state);
+    if (selectedPriorities.length < 2) {
+      toast.error("Please select at least two expenses.");
+      return;
+    }
+
+    if (totalAmount > allocatedBudget) {
+      toast.error(
+        `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
+      );
       return;
     }
 
@@ -206,7 +285,6 @@ const MOOERequestPage = () => {
             priority_amounts: selectedPriorities,
           }
         );
-        toast.success("Resubmitted successfully!");
       } else {
         // Create new request
         await api.post("requests/", {
@@ -219,16 +297,15 @@ const MOOERequestPage = () => {
             ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
             : undefined,
         });
-        toast.success("Fund request submitted successfully!");
       }
 
       setSelected({});
-      // setShowSuccessDialog(true);
+      setShowSuccessDialog(true); // <-- Show success dialog
 
-      // setTimeout(() => {
-      //   setShowSuccessDialog(false);
-      //   navigate("/requests-history");
-      // }, 2500);
+      setTimeout(() => {
+        setShowSuccessDialog(false);
+        navigate("/requests-history"); // <-- Redirect after 2.5s
+      }, 2500);
     } catch (error: any) {
       console.error("Error:", error);
       const errorMessage =
@@ -297,7 +374,7 @@ const MOOERequestPage = () => {
     const itemsToCheck = categories[cat].filter(
       (p) => selected[p.expenseTitle] === undefined
     );
-    if (itemsToCheck.length > 3) {
+    if (itemsToCheck.length >= 3) {
       setCategoryToSelect(cat);
     } else {
       doCategorySelectAll(cat);
@@ -314,9 +391,101 @@ const MOOERequestPage = () => {
     setCategoryToSelect(null);
   };
 
+  // Show requirements for a priority
+  const showRequirements = (expenseTitle: string) => {
+    const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
+
+    if (priority && priority.requirements) {
+      // Filter out only requirement objects (not ListofPriorityData)
+      const requirementTitles = priority.requirements
+        .filter(
+          (
+            req
+          ): req is {
+            requirementID: number;
+            requirementTitle: string;
+            is_required: boolean;
+          } => "requirementTitle" in req
+        )
+        .map((req) => req.requirementTitle);
+
+      setCurrentPriorityRequirements(requirementTitles);
+      setCurrentPriorityTitle(expenseTitle);
+      setShowRequirementsDialog(true);
+    } else {
+      setCurrentPriorityRequirements([]);
+      setCurrentPriorityTitle(expenseTitle);
+      setShowRequirementsDialog(true);
+    }
+  };
+
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="List of Priorities" />
+
+      {/* Remove Expense Dialog */}
+      <Dialog
+        open={!!expenseToRemove}
+        onOpenChange={() => setExpenseToRemove(null)}
+      >
+        <DialogContent className="max-w-md">
+          <div className="p-6 space-y-4">
+            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+              Remove Expense
+            </h2>
+            <p>
+              Are you sure you want to remove{" "}
+              <span className="font-semibold">{expenseToRemove}</span>?
+            </p>
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="outline"
+                onClick={() => setExpenseToRemove(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  if (expenseToRemove) handleCheck(expenseToRemove);
+                  setExpenseToRemove(null);
+                }}
+              >
+                Confirm Removal
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear All Dialog */}
+      <Dialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
+        <DialogContent className="max-w-md">
+          <div className="p-6 space-y-4">
+            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+              Clear All Selections
+            </h2>
+            <p>This will remove all selected expenses. Are you sure?</p>
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="outline"
+                onClick={() => setShowClearAllDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setSelected({});
+                  setShowClearAllDialog(false);
+                }}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
@@ -331,6 +500,41 @@ const MOOERequestPage = () => {
               <br />
               Redirecting to request history...
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Requirements Dialog */}
+      <Dialog
+        open={showRequirementsDialog}
+        onOpenChange={setShowRequirementsDialog}
+      >
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h2 className="text-lg font-bold mb-4">
+              Required Documents for {currentPriorityTitle}
+            </h2>
+            {currentPriorityRequirements.length > 0 ? (
+              <ul className="list-disc pl-5 space-y-2">
+                {currentPriorityRequirements.map((req, index) => (
+                  <li key={index} className="text-gray-700 dark:text-gray-300">
+                    {req}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">
+                No specific requirements for this priority.
+              </p>
+            )}
+            <div className="flex justify-end mt-6">
+              {/* <Button
+                variant="primary"
+                onClick={() => setShowRequirementsDialog(false)}
+              >
+                Close
+              </Button> */}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -477,12 +681,27 @@ const MOOERequestPage = () => {
       {/* Submit Confirmation Dialog */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
         <DialogContent className="max-w-md">
-          <div className="p-6">
-            <h2 className="text-lg font-bold mb-2">Confirm Submission</h2>
-            <p className="mb-4">
-              Are you sure you want to submit this MOOE request?
-            </p>
-            <div className="flex justify-end gap-2">
+          <div className="p-6 space-y-4">
+            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+              Confirm Submission
+            </h2>
+            <div className="mb-4 space-y-2">
+              <p>
+                <span className="font-medium">Total Amount:</span> ₱
+                {totalAmount.toLocaleString()}
+              </p>
+              <p>
+                <span className="font-medium">Items Selected:</span>{" "}
+                {Object.keys(selected).length}
+              </p>
+              {allocatedBudget > 0 && (
+                <p>
+                  <span className="font-medium">Remaining Budget:</span> ₱
+                  {(allocatedBudget - totalAmount).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button
                 variant="outline"
                 onClick={() => setShowSubmitDialog(false)}
@@ -495,8 +714,9 @@ const MOOERequestPage = () => {
                   setShowSubmitDialog(false);
                   await handleSubmit(new Event("submit") as any);
                 }}
+                disabled={submitting}
               >
-                Confirm & Submit
+                {submitting ? "Submitting..." : "Confirm & Submit"}
               </Button>
             </div>
           </div>
@@ -505,17 +725,91 @@ const MOOERequestPage = () => {
 
       <div className="mt-8">
         {!isFormDisabled && (
-          <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
-            <h3 className="text-lg font-medium text-brand-800 dark:text-brand-200 flex items-center gap-2 mb-2">
-              <Info className="h-5 w-5" /> How to request MOOE (Maintenance and
-              Other Operating Expenses)
-            </h3>
-            <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
-              <li>Select list of priorities by checking the boxes</li>
-              <li>Enter amounts directly in the list</li>
-              <li>Review your selections in the summary panel</li>
-              <li>Click "Submit MOOE Request" when ready</li>
-            </ol>
+          <div className="mb-4 bg-brand-50/80 dark:bg-brand-900/10 rounded-lg border border-brand-100 dark:border-brand-900/20 overflow-hidden transition-colors">
+            <Disclosure>
+              {({ open }) => (
+                <>
+                  <Disclosure.Button
+                    className="flex w-full items-center justify-between p-3 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                    aria-label="MOOE request guide"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4 flex-shrink-0 text-brand-600 dark:text-brand-400" />
+                      <span className="font-medium text-brand-800 dark:text-brand-200">
+                        How to request MOOE funds
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`h-4 w-4 text-brand-600 dark:text-brand-400 transition-transform duration-200 ${
+                        open ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Disclosure.Button>
+
+                  <Transition
+                    enter="transition duration-100 ease-out"
+                    enterFrom="transform opacity-0 -translate-y-2"
+                    enterTo="transform opacity-100 translate-y-0"
+                    leave="transition duration-75 ease-out"
+                    leaveFrom="transform opacity-100 translate-y-0"
+                    leaveTo="transform opacity-0 -translate-y-2"
+                  >
+                    <Disclosure.Panel className="px-4 pb-3 pt-1 text-sm text-brand-700 dark:text-brand-300 border-t border-brand-100 dark:border-brand-900/20">
+                      <ol className="space-y-2">
+                        <li className="flex gap-2">
+                          <span className="font-medium">1.</span>
+                          <p>
+                            Select at least{" "}
+                            <span className="font-semibold">
+                              2 expense items
+                            </span>{" "}
+                            from the list
+                          </p>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">2.</span>
+                          <p>
+                            Enter amounts using the{" "}
+                            <span className="font-semibold">
+                              +500/+1000 buttons
+                            </span>{" "}
+                            or type manually
+                          </p>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">3.</span>
+                          <p>
+                            Total must not exceed your{" "}
+                            <span className="font-semibold">
+                              allocated budget (₱
+                              {allocatedBudget.toLocaleString()})
+                            </span>
+                          </p>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">4.</span>
+                          <p>
+                            Click <FileText className="inline h-3 w-3" /> icons
+                            to view{" "}
+                            <span className="font-semibold">
+                              document requirements
+                            </span>
+                          </p>
+                        </li>
+                      </ol>
+
+                      {location.state?.rejectedRequestId && (
+                        <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/10 rounded border border-amber-100 dark:border-amber-900/20 text-xs">
+                          <span className="font-medium">Note:</span> You're
+                          editing a rejected request. Please address the
+                          rejection reason before resubmitting.
+                        </div>
+                      )}
+                    </Disclosure.Panel>
+                  </Transition>
+                </>
+              )}
+            </Disclosure>
           </div>
         )}
 
@@ -526,8 +820,14 @@ const MOOERequestPage = () => {
             const emptyAmounts = Object.entries(selected).filter(
               ([, amount]) => !amount || amount === "0"
             );
-            if (Object.keys(selected).length === 0) {
-              toast.error("Please select at least one expense.");
+            if (Object.keys(selected).length < 2) {
+              toast.error("Please select at least two expenses.");
+              return;
+            }
+            if (totalAmount > allocatedBudget) {
+              toast.error(
+                `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
+              );
               return;
             }
             if (emptyAmounts.length > 0) {
@@ -722,6 +1022,25 @@ const MOOERequestPage = () => {
                 {Object.keys(selected).length > 0 ? (
                   <>
                     <div className="p-4">
+                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Allocated Budget:
+                          </span>
+                          <span className="font-bold text-blue-800 dark:text-blue-200">
+                            ₱{allocatedBudget.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Remaining Budget:
+                          </span>
+                          <span className="font-bold text-blue-800 dark:text-blue-200">
+                            ₱{(allocatedBudget - totalAmount).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-gray-600 dark:text-gray-300">
                           {Object.keys(selected).length} item(s) selected
@@ -743,10 +1062,71 @@ const MOOERequestPage = () => {
                                 key={priority.LOPID}
                                 className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
                               >
-                                <div className="truncate pr-2">
-                                  {expenseTitle}
+                                {/* Responsive/truncated expense title */}
+                                <div className="pr-2 min-w-0 flex-1">
+                                  <div
+                                    className="truncate font-medium text-gray-900 dark:text-white"
+                                    title={expenseTitle}
+                                  >
+                                    {expenseTitle}
+                                  </div>
+                                  <div className="flex items-center mt-1">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                      {CATEGORY_LABELS[priority.category] ||
+                                        priority.category}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        showRequirements(expenseTitle)
+                                      }
+                                      className="ml-2 text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      {priority.requirements
+                                        ? priority.requirements.length
+                                        : 0}{" "}
+                                      docs
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {/* Quick add buttons on the left */}
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-semibold hover:bg-blue-200 transition"
+                                      disabled={isFormDisabled}
+                                      onClick={() => {
+                                        const current =
+                                          Number(amount.replace(/,/g, "")) || 0;
+                                        handleAmountChange(
+                                          expenseTitle,
+                                          (current + 1000).toString()
+                                        );
+                                      }}
+                                      tabIndex={-1}
+                                    >
+                                      +1000
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-semibold hover:bg-blue-200 transition"
+                                      disabled={isFormDisabled}
+                                      onClick={() => {
+                                        const current =
+                                          Number(amount.replace(/,/g, "")) || 0;
+                                        handleAmountChange(
+                                          expenseTitle,
+                                          (current + 500).toString()
+                                        );
+                                      }}
+                                      tabIndex={-1}
+                                    >
+                                      +500
+                                    </button>
+                                  </div>
+                                  {/* Amount input */}
                                   <div className="relative w-24">
                                     <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500">
                                       ₱
@@ -770,9 +1150,12 @@ const MOOERequestPage = () => {
                                       onClick={(e) => e.stopPropagation()}
                                     />
                                   </div>
+                                  {/* Remove button */}
                                   <button
                                     type="button"
-                                    onClick={() => handleCheck(expenseTitle)}
+                                    onClick={() =>
+                                      setExpenseToRemove(expenseTitle)
+                                    }
                                     className="text-gray-400 hover:text-red-500"
                                   >
                                     <X className="h-4 w-4" />
@@ -788,7 +1171,7 @@ const MOOERequestPage = () => {
                       <div className="flex justify-between items-center">
                         <Button
                           type="button"
-                          onClick={() => setSelected({})}
+                          onClick={() => setShowClearAllDialog(true)}
                           variant="outline"
                           size="sm"
                         >

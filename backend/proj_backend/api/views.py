@@ -682,6 +682,8 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             data["reviewed_by_district"] = request.user.id
             data["reviewed_at_district"] = timezone.now()
 
+        # Set the user who changed the status
+        instance._status_changed_by = request.user  # <-- THIS IS CRUCIAL
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -884,35 +886,38 @@ def view_liquidation(request, LiquidationID):
     return Response(serializer.data)
 
 
-def approve_liquidation(request, LiquidationID):
-    try:
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=LiquidationID)
-        if liquidation.status not in ['submitted', 'under_review']:
-            return Response(
-                {'error': 'Liquidation is not in a reviewable state'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+# @api_view(['POST'])
+# def approve_liquidation(request, LiquidationID):
+#     try:
+#         liquidation = LiquidationManagement.objects.get(
+#             LiquidationID=LiquidationID)
+#         if liquidation.status not in ['submitted', 'under_review']:
+#             return Response(
+#                 {'error': 'Liquidation is not in a reviewable state'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-        if liquidation.documents.filter(is_approved=False).exists():
-            return Response(
-                {'error': 'All documents must be approved first'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if liquidation.documents.filter(is_approved=False).exists():
+#             return Response(
+#                 {'error': 'All documents must be approved first'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-        liquidation.status = 'completed'
-        liquidation.reviewed_by = request.user
-        liquidation.reviewed_at = timezone.now()
-        liquidation.save()
+#         # Set the user who changed the status for notification
+#         liquidation._status_changed_by = request.user
+#         liquidation.status = 'liquidated'
+#         liquidation.reviewed_by = request.user
+#         liquidation.reviewed_at = timezone.now()
+#         liquidation.save()
 
-        serializer = LiquidationManagementSerializer(liquidation)
-        return Response(serializer.data)
+#         serializer = LiquidationManagementSerializer(liquidation)
+#         return Response(serializer.data)
 
-    except LiquidationManagement.DoesNotExist:
-        return Response(
-            {'error': 'Liquidation not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+#     except LiquidationManagement.DoesNotExist:
+#         return Response(
+#             {'error': 'Liquidation not found'},
+#             status=status.HTTP_404_NOT_FOUND
+#         )
 
 
 class UserLiquidationsAPIView(generics.ListAPIView):
@@ -1054,3 +1059,10 @@ class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
         notification.is_read = True
         notification.save()
         return Response({"status": "marked as read"})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_me(request):
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)

@@ -15,8 +15,8 @@ const api = axios.create({
 
 // Helper function to get tokens
 const getTokens = () => ({
-    accessToken: localStorage.getItem('access_token'),
-    refreshToken: localStorage.getItem('refresh_token'),
+    accessToken: localStorage.getItem('accessToken'),
+    refreshToken: localStorage.getItem('refreshToken'),
 });
 
 // Set initial token if available
@@ -58,9 +58,9 @@ api.interceptors.response.use(
                     { refresh: refreshToken }
                 );
 
-                localStorage.setItem('access_token', response.data.access);
+                localStorage.setItem('accessToken', response.data.access);
                 if (response.data.refresh) {
-                    localStorage.setItem('refresh_token', response.data.refresh);
+                    localStorage.setItem('refreshToken', response.data.refresh);
                 }
 
                 api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
@@ -69,8 +69,8 @@ api.interceptors.response.use(
                 return api(originalRequest);
             } catch (err) {
                 // If refresh fails, clear storage and redirect to login
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
                 // window.location.href = '/login';
                 return Promise.reject(err);
             }
