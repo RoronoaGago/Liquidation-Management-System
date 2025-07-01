@@ -79,8 +79,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   const [selected, setSelected] = useState<Liquidation | null>(null);
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [docLoading, setDocLoading] = useState(false);
-  const [expenseList, setExpenseList] = useState<Expense[]>([]);
+  const [docLoading] = useState(false);
+  const [expenseList] = useState<Expense[]>([]);
   const [viewDoc, setViewDoc] = useState<Document | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -168,31 +168,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
   // Replace the handleView function:
-  const handleView = async (liq: Liquidation) => {
-    setSelected(liq);
-    setExpandedExpense(null);
-    setDocLoading(true);
-    // Build expense list from priorities
-    const priorities = liq.request?.priorities || [];
-    const expenses: Expense[] = priorities.map((p: any) => ({
-      id: p.id || p.priority?.LOPID || "",
-      title: p.priority?.expenseTitle || "",
-      amount: Number(p.amount) || 0,
-      requirements: (p.priority?.requirements || []).map((req: any) => ({
-        requirementID: req.requirementID,
-        requirementTitle: req.requirementTitle,
-        is_required: req.is_required,
-      })),
-    }));
-    setExpenseList(expenses);
-
-    // Fetch all documents for this liquidation
-    const res = await api.get(`/liquidations/${liq.LiquidationID}/documents/`);
-    setDocuments(res.data);
-    setDocLoading(false);
-
-    // Navigate to the view page
-    navigate(`/liquidations/view/${liq.LiquidationID}`);
+  const handleView = (liq: Liquidation) => {
+    navigate(`/liquidations/${liq.LiquidationID}`);
   };
 
   // Document completion calculation
