@@ -112,9 +112,18 @@ export type UserFormData = {
   phone_number: string;
 };
 export type ListofPriorityData = {
-  category: never;
   LOPID: number;
   expenseTitle: string;
+  category: string;
+  is_active?: boolean;
+  requirements?: (
+    | {
+        requirementID: number;
+        requirementTitle: string;
+        is_required: boolean;
+      }
+    | ListofPriorityData
+  )[];
 };
 
 export type NavItem = {
