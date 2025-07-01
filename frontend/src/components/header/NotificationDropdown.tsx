@@ -91,8 +91,14 @@ export default function NotificationDropdown() {
           console.log("New Accounting Notification");
           navigate("/approved-requests");
         } else if (
+          notification.notification_title === "New Liquidation Submitted" &&
+          user?.role === "district_admin"
+        ) {
+          navigate("/pre-auditing");
+        } else if (
           notification.notification_title ===
-          "Liquidation Under District Review"
+            "Liquidation Under District Review" ||
+          notification.notification_title === "Liquidation Submitted"
         ) {
           navigate("/liquidation");
         }
