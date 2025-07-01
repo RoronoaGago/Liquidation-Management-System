@@ -9,6 +9,9 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import date
 import string
+import uuid
+import logging
+logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
@@ -86,9 +89,18 @@ class School(models.Model):
     municipality = models.CharField(max_length=100)
     district = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)  # Added for archiving
+    max_budget = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Maximum Budget"
+    )
     is_active = models.BooleanField(default=True)
-    last_liquidated_month = models.PositiveSmallIntegerField(null=True, blank=True)  # 1-12
-    last_liquidated_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_liquidated_month = models.PositiveSmallIntegerField(
+        null=True, blank=True)  # 1-12
+    last_liquidated_year = models.PositiveSmallIntegerField(
+        null=True, blank=True)
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
@@ -167,18 +179,14 @@ class PriorityRequirement(models.Model):
 
 
 def generate_request_id():
-    """Generate REQ-ABC123 format ID"""
-    prefix = "REQ-"
-    random_part = get_random_string(
-        length=6,
-        allowed_chars=string.ascii_uppercase + string.digits
-    )
-    return f"{prefix}{random_part}"
+    request_id = f"REQ-{uuid.uuid4().hex[:6].upper()}"
+    logger.info(f"Generated ID: {request_id}")
+    return request_id
 
 
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
-        
+
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
@@ -195,7 +203,8 @@ class RequestManagement(models.Model):
         unique=True
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    request_monthyear = models.CharField(max_length=7, null=True, blank=True)  # Format: YYYY-MM
+    request_monthyear = models.CharField(
+        max_length=7, null=True, blank=True)  # Format: YYYY-MM
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default='pending')
     priorities = models.ManyToManyField(
@@ -364,7 +373,8 @@ class LiquidationManagement(models.Model):
         on_delete=models.CASCADE,
         related_name='liquidation'
     )
-    refund = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    refund = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True)
     comment_id = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(
         max_length=30, choices=STATUS_CHOICES, default='draft'
@@ -380,7 +390,8 @@ class LiquidationManagement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     date_districtApproved = models.DateField(null=True, blank=True)
     date_liquidated = models.DateField(null=True, blank=True)
-    remaining_days = models.IntegerField(null=True, blank=True)  # <-- Add this field
+    remaining_days = models.IntegerField(
+        null=True, blank=True)  # <-- Add this field
 
     def calculate_refund(self):
         # Calculate total requested amount
@@ -402,7 +413,8 @@ class LiquidationManagement(models.Model):
         Assumes you want 30 days from the request's approval date.
         """
         if self.request and self.request.date_downloaded:
-            deadline = self.request.date_downloaded + timezone.timedelta(days=30)
+            deadline = self.request.date_downloaded + \
+                timezone.timedelta(days=30)
             today = date.today()
             remaining = (deadline - today).days
             return max(remaining, 0)
@@ -547,9 +559,11 @@ class LiquidatorAssignment(models.Model):
     ]
     liquidator = models.ForeignKey(
         User, on_delete=models.CASCADE, limit_choices_to={'role': 'liquidator'})
-    district = models.CharField(max_length=100, choices=DISTRICT_CHOICES, default='all')
+    district = models.CharField(
+        max_length=100, choices=DISTRICT_CHOICES, default='all')
     # Optionally, you can use a ForeignKey to School if you want assignment per school
-    school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
+    school = models.ForeignKey(
+        School, on_delete=models.CASCADE, null=True, blank=True)
 
     assigned_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assignments_made')

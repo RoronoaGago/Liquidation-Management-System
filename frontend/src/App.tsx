@@ -28,6 +28,7 @@ import MOOERequestHistory from "./pages/MOOERequestHistory";
 import { Bounce, ToastContainer } from "react-toastify";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
 import LiquidatorsPage from "./pages/LiquidatorsPage";
+import ResourceAllocation from "./pages/ResourceAllocation";
 
 const App = () => {
   return (
@@ -62,8 +63,8 @@ const App = () => {
 
             {/* Admin-only routes */}
             <Route element={<RequireAuth allowedRoles={["admin"]} />}>
-              {/* <Route path="/users" element={<ManageUsers />} /> */}
-              <Route path="/schools" element={<ManageSchools />} />
+              <Route path="/users" element={<ManageUsers />} />
+
               <Route
                 path="/list-of-priorities"
                 element={<ManageListOfPrioritiesPage />}
@@ -138,7 +139,6 @@ const App = () => {
             <Route
               element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
             >
-              <Route path="/users" element={<ManageUsers />} />
               <Route
                 path="/fund-requests/:id"
                 element={<RequestDetailPage />}
@@ -146,6 +146,15 @@ const App = () => {
               <Route
                 path="/prepare-list-of-priorities"
                 element={<ListOfPrioritiesPage />}
+              />
+            </Route>
+            <Route
+              element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
+            >
+              <Route path="/schools" element={<ManageSchools />} />
+              <Route
+                path="/resource-allocation"
+                element={<ResourceAllocation />}
               />
             </Route>
           </Route>

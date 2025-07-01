@@ -1,3 +1,4 @@
+from rest_framework.permissions import IsAuthenticated
 from .serializers import CustomTokenObtainPairSerializer
 from datetime import datetime, timedelta
 from rest_framework.decorators import api_view, permission_classes
@@ -16,9 +17,21 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
-
+from rest_framework.pagination import PageNumberPagination
 
 logger = logging.getLogger(__name__)
+
+
+class SchoolPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class UserPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class ProtectedView(APIView):
@@ -45,6 +58,7 @@ def user_list(request):
         role_filter = request.query_params.get('role', None)
         school_filter = request.query_params.get('school', None)
         search_term = request.query_params.get('search', None)
+        ordering = request.query_params.get('ordering', '-date_joined')
 
         queryset = User.objects.exclude(id=request.user.id)
         # Archive filter
@@ -79,9 +93,15 @@ def user_list(request):
                 Q(school__schoolId__icontains=search_term)
             )
 
-        queryset = queryset.order_by('-date_joined')
-        serializer = UserSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Add ordering support
+        if ordering:
+            queryset = queryset.order_by(ordering)
+
+        # Paginate
+        paginator = UserPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = UserSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     elif request.method == 'POST':
         # Only allow admins to create admin users
@@ -187,28 +207,58 @@ def user_detail(request, pk):
 
 class SchoolListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = SchoolSerializer
+    pagination_class = SchoolPagination
 
     def get_queryset(self):
         queryset = School.objects.all()
         search_term = self.request.query_params.get('search', None)
+        legislative_district = self.request.query_params.get(
+            'legislative_district', None)
+        municipality = self.request.query_params.get('municipality', None)
+        district = self.request.query_params.get('district', None)
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
+
+        # Archive filter
+        if not archived:
+            queryset = queryset.filter(is_active=True)
+        else:
+            queryset = queryset.filter(is_active=False)
+
         if search_term:
             queryset = queryset.filter(
                 Q(schoolName__icontains=search_term) |
                 Q(district__icontains=search_term) |
                 Q(municipality__icontains=search_term)
             )
+        if legislative_district:
+            queryset = queryset.filter(
+                legislativeDistrict=legislative_district)
+        if municipality:
+            queryset = queryset.filter(municipality=municipality)
+        if district:
+            queryset = queryset.filter(district=district)
         return queryset.order_by('schoolName')
 
     def create(self, request, *args, **kwargs):
-        # Check if request.data is a list (batch)
+        # Support both batch and single creation
         is_many = isinstance(request.data, list)
+        data = request.data if is_many else [request.data]
+
+        # Validate max_budget for each item
+        for item in data:
+            max_budget = item.get('max_budget')
+            if max_budget is not None and float(max_budget) < 0:
+                return Response(
+                    {"error": "Budget must be a positive number"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         serializer = self.get_serializer(data=request.data, many=is_many)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-
 # Add a new endpoint for school search
 
 
@@ -552,10 +602,12 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
             if assignments.filter(district='all').exists():
                 return LiquidationManagement.objects.all()
             # Otherwise, filter by assigned districts and/or schools
-            districts = assignments.exclude(district__isnull=True).exclude(district='').values_list('district', flat=True)
+            districts = assignments.exclude(district__isnull=True).exclude(
+                district='').values_list('district', flat=True)
             district_schools = School.objects.filter(district__in=districts)
             # Get schools assigned directly
-            school_ids = assignments.exclude(school__isnull=True).exclude(school='').values_list('school', flat=True)
+            school_ids = assignments.exclude(school__isnull=True).exclude(
+                school='').values_list('school', flat=True)
             direct_schools = School.objects.filter(id__in=school_ids)
             # Combine both sets of schools
             all_schools = district_schools | direct_schools
@@ -839,3 +891,73 @@ class LiquidatorAssignmentListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(assigned_by=self.request.user)
+
+
+@api_view(['PATCH'])
+@permission_classes([AllowAny])
+def batch_update_school_budgets(request):
+    logger.debug(f"Incoming data: {request.data}")
+    updates = request.data.get("updates", [])
+
+    if not isinstance(updates, list):
+        return Response({"error": "Invalid data format."}, status=400)
+
+    updated_ids = []
+    errors = []
+
+    with transaction.atomic():
+        for upd in updates:
+
+            school_id = str(upd.get("schoolId")).strip()
+            max_budget = upd.get("max_budget")
+
+            logger.debug(f"Processing school ID: {school_id}")
+
+            try:
+                # Add debug logging before query
+                logger.debug(f"Looking for school with ID: {school_id}")
+                logger.debug(
+                    f"Existing school IDs: {list(School.objects.values_list('schoolId', flat=True)[:10])}")
+
+                school = School.objects.get(schoolId=school_id)
+
+                if max_budget is not None and float(max_budget) >= 0:
+                    # Debug log
+                    logger.debug(
+                        f"Updating school {school_id} budget from {school.max_budget} to {max_budget}")
+                    school.max_budget = float(max_budget)
+                    school.save()
+                    updated_ids.append(school_id)
+                else:
+                    errors.append(
+                        {"schoolId": school_id, "error": "Invalid budget"})
+            except School.DoesNotExist:
+                logger.warning(f"School not found: {school_id}")
+                errors.append(
+                    {"schoolId": school_id, "error": "School not found"})
+            except Exception as e:
+                logger.error(f"Error processing school {school_id}: {str(e)}")
+                errors.append({"schoolId": school_id, "error": str(e)})
+
+    return Response({
+        "updated": updated_ids,
+        "errors": errors
+    }, status=200 if not errors else 207)
+
+
+@api_view(['GET'])
+def legislative_districts(request):
+    """
+    Returns mapping of legislative districts to their municipalities.
+    """
+    data = {
+        "1st District": [
+            "BANGAR", "LUNA", "SUDIPEN", "BALAOAN", "SANTOL", "BACNOTAN",
+            "SAN GABRIEL", "SAN JUAN", "SAN FERNANDO CITY"
+        ],
+        "2nd District": [
+            "AGOO", "ARINGAY", "BAGULIN", "BAUANG", "BURGOS", "CABA",
+            "NAGUILIAN", "PUGO", "ROSARIO", "SANTO TOMAS", "TUBAO"
+        ]
+    }
+    return Response(data)
