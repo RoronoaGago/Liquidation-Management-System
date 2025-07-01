@@ -220,7 +220,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'status', 'priorities', 'created_at',
             'priority_amounts',
             'date_approved',
-            'date_downloaded',
+            'downloaded_at',
             'rejection_comment',
             'rejection_date',
             'reviewed_by',

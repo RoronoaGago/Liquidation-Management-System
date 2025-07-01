@@ -218,7 +218,7 @@ class RequestManagement(models.Model):
     demand_letter_sent = models.BooleanField(default=False)
     demand_letter_date = models.DateField(null=True, blank=True)
     date_approved = models.DateField(null=True, blank=True)
-    date_downloaded = models.DateField(null=True, blank=True)
+    downloaded_at = models.DateTimeField(null=True, blank=True)
     rejection_comment = models.TextField(null=True, blank=True)
     rejection_date = models.DateField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
@@ -393,6 +393,12 @@ class LiquidationManagement(models.Model):
         self._old_status = self.status  # Track initial status
         self._status_changed_by = None  # Track who changed the status
 
+    @property
+    def liquidation_deadline(self):
+        if self.downloaded_at:
+            return (self.downloaded_at + timezone.timedelta(days=30)).date()
+        return None
+
     def calculate_refund(self):
         total_requested = sum(
             rp.amount for rp in self.request.requestpriority_set.all()
@@ -405,11 +411,10 @@ class LiquidationManagement(models.Model):
         return total_requested - total_liquidated
 
     def calculate_remaining_days(self):
-        if self.request and self.request.date_downloaded:
-            deadline = self.request.date_downloaded + \
-                timezone.timedelta(days=30)
+        if self.downloaded_at:
+            deadline = self.downloaded_at + timezone.timedelta(days=30)
             today = date.today()
-            remaining = (deadline - today).days
+            remaining = (deadline.date() - today).days
             return max(remaining, 0)
         return None
 
@@ -419,6 +424,10 @@ class LiquidationManagement(models.Model):
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
             self._old_status = old.status
+
+        # Set downloaded_at when status changes to 'downloaded'
+        if self.status == 'downloaded' and not self.downloaded_at:
+            self.downloaded_at = timezone.now()
 
         # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:
@@ -434,7 +443,6 @@ class LiquidationManagement(models.Model):
         # Calculate fields
         self.refund = self.calculate_refund()
         self.remaining_days = self.calculate_remaining_days()
-
         super().save(*args, **kwargs)
 
     def clean(self):
