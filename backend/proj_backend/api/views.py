@@ -1,3 +1,4 @@
+from urllib import request
 from rest_framework.permissions import IsAuthenticated
 from .serializers import CustomTokenObtainPairSerializer
 from datetime import datetime, timedelta
@@ -10,14 +11,16 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment, Notification
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer, NotificationSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
+import string
+from django.utils.crypto import get_random_string
 
 logger = logging.getLogger(__name__)
 
@@ -368,19 +371,27 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        # Automatically set the current user as the request creator
-        serializer.save(user=self.request.user)
+        try:
+            # Save with atomic transaction
+            with transaction.atomic():
+                instance = serializer.save(user=self.request.user)
+                # Force save to ensure signals fire
+                instance.save()
+                logger.info(
+                    f"Successfully created request {instance.request_id}")
+        except Exception as e:
+            logger.error(f"Failed to create request: {str(e)}")
+            raise
 
     def get_queryset(self):
         queryset = RequestManagement.objects.all()
 
         # Filter by status if provided
-        status_param = self.request.query_params.get('status')
-        if status_param:
+        if status_param := self.request.query_params.get('status'):
             queryset = queryset.filter(status=status_param)
 
         # For non-admin users, only show their own requests
-        if not self.request.user.role in ['admin', 'superintendent', 'accountant']:
+        if self.request.user.role not in ['admin', 'superintendent', 'accountant']:
             queryset = queryset.filter(user=self.request.user)
 
         return queryset.order_by('-created_at')
@@ -400,42 +411,64 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
 
 
 class ApproveRequestView(generics.UpdateAPIView):
-    """
-    View for approving a request (admin/superintendent only)
-    """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'pk'
 
     def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        instance._status_changed_by = request.user  # Set reviewer
-        # Check if user has permission to approve
-        if request.user.role not in ['admin', 'superintendent']:
-            return Response(
-                {"detail": "Only administrators can approve requests"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        with transaction.atomic():  # Ensure atomic transaction
+            # Lock the row to prevent race conditions
+            instance = RequestManagement.objects.select_for_update().get(
+                pk=kwargs['pk'])
 
-        # Check if request is in pending state
-        if instance.status != 'pending':
-            return Response(
-                {"detail": "Only pending requests can be approved"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            print(f"Current status: {instance.status}")  # Debug log
 
-        instance.status = 'approved'
-        instance.save()
+            # Permission check
+            if request.user.role not in ['admin', 'superintendent']:
+                return Response(
+                    {"detail": "Only administrators can approve requests"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+            # State validation
+            if instance.status != 'pending':
+                return Response(
+                    {"detail": f"Current status is '{instance.status}', must be 'pending'"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Prepare for notification
+            instance._old_status = instance.status
+            instance._status_changed_by = request.user
+            instance._skip_auto_status = True  # Add this line
+            instance.status = 'approved'
+            instance.date_approved = timezone.now().date()
+            instance.reviewed_by = request.user
+            instance.reviewed_at = timezone.now()
+
+            print(f"New status before save: {instance.status}")  # Debug log
+
+            try:
+                instance.save(update_fields=[
+                    'status',
+                    'date_approved',
+                    'reviewed_by',
+                    'reviewed_at'
+                ])
+                print(f"Status after save: {instance.status}")  # Debug log
+            except Exception as e:
+                print(f"Save failed: {str(e)}")  # Debug log
+                raise
+
+            # Verify in database
+            refreshed = RequestManagement.objects.get(pk=instance.pk)
+            print(f"Database status: {refreshed.status}")  # Debug log
+
+            return Response(self.get_serializer(instance).data)
 
 
 class RejectRequestView(generics.UpdateAPIView):
-    """
-    View for rejecting a request (admin/superintendent only)
-    """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -443,36 +476,42 @@ class RejectRequestView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance._status_changed_by = request.user  # Set reviewer
+        instance._old_status = instance.status  # CRITICAL: Track previous state
+        instance._status_changed_by = request.user
+        instance._skip_auto_status = True  # Add this line
 
-        # Check if user has permission to reject
+        # Permission check
         if request.user.role not in ['admin', 'superintendent']:
             return Response(
                 {"detail": "Only administrators can reject requests"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Check if request is in pending state
+        # State validation
         if instance.status != 'pending':
             return Response(
                 {"detail": "Only pending requests can be rejected"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Require a rejection comment
-        rejection_comment = request.data.get('rejection_comment')
+        # Comment validation
+        rejection_comment = request.data.get('rejection_comment', '').strip()
         if not rejection_comment:
             return Response(
                 {"detail": "Please provide a rejection comment"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Save will trigger signals
         instance.status = 'rejected'
-        instance.rejection_comment = rejection_comment
-        instance.save()
+        instance.rejection_comment = request.data.get('rejection_comment')
+        instance.rejection_date = timezone.now().date()
 
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        # Explicit save
+        instance.save(
+            update_fields=['status', 'rejection_comment', 'rejection_date'])
+
+        return Response(self.get_serializer(instance).data)
 
 
 class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -582,6 +621,16 @@ def resubmit_request(request, request_id):
         # req.rejection_date = None
         req.save()
 
+        # --- Notification logic ---
+        from .models import Notification
+        Notification.objects.create(
+            notification_title="Request Resubmitted",
+            details="Your request has been resubmitted and is pending review.",
+            receiver=req.user,
+            sender=request.user,
+        )
+        # --- End notification logic ---
+
         return Response(RequestManagementSerializer(req).data)
 
     except RequestManagement.DoesNotExist:
@@ -633,6 +682,8 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             data["reviewed_by_district"] = request.user.id
             data["reviewed_at_district"] = timezone.now()
 
+        # Set the user who changed the status
+        instance._status_changed_by = request.user  # <-- THIS IS CRUCIAL
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -655,10 +706,10 @@ def approve_liquidation(request, LiquidationID):
                 status=status.HTTP_400_BAD_REQUEST
             )
         # ... (other checks as needed) ...
+        liquidation._status_changed_by = request.user
         liquidation.status = 'liquidated'
         liquidation.reviewed_by = request.user
         liquidation.reviewed_at = timezone.now()
-        liquidation._status_changed_by = request.user
         liquidation.save()
         serializer = LiquidationManagementSerializer(liquidation)
         return Response(serializer.data)
@@ -725,6 +776,7 @@ def submit_for_liquidation(request, request_id):
                 )
 
             # First update the request status to 'downloaded' to satisfy LiquidationManagement validation
+            request_obj._status_changed_by = request.user  # <-- Add this line
             request_obj.status = 'downloaded'
             request_obj.save(update_fields=['status'])
 
@@ -743,6 +795,16 @@ def submit_for_liquidation(request, request_id):
             # Update request status to 'unliquidated' as final state
             request_obj.status = 'unliquidated'
             request_obj.save(update_fields=['status'])
+
+            # --- Notification logic ---
+            # from .models import Notification
+            # Notification.objects.create(
+            #     notification_title="Request for Liquidation",
+            #     details="Your request has been submitted for liquidation.",
+            #     receiver=request_obj.user,
+            #     sender=request.user,
+            # )
+            # --- End notification logic ---
 
             serializer = LiquidationManagementSerializer(liquidation)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -798,7 +860,8 @@ def submit_liquidation(request, LiquidationID):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Update status to submitted
+        # Update status to submitted and track who changed it
+        liquidation._status_changed_by = request.user  # <-- Add this line
         liquidation.status = 'submitted'
         liquidation.save()
 
@@ -823,35 +886,38 @@ def view_liquidation(request, LiquidationID):
     return Response(serializer.data)
 
 
-def approve_liquidation(request, LiquidationID):
-    try:
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=LiquidationID)
-        if liquidation.status not in ['submitted', 'under_review']:
-            return Response(
-                {'error': 'Liquidation is not in a reviewable state'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+# @api_view(['POST'])
+# def approve_liquidation(request, LiquidationID):
+#     try:
+#         liquidation = LiquidationManagement.objects.get(
+#             LiquidationID=LiquidationID)
+#         if liquidation.status not in ['submitted', 'under_review']:
+#             return Response(
+#                 {'error': 'Liquidation is not in a reviewable state'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-        if liquidation.documents.filter(is_approved=False).exists():
-            return Response(
-                {'error': 'All documents must be approved first'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if liquidation.documents.filter(is_approved=False).exists():
+#             return Response(
+#                 {'error': 'All documents must be approved first'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-        liquidation.status = 'completed'
-        liquidation.reviewed_by = request.user
-        liquidation.reviewed_at = timezone.now()
-        liquidation.save()
+#         # Set the user who changed the status for notification
+#         liquidation._status_changed_by = request.user
+#         liquidation.status = 'liquidated'
+#         liquidation.reviewed_by = request.user
+#         liquidation.reviewed_at = timezone.now()
+#         liquidation.save()
 
-        serializer = LiquidationManagementSerializer(liquidation)
-        return Response(serializer.data)
+#         serializer = LiquidationManagementSerializer(liquidation)
+#         return Response(serializer.data)
 
-    except LiquidationManagement.DoesNotExist:
-        return Response(
-            {'error': 'Liquidation not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+#     except LiquidationManagement.DoesNotExist:
+#         return Response(
+#             {'error': 'Liquidation not found'},
+#             status=status.HTTP_404_NOT_FOUND
+#         )
 
 
 class UserLiquidationsAPIView(generics.ListAPIView):
@@ -961,3 +1027,35 @@ def legislative_districts(request):
         ]
     }
     return Response(data)
+
+
+def generate_request_id():
+    prefix = "REQ-"
+    random_part = get_random_string(
+        length=6,
+        allowed_chars=string.ascii_uppercase + string.digits
+    )
+    return f"{prefix}{random_part}"
+
+
+class NotificationListAPIView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(receiver=self.request.user).order_by('-notification_date')
+
+
+class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
+    queryset = Notification.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        notification = self.get_object()
+        if notification.receiver != request.user:
+            return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Here you might want to add an 'is_read' field to your Notification model
+        notification.is_read = True
+        notification.save()
+        return Response({"status": "marked as read"})
