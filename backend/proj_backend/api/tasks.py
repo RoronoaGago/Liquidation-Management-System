@@ -6,6 +6,19 @@
 # from .models import RequestManagement, LiquidationManagement
 # from datetime import timedelta
 
+from celery import shared_task
+from django.utils import timezone
+from .models import LiquidationManagement
+
+@shared_task
+def check_liquidation_reminders():
+    liquidations = LiquidationManagement.objects.filter(
+        status='downloaded',
+        liquidation_deadline__gt=timezone.now().date()
+    )
+    for liquidation in liquidations:
+        liquidation.check_and_send_reminders()
+
 
 # @shared_task
 # def check_liquidation_status(request_id):
