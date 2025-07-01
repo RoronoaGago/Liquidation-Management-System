@@ -61,6 +61,7 @@ export default function NotificationDropdown() {
       );
 
       // Navigation logic based on notification title
+      console.log(notification?.notification_title);
       if (notification) {
         if (
           notification.notification_title === "Request ready for liquidation"
@@ -70,7 +71,24 @@ export default function NotificationDropdown() {
           notification.notification_title === "Your request was approved"
         ) {
           navigate("/requests-history");
+        } else if (
+          notification.notification_title === "Your request was rejected"
+        ) {
+          navigate("/requests-history");
+        } else if (
+          notification.notification_title === "New Liquidation Submitted"
+        ) {
+          console.log("oh yeah");
+          navigate("/pre-auditing");
+        } else if (
+          notification.notification_title === "New comment on your post"
+        ) {
+          navigate("/posts");
+        } else if (notification.notification_title.includes("New Request")) {
+          console.log("New Request Notification");
+          navigate("/schools-priorities-submissions");
         }
+
         // Add more conditions as needed for other notification types
       }
     } catch (error) {

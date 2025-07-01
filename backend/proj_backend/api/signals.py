@@ -182,7 +182,7 @@ def handle_liquidation_status_change(instance):
             'title': "Liquidation Submitted",
             'details': f"Your liquidation {instance.LiquidationID} has been submitted.",
             'receivers': [instance.request.user],
-            'additional_receivers': list(User.objects.filter(role='district_admin'))
+            'additional_receivers': []
         }
     }
 
