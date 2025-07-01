@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface BaseUser {
   id: number;
   first_name: string;
@@ -161,13 +162,13 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   children: React.ReactNode; // Button text or content
   size?: "sm" | "md"; // Button size
   variant?:
-  | "primary"
-  | "secondary" // Added secondary variant
-  | "outline"
-  | "error"
-  | "success"
-  | "destructive"
-  | "ghost"; // Button variant
+    | "primary"
+    | "secondary" // Added secondary variant
+    | "outline"
+    | "error"
+    | "success"
+    | "destructive"
+    | "ghost"; // Button variant
   loading?: boolean;
   startIcon?: React.ReactNode; // Icon before the text
   endIcon?: React.ReactNode; // Icon after the text
@@ -190,8 +191,10 @@ export interface ListOfPriority {
 }
 
 export type Submission = {
+  date_approved: any;
   request_id: string;
   user: {
+    role: string;
     id: string;
     first_name: string;
     last_name: string;
