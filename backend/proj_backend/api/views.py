@@ -1059,3 +1059,10 @@ class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
         notification.is_read = True
         notification.save()
         return Response({"status": "marked as read"})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_me(request):
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)
