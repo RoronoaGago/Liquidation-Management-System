@@ -258,12 +258,12 @@ const MOOERequestPage = () => {
       }
 
       setSelected({});
-      setShowSuccessDialog(true);
+      // setShowSuccessDialog(true);
 
-      setTimeout(() => {
-        setShowSuccessDialog(false);
-        navigate("/requests-history");
-      }, 2500); // 2.5 seconds before redirect
+      // setTimeout(() => {
+      //   setShowSuccessDialog(false);
+      //   navigate("/requests-history");
+      // }, 2500);
     } catch (error: any) {
       console.error("Error:", error);
       const errorMessage =
