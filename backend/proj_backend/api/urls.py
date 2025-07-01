@@ -76,4 +76,5 @@ urlpatterns = [
          name='notification-list'),
     path('notifications/<int:pk>/read/',
          views.MarkNotificationAsReadAPIView.as_view(), name='mark-notification-read'),
+    path("users/me/", views.user_me, name="user-me"),
 ]
