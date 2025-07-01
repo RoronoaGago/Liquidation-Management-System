@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.template.loader import render_to_string
 from datetime import timedelta
 from .tasks import send_liquidation_reminder, send_liquidation_demand_letter
+from django.contrib.auth.signals import user_logged_in
 import logging
 
 logger = logging.getLogger(__name__)
@@ -255,3 +256,19 @@ def handle_liquidation_status_change(instance):
                 template_name="emails/liquidation_status_change.txt",
                 context=context
             )
+
+
+@receiver(user_logged_in)
+def send_login_email(sender, user, request, **kwargs):
+    subject = "Login Notification"
+    message = render_to_string(
+        'emails/login_notification.txt',
+        {'user': user, 'ip': request.META.get('REMOTE_ADDR')}
+    )
+    send_mail(
+        subject,
+        message,
+        None,  # Uses DEFAULT_FROM_EMAIL
+        [user.email],
+        fail_silently=True,
+    )

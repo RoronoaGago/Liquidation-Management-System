@@ -257,17 +257,14 @@ class RequestManagementSerializer(serializers.ModelSerializer):
 
 
 class LiquidationPrioritySerializer(serializers.ModelSerializer):
-    priority = ListOfPrioritySerializer(read_only=True)
     priority_id = serializers.PrimaryKeyRelatedField(
         queryset=ListOfPriority.objects.all(),
-        source='priority',
-        write_only=True
+        source='priority'
     )
 
     class Meta:
         model = LiquidationPriority
-        fields = ['id', 'liquidation', 'priority', 'priority_id', 'amount']
-        read_only_fields = ['id', 'liquidation', 'priority']
+        fields = ['priority_id', 'amount']
 
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
@@ -320,15 +317,7 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
-    remaining_days = serializers.IntegerField(read_only=True)
-    request = RequestManagementSerializer(read_only=True)
-    documents = LiquidationDocumentSerializer(many=True, read_only=True)
-    submitted_at = serializers.DateTimeField(
-        source='created_at', read_only=True)
-    reviewer_comments = serializers.SerializerMethodField()
-    reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
-    liquidation_priorities = LiquidationPrioritySerializer(
-        many=True, read_only=True)
+    liquidation_priorities = LiquidationPrioritySerializer(many=True)
 
     class Meta:
         model = LiquidationManagement
@@ -337,7 +326,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'request',
             'comment_id',
             'status',
-            'reviewed_by_district',      # <-- ENSURE THIS IS INCLUDED
+            'reviewed_by_district',
             'reviewed_at_district',
             'reviewed_by_division',
             'reviewed_at_division',
@@ -345,8 +334,8 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'submitted_at',
             'reviewer_comments',
             'created_at',
-            'liquidation_priorities',  # <-- Add this line
-            'remaining_days',  # <-- Add this
+            'liquidation_priorities',
+            'remaining_days',
         ]
 
     def get_reviewer_comments(self, obj):
@@ -359,6 +348,19 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                     'comment': doc.reviewer_comment
                 })
         return comments
+
+    def create(self, validated_data):
+        priorities_data = validated_data.pop('liquidation_priorities', [])
+        liquidation = LiquidationManagement.objects.create(**validated_data)
+        for item in priorities_data:
+            LiquidationPriority.objects.create(liquidation=liquidation, **item)
+        return liquidation
+
+    def update(self, instance, validated_data):
+        priorities_data = validated_data.pop('liquidation_priorities', [])
+        instance = super().update(instance, validated_data)
+        # Optionally update priorities here
+        return instance
 
 
 class LiquidatorAssignmentSerializer(serializers.ModelSerializer):
