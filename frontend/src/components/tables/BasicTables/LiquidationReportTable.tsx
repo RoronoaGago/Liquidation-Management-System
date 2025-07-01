@@ -21,7 +21,7 @@ import Input from "@/components/form/input/InputField";
 import { toast } from "react-toastify";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
-
+import { useNavigate } from "react-router-dom";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 
 // Define the Liquidation type (or import it if shared)
@@ -92,6 +92,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     direction: "asc" | "desc";
   } | null>(null);
   const [, setDisabledLiquidationIDs] = useState<string[]>([]);
+  const navigate = useNavigate();
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
@@ -166,16 +167,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     return sortedLiquidations.slice(start, start + itemsPerPage);
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
+  // Replace the handleView function:
   const handleView = async (liq: Liquidation) => {
-    try {
-      await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-        status: "under_review_district",
-      });
-      // Optionally refresh the list for instant feedback
-      await refreshList();
-    } catch (err) {
-      toast.error("Failed to update status.");
-    }
     setSelected(liq);
     setExpandedExpense(null);
     setDocLoading(true);
@@ -197,6 +190,9 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     const res = await api.get(`/liquidations/${liq.LiquidationID}/documents/`);
     setDocuments(res.data);
     setDocLoading(false);
+
+    // Navigate to the view page
+    navigate(`/liquidations/view/${liq.LiquidationID}`);
   };
 
   // Document completion calculation
@@ -925,6 +921,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
 };
 
 export default LiquidationReportTable;
+
+export type { Liquidation };
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
