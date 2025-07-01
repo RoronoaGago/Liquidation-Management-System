@@ -87,6 +87,14 @@ export default function NotificationDropdown() {
         } else if (notification.notification_title.includes("New Request")) {
           console.log("New Request Notification");
           navigate("/schools-priorities-submissions");
+        } else if (notification.details.includes("for accounting")) {
+          console.log("New Accounting Notification");
+          navigate("/approved-requests");
+        } else if (
+          notification.notification_title ===
+          "Liquidation Under District Review"
+        ) {
+          navigate("/liquidation");
         }
 
         // Add more conditions as needed for other notification types
