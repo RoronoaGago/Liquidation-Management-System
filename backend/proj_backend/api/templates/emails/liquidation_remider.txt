@@ -1,0 +1,8 @@
+Hello {{ user.first_name|default:user.username }},
+
+This is a reminder that you have {{ days_left }} day(s) left to liquidate your request (Liquidation ID: {{ liquidation.LiquidationID }}).
+
+Please ensure you complete the liquidation process before the deadline.
+
+Thank you,
+Liquidation Management System

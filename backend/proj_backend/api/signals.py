@@ -5,6 +5,8 @@ from django.dispatch import receiver
 from .models import RequestManagement, LiquidationManagement, Notification
 from django.contrib.auth import get_user_model
 from django.template.loader import render_to_string
+from datetime import timedelta
+from .tasks import send_liquidation_reminder, send_liquidation_demand_letter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -121,6 +123,21 @@ def handle_liquidation_notifications(sender, instance, created, **kwargs):
         if created:
             create_new_liquidation_notification(instance)
         else:
+            if instance.status == 'downloaded' and instance.downloaded_at:
+                # Schedule reminders
+                send_liquidation_reminder.apply_async(
+                    args=[instance.pk, 15],
+                    eta=instance.downloaded_at + timedelta(days=15)
+                )
+                send_liquidation_reminder.apply_async(
+                    args=[instance.pk, 5],
+                    eta=instance.downloaded_at + timedelta(days=25)
+                )
+                # Schedule demand letter on 30th day
+                send_liquidation_demand_letter.apply_async(
+                    args=[instance.pk],
+                    eta=instance.downloaded_at + timedelta(days=30)
+                )
             handle_liquidation_status_change(instance)
     except Exception as e:
         logger.error(
