@@ -73,7 +73,7 @@ const MOOERequestPage = () => {
   const [currentPriorityRequirements, setCurrentPriorityRequirements] =
     useState<string[]>([]);
   const [currentPriorityTitle, setCurrentPriorityTitle] = useState("");
-  const ALLOCATED_BUDGET = 10000; // Hard-coded allocated budget
+  const [allocatedBudget, setAllocatedBudget] = useState<number>(0);
 
   // Handle pre-filling from a rejected request
   useEffect(() => {
@@ -143,6 +143,28 @@ const MOOERequestPage = () => {
       }
     };
     fetchData();
+  }, []);
+
+  // Fetch school max_budget on mount
+  useEffect(() => {
+    const fetchSchoolBudget = async () => {
+      try {
+        // Fetch current user info
+        const userRes = await api.get("/users/me/");
+        const schoolId = userRes.data.school?.schoolId;
+        if (!schoolId) {
+          setAllocatedBudget(0);
+          return;
+        }
+        // Fetch school info by ID
+        const schoolRes = await api.get(`/schools/${schoolId}/`);
+        setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
+      } catch (error) {
+        setAllocatedBudget(0);
+        console.error("Failed to fetch allocated budget:", error);
+      }
+    };
+    fetchSchoolBudget();
   }, []);
 
   const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
@@ -216,9 +238,9 @@ const MOOERequestPage = () => {
       return;
     }
 
-    if (totalAmount > ALLOCATED_BUDGET) {
+    if (totalAmount > allocatedBudget) {
       toast.error(
-        `Total amount cannot exceed allocated budget of ₱${ALLOCATED_BUDGET.toLocaleString()}`
+        `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
       );
       return;
     }
@@ -628,9 +650,9 @@ const MOOERequestPage = () => {
               toast.error("Please select at least two expenses.");
               return;
             }
-            if (totalAmount > ALLOCATED_BUDGET) {
+            if (totalAmount > allocatedBudget) {
               toast.error(
-                `Total amount cannot exceed allocated budget of ₱${ALLOCATED_BUDGET.toLocaleString()}`
+                `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
               );
               return;
             }
@@ -832,7 +854,7 @@ const MOOERequestPage = () => {
                             Allocated Budget:
                           </span>
                           <span className="font-bold text-blue-800 dark:text-blue-200">
-                            ₱{ALLOCATED_BUDGET.toLocaleString()}
+                            ₱{allocatedBudget.toLocaleString()}
                           </span>
                         </div>
                         <div className="flex justify-between items-center mt-1">
@@ -840,7 +862,7 @@ const MOOERequestPage = () => {
                             Remaining Budget:
                           </span>
                           <span className="font-bold text-blue-800 dark:text-blue-200">
-                            ₱{(ALLOCATED_BUDGET - totalAmount).toLocaleString()}
+                            ₱{(allocatedBudget - totalAmount).toLocaleString()}
                           </span>
                         </div>
                       </div>

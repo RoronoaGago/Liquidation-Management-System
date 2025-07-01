@@ -73,4 +73,6 @@ urlpatterns = [
 
     path('liquidator-assignments/', views.LiquidatorAssignmentListCreateAPIView.as_view(),
          name='liquidator-assignment-list-create'),
+
+    path("users/me/", views.user_me, name="user-me"),
 ]
