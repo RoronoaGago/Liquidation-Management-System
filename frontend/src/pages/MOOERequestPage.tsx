@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from "react";
+import { Disclosure, Transition } from "@headlessui/react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import {
   Search,
@@ -8,6 +9,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
   Info,
   X,
   Plus,
@@ -725,17 +727,91 @@ const MOOERequestPage = () => {
 
       <div className="mt-8">
         {!isFormDisabled && (
-          <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
-            <h3 className="text-lg font-medium text-brand-800 dark:text-brand-200 flex items-center gap-2 mb-2">
-              <Info className="h-5 w-5" /> How to request MOOE (Maintenance and
-              Other Operating Expenses)
-            </h3>
-            <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
-              <li>Select list of priorities by checking the boxes</li>
-              <li>Enter amounts directly in the list</li>
-              <li>Review your selections in the summary panel</li>
-              <li>Click "Submit MOOE Request" when ready</li>
-            </ol>
+          <div className="mb-4 bg-brand-50/80 dark:bg-brand-900/10 rounded-lg border border-brand-100 dark:border-brand-900/20 overflow-hidden transition-colors">
+            <Disclosure>
+              {({ open }) => (
+                <>
+                  <Disclosure.Button
+                    className="flex w-full items-center justify-between p-3 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                    aria-label="MOOE request guide"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4 flex-shrink-0 text-brand-600 dark:text-brand-400" />
+                      <span className="font-medium text-brand-800 dark:text-brand-200">
+                        How to request MOOE funds
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`h-4 w-4 text-brand-600 dark:text-brand-400 transition-transform duration-200 ${
+                        open ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Disclosure.Button>
+
+                  <Transition
+                    enter="transition duration-100 ease-out"
+                    enterFrom="transform opacity-0 -translate-y-2"
+                    enterTo="transform opacity-100 translate-y-0"
+                    leave="transition duration-75 ease-out"
+                    leaveFrom="transform opacity-100 translate-y-0"
+                    leaveTo="transform opacity-0 -translate-y-2"
+                  >
+                    <Disclosure.Panel className="px-4 pb-3 pt-1 text-sm text-brand-700 dark:text-brand-300 border-t border-brand-100 dark:border-brand-900/20">
+                      <ol className="space-y-2">
+                        <li className="flex gap-2">
+                          <span className="font-medium">1.</span>
+                          <p>
+                            Select at least{" "}
+                            <span className="font-semibold">
+                              2 expense items
+                            </span>{" "}
+                            from the list
+                          </p>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">2.</span>
+                          <p>
+                            Enter amounts using the{" "}
+                            <span className="font-semibold">
+                              +500/+1000 buttons
+                            </span>{" "}
+                            or type manually
+                          </p>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">3.</span>
+                          <p>
+                            Total must not exceed your{" "}
+                            <span className="font-semibold">
+                              allocated budget (₱
+                              {allocatedBudget.toLocaleString()})
+                            </span>
+                          </p>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-medium">4.</span>
+                          <p>
+                            Click <FileText className="inline h-3 w-3" /> icons
+                            to view{" "}
+                            <span className="font-semibold">
+                              document requirements
+                            </span>
+                          </p>
+                        </li>
+                      </ol>
+
+                      {location.state?.rejectedRequestId && (
+                        <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/10 rounded border border-amber-100 dark:border-amber-900/20 text-xs">
+                          <span className="font-medium">Note:</span> You're
+                          editing a rejected request. Please address the
+                          rejection reason before resubmitting.
+                        </div>
+                      )}
+                    </Disclosure.Panel>
+                  </Transition>
+                </>
+              )}
+            </Disclosure>
           </div>
         )}
 
