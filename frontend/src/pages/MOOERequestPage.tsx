@@ -201,6 +201,24 @@ const MOOERequestPage = () => {
 
     // Check if it's a valid number
     if (!isNaN(Number(cleanValue)) && Number(cleanValue) >= 0) {
+      // Calculate new total if this value is set
+      const newAmount = Number(cleanValue);
+      const currentTotal = Object.entries(selected).reduce(
+        (sum, [key, amt]) =>
+          key === expense
+            ? sum
+            : sum + (amt ? Number(amt.replace(/,/g, "")) : 0),
+        0
+      );
+      const newTotal = currentTotal + newAmount;
+
+      if (newTotal > allocatedBudget) {
+        toast.error(
+          `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
+        );
+        return;
+      }
+
       // Format with commas
       const formattedValue = formatNumberWithCommas(cleanValue);
       setSelected((prev) => ({ ...prev, [expense]: formattedValue }));
@@ -970,10 +988,16 @@ const MOOERequestPage = () => {
                                 key={priority.LOPID}
                                 className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
                               >
-                                <div className="pr-2">
-                                  <div className="truncate">{expenseTitle}</div>
+                                {/* Responsive/truncated expense title */}
+                                <div className="pr-2 min-w-0 flex-1">
+                                  <div
+                                    className="truncate font-medium text-gray-900 dark:text-white"
+                                    title={expenseTitle}
+                                  >
+                                    {expenseTitle}
+                                  </div>
                                   <div className="flex items-center mt-1">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                       {CATEGORY_LABELS[priority.category] ||
                                         priority.category}
                                     </span>
@@ -992,7 +1016,43 @@ const MOOERequestPage = () => {
                                     </button>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {/* Quick add buttons on the left */}
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-semibold hover:bg-blue-200 transition"
+                                      disabled={isFormDisabled}
+                                      onClick={() => {
+                                        const current =
+                                          Number(amount.replace(/,/g, "")) || 0;
+                                        handleAmountChange(
+                                          expenseTitle,
+                                          (current + 1000).toString()
+                                        );
+                                      }}
+                                      tabIndex={-1}
+                                    >
+                                      +1000
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-semibold hover:bg-blue-200 transition"
+                                      disabled={isFormDisabled}
+                                      onClick={() => {
+                                        const current =
+                                          Number(amount.replace(/,/g, "")) || 0;
+                                        handleAmountChange(
+                                          expenseTitle,
+                                          (current + 500).toString()
+                                        );
+                                      }}
+                                      tabIndex={-1}
+                                    >
+                                      +500
+                                    </button>
+                                  </div>
+                                  {/* Amount input */}
                                   <div className="relative w-24">
                                     <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500">
                                       ₱
@@ -1016,11 +1076,12 @@ const MOOERequestPage = () => {
                                       onClick={(e) => e.stopPropagation()}
                                     />
                                   </div>
+                                  {/* Remove button */}
                                   <button
                                     type="button"
                                     onClick={() =>
                                       setExpenseToRemove(expenseTitle)
-                                    } // <-- FIXED
+                                    }
                                     className="text-gray-400 hover:text-red-500"
                                   >
                                     <X className="h-4 w-4" />
