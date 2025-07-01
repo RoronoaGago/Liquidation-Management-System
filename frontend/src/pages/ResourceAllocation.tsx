@@ -488,7 +488,7 @@ const ResourceAllocation = () => {
                       <span className="text-gray-500">₱</span>
                     </div>
                     <Input
-                      type="number"
+                      type="text"
                       value={editingBudgets[school.schoolId] || 0}
                       onChange={(e) =>
                         handleBudgetChange(

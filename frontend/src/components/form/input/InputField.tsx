@@ -19,6 +19,7 @@ interface InputProps {
   error?: boolean;
   hint?: string;
   readOnly?: boolean;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   required?: boolean;
   autoComplete?: string;
 }
@@ -36,6 +37,7 @@ const Input: React.FC<InputProps> = ({
   className = "",
   min,
   max,
+  inputMode,
   step,
   disabled = false,
   success = false,
