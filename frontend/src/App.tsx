@@ -148,19 +148,6 @@ const App = () => {
           {/* Catch-all route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        <ToastContainer
-          position="top-center"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="colored" // optional - match your app's theme
-          transition={Bounce}
-          style={{ fontFamily: "Outfit, sans-serif" }} // Fixed: Style should be an object
-        />
       </AuthProvider>
     </Router>
   );
