@@ -186,7 +186,6 @@ def generate_request_id():
     )
     return f"{prefix}{random_part}"
 
-
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
         ('approved', 'Approved'),
@@ -202,7 +201,7 @@ class RequestManagement(models.Model):
         primary_key=True,
         editable=False,
         unique=True,
-        default=generate_request_id  # <-- Add this line
+        default=generate_request_id
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     request_monthyear = models.CharField(
@@ -252,8 +251,11 @@ class RequestManagement(models.Model):
                 self.set_initial_monthyear()
 
                 # Only auto-set status if not explicitly skipped
-                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status):
+                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status:
                     self.set_automatic_status()
+
+                # Handle status change dates
+                self.handle_status_change_dates()
 
                 logger.debug(
                     f"Saving request {self.request_id} with status {self.status}")
@@ -295,6 +297,31 @@ class RequestManagement(models.Model):
                 logger.warning(
                     f"Invalid request_monthyear: {self.request_monthyear}")
 
+    def handle_status_change_dates(self):
+        """Automatically set date fields based on status changes"""
+        today = date.today()
+        
+        # Check if status changed
+        if self._old_status != self.status:
+            # Approved date
+            if self.status == 'approved' and not self.date_approved:
+                self.date_approved = today
+            
+            # Downloaded date
+            if self.status == 'downloaded' and not self.date_downloaded:
+                self.date_downloaded = today
+            
+            # Rejected date
+            if self.status == 'rejected' and not self.rejection_date:
+                self.rejection_date = today
+            
+            # Reset dates if status changes back from these states
+            if self.status != 'approved':
+                self.date_approved = None
+            if self.status != 'downloaded':
+                self.date_downloaded = None
+            if self.status != 'rejected':
+                self.rejection_date = None
 
 class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
