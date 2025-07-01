@@ -74,11 +74,18 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
+
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True  # If using HTTPS
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True  # If using HTTPS
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            os.path.join(BASE_DIR, 'proj_backend', 'api', 'templates'),
+            os.path.join(BASE_DIR, 'proj_backend',
+                         'api', 'templates', 'emails'),
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -197,9 +204,10 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
-# Use an app password, not your Gmail password!
+
 EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
-DEFAULT_FROM_EMAIL = 'riverajanlester.st.maria@gmail.com'
+# Default sender email
+DEFAULT_FROM_EMAIL = 'DEPED LUSDO <riverajanlester.st.maria@gmail.com>'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
@@ -229,8 +237,8 @@ LOGGING = {
         # Your app logger
         'api': {
             'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
+            'level': 'WARNING',
+            'propagate': False
         },
     },
 }
