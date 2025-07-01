@@ -251,7 +251,7 @@ class RequestManagement(models.Model):
                 self.set_initial_monthyear()
 
                 # Only auto-set status if not explicitly skipped
-                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status:
+                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status):
                     self.set_automatic_status()
 
                 # Handle status change dates
