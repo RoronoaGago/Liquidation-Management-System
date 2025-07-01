@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 // import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
-import desktopLogo from "../images/bubble-magic/company-logo.png";
+import desktopLogo from "../images/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
   ChevronDownIcon,
