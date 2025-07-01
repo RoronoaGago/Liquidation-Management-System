@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("accessToken");
       if (token) {
         try {
           setUser(decodeToken(token));
@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthenticated(true);
         } catch {
           // If token is invalid, clear it
-          localStorage.removeItem("access_token");
+          localStorage.removeItem("accessToken");
           setIsAuthenticated(false);
           setUser(null);
         }
@@ -90,14 +90,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const token = authData.access;
-      localStorage.setItem("access_token", token);
+      localStorage.setItem("accessToken", token);
       const userData = decodeToken(token);
 
       setUser(userData);
       setIsAuthenticated(true);
     } catch (error) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
       setIsAuthenticated(false);
       setUser(null);
 
@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateUser = (userData: UserData, newToken?: string) => {
     setUser(userData);
     if (newToken) {
-      localStorage.setItem("access_token", newToken);
+      localStorage.setItem("accessToken", newToken);
     }
   };
   return (

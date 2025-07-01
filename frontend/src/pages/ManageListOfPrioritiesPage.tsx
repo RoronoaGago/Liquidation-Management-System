@@ -32,7 +32,7 @@ const requiredFields = ["expenseTitle"];
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
-const ManageListOfPriorities = () => {
+const ManageListOfPrioritiesPage = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -386,4 +386,4 @@ const ManageListOfPriorities = () => {
   );
 };
 
-export default ManageListOfPriorities;
+export default ManageListOfPrioritiesPage;

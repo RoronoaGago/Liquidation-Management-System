@@ -1,3 +1,4 @@
+import { isValidPhoneNumber } from "libphonenumber-js";
 export const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
@@ -16,9 +17,9 @@ export const validatePassword = (password: string) => {
   return re.test(password);
 };
 
-export const validatePhoneNumber = (phone: string) => {
-  const re = /^[+\d][\d\s-()]*\d$/;
-  return re.test(phone);
+
+export const validatePhoneNumber = (phone: string): boolean => {
+  return phone ? isValidPhoneNumber(phone) : true; // Optional field
 };
 
 export const validateDateOfBirth = (dateString: string) => {
