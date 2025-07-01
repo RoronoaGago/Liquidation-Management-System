@@ -13,7 +13,7 @@ import Button from "../components/ui/button/Button";
 import { PlusIcon } from "../icons";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import axios from "axios";
 import api from "@/api/axios";
 import { Loader2Icon } from "lucide-react";
@@ -40,16 +40,20 @@ const requiredFields = [
 ];
 //TODO - Add validation for schoolId to ensure it is unique and follows a specific format if needed
 //TODO - Filtering options in the backend
+const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
+
 const ManageSchools = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [allSchools, setAllSchools] = useState<any[]>([]);
+  const [schools, setSchools] = useState<any[]>([]);
+  const [totalSchools, setTotalSchools] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [filterOptions, setFilterOptions] = useState({
     searchTerm: "",
+    legislative_district: "",
     district: "",
     municipality: "",
   });
@@ -57,6 +61,8 @@ const ManageSchools = () => {
     key: string;
     direction: "asc" | "desc";
   } | null>({ key: "schoolName", direction: "asc" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [formData, setFormData] = useState<SchoolFormData>({
     schoolId: "",
     schoolName: "",
@@ -66,25 +72,43 @@ const ManageSchools = () => {
   });
   const [districtOptions, setDistrictOptions] = useState<string[]>([]);
   const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
+  const [legislativeDistricts, setLegislativeDistricts] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
+    string[]
+  >([]);
 
   const isFormValid =
     requiredFields.every(
       (field) => formData[field as keyof SchoolFormData]?.trim() !== ""
     ) && Object.keys(errors).length === 0;
 
+  // Fetch schools from backend with pagination, filtering, sorting
   const fetchSchools = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("http://127.0.0.1:8000/api/schools/", {
-        params: {
-          archived: showArchived,
-          search: filterOptions.searchTerm || undefined,
-          district: filterOptions.district || undefined,
-          municipality: filterOptions.municipality || undefined,
-        },
-      });
-      setAllSchools(response.data);
+      const params: any = {
+        page: currentPage,
+        page_size: itemsPerPage,
+        archived: showArchived, // <-- this is important!
+      };
+      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+      if (filterOptions.legislative_district)
+        params.legislative_district = filterOptions.legislative_district;
+      if (filterOptions.municipality)
+        params.municipality = filterOptions.municipality;
+      if (filterOptions.district) params.district = filterOptions.district;
+      if (sortConfig) {
+        params.ordering =
+          sortConfig.direction === "asc"
+            ? sortConfig.key
+            : `-${sortConfig.key}`;
+      }
+      const response = await api.get("schools/", { params });
+      setSchools(response.data.results || response.data);
+      setTotalSchools(response.data.count ?? response.data.length);
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error("Failed to fetch schools");
@@ -94,49 +118,18 @@ const ManageSchools = () => {
     }
   };
 
+  // Fetch legislative districts mapping from backend
+  useEffect(() => {
+    api.get("/legislative-districts/").then((res) => {
+      setLegislativeDistricts(res.data);
+      setLegislativeDistrictOptions(Object.keys(res.data));
+    });
+  }, []);
+
   useEffect(() => {
     fetchSchools();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchived, filterOptions]);
-
-  const filteredSchools = useMemo(() => {
-    return allSchools.filter((school) => {
-      // Filter by archive status
-      if (showArchived) {
-        if (school.is_active !== false) return false;
-      } else {
-        if (school.is_active === false) return false;
-      }
-      if (filterOptions.searchTerm) {
-        const term = filterOptions.searchTerm.toLowerCase();
-        return (
-          school.schoolName.toLowerCase().includes(term) ||
-          school.schoolId.toLowerCase().includes(term) ||
-          school.district.toLowerCase().includes(term) ||
-          school.municipality.toLowerCase().includes(term) ||
-          school.legislativeDistrict.toLowerCase().includes(term)
-        );
-      }
-      return true;
-    });
-  }, [allSchools, filterOptions, showArchived]);
-
-  const sortedSchools = useMemo(() => {
-    if (!sortConfig) return filteredSchools;
-    return [...filteredSchools].sort((a, b) => {
-      const aValue = a[sortConfig.key] ?? "";
-      const bValue = b[sortConfig.key] ?? "";
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        const comparison = aValue.localeCompare(bValue, undefined, {
-          sensitivity: "base",
-        });
-        return sortConfig.direction === "asc" ? comparison : -comparison;
-      }
-      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [filteredSchools, sortConfig]);
+  }, [showArchived, filterOptions, sortConfig, currentPage, itemsPerPage]);
 
   const requestSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
@@ -144,6 +137,7 @@ const ManageSchools = () => {
       direction = sortConfig.direction === "asc" ? "desc" : "asc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -242,32 +236,49 @@ const ManageSchools = () => {
     }
   };
 
-  // When municipality changes, update district and legislative district
+  // When legislativeDistrict changes, update municipality options
+  const [municipalityOptions, setMunicipalityOptions] = useState<string[]>([]);
+  useEffect(() => {
+    if (
+      formData.legislativeDistrict &&
+      legislativeDistricts[formData.legislativeDistrict]
+    ) {
+      setMunicipalityOptions(
+        legislativeDistricts[formData.legislativeDistrict]
+      );
+      setFormData((prev) => ({
+        ...prev,
+        municipality: "",
+        district: "",
+      }));
+    } else {
+      setMunicipalityOptions([]);
+      setFormData((prev) => ({
+        ...prev,
+        municipality: "",
+        district: "",
+      }));
+    }
+    // eslint-disable-next-line
+  }, [formData.legislativeDistrict, legislativeDistricts]);
+
+  // When municipality changes, update district options (if needed)
   useEffect(() => {
     const mun = formData.municipality;
     if (mun) {
       setDistrictOptions(municipalityDistricts[mun] || []);
-      if (firstDistrictMunicipalities.includes(mun)) {
-        setAutoLegislativeDistrict("1st District");
-      } else {
-        setAutoLegislativeDistrict("2nd District");
-      }
-      setFormData((prev) => ({
-        ...prev,
-        district: "", // reset district when municipality changes
-        legislativeDistrict: firstDistrictMunicipalities.includes(mun)
-          ? "1st District"
-          : "2nd District",
-      }));
-    } else {
-      setDistrictOptions([]);
-      setAutoLegislativeDistrict("");
       setFormData((prev) => ({
         ...prev,
         district: "",
-        legislativeDistrict: "",
+      }));
+    } else {
+      setDistrictOptions([]);
+      setFormData((prev) => ({
+        ...prev,
+        district: "",
       }));
     }
+    // eslint-disable-next-line
   }, [formData.municipality]);
 
   return (
@@ -330,6 +341,30 @@ const ManageSchools = () => {
                   )}
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="legislativeDistrict" className="text-base">
+                    Legislative District *
+                  </Label>
+                  <select
+                    id="legislativeDistrict"
+                    name="legislativeDistrict"
+                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                    value={formData.legislativeDistrict}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select Legislative District</option>
+                    {legislativeDistrictOptions.map((ld) => (
+                      <option key={ld} value={ld}>
+                        {ld}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.legislativeDistrict && (
+                    <p className="text-red-500 text-sm">
+                      {errors.legislativeDistrict}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="municipality" className="text-base">
                     Municipality *
                   </Label>
@@ -339,9 +374,10 @@ const ManageSchools = () => {
                     className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     value={formData.municipality}
                     onChange={handleChange}
+                    disabled={!formData.legislativeDistrict}
                   >
                     <option value="">Select Municipality</option>
-                    {laUnionMunicipalities.map((mun) => (
+                    {municipalityOptions.map((mun) => (
                       <option key={mun} value={mun}>
                         {mun}
                       </option>
@@ -361,7 +397,7 @@ const ManageSchools = () => {
                   <select
                     id="district"
                     name="district"
-                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 text-gray-800 "
+                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     value={formData.district}
                     onChange={handleChange}
                     disabled={!formData.municipality}
@@ -377,25 +413,7 @@ const ManageSchools = () => {
                     <p className="text-red-500 text-sm">{errors.district}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="legislativeDistrict" className="text-base">
-                    Legislative District *
-                  </Label>
-                  <Input
-                    type="text"
-                    id="legislativeDistrict"
-                    name="legislativeDistrict"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="Legislative District"
-                    value={autoLegislativeDistrict}
-                    disabled
-                  />
-                  {errors.legislativeDistrict && (
-                    <p className="text-red-500 text-sm">
-                      {errors.legislativeDistrict}
-                    </p>
-                  )}
-                </div>
+
                 <div className="flex justify-end gap-3 pt-4">
                   <Button
                     type="button"
@@ -436,19 +454,23 @@ const ManageSchools = () => {
           </Dialog>
         </div>
         <SchoolsTable
-          schools={allSchools}
-          setSchools={setAllSchools}
+          schools={schools}
+          setSchools={setSchools}
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           fetchSchools={fetchSchools}
-          sortedSchools={sortedSchools}
           filterOptions={filterOptions}
           setFilterOptions={setFilterOptions}
           onRequestSort={requestSort}
           currentSort={sortConfig}
           loading={loading}
           error={error}
-          // Add archive props if needed
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+          totalSchools={totalSchools}
+          ITEMS_PER_PAGE_OPTIONS={ITEMS_PER_PAGE_OPTIONS}
         />
       </div>
     </div>

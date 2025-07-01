@@ -4,7 +4,12 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import ToastProvider from "@/components/ui/ToastProvider";
-import { ToastContainer } from "react-toastify";
+import { Bounce, ToastContainer } from "react-toastify";
+
+// Only allow +63 and numbers starting with 9 (PH mobile)
+export const validatePhoneNumber = (phone: string): boolean => {
+  return /^\+639\d{9}$/.test(phone);
+};
 
 // LayoutContent component
 const LayoutContent: React.FC<{ children?: React.ReactNode }> = ({
@@ -26,7 +31,18 @@ const LayoutContent: React.FC<{ children?: React.ReactNode }> = ({
         <AppHeader />
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
           {children || <Outlet />}
-          <ToastContainer />
+          <ToastContainer
+            position="top-center"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            transition={Bounce}
+            style={{ fontFamily: "Outfit, sans-serif" }} // Fixed: Style should be an object
+          />
         </div>
       </div>
     </div>

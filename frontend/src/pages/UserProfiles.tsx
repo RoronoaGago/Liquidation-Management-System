@@ -1,7 +1,7 @@
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { Bounce, ToastContainer, toast } from "react-toastify";
+import { Bounce, toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { EyeCloseIcon, CalenderIcon } from "@/icons";
 import { calculateAge } from "@/lib/helpers";
@@ -17,6 +17,7 @@ import {
 import { EyeIcon, Loader2 } from "lucide-react";
 import { User } from "@/lib/types";
 import Label from "@/components/form/Label";
+import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 
 interface FormErrors {
   first_name?: string;
@@ -83,8 +84,6 @@ export default function UserProfiles() {
           `http://127.0.0.1:8000/api/users/${user?.user_id}`
         );
         setDisplayUser(response.data);
-        console.log(response.data);
-        console.log("Hi");
         setEditUser({ ...response.data, password: "" }); // Initialize edit user with empty password
       } catch (err) {
         setError(err as Error);
@@ -214,16 +213,12 @@ export default function UserProfiles() {
 
       // Update display user
       setDisplayUser(response.data);
-      console.log(response.data);
       // Update auth context if this is the current user
       if (user?.user_id === editUser.id) {
         // Case 1: Sensitive data changed → Update token & user
         if (response.data.token) {
-          console.log("this is inside");
           localStorage.setItem("access_token", response.data.token.access);
           localStorage.setItem("refresh_token", response.data.token.refresh);
-          console.log("ohmahgah");
-          console.log(response.data.token.access);
           updateUser(
             {
               user_id: response.data.id,
@@ -237,7 +232,6 @@ export default function UserProfiles() {
             },
             response.data.token.access
           );
-          // toast.success("Profile updated! Please log in again.");
         }
         // Case 2: Non-sensitive data → Just update user
         else {
@@ -248,25 +242,15 @@ export default function UserProfiles() {
             last_name: response.data.last_name,
             email: response.data.email,
             phone_number: response.data.phone_number,
-            role: "",
+            role: response.data.role,
+            profile_picture: response.data.profile_picture,
           });
           toast.success("Profile updated!");
         }
       }
 
       // Show success toast with consistent styling
-      toast.success("Profile updated successfully!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.success("Profile updated successfully!");
 
       // Close all dialogs
       setIsDialogOpen(false);
@@ -284,18 +268,7 @@ export default function UserProfiles() {
         }
       }
 
-      toast.error(errorMessage, {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -354,110 +327,36 @@ export default function UserProfiles() {
   return (
     <>
       <PageBreadcrumb pageTitle="Profile" />
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-        <h3 className="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">
-          Profile
-        </h3>
-        <div className="space-y-6">
-          <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-col items-center w-full gap-6 xl:flex-row">
-                <div
-                  className={`flex items-center justify-center w-20 h-20 rounded-full ${getAvatarColor()} text-white text-3xl font-bold`}
-                >
-                  {displayUser?.profile_picture ? (
-                    <img
-                      src={`http://127.0.0.1:8000${displayUser.profile_picture}`}
-                      alt="Profile"
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <span>{getUserInitials()}</span>
-                  )}
-                </div>
-                <div className="order-3 xl:order-2">
-                  <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-                    {displayUser?.first_name} {displayUser?.last_name}
-                  </h4>
-                  <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Administrator
-                    </p>
-                    <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {displayUser?.username}
-                    </p>
-                  </div>
-                </div>
+
+      <div className="space-y-6">
+        {/* Profile Card */}
+        <div className="p-8 border border-gray-200 rounded-2xl dark:border-gray-800 bg-gradient-to-br from-white via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 shadow-lg mb-8">
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative">
+              <div
+                className={`flex items-center justify-center w-32 h-32 rounded-full shadow-lg border-4 border-white dark:border-gray-900 ${getAvatarColor()} text-white text-5xl font-bold transition-all duration-300`}
+              >
+                {displayUser?.profile_picture ? (
+                  <img
+                    src={`http://127.0.0.1:8000${displayUser.profile_picture}`}
+                    alt="Profile"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <span>{getUserInitials()}</span>
+                )}
               </div>
-            </div>
-          </div>
-          <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-                  User Details
-                </h4>
-
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
-                  <div>
-                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      First Name
-                    </p>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {displayUser?.first_name}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Last Name
-                    </p>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {displayUser?.last_name}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Email address
-                    </p>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {displayUser?.email}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Phone
-                    </p>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {displayUser?.phone_number}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                      Age
-                    </p>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {calculateAge(displayUser?.date_of_birth)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               <button
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto"
+                className="absolute bottom-2 right-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full p-2 shadow hover:bg-blue-100 dark:hover:bg-gray-700 transition"
                 onClick={handleEditUser}
+                title="Edit Profile"
               >
                 <svg
-                  className="fill-current"
-                  width="18"
-                  height="18"
+                  className="fill-current text-blue-600 dark:text-blue-400"
+                  width="22"
+                  height="22"
                   viewBox="0 0 18 18"
                   fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
                 >
                   <path
                     fillRule="evenodd"
@@ -466,15 +365,91 @@ export default function UserProfiles() {
                     fill=""
                   />
                 </svg>
-                Edit
               </button>
             </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">
+                {displayUser?.first_name || "-"} {displayUser?.last_name || ""}
+              </h2>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-base text-blue-600 dark:text-blue-400 font-medium">
+                  {displayUser?.role
+                    ? displayUser.role
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (l) => l.toUpperCase())
+                    : "User"}
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  @{displayUser?.username || "-"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
+            <div>
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Email
+              </p>
+              <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                {displayUser?.email || "-"}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Phone
+              </p>
+              <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                {displayUser?.phone_number || "-"}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Birthdate
+              </p>
+              <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                {displayUser?.date_of_birth
+                  ? new Date(displayUser.date_of_birth).toLocaleDateString()
+                  : "-"}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                Age
+              </p>
+              <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                {displayUser?.date_of_birth
+                  ? calculateAge(displayUser.date_of_birth)
+                  : "-"}
+              </p>
+            </div>
+            {(displayUser?.role === "school_head" ||
+              displayUser?.role === "school_admin") && (
+              <>
+                <div>
+                  <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                    School
+                  </p>
+                  <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                    {displayUser?.school?.schoolName || "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                    Legislative District
+                  </p>
+                  <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                    {displayUser?.school?.legislativeDistrict || "-"}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Edit User Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+          <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
             <DialogHeader className="mb-8">
               <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
                 Edit Profile
@@ -486,6 +461,90 @@ export default function UserProfiles() {
 
             {editUser && (
               <form className="space-y-4" onSubmit={handleSubmit}>
+                {/* Profile Picture Upload */}
+                <div className="space-y-2">
+                  <Label htmlFor="profile_picture" className="text-base">
+                    Profile Picture
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    {editUser.profile_picture_base64 ||
+                    editUser.profile_picture ? (
+                      <div className="relative">
+                        <img
+                          src={
+                            editUser.profile_picture_base64 ||
+                            `http://127.0.0.1:8000${editUser.profile_picture}`
+                          }
+                          className="w-16 h-16 rounded-full object-cover"
+                          alt="Preview"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditUser((prev) => ({
+                              ...prev!,
+                              profile_picture: "",
+                              profile_picture_base64: "",
+                            }));
+                            // Clear the file input value too
+                            const fileInput = document.getElementById(
+                              "profile_picture"
+                            ) as HTMLInputElement;
+                            if (fileInput) fileInput.value = "";
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                          aria-label="Remove profile picture"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-2xl font-bold text-gray-500">
+                          {getUserInitials()}
+                        </span>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      id="profile_picture"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setEditUser((prev) => ({
+                              ...prev!,
+                              profile_picture_base64: event.target
+                                ?.result as string,
+                            }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Label
+                      htmlFor="profile_picture"
+                      className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                    >
+                      {editUser.profile_picture ||
+                      editUser.profile_picture_base64
+                        ? "Change Photo"
+                        : "Upload Photo"}
+                    </Label>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="first_name" className="text-base">
@@ -525,6 +584,35 @@ export default function UserProfiles() {
                   </div>
                 </div>
 
+                <PhoneNumberInput
+                  value={editUser.phone_number || ""}
+                  onChange={(value) =>
+                    setEditUser((prev) => ({
+                      ...prev!,
+                      phone_number: value || "",
+                    }))
+                  }
+                  error={formErrors.phone_number}
+                  id="phone_number"
+                  required={false}
+                  autoComplete="tel"
+                />
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-base">
+                    Email *
+                  </Label>
+                  <Input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={editUser.email}
+                    onChange={handleChange}
+                    className={formErrors.email ? "border-red-500" : ""}
+                  />
+                  {formErrors.email && (
+                    <p className="text-red-500 text-sm">{formErrors.email}</p>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="username" className="text-base">
                     Username *
@@ -541,23 +629,6 @@ export default function UserProfiles() {
                     <p className="text-red-500 text-sm">
                       {formErrors.username}
                     </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-base">
-                    Email *
-                  </Label>
-                  <Input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={editUser.email}
-                    onChange={handleChange}
-                    className={formErrors.email ? "border-red-500" : ""}
-                  />
-                  {formErrors.email && (
-                    <p className="text-red-500 text-sm">{formErrors.email}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -577,6 +648,7 @@ export default function UserProfiles() {
                       type="button"
                       className="absolute right-3 top-1/2 transform -translate-y-1/2"
                       onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
                     >
                       {showPassword ? (
                         <EyeCloseIcon className="h-5 w-5 text-gray-400" />
@@ -601,7 +673,7 @@ export default function UserProfiles() {
                       id="date_of_birth"
                       name="date_of_birth"
                       className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                      value={editUser?.date_of_birth}
+                      value={editUser?.date_of_birth || ""}
                       onChange={handleChange}
                       max={new Date().toISOString().split("T")[0]}
                     />
@@ -609,26 +681,6 @@ export default function UserProfiles() {
                       <CalenderIcon className="size-5" />
                     </span>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number" className="text-base">
-                    Phone Number
-                  </Label>
-                  <Input
-                    type="tel"
-                    id="phone_number"
-                    name="phone_number"
-                    value={editUser.phone_number || ""}
-                    onChange={handleChange}
-                    onInput={handlePhoneNumberInput}
-                    className={formErrors.phone_number ? "border-red-500" : ""}
-                  />
-                  {formErrors.phone_number && (
-                    <p className="text-red-500 text-sm">
-                      {formErrors.phone_number}
-                    </p>
-                  )}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">
@@ -708,16 +760,6 @@ export default function UserProfiles() {
             </div>
           </DialogContent>
         </Dialog>
-
-        <ToastContainer
-          position="top-center"
-          autoClose={2000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick={false}
-          rtl={false}
-          pauseOnFocusLoss
-        />
       </div>
     </>
   );

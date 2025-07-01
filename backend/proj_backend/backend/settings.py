@@ -66,7 +66,6 @@ MIDDLEWARE = [
 ]
 
 
-
 ROOT_URLCONF = 'backend.urls'
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173",
                         "http://192.168.1.147:5173", "http://192.168.1.111:5173", "http://192.168.1.232:5173", "http://192.168.0.231:5173", "http://172.20.10.2:5173", "http://172.20.10.7:5173"]
@@ -75,10 +74,19 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
+
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True  # If using HTTPS
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True  # If using HTTPS
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [
+            os.path.join(BASE_DIR, 'proj_backend',
+                         'api', 'templates', 'emails'),
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -192,12 +200,14 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'  # Or your SMTP server
+EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your-email@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'your-email-password-or-app-password'  # Your email password or app password
-DEFAULT_FROM_EMAIL = 'your-email@gmail.com'  # Sender email address
+EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
+
+EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
+# Default sender email
+DEFAULT_FROM_EMAIL = 'DEPED LUSDO <riverajanlester.st.maria@gmail.com>'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
@@ -205,3 +215,30 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',  # Show all logs, including debug
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',  # You can set this to 'DEBUG' if you want more Django internals
+            'propagate': False,
+        },
+        # Your app logger
+        'api': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False
+        },
+    },
+}
