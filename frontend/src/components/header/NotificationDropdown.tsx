@@ -105,6 +105,7 @@ export default function NotificationDropdown() {
 
         // Add more conditions as needed for other notification types
       }
+      closeDropdown();
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
