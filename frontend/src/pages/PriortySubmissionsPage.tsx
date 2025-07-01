@@ -40,10 +40,14 @@ const PriortySubmissionsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const [, setSchools] = useState<School[]>([]);
+  const [actionLoading, setActionLoading] = useState<
+    "approve" | "reject" | null
+  >(null);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [submissionToReject, setSubmissionToReject] =
     useState<Submission | null>(null);
   // Pagination, search, and sort state
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [filterOptions, setFilterOptions] = useState({
@@ -84,28 +88,26 @@ const PriortySubmissionsPage = () => {
   // Approve handler (should call backend in real app)
   // Approve handler
   const handleApprove = async (submission: Submission) => {
+    setActionLoading("approve");
     try {
       await api.put(`requests/${submission.request_id}/approve/`, {
         status: "approved",
       });
       setViewedSubmission(null);
       toast.success(
-        `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been approved.`,
-        {
-          autoClose: 5000,
-          position: "top-right",
-          icon: <CheckCircle className="w-6 h-6" />,
-        }
+        `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been approved.`
       );
-      await fetchSubmissions(); // Refresh the list
+      await fetchSubmissions();
     } catch (err) {
       console.error("Failed to approve submission:", err);
       toast.error("Failed to approve submission. Please try again.");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  // Reject handler
   const handleReject = async (submission: Submission, reason: string) => {
+    setActionLoading("reject");
     try {
       await api.put(`requests/${submission.request_id}/reject/`, {
         status: "rejected",
@@ -114,15 +116,13 @@ const PriortySubmissionsPage = () => {
       setViewedSubmission(null);
       setIsRejectDialogOpen(false);
       setRejectionReason("");
-      toast.success(`Request #${submission.request_id} has been rejected.`, {
-        autoClose: 5000,
-        position: "top-right",
-        icon: <XCircle className="w-6 h-6" />,
-      });
-      await fetchSubmissions(); // Refresh the list
+      toast.success(`Request #${submission.request_id} has been rejected.`);
+      await fetchSubmissions();
     } catch (err) {
       console.error("Failed to reject submission:", err);
       toast.error("Failed to reject submission. Please try again.");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -609,6 +609,11 @@ const PriortySubmissionsPage = () => {
                       variant="destructive"
                       onClick={() => handleRejectClick(viewedSubmission)}
                       startIcon={<XCircle className="w-4 h-4" />}
+                      disabled={
+                        actionLoading === "approve" ||
+                        actionLoading === "reject"
+                      }
+                      loading={actionLoading === "reject"}
                     >
                       Reject
                     </Button>
@@ -617,6 +622,11 @@ const PriortySubmissionsPage = () => {
                       variant="success"
                       onClick={() => handleApprove(viewedSubmission)}
                       startIcon={<CheckCircle className="w-4 h-4" />}
+                      disabled={
+                        actionLoading === "approve" ||
+                        actionLoading === "reject"
+                      }
+                      loading={actionLoading === "approve"}
                     >
                       Approve
                     </Button>
