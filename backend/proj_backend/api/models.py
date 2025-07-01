@@ -9,8 +9,8 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import date
 import string
-import uuid
 import logging
+# Configure logging
 logger = logging.getLogger(__name__)
 
 
@@ -179,28 +179,30 @@ class PriorityRequirement(models.Model):
 
 
 def generate_request_id():
-    request_id = f"REQ-{uuid.uuid4().hex[:6].upper()}"
-    logger.info(f"Generated ID: {request_id}")
-    return request_id
+    prefix = "REQ-"
+    random_part = get_random_string(
+        length=6,
+        allowed_chars=string.ascii_uppercase + string.digits
+    )
+    return f"{prefix}{random_part}"
 
 
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
-
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
         ('downloaded', 'Downloaded'),
         ('liquidated', 'Liquidated'),
-        ('advanced', 'Advanced'),  # <-- Add this
+        ('advanced', 'Advanced'),
     ]
 
     request_id = models.CharField(
         max_length=10,
         primary_key=True,
-        default=generate_request_id,
         editable=False,
-        unique=True
+        unique=True,
+        default=generate_request_id  # <-- Add this line
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     request_monthyear = models.CharField(
@@ -216,8 +218,7 @@ class RequestManagement(models.Model):
     last_reminder_sent = models.DateField(null=True, blank=True)
     demand_letter_sent = models.BooleanField(default=False)
     demand_letter_date = models.DateField(null=True, blank=True)
-    date_approved = models.DateField(
-        null=True, blank=True)  # <-- Add this field
+    date_approved = models.DateField(null=True, blank=True)
     date_downloaded = models.DateField(null=True, blank=True)
     rejection_comment = models.TextField(null=True, blank=True)
     rejection_date = models.DateField(null=True, blank=True)
@@ -230,102 +231,69 @@ class RequestManagement(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._old_status = self.status  # Track initial status
+        self._skip_auto_status = False  # Explicit control flag
+
     def save(self, *args, **kwargs):
-        # Set request_monthyear automatically
-        if not self.pk:  # Only on creation
-            school = self.user.school
+        """Atomic save with protected status changes"""
+        from django.db import transaction
+
+        try:
+            with transaction.atomic():
+                # Fetch existing status safely
+                if self.pk:
+                    current_status = RequestManagement.objects.filter(
+                        pk=self.pk).values_list('status', flat=True).first()
+                    self._old_status = current_status or self.status
+
+                # Set initial month/year if needed (won't affect status)
+                self.set_initial_monthyear()
+
+                # Only auto-set status if not explicitly skipped
+                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status):
+                    self.set_automatic_status()
+
+                logger.debug(
+                    f"Saving request {self.request_id} with status {self.status}")
+                super().save(*args, **kwargs)
+
+        except Exception as e:
+            logger.error(
+                f"Failed to save request {getattr(self, 'request_id', 'new')}: {str(e)}")
+            raise
+
+    def set_initial_monthyear(self):
+        """Safe month/year initialization without status side effects"""
+        if not self.request_monthyear:
+            school = getattr(self.user, 'school', None)
             if school:
                 if school.last_liquidated_month and school.last_liquidated_year:
-                    # Set to next month after last liquidated
                     year = school.last_liquidated_year
                     month = school.last_liquidated_month + 1
-                    if month > 12:
-                        month = 1
-                        year += 1
-                    self.request_monthyear = f"{year:04d}-{month:02d}"
+                    self.request_monthyear = f"{year+(month//12):04d}-{(month % 12) or 12:02d}"
                 else:
-                    # If no liquidation yet, allow manual input or default to current month
-                    if not self.request_monthyear:
-                        today = date.today()
-                        self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
+                    today = date.today()
+                    self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
 
-        # Set status based on request_monthyear
-        if self.request_monthyear:
+    def set_automatic_status(self):
+        """Only runs when not manually approving/rejecting"""
+        if (not hasattr(self, '_status_changed_by')
+                    and not self._skip_auto_status
+                    and self.request_monthyear
+                ):
             today = date.today()
-            req_year, req_month = map(int, self.request_monthyear.split('-'))
-            if req_year > today.year or (req_year == today.year and req_month > today.month):
-                self.status = 'advanced'
-            elif req_year == today.year and req_month == today.month:
-                self.status = 'pending'
-        super().save(*args, **kwargs)
-
-        is_new = self._state.adding
-        old_status = None
-        if not is_new:
-            old = RequestManagement.objects.get(pk=self.pk)
-            old_status = old.status
-
-        status_changed = (old_status != self.status)
-
-        if status_changed:
-            if self.status in ['approved', 'rejected']:
-                if hasattr(self, '_status_changed_by'):
-                    self.reviewed_by = self._status_changed_by
-                self.reviewed_at = timezone.now()
-            from .models import Notification
-            Notification.objects.create(
-                notification_title=f"Request {self.status.title()}",
-                details=self.rejection_comment if self.status == 'rejected' else None,
-                receiver=self.user,
-                sender=getattr(self, '_status_changed_by', None),
-            )
-
-        # Automatically set date_approved when status becomes 'approved'
-        if self.status == 'approved' and self.date_approved is None:
-            self.date_approved = timezone.now().date()
-        elif self.status != 'approved' and self.date_approved is not None:
-            self.date_approved = None
-
-        # Automatically set date_downloaded when status becomes 'downloaded'
-        if self.status == 'downloaded' and self.date_downloaded is None:
-            self.date_downloaded = timezone.now().date()
-        elif self.status != 'downloaded' and self.date_downloaded is not None:
-            self.date_downloaded = None
-
-        # Only set rejection_date when status becomes 'rejected'
-        if self.status == 'rejected' and self.rejection_date is None:
-            self.rejection_date = timezone.now().date()
-        # Do not reset rejection_date when status changes from 'rejected' to another status
-
-        super().save(*args, **kwargs)
-
-        if status_changed:
-            from .models import Notification  # Avoid circular import
-            Notification.objects.create(
-                notification_title=f"Request {self.status.title()}",
-                details=self.rejection_comment if self.status == 'rejected' else None,
-                receiver=self.user,
-                sender=getattr(self, '_status_changed_by', None),
-            )
-
-            # Email notification
-            subject = f"Request Status Update: {self.status.title()}"
-            message = render_to_string('emails/status_change.txt', {
-                'object_type': 'Request',
-                'object': self,
-                'user': self.user,
-                'status': self.status,
-            })
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [self.user.email],
-                fail_silently=True,
-            )
-
-    def __str__(self):
-        return f"Request {self.request_id} by {self.user.username}"
+            try:
+                req_year, req_month = map(
+                    int, self.request_monthyear.split('-'))
+                if (req_year, req_month) > (today.year, today.month):
+                    self.status = 'advanced'
+                elif (req_year, req_month) == (today.year, today.month):
+                    self.status = 'pending'
+            except (ValueError, AttributeError):
+                logger.warning(
+                    f"Invalid request_monthyear: {self.request_monthyear}")
 
 
 class RequestPriority(models.Model):
@@ -350,6 +318,7 @@ def generate_liquidation_id():
     return f"{prefix}{random_part}"
 
 
+# models.py - LiquidationManagement modifications
 class LiquidationManagement(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Draft'),
@@ -390,28 +359,25 @@ class LiquidationManagement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     date_districtApproved = models.DateField(null=True, blank=True)
     date_liquidated = models.DateField(null=True, blank=True)
-    remaining_days = models.IntegerField(
-        null=True, blank=True)  # <-- Add this field
+    remaining_days = models.IntegerField(null=True, blank=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._old_status = self.status  # Track initial status
+        self._status_changed_by = None  # Track who changed the status
 
     def calculate_refund(self):
-        # Calculate total requested amount
         total_requested = sum(
             rp.amount for rp in self.request.requestpriority_set.all()
         )
-        # Calculate total liquidated amount
         total_liquidated = sum(
             lp.amount for lp in self.liquidation_priorities.all()
         )
-        # Refund is the difference, or None if equal
         if total_requested == total_liquidated:
             return None
         return total_requested - total_liquidated
 
     def calculate_remaining_days(self):
-        """
-        Calculates how many days are left to liquidate the request.
-        Assumes you want 30 days from the request's approval date.
-        """
         if self.request and self.request.date_downloaded:
             deadline = self.request.date_downloaded + \
                 timezone.timedelta(days=30)
@@ -422,81 +388,36 @@ class LiquidationManagement(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
-        old_status = None
+
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
-            old_status = old.status
+            self._old_status = old.status
 
-        status_changed = (old_status != self.status)
-        # Automatically set date_liquidated when status becomes 'liquidated'
+        # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:
             self.date_liquidated = timezone.now().date()
         elif self.status != 'liquidated' and self.date_liquidated is not None:
             self.date_liquidated = None
 
-        # Automatically set date_districtApproved when status becomes 'approved_district'
         if self.status == 'approved_district' and self.date_districtApproved is None:
             self.date_districtApproved = timezone.now().date()
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
             self.date_districtApproved = None
 
-        # Calculate refund amount
+        # Calculate fields
         self.refund = self.calculate_refund()
         self.remaining_days = self.calculate_remaining_days()
 
         super().save(*args, **kwargs)
 
-        # Notification logic (after save, so PK exists)
-        if status_changed:
-            from .models import Notification  # Avoid circular import
-            Notification.objects.create(
-                notification_title=f"Liquidation {self.status.title()}",
-                details=self.comment_id if self.status == 'rejected' else None,
-                receiver=self.request.user,
-                # Set this in your view if needed
-                sender=getattr(self, '_status_changed_by', None),
-            )
-
-            # Email notification
-            subject = f"Liquidation Status Update: {self.status.title()}"
-            message = render_to_string('emails/status_change.txt', {
-                'object_type': 'Liquidation',
-                'object': self,
-                'user': self.request.user,
-                'status': self.status,
-            })
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [self.request.user.email],
-                fail_silently=True,
-            )
-
-    def __str__(self):
-        return f"Liquidation {self.LiquidationID} for {self.request}"
-
     def clean(self):
-        """
-        Validate that the request status is 'downloaded' before saving.
-        This works with Django forms and admin interface.
-        """
-        if self.request.status != 'downloaded':
-            raise ValidationError(
-                "Liquidation can only be created for requests with 'downloaded' status."
-            )
-
-    def save(self, *args, **kwargs):
-        """
-        Ensure the request status is 'downloaded' before saving to database.
-        """
-        # Skip validation when updating existing instance (optional)
         if not self.pk and self.request.status != 'downloaded':
             raise ValidationError(
                 "Liquidation can only be created for requests with 'downloaded' status."
             )
 
-        super().save(*args, **kwargs)
+    def __str__(self):
+        return f"Liquidation {self.LiquidationID} for {self.request}"
 
 
 class LiquidationDocument(models.Model):
@@ -546,6 +467,7 @@ class Notification(models.Model):
     sender = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications_sent')
     notification_date = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Notification to {self.receiver.username}: {self.notification_title}"
