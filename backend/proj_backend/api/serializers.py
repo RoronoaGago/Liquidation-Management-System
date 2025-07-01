@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidatorAssignment, LiquidationPriority
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -5,7 +6,8 @@ from django.core.files.base import ContentFile
 import base64
 import uuid
 import string
-from django.db import transaction
+import logging
+logger = logging.getLogger(__name__)
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -232,24 +234,26 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         return RequestPrioritySerializer(request_priorities, many=True).data
 
     def create(self, validated_data):
-        print(f"Validated data: {validated_data}")
-        with transaction.atomic():
-            priority_amounts = validated_data.pop('priority_amounts', [])
-            request_obj = RequestManagement.objects.create(**validated_data)
-            for pa in priority_amounts:
-                lopid = pa.get('LOPID')
-                amount = pa.get('amount')
-                if lopid and amount is not None:
-                    try:
-                        priority = ListOfPriority.objects.get(LOPID=lopid)
-                        RequestPriority.objects.create(
-                            request=request_obj,
-                            priority=priority,
-                            amount=amount
-                        )
-                    except ListOfPriority.DoesNotExist:
-                        continue
-            return request_obj
+        priority_amounts = validated_data.pop('priority_amounts', [])
+        # Accept request_id if present
+        request_obj = RequestManagement.objects.create(**validated_data)
+        logger.info("Serializer create() called with request_id: %s",
+                    validated_data.get('request_id'))
+        # Save priorities and amounts
+        for pa in priority_amounts:
+            lopid = pa.get('LOPID')
+            amount = pa.get('amount')
+            if lopid and amount is not None:
+                try:
+                    priority = ListOfPriority.objects.get(LOPID=lopid)
+                    RequestPriority.objects.create(
+                        request=request_obj,
+                        priority=priority,
+                        amount=amount
+                    )
+                except ListOfPriority.DoesNotExist:
+                    continue
+        return request_obj
 
 
 class LiquidationPrioritySerializer(serializers.ModelSerializer):
@@ -431,4 +435,5 @@ class NotificationSerializer(serializers.ModelSerializer):
             'receiver',
             'sender',
             'notification_date',
+            'is_read'
         ]
