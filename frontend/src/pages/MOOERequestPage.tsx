@@ -74,6 +74,8 @@ const MOOERequestPage = () => {
     useState<string[]>([]);
   const [currentPriorityTitle, setCurrentPriorityTitle] = useState("");
   const [allocatedBudget, setAllocatedBudget] = useState<number>(0);
+  const [expenseToRemove, setExpenseToRemove] = useState<string | null>(null);
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false);
 
   // Handle pre-filling from a rejected request
   useEffect(() => {
@@ -354,7 +356,7 @@ const MOOERequestPage = () => {
     const itemsToCheck = categories[cat].filter(
       (p) => selected[p.expenseTitle] === undefined
     );
-    if (itemsToCheck.length > 3) {
+    if (itemsToCheck.length >= 3) {
       setCategoryToSelect(cat);
     } else {
       doCategorySelectAll(cat);
@@ -403,6 +405,70 @@ const MOOERequestPage = () => {
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="List of Priorities" />
 
+      {/* Remove Expense Dialog */}
+      <Dialog
+        open={!!expenseToRemove}
+        onOpenChange={() => setExpenseToRemove(null)}
+      >
+        <DialogContent className="max-w-md">
+          <div className="p-6 space-y-4">
+            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+              Remove Expense
+            </h2>
+            <p>
+              Are you sure you want to remove{" "}
+              <span className="font-semibold">{expenseToRemove}</span>?
+            </p>
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="outline"
+                onClick={() => setExpenseToRemove(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  if (expenseToRemove) handleCheck(expenseToRemove);
+                  setExpenseToRemove(null);
+                }}
+              >
+                Confirm Removal
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear All Dialog */}
+      <Dialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
+        <DialogContent className="max-w-md">
+          <div className="p-6 space-y-4">
+            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+              Clear All Selections
+            </h2>
+            <p>This will remove all selected expenses. Are you sure?</p>
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="outline"
+                onClick={() => setShowClearAllDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setSelected({});
+                  setShowClearAllDialog(false);
+                }}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center">
@@ -444,12 +510,12 @@ const MOOERequestPage = () => {
               </p>
             )}
             <div className="flex justify-end mt-6">
-              <Button
+              {/* <Button
                 variant="primary"
                 onClick={() => setShowRequirementsDialog(false)}
               >
                 Close
-              </Button>
+              </Button> */}
             </div>
           </div>
         </DialogContent>
@@ -597,12 +663,27 @@ const MOOERequestPage = () => {
       {/* Submit Confirmation Dialog */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
         <DialogContent className="max-w-md">
-          <div className="p-6">
-            <h2 className="text-lg font-bold mb-2">Confirm Submission</h2>
-            <p className="mb-4">
-              Are you sure you want to submit this MOOE request?
-            </p>
-            <div className="flex justify-end gap-2">
+          <div className="p-6 space-y-4">
+            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+              Confirm Submission
+            </h2>
+            <div className="mb-4 space-y-2">
+              <p>
+                <span className="font-medium">Total Amount:</span> ₱
+                {totalAmount.toLocaleString()}
+              </p>
+              <p>
+                <span className="font-medium">Items Selected:</span>{" "}
+                {Object.keys(selected).length}
+              </p>
+              {allocatedBudget > 0 && (
+                <p>
+                  <span className="font-medium">Remaining Budget:</span> ₱
+                  {(allocatedBudget - totalAmount).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button
                 variant="outline"
                 onClick={() => setShowSubmitDialog(false)}
@@ -615,8 +696,9 @@ const MOOERequestPage = () => {
                   setShowSubmitDialog(false);
                   await handleSubmit(new Event("submit") as any);
                 }}
+                disabled={submitting}
               >
-                Confirm & Submit
+                {submitting ? "Submitting..." : "Confirm & Submit"}
               </Button>
             </div>
           </div>
@@ -936,7 +1018,9 @@ const MOOERequestPage = () => {
                                   </div>
                                   <button
                                     type="button"
-                                    onClick={() => handleCheck(expenseTitle)}
+                                    onClick={() =>
+                                      setExpenseToRemove(expenseTitle)
+                                    } // <-- FIXED
                                     className="text-gray-400 hover:text-red-500"
                                   >
                                     <X className="h-4 w-4" />
@@ -952,7 +1036,7 @@ const MOOERequestPage = () => {
                       <div className="flex justify-between items-center">
                         <Button
                           type="button"
-                          onClick={() => setSelected({})}
+                          onClick={() => setShowClearAllDialog(true)}
                           variant="outline"
                           size="sm"
                         >
