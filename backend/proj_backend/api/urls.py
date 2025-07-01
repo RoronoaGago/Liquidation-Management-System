@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -19,8 +19,12 @@ urlpatterns = [
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
+    path('schools/batch_update/', batch_update_school_budgets,
+         name='schools-batch-update'),
     path('schools/<str:schoolId>/',
          views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
+    path('legislative-districts/', views.legislative_districts,
+         name='legislative-districts'),
 
     path('requirements/', views.RequirementListCreateAPIView.as_view(),
          name='requirement-list-create'),
@@ -41,7 +45,12 @@ urlpatterns = [
          views.submit_for_liquidation, name='submit-for-liquidation'),
     path('check-pending-requests/', views.check_pending_requests,
          name='check-pending-requests'),
-
+    path('requests/<str:request_id>/resubmit/',
+         views.resubmit_request, name='resubmit-request'),
+    path('requests/<str:pk>/approve/',
+         views.ApproveRequestView.as_view(), name='approve-request'),
+    path('requests/<str:pk>/reject/',
+         views.RejectRequestView.as_view(), name='reject-request'),
     # Liquidation Management URLs
     path('liquidations/', views.LiquidationManagementListCreateAPIView.as_view(),
          name='liquidation-list-create'),
@@ -61,4 +70,7 @@ urlpatterns = [
          name='user-requests'),
     path('liquidation/', views.UserLiquidationsAPIView.as_view(),
          name='liquidation'),
+
+    path('liquidator-assignments/', views.LiquidatorAssignmentListCreateAPIView.as_view(),
+         name='liquidator-assignment-list-create'),
 ]

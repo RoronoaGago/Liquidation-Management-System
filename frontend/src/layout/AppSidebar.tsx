@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 // import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
-import desktopLogo from "../images/bubble-magic/company-logo.png";
+import desktopLogo from "../images/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
   ChevronDownIcon,
@@ -21,7 +21,9 @@ import {
   FileText,
   ListOrdered, // <-- Add this
   History,
-  FileSearch, // <-- Add this
+  FileSearch,
+  UserRoundPenIcon,
+  HandCoinsIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -44,6 +46,12 @@ const allNavItems: NavItem[] = [
     name: "Manage Schools",
     path: "/schools",
     roles: ["admin"], // Only admin
+  },
+  {
+    icon: <HandCoinsIcon />,
+    name: "Resource Allocation",
+    path: "/resource-allocation",
+    roles: ["accountant"], // Only admin and accountant
   },
   {
     icon: <BanknoteIcon />,
@@ -134,10 +142,16 @@ const allNavItems: NavItem[] = [
   //   ],
   // },
   {
-    icon: <UserCircleIcon />,
+    icon: <UserRoundPenIcon />,
     name: "User Profile",
     path: "/profile",
-    roles: ["school_admin", "school_head", "teacher"], // All roles
+    roles: [
+      "school_admin",
+      "school_head",
+      "district_admin",
+      "superintendent",
+      "admin",
+    ], // All roles
   },
   {
     icon: <UserCircleIcon />,

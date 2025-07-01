@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -14,6 +15,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
@@ -21,9 +23,32 @@ import { ListofPriorityData } from "@/lib/types";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useLocation, useNavigate } from "react-router";
-import { DialogContent, Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import api from "@/api/axios";
-// Add this near the top of the component
+
+const CATEGORY_LABELS: Record<string, string> = {
+  travel: "Travel Expenses",
+  training: "Training Expenses",
+  scholarship: "Scholarship Grants/Expenses",
+  supplies: "Office Supplies & Materials Expenses",
+  utilities: "Utilities Expenses",
+  communication: "Communication Expenses",
+  awards: "Awards/Rewards/Prizes Expenses",
+  survey: "Survey, Research, Exploration and Development Expenses",
+  confidential: "Confidential & Intelligence Expenses",
+  extraordinary: "Extraordinary and Miscellaneous Expenses",
+  professional: "Professional Service Expenses",
+  services: "General Services",
+  maintenance: "Repairs and Maintenance Expenses",
+  financial_assistance: "Financial Assistance/Subsidy Expenses",
+  taxes: "Taxes, Duties and Licenses Expenses",
+  labor: "Labor and Wages Expenses",
+  other_maintenance: "Other Maintenance and Operating Expenses",
+  financial: "Financial Expenses",
+  non_cash: "Non-cash Expenses",
+  losses: "Losses",
+};
+
 const MOOERequestPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,7 +58,6 @@ const MOOERequestPage = () => {
     searchTerm: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -44,11 +68,16 @@ const MOOERequestPage = () => {
   const [activeLiquidationData, setActiveLiquidationData] = useState<any>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [categoriesPerPage, setCategoriesPerPage] = useState(5);
+  const [showRequirementsDialog, setShowRequirementsDialog] = useState(false);
+  const [currentPriorityRequirements, setCurrentPriorityRequirements] =
+    useState<string[]>([]);
+  const [currentPriorityTitle, setCurrentPriorityTitle] = useState("");
+  const ALLOCATED_BUDGET = 10000; // Hard-coded allocated budget
 
-  // Add this useEffect to handle pre-filling from a rejected request
+  // Handle pre-filling from a rejected request
   useEffect(() => {
     if (location.state?.rejectedRequestId) {
-      // Convert priorities from the rejected request to selected format
       const initialSelected = location.state.priorities.reduce(
         (acc: any, priority: any) => {
           acc[priority.priority.expenseTitle] = priority.amount;
@@ -56,10 +85,7 @@ const MOOERequestPage = () => {
         },
         {}
       );
-
       setSelected(initialSelected);
-
-      // Show a toast about the rejection
       toast.info(
         <div>
           <p>You're editing a rejected request.</p>
@@ -74,9 +100,8 @@ const MOOERequestPage = () => {
       );
     }
   }, [location.state]);
-  // Fetch priorities from backend
-  // Update your useEffect
-  // Update your useEffect
+
+  // Fetch priorities and check for pending requests or active liquidations
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -93,7 +118,6 @@ const MOOERequestPage = () => {
         setPriorities(data);
 
         const hasPending = pendingCheckResponse.data.has_pending_request;
-        // Only consider as "active" if status is NOT liquidated
         const activeLiquidation = pendingCheckResponse.data.active_liquidation;
         const hasActive =
           !!activeLiquidation && activeLiquidation.status !== "liquidated";
@@ -103,7 +127,6 @@ const MOOERequestPage = () => {
         setPendingRequestData(pendingCheckResponse.data.pending_request);
         setActiveLiquidationData(activeLiquidation);
 
-        // Only show dialog if there is a pending request or a non-liquidated liquidation
         if (hasPending || hasActive) {
           setShowStatusDialog(true);
         } else {
@@ -121,11 +144,12 @@ const MOOERequestPage = () => {
     };
     fetchData();
   }, []);
+
   const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
+
   const handleCheck = (expense: string) => {
     setSelected((prev) => {
       if (expense in prev) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [expense]: _, ...rest } = prev;
         return rest;
       } else {
@@ -134,32 +158,42 @@ const MOOERequestPage = () => {
     });
   };
 
+  const formatNumberWithCommas = (value: string) => {
+    const num = value.replace(/,/g, "");
+    if (num === "") return "";
+    if (isNaN(Number(num))) return value;
+    return Number(num).toLocaleString();
+  };
+
   const handleAmountChange = (expense: string, value: string) => {
-    // Only allow positive numbers
-    if (value === "" || (!isNaN(Number(value)) && Number(value) >= 0)) {
-      setSelected((prev) => ({ ...prev, [expense]: value }));
+    // Remove all non-digit characters except decimal point
+    const cleanValue = value.replace(/[^0-9.]/g, "");
+
+    // If empty string, allow it
+    if (cleanValue === "") {
+      setSelected((prev) => ({ ...prev, [expense]: "" }));
+      return;
+    }
+
+    // Check if it's a valid number
+    if (!isNaN(Number(cleanValue)) && Number(cleanValue) >= 0) {
+      // Format with commas
+      const formattedValue = formatNumberWithCommas(cleanValue);
+      setSelected((prev) => ({ ...prev, [expense]: formattedValue }));
     }
   };
+
   const handleNavigation = () => {
     if (hasPendingRequest) {
       navigate("/requests-history");
     } else if (hasActiveLiquidation) {
       navigate("/liquidation");
     }
-    // No navigation for the fallback case ('#')
-  };
-  const handleQuickAdd = (expense: string, amount: number) => {
-    setSelected((prev) => ({
-      ...prev,
-      [expense]: prev[expense]
-        ? String(Number(prev[expense]) + amount)
-        : String(amount),
-    }));
   };
 
-  // Calculate total amount
+  // Calculate total amount without commas
   const totalAmount = Object.values(selected).reduce(
-    (sum, amount) => sum + (amount ? Number(amount) : 0),
+    (sum, amount) => sum + (amount ? Number(amount.replace(/,/g, "")) : 0),
     0
   );
 
@@ -167,20 +201,30 @@ const MOOERequestPage = () => {
   const selectedPriorities = Object.entries(selected)
     .map(([expenseTitle, amount]) => {
       const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
-      return priority ? { LOPID: priority.LOPID, amount } : null;
+      return priority
+        ? { LOPID: priority.LOPID.toString(), amount: amount.replace(/,/g, "") }
+        : null;
     })
-    .filter(Boolean);
+    .filter(Boolean) as { LOPID: string; amount: string }[];
 
-  // Submit handler
+  // Submit handler with resubmission logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedPriorities.length === 0) {
-      toast.error("Please select at least one expense.");
+    console.log("location.state:", location.state);
+    if (selectedPriorities.length < 2) {
+      toast.error("Please select at least two expenses.");
+      return;
+    }
+
+    if (totalAmount > ALLOCATED_BUDGET) {
+      toast.error(
+        `Total amount cannot exceed allocated budget of ₱${ALLOCATED_BUDGET.toLocaleString()}`
+      );
       return;
     }
 
     const emptyAmounts = selectedPriorities.filter(
-      (item) => item && (!item.amount || item.amount === "0")
+      (item) => !item.amount || item.amount === "0"
     );
     if (emptyAmounts.length > 0) {
       toast.error("Please enter amounts for all selected expenses.");
@@ -189,19 +233,32 @@ const MOOERequestPage = () => {
 
     setSubmitting(true);
     try {
-      await api.post("requests/", {
-        priority_amounts: selectedPriorities,
-        request_month: new Date().toLocaleString("default", {
-          month: "long",
-          year: "numeric",
-        }),
-        notes: location.state?.rejectedRequestId
-          ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
-          : undefined,
-      });
+      if (location.state?.rejectedRequestId) {
+        // Resubmit existing request
+        await api.put(
+          `requests/${location.state.rejectedRequestId}/resubmit/`,
+          {
+            priority_amounts: selectedPriorities,
+          }
+        );
+        toast.success("Resubmitted successfully!");
+      } else {
+        // Create new request
+        await api.post("requests/", {
+          priority_amounts: selectedPriorities,
+          request_month: new Date().toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+          }),
+          notes: location.state?.rejectedRequestId
+            ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
+            : undefined,
+        });
+        toast.success("Fund request submitted successfully!");
+      }
 
       setSelected({});
-      setShowSuccessDialog(true); // Show dialog
+      setShowSuccessDialog(true);
 
       setTimeout(() => {
         setShowSuccessDialog(false);
@@ -240,27 +297,83 @@ const MOOERequestPage = () => {
       .includes(filterOptions.searchTerm.toLowerCase())
   );
 
-  // Separate checked and unchecked items
-  const checkedItems = filteredExpenses.filter(
-    (priority) => selected[priority.expenseTitle] !== undefined
-  );
-  const uncheckedItems = filteredExpenses.filter(
-    (priority) => selected[priority.expenseTitle] === undefined
-  );
+  // Group priorities by category
+  const categories = React.useMemo(() => {
+    const map: { [cat: string]: ListofPriorityData[] } = {};
+    priorities.forEach((p) => {
+      if (!map[p.category]) map[p.category] = [];
+      map[p.category].push(p);
+    });
+    return map;
+  }, [priorities]);
 
-  // Combine checked (first) and unchecked items
-  const sortedItems = [...checkedItems, ...uncheckedItems];
+  // For pagination: get all category keys with unchecked items
+  const allCategoryKeys = Object.keys(categories).filter((cat) =>
+    categories[cat].some((p) => selected[p.expenseTitle] === undefined)
+  );
 
   // Pagination logic
-  const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
-  const currentItems = sortedItems.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const totalPages = Math.ceil(allCategoryKeys.length / categoriesPerPage);
+  const paginatedCategoryKeys = allCategoryKeys.slice(
+    (currentPage - 1) * categoriesPerPage,
+    currentPage * categoriesPerPage
   );
 
-  const goToPage = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
+  // For pagination: flatten all unchecked priorities (not categories)
+
+  // For rendering: group paginated items by category
+
+  // Confirmation dialog state for select all and submit
+  const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+
+  // Handle select all with confirmation
+  const handleCategorySelectAll = (cat: string) => {
+    const itemsToCheck = categories[cat].filter(
+      (p) => selected[p.expenseTitle] === undefined
+    );
+    if (itemsToCheck.length > 3) {
+      setCategoryToSelect(cat);
+    } else {
+      doCategorySelectAll(cat);
+    }
+  };
+  const doCategorySelectAll = (cat: string) => {
+    setSelected((prev) => {
+      const newSel = { ...prev };
+      categories[cat].forEach((p) => {
+        if (!newSel[p.expenseTitle]) newSel[p.expenseTitle] = "";
+      });
+      return newSel;
+    });
+    setCategoryToSelect(null);
+  };
+
+  // Show requirements for a priority
+  const showRequirements = (expenseTitle: string) => {
+    const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
+
+    if (priority && priority.requirements) {
+      // Filter out only requirement objects (not ListofPriorityData)
+      const requirementTitles = priority.requirements
+        .filter(
+          (
+            req
+          ): req is {
+            requirementID: number;
+            requirementTitle: string;
+            is_required: boolean;
+          } => "requirementTitle" in req
+        )
+        .map((req) => req.requirementTitle);
+
+      setCurrentPriorityRequirements(requirementTitles);
+      setCurrentPriorityTitle(expenseTitle);
+      setShowRequirementsDialog(true);
+    } else {
+      setCurrentPriorityRequirements([]);
+      setCurrentPriorityTitle(expenseTitle);
+      setShowRequirementsDialog(true);
     }
   };
 
@@ -285,14 +398,49 @@ const MOOERequestPage = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Requirements Dialog */}
+      <Dialog
+        open={showRequirementsDialog}
+        onOpenChange={setShowRequirementsDialog}
+      >
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h2 className="text-lg font-bold mb-4">
+              Required Documents for {currentPriorityTitle}
+            </h2>
+            {currentPriorityRequirements.length > 0 ? (
+              <ul className="list-disc pl-5 space-y-2">
+                {currentPriorityRequirements.map((req, index) => (
+                  <li key={index} className="text-gray-700 dark:text-gray-300">
+                    {req}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">
+                No specific requirements for this priority.
+              </p>
+            )}
+            <div className="flex justify-end mt-6">
+              <Button
+                variant="primary"
+                onClick={() => setShowRequirementsDialog(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent
-          className="[&>button]:hidden w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-lg border border-gray-200 dark:border-gray-700 "
-          onInteractOutside={(e) => e.preventDefault()} // Prevents closing when clicking outside
-          onEscapeKeyDown={(e) => e.preventDefault()} // Optional: Prevents closing with ESC key
+          className="[&>button]:hidden w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-lg border border-gray-200 dark:border-gray-700"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          {/* Header */}
-          <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+          <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-5 border-b border  -gray-100 dark:border-gray-700">
             <div className="flex items-center gap-4">
               <div className="p-2.5 rounded-lg bg-brand-100/80 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
                 <AlertCircle className="h-6 w-6" />
@@ -302,13 +450,12 @@ const MOOERequestPage = () => {
                   Action Required
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Please review these important notification
+                  Please review these important notifications
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Content */}
           <div className="space-y-4 px-6 py-5">
             {hasPendingRequest && (
               <div className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
@@ -318,7 +465,7 @@ const MOOERequestPage = () => {
                 <div className="space-y-2.5">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     Pending MOOE Request
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100  text-brand-800 dark:text-brand-200">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800 dark:text-brand-200">
                       Attention needed
                     </span>
                   </h3>
@@ -348,7 +495,7 @@ const MOOERequestPage = () => {
                 <div className="space-y-2.5">
                   <h3 className="font-semibold text-gray-900 dark:text-white">
                     Active Liquidation Process
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100  text-brand-800 dark:text-brand-200">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800 dark:text-brand-200">
                       Attention needed
                     </span>
                   </h3>
@@ -378,8 +525,6 @@ const MOOERequestPage = () => {
             )}
           </div>
 
-          {/* Footer */}
-          {/* Footer */}
           <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
             <div></div>
             <Button
@@ -393,11 +538,74 @@ const MOOERequestPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Select All Confirmation Dialog */}
+      <Dialog
+        open={!!categoryToSelect}
+        onOpenChange={() => setCategoryToSelect(null)}
+      >
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h2 className="text-lg font-bold mb-2">Select All in Category</h2>
+            <p>
+              Are you sure you want to select all items under{" "}
+              <span className="font-semibold">
+                {CATEGORY_LABELS[categoryToSelect ?? ""] || categoryToSelect}
+              </span>
+              ?
+            </p>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setCategoryToSelect(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => doCategorySelectAll(categoryToSelect!)}
+              >
+                Yes, Select All
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Submit Confirmation Dialog */}
+      <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h2 className="text-lg font-bold mb-2">Confirm Submission</h2>
+            <p className="mb-4">
+              Are you sure you want to submit this MOOE request?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowSubmitDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  setShowSubmitDialog(false);
+                  await handleSubmit(new Event("submit") as any);
+                }}
+              >
+                Confirm & Submit
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="mt-8">
         {!isFormDisabled && (
           <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
             <h3 className="text-lg font-medium text-brand-800 dark:text-brand-200 flex items-center gap-2 mb-2">
-              <Info className="h-5 w-5" /> How to request MOOE(Maintenance and
+              <Info className="h-5 w-5" /> How to request MOOE (Maintenance and
               Other Operating Expenses)
             </h3>
             <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
@@ -409,7 +617,30 @@ const MOOERequestPage = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            // Only show confirmation dialog if all amounts are filled
+            const emptyAmounts = Object.entries(selected).filter(
+              ([, amount]) => !amount || amount === "0"
+            );
+            if (Object.keys(selected).length < 2) {
+              toast.error("Please select at least two expenses.");
+              return;
+            }
+            if (totalAmount > ALLOCATED_BUDGET) {
+              toast.error(
+                `Total amount cannot exceed allocated budget of ₱${ALLOCATED_BUDGET.toLocaleString()}`
+              );
+              return;
+            }
+            if (emptyAmounts.length > 0) {
+              toast.error("Please enter amounts for all selected expenses.");
+              return;
+            }
+            setShowSubmitDialog(true);
+          }}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column - Expense List */}
             <div>
@@ -433,17 +664,17 @@ const MOOERequestPage = () => {
 
                 <div className="flex gap-4 w-full md:w-auto items-center">
                   <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    Items per page:
+                    Categories per page:
                   </label>
                   <select
-                    value={itemsPerPage.toString()}
+                    value={categoriesPerPage}
                     onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
+                      setCategoriesPerPage(Number(e.target.value));
                       setCurrentPage(1);
                     }}
                     className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
                   >
-                    {[5, 10, 20, 50].map((num) => (
+                    {[3, 5, 10, 20].map((num) => (
                       <option key={num} value={num}>
                         Show {num}
                       </option>
@@ -464,89 +695,60 @@ const MOOERequestPage = () => {
                     {fetchError}
                   </div>
                 )}
-                {!loading && !fetchError && currentItems.length === 0 && (
-                  <div className="col-span-2 text-gray-500 text-center py-8">
-                    No expenses found matching your search.
-                  </div>
-                )}
+
                 {!loading &&
                   !fetchError &&
-                  currentItems.map((priority) => {
-                    const isSelected =
-                      selected[priority.expenseTitle] !== undefined;
+                  paginatedCategoryKeys.map((cat) => {
+                    const items = categories[cat].filter(
+                      (p) => selected[p.expenseTitle] === undefined
+                    );
+                    if (items.length === 0) return null;
                     return (
                       <div
-                        key={priority.LOPID}
-                        className={`p-4 rounded-lg border transition-all flex items-center justify-between group ${
-                          isSelected
-                            ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20"
-                            : "border-gray-200 hover:border-brand-400 dark:border-gray-700 dark:hover:border-brand-500"
-                        }`}
+                        key={cat}
+                        className="mb-4 border border-gray-300 rounded-lg transition-colors"
                       >
-                        <div className="flex items-center space-x-4">
+                        {/* Category Header */}
+                        <div className="flex items-center mb-2 w-full bg-gray-50 dark:bg-gray-700/40 rounded-t-lg px-3 py-2">
                           <input
                             type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleCheck(priority.expenseTitle)}
+                            checked={items.every(
+                              (p) => selected[p.expenseTitle] !== undefined
+                            )}
+                            onChange={() => handleCategorySelectAll(cat)}
                             disabled={isFormDisabled}
-                            className={`h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 transform group-hover:scale-110 transition-transform cursor-pointer ${
-                              isFormDisabled
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
-                            }`}
+                            className="mr-3 h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
+                            style={{ cursor: "pointer" }}
                           />
-                          <span className="font-medium text-gray-700 dark:text-gray-300">
-                            {priority.expenseTitle}
+                          <span className="font-semibold text-brand-700 dark:text-brand-200 w-full">
+                            {CATEGORY_LABELS[cat] || cat}
                           </span>
                         </div>
-
-                        {isSelected && (
-                          <div className="flex items-center gap-2">
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleQuickAdd(priority.expenseTitle, 1000)
-                                }
-                                className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-                              >
-                                +1000
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleQuickAdd(priority.expenseTitle, 500)
-                                }
-                                className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-                              >
-                                +500
-                              </button>
-                            </div>
-                            <div className="relative w-32">
-                              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                                ₱
-                              </span>
+                        {/* Items under category, indented */}
+                        <div className="pl-8 space-y-2 pb-2">
+                          {items.map((priority) => (
+                            <div
+                              key={priority.LOPID}
+                              className="flex items-center py-2 pr-4 rounded-lg transition-colors hover:bg-brand-50/60 dark:hover:bg-brand-900/20"
+                            >
                               <input
-                                type="text"
-                                value={selected[priority.expenseTitle] || ""}
-                                onChange={(e) =>
-                                  handleAmountChange(
-                                    priority.expenseTitle,
-                                    e.target.value
-                                  )
+                                type="checkbox"
+                                checked={
+                                  selected[priority.expenseTitle] !== undefined
+                                }
+                                onChange={() =>
+                                  handleCheck(priority.expenseTitle)
                                 }
                                 disabled={isFormDisabled}
-                                className={`w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
-                                  isFormDisabled
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : ""
-                                }`}
-                                placeholder="0.00"
-                                onClick={(e) => e.stopPropagation()}
+                                className="h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
+                                style={{ cursor: "pointer" }}
                               />
+                              <span className="ml-3 text-gray-700 dark:text-gray-300">
+                                {priority.expenseTitle}
+                              </span>
                             </div>
-                          </div>
-                        )}
+                          ))}
+                        </div>
                       </div>
                     );
                   })}
@@ -555,13 +757,13 @@ const MOOERequestPage = () => {
               {/* Pagination */}
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {currentPage} of {totalPages} • {sortedItems.length}{" "}
-                  total items
+                  Page {currentPage} of {totalPages} • {allCategoryKeys.length}{" "}
+                  total categories
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    onClick={() => goToPage(1)}
+                    onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                     variant="outline"
                     size="sm"
@@ -570,7 +772,7 @@ const MOOERequestPage = () => {
                   </Button>
                   <Button
                     type="button"
-                    onClick={() => goToPage(currentPage - 1)}
+                    onClick={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     variant="outline"
                     size="sm"
@@ -578,36 +780,22 @@ const MOOERequestPage = () => {
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      return (
-                        <Button
-                          type="button"
-                          key={pageNum}
-                          onClick={() => goToPage(pageNum)}
-                          variant={
-                            currentPage === pageNum ? "primary" : "outline"
-                          }
-                          size="sm"
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
+                    {Array.from({ length: totalPages }, (_, i) => (
+                      <Button
+                        type="button"
+                        key={i + 1}
+                        onClick={() => setCurrentPage(i + 1)}
+                        variant={currentPage === i + 1 ? "primary" : "outline"}
+                        size="sm"
+                      >
+                        {i + 1}
+                      </Button>
+                    ))}
                   </div>
                   <Button
                     type="button"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
                     variant="outline"
                     size="sm"
                   >
@@ -615,8 +803,8 @@ const MOOERequestPage = () => {
                   </Button>
                   <Button
                     type="button"
-                    onClick={() => goToPage(totalPages)}
-                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
                     variant="outline"
                     size="sm"
                   >
@@ -635,12 +823,31 @@ const MOOERequestPage = () => {
                   </h3>
                 </div>
 
-                {checkedItems.length > 0 ? (
+                {Object.keys(selected).length > 0 ? (
                   <>
                     <div className="p-4">
+                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Allocated Budget:
+                          </span>
+                          <span className="font-bold text-blue-800 dark:text-blue-200">
+                            ₱{ALLOCATED_BUDGET.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Remaining Budget:
+                          </span>
+                          <span className="font-bold text-blue-800 dark:text-blue-200">
+                            ₱{(ALLOCATED_BUDGET - totalAmount).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-gray-600 dark:text-gray-300">
-                          {checkedItems.length} item(s) selected
+                          {Object.keys(selected).length} item(s) selected
                         </span>
                         <span className="font-medium text-brand-600 dark:text-brand-400">
                           Total: ₱{totalAmount.toLocaleString()}
@@ -648,33 +855,77 @@ const MOOERequestPage = () => {
                       </div>
 
                       <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                        {checkedItems.map((priority) => (
-                          <div
-                            key={priority.LOPID}
-                            className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-                          >
-                            <div className="truncate pr-2">
-                              {priority.expenseTitle}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                ₱{selected[priority.expenseTitle] || "0"}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleCheck(priority.expenseTitle)
-                                }
-                                className="text-gray-400 hover:text-red-500"
+                        {Object.entries(selected).map(
+                          ([expenseTitle, amount]) => {
+                            const priority = priorities.find(
+                              (p) => p.expenseTitle === expenseTitle
+                            );
+                            if (!priority) return null;
+                            return (
+                              <div
+                                key={priority.LOPID}
+                                className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
                               >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                                <div className="pr-2">
+                                  <div className="truncate">{expenseTitle}</div>
+                                  <div className="flex items-center mt-1">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {CATEGORY_LABELS[priority.category] ||
+                                        priority.category}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        showRequirements(expenseTitle)
+                                      }
+                                      className="ml-2 text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      {priority.requirements
+                                        ? priority.requirements.length
+                                        : 0}{" "}
+                                      docs
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="relative w-24">
+                                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500">
+                                      ₱
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={amount}
+                                      onChange={(e) =>
+                                        handleAmountChange(
+                                          expenseTitle,
+                                          e.target.value
+                                        )
+                                      }
+                                      disabled={isFormDisabled}
+                                      className={`w-full pl-6 pr-2 py-1 text-sm border border-gray-300 rounded focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                                        isFormDisabled
+                                          ? "opacity-50 cursor-not-allowed"
+                                          : ""
+                                      }`}
+                                      placeholder="0.00"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCheck(expenseTitle)}
+                                    className="text-gray-400 hover:text-red-500"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+                        )}
                       </div>
                     </div>
-
                     <div className="p-4 border-t border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex justify-between items-center">
                         <Button

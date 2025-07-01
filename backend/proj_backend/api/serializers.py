@@ -1,10 +1,11 @@
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidatorAssignment, LiquidationPriority
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
 import base64
 import uuid
 import string
+from django.db import transaction
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -163,8 +164,14 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ListOfPriority
-        fields = ['LOPID', 'expenseTitle', 'requirements',
-                  'requirement_ids', 'is_active']
+        fields = [
+            'LOPID',
+            'expenseTitle',
+            'category',        # <-- Add this line
+            'requirements',
+            'requirement_ids',
+            'is_active'
+        ]
 
     def create(self, validated_data):
         requirements = validated_data.pop('requirements', [])
@@ -202,43 +209,61 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
+    reviewed_by = UserSerializer(read_only=True)
 
     class Meta:
         model = RequestManagement
         fields = [
-            'request_id', 'user', 'request_month',
+            'request_id', 'user', 'request_monthyear',
             'status', 'priorities', 'created_at',
             'priority_amounts',
             'date_approved',
             'date_downloaded',
             'rejection_comment',
-            'rejection_date'
+            'rejection_date',
+            'reviewed_by',
+            'reviewed_at',
         ]
         read_only_fields = ['request_id', 'created_at',
-                            'date_approved', 'date_downloaded', 'rejection_date']
+                            'date_approved', 'date_downloaded', 'reviewed_by', 'reviewed_at']
 
     def get_priorities(self, obj):
         request_priorities = obj.requestpriority_set.all()
         return RequestPrioritySerializer(request_priorities, many=True).data
 
     def create(self, validated_data):
-        priority_amounts = validated_data.pop('priority_amounts', [])
-        request_obj = RequestManagement.objects.create(**validated_data)
-        # Save priorities and amounts
-        for pa in priority_amounts:
-            lopid = pa.get('LOPID')
-            amount = pa.get('amount')
-            if lopid and amount is not None:
-                try:
-                    priority = ListOfPriority.objects.get(LOPID=lopid)
-                    RequestPriority.objects.create(
-                        request=request_obj,
-                        priority=priority,
-                        amount=amount
-                    )
-                except ListOfPriority.DoesNotExist:
-                    continue
-        return request_obj
+        print(f"Validated data: {validated_data}")
+        with transaction.atomic():
+            priority_amounts = validated_data.pop('priority_amounts', [])
+            request_obj = RequestManagement.objects.create(**validated_data)
+            for pa in priority_amounts:
+                lopid = pa.get('LOPID')
+                amount = pa.get('amount')
+                if lopid and amount is not None:
+                    try:
+                        priority = ListOfPriority.objects.get(LOPID=lopid)
+                        RequestPriority.objects.create(
+                            request=request_obj,
+                            priority=priority,
+                            amount=amount
+                        )
+                    except ListOfPriority.DoesNotExist:
+                        continue
+            return request_obj
+
+
+class LiquidationPrioritySerializer(serializers.ModelSerializer):
+    priority = ListOfPrioritySerializer(read_only=True)
+    priority_id = serializers.PrimaryKeyRelatedField(
+        queryset=ListOfPriority.objects.all(),
+        source='priority',
+        write_only=True
+    )
+
+    class Meta:
+        model = LiquidationPriority
+        fields = ['id', 'liquidation', 'priority', 'priority_id', 'amount']
+        read_only_fields = ['id', 'liquidation', 'priority']
 
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
@@ -291,12 +316,15 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
+    remaining_days = serializers.IntegerField(read_only=True)
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     submitted_at = serializers.DateTimeField(
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
     reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
+    liquidation_priorities = LiquidationPrioritySerializer(
+        many=True, read_only=True)
 
     class Meta:
         model = LiquidationManagement
@@ -313,6 +341,8 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'submitted_at',
             'reviewer_comments',
             'created_at',
+            'liquidation_priorities',  # <-- Add this line
+            'remaining_days',  # <-- Add this
         ]
 
     def get_reviewer_comments(self, obj):
@@ -325,6 +355,67 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                     'comment': doc.reviewer_comment
                 })
         return comments
+
+
+class LiquidatorAssignmentSerializer(serializers.ModelSerializer):
+    liquidator = UserSerializer(read_only=True)
+    liquidator_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='liquidator'),
+        source='liquidator',
+        write_only=True
+    )
+    assigned_by = UserSerializer(read_only=True)
+    assigned_by_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='assigned_by',
+        write_only=True,
+        required=False
+    )
+    school = SchoolSerializer(read_only=True)
+    school_id = serializers.PrimaryKeyRelatedField(
+        queryset=School.objects.all(),
+        source='school',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+
+    class Meta:
+        model = LiquidatorAssignment
+        fields = [
+            'id',
+            'liquidator', 'liquidator_id',
+            'district',
+            'school', 'school_id',
+            'assigned_by', 'assigned_by_id',
+            'assigned_at'
+        ]
+        read_only_fields = ['id', 'assigned_at',
+                            'liquidator', 'assigned_by', 'school']
+
+    def create(self, validated_data):
+        liquidator = validated_data['liquidator']
+        district = validated_data['district']
+        assigned_by = validated_data.get('assigned_by', None)
+
+        # Get all schools in the district
+        schools = School.objects.filter(district=district)
+        assignments = []
+        for school in schools:
+            # Prevent duplicate assignments
+            if not LiquidatorAssignment.objects.filter(liquidator=liquidator, district=district, school=school).exists():
+                assignments.append(
+                    LiquidatorAssignment(
+                        liquidator=liquidator,
+                        district=district,
+                        school=school,
+                        assigned_by=assigned_by
+                    )
+                )
+        # Bulk create assignments
+        LiquidatorAssignment.objects.bulk_create(assignments)
+        # Return the first assignment for serializer response
+        return assignments[0] if assignments else None
 
 
 class NotificationSerializer(serializers.ModelSerializer):

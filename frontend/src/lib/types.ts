@@ -18,6 +18,7 @@ export interface School {
   municipality: string;
   legislativeDistrict: string;
   is_active?: boolean;
+  max_budget?: number; // Optional field for budget allocation
 }
 export type User = {
   id: number;
@@ -33,7 +34,7 @@ export type User = {
   is_active: boolean;
   password: string;
   confirm_password: string;
-  school: number | School | null;
+  school: School | null;
   profile_picture_base64?: string;
 };
 export type SortDirection = "asc" | "desc" | null;
@@ -113,6 +114,16 @@ export type UserFormData = {
 export type ListofPriorityData = {
   LOPID: number;
   expenseTitle: string;
+  category: string;
+  is_active?: boolean;
+  requirements?: (
+    | {
+        requirementID: number;
+        requirementTitle: string;
+        is_required: boolean;
+      }
+    | ListofPriorityData
+  )[];
 };
 
 export type NavItem = {
@@ -151,6 +162,7 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   size?: "sm" | "md"; // Button size
   variant?:
   | "primary"
+  | "secondary" // Added secondary variant
   | "outline"
   | "error"
   | "success"
@@ -190,6 +202,8 @@ export type Submission = {
   created_at: string;
   rejection_comment: string; // Optional field for rejection reason
   rejection_date: string; // Optional field for when the rejection occurred
+  reviewed_by: User;
+  reviewed_at?: string;
 };
 
 type Priority = {
