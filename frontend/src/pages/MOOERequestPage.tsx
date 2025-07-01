@@ -285,7 +285,6 @@ const MOOERequestPage = () => {
             priority_amounts: selectedPriorities,
           }
         );
-        toast.success("Resubmitted successfully!");
       } else {
         // Create new request
         await api.post("requests/", {
@@ -298,16 +297,15 @@ const MOOERequestPage = () => {
             ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
             : undefined,
         });
-        toast.success("Fund request submitted successfully!");
       }
 
       setSelected({});
-      // setShowSuccessDialog(true);
+      setShowSuccessDialog(true); // <-- Show success dialog
 
-      // setTimeout(() => {
-      //   setShowSuccessDialog(false);
-      //   navigate("/requests-history");
-      // }, 2500);
+      setTimeout(() => {
+        setShowSuccessDialog(false);
+        navigate("/requests-history"); // <-- Redirect after 2.5s
+      }, 2500);
     } catch (error: any) {
       console.error("Error:", error);
       const errorMessage =
