@@ -1,12 +1,25 @@
 import jsPDF from "jspdf";
 import { depedLogoBase64 } from "@/lib/depedLogo";
 import { Submission } from "./types";
+import { getDistrictLogoFilename } from "./helpers";
+import api from "@/services/api"; // or your axios instance
+
+// Usage in your code
+
 
 
 //TODO - name ng file is pangalan ng school ex (TALLAOEN_LUNA_LA_UNION_LOP)
 
-export const handleExport = (submission: Submission, first_name: string, last_name: string) => {
+export const handleExport = async (submission: Submission, first_name: string, last_name: string) => {
+    // Fetch signatories
+    const { data: signatories } = await api.get("/division-signatories/");
+    const superintendent = signatories.superintendent;
+    const accountant = signatories.accountant;
 
+    const logoFilename = getDistrictLogoFilename(submission.user.school?.district ?? ""); // e.g. "agoo-east-district.png"
+
+    const logoPath = `/src/images/district-logos/${logoFilename}`;
+    const districtLogoBase64 = await getLogoBase64(logoPath);
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -33,7 +46,7 @@ export const handleExport = (submission: Submission, first_name: string, last_na
     // Right logo
     const rightLogoX = pageWidth / 2 + logoMarginFromCenter;
     doc.addImage(
-        depedLogoBase64,
+        districtLogoBase64,
         "PNG",
         rightLogoX,
         logoY,
@@ -105,7 +118,7 @@ export const handleExport = (submission: Submission, first_name: string, last_na
             logoHeight
         );
         doc.addImage(
-            depedLogoBase64,
+            districtLogoBase64,
             "PNG",
             rightLogoX,
             logoY,
@@ -185,7 +198,7 @@ export const handleExport = (submission: Submission, first_name: string, last_na
 
     // Heading (Recipient)
     doc.setFont(bodyFont, "bold");
-    doc.text(`${(first_name + " " + last_name).toUpperCase()}`, 18, y);
+    doc.text(`${(superintendent?.first_name + " " + superintendent?.last_name).toUpperCase()}`, 18, y);
     doc.setFont(bodyFont, bodyFontStyle);
     y += 6;
     doc.text("Schools Division Superintendent", 18, y);
@@ -206,8 +219,15 @@ export const handleExport = (submission: Submission, first_name: string, last_na
         (sum, p) => sum + Number(p.amount),
         0
     );
+    // Dynamic month/year
+    const submissionDate = new Date(submission.created_at);
+    const monthYear = submissionDate.toLocaleString("en-US", {
+        month: "long",
+        year: "numeric",
+    });
+
     doc.text(
-        `Requesting for cash advance to School MOOE for the month of June 2025, amounting to Php ${totalAmount.toLocaleString(
+        `Requesting for cash advance to School MOOE for the month of ${monthYear}, amounting to Php ${totalAmount.toLocaleString(
             undefined,
             { minimumFractionDigits: 2 }
         )}.`,
@@ -223,8 +243,12 @@ export const handleExport = (submission: Submission, first_name: string, last_na
     doc.text("LIST OF PRIORITIES", pageWidth / 2, y, { align: "center" });
     y += 6;
     doc.setFont(bodyFont, "bold");
-    const monthYear = "June 2025";
-    doc.text(monthYear, pageWidth / 2, y, { align: "center" });
+    const submissionDate2 = new Date(submission.created_at); // or use another relevant date field
+    const monthYear2 = submissionDate2.toLocaleString("en-US", {
+        month: "long",
+        year: "numeric",
+    });
+    doc.text(monthYear2, pageWidth / 2, y, { align: "center" });
 
     y += 10;
 
@@ -257,28 +281,46 @@ export const handleExport = (submission: Submission, first_name: string, last_na
     const bottomMargin = 36; // leave space for signatures or just for margin
 
     submission.priorities.forEach((priority) => {
+        // Wrap expense title
+        const expenseText = doc.splitTextToSize(
+            priority.priority.expenseTitle,
+            col1Width - 4
+        );
+        const lines = expenseText.length;
+        const rowHeightDynamic = rowHeight * lines;
+
         // Check if next row fits
-        if (currentY + rowHeight > pageHeight - bottomMargin) {
+        if (currentY + rowHeightDynamic > pageHeight - bottomMargin) {
             doc.addPage();
             lineY = drawHeader();
             currentY = lineY + 16;
-            // Optionally, re-draw "LIST OF PRIORITIES" and monthYear here if you want them on every page
             drawTableHeader(currentY);
             currentY += rowHeight;
         }
+
         // Row borders
-        doc.rect(col1X, currentY, col1Width, rowHeight);
-        doc.rect(col1X + col1Width, currentY, col2Width, rowHeight);
+        doc.rect(col1X, currentY, col1Width, rowHeightDynamic);
+        doc.rect(col1X + col1Width, currentY, col2Width, rowHeightDynamic);
+
         // Expense (left)
-        doc.text(priority.priority.expenseTitle, col1X + 2, currentY + 6);
-        // Amount (centered)
+        // Calculate vertical offset to center the block of text
+        const textHeight = lines * rowHeight;
+        const verticalOffset = (rowHeightDynamic - textHeight) / 2;
+
+        // Start Y position for the text block
+        const expenseTextY = currentY + 2 + verticalOffset;
+
+        doc.text(expenseText, col1X + 2, expenseTextY, { baseline: "top" });
+
+        // Amount (centered, vertically centered)
         doc.text(
             Number(priority.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }),
             col1X + col1Width + col2Width / 2,
-            currentY + 6,
+            currentY + 6 + ((rowHeightDynamic - rowHeight) / 2),
             { align: "center" }
         );
-        currentY += rowHeight;
+
+        currentY += rowHeightDynamic;
     });
 
     // Total Row (check if it fits, else new page)
@@ -323,10 +365,25 @@ export const handleExport = (submission: Submission, first_name: string, last_na
         leftX,
         lineY2 + 7
     );
-    doc.text("JOMARI FONTAWA", rightX, lineY2 + 7);
+    doc.text(
+        `${accountant?.first_name?.toUpperCase() || ""} ${accountant?.last_name?.toUpperCase() || ""}`,
+        rightX,
+        lineY2 + 7
+    );
     doc.setFont(bodyFont, "normal");
     doc.text("School Head", leftX, lineY2 + 14);
     doc.text("Accountant III", rightX, lineY2 + 14);
 
     doc.save(`${submission.user.school?.schoolName.toUpperCase()}_${submission.request_id}.pdf`);
 };
+
+async function getLogoBase64(logoPath: string): Promise<string> {
+    const response = await fetch(logoPath);
+    const blob = await response.blob();
+    return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}

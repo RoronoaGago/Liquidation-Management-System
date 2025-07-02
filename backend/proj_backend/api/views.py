@@ -1066,3 +1066,20 @@ class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
 def user_me(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def division_signatories(request):
+    """
+    Returns the first superintendent and division accountant.
+    """
+    from .models import User
+    superintendent = User.objects.filter(
+        role='superintendent').order_by('date_joined').first()
+    accountant = User.objects.filter(
+        role='accountant').order_by('date_joined').first()
+    return Response({
+        "superintendent": UserSerializer(superintendent).data if superintendent else None,
+        "accountant": UserSerializer(accountant).data if accountant else None,
+    })
