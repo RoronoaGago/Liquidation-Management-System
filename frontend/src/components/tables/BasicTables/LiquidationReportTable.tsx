@@ -21,7 +21,7 @@ import Input from "@/components/form/input/InputField";
 import { toast } from "react-toastify";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 
 // Define the Liquidation type (or import it if shared)
