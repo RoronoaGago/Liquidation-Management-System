@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useMemo } from "react";
 import api from "@/api/axios";
 import { Liquidation } from "@/components/tables/BasicTables/LiquidationReportTable";
@@ -91,6 +91,7 @@ function ErrorFallback() {
 
 const LiquidationDetailsPage = () => {
   const { liquidationId } = useParams<{ liquidationId: string }>();
+  const navigate = useNavigate();
   const [liquidation, setLiquidation] = useState<Liquidation | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
@@ -256,9 +257,7 @@ const LiquidationDetailsPage = () => {
         reviewed_at_district: new Date().toISOString(),
       });
       toast.success("Liquidation report approved!");
-      // Refresh data
-      const res = await api.get(`/liquidations/${liquidationId}/`);
-      setLiquidation(res.data);
+      navigate("/pre-auditing"); // Changed from "/liquidations" to "/pre-auditing"
     } catch (err) {
       toast.error("Failed to approve liquidation report");
     } finally {
@@ -274,16 +273,7 @@ const LiquidationDetailsPage = () => {
         reviewed_at_district: null,
       });
       toast.info("Liquidation report sent back for revision.");
-      // Refresh data
-      const res = await api.get(`/liquidations/${liquidationId}/`);
-      setLiquidation(res.data);
-      const docRes = await api.get(`/liquidations/${liquidationId}/documents/`);
-      setDocuments(
-        docRes.data.map((doc: any) => ({
-          ...doc,
-          is_approved: null, // Reset approvals
-        }))
-      );
+      navigate("/liquidations"); // Navigate back after rejection
     } catch (err) {
       toast.error("Failed to reject liquidation report");
     } finally {
@@ -370,6 +360,7 @@ const LiquidationDetailsPage = () => {
     <div className="container mx-auto px-5 py-10">
       <PageBreadcrumb
         pageTitle={`Liquidation Details: ${liquidation.LiquidationID}`}
+        backUrl="/pre-auditing"
       />
 
       <div className="bg-white rounded-lg shadow p-6">
@@ -811,9 +802,15 @@ const LiquidationDetailsPage = () => {
               onClick={handleApproveReport}
               disabled={!canApprove || actionLoading}
               color="success"
-              startIcon={<CheckCircle className="h-5 w-5" />}
+              startIcon={
+                actionLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-5 w-5" />
+                )
+              }
             >
-              Approve Liquidation Report
+              {actionLoading ? "Approving..." : "Approve Liquidation Report"}
             </Button>
           </div>
         )}
