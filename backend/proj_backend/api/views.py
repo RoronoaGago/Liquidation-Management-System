@@ -672,27 +672,23 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
     permission_classes = [IsAuthenticated]
     lookup_field = 'LiquidationID'
 
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        partial = kwargs.pop('partial', False)
-        data = request.data.copy()
-
-        # If approving at district level, set reviewed_by_district
-        if data.get("status") == "approved_district":
-            data["reviewed_by_district"] = request.user.id
-            data["reviewed_at_district"] = timezone.now()
-
-        # Set the user who changed the status
-        instance._status_changed_by = request.user  # <-- THIS IS CRUCIAL
-        serializer = self.get_serializer(instance, data=data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
-
-    def perform_update(self, serializer):
-        instance = self.get_object()
-        instance._status_changed_by = self.request.user
-        serializer.save()
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Prefetch related data for better performance
+        return queryset.select_related(
+            'request',
+            'request__user',
+            'request__user__school',
+            'reviewed_by_district',
+            'reviewed_by_division'
+        ).prefetch_related(
+            'documents',
+            'documents__requirement',
+            'documents__request_priority',
+            'documents__request_priority__priority',
+            'liquidation_priorities',
+            'liquidation_priorities__priority'
+        )
 
 
 @api_view(['POST'])
