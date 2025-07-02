@@ -1,26 +1,27 @@
-import { Link } from "react-router";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { Link, useNavigate } from "react-router-dom";
 
 interface BreadcrumbProps {
   pageTitle: string;
+  backUrl?: string;
 }
 
-const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
+const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle, backUrl }) => {
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-      <h2
-        className="text-xl font-semibold text-gray-800 dark:text-white/90"
-        x-text="pageName"
-      >
+      <h2 className="text-xl font-semibold text-gray-800 dark:text-white/90">
         {pageTitle}
       </h2>
       <nav>
         <ol className="flex items-center gap-1.5">
           <li>
-            <Link
-              className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400"
-              to="/"
+            <button
+              onClick={() => (backUrl ? navigate(backUrl) : navigate("/"))}
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             >
-              Home
+              {backUrl ? "District Liquidation Management" : "Home"}
               <svg
                 className="stroke-current"
                 width="17"
@@ -37,7 +38,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
                   strokeLinejoin="round"
                 />
               </svg>
-            </Link>
+            </button>
           </li>
           <li className="text-sm text-gray-800 dark:text-white/90">
             {pageTitle}

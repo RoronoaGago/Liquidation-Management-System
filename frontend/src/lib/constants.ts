@@ -156,3 +156,4 @@ export interface Transaction {
   updated_at: string;
   completed_at: string | null;
 }
+
