@@ -25,10 +25,10 @@ import ApprovedRequestPage from "./pages/ApprovedRequestPage";
 import ManageRequirementsPage from "./pages/ManageRequirementsPage";
 import MOOERequestPage from "./pages/MOOERequestPage";
 import MOOERequestHistory from "./pages/MOOERequestHistory";
-import { Bounce, ToastContainer } from "react-toastify";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
 import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
+import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 
 const App = () => {
   return (
@@ -62,8 +62,14 @@ const App = () => {
             </Route>
 
             <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
-              {/* <Route path="/users" element={<ManageUsers />} /> */}
               <Route path="/pre-auditing" element={<LiquidationReportPage />} />
+            </Route>
+            {/* Add this route for liquidation details */}
+            <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
+              <Route
+                path="/liquidations/:liquidationId"
+                element={<LiquidationDetailsPage />}
+              />
             </Route>
 
             {/* School Head-only routes */}
