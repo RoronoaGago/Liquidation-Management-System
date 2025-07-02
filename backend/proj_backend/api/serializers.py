@@ -331,8 +331,6 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'reviewed_by_division',
             'reviewed_at_division',
             'documents',
-            'submitted_at',
-            'reviewer_comments',
             'created_at',
             'liquidation_priorities',
             'remaining_days',
