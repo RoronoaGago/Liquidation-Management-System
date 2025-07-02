@@ -90,7 +90,7 @@ const MOOERequestHistory = () => {
         open={!!viewedSubmission}
         onOpenChange={() => setViewedSubmission(null)}
       >
-        <DialogContent className="w-full max-w-[90vw] lg:max-w-3xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <DialogContent className="w-full max-w-[90vw] lg:max-w-5xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Request Details
@@ -279,22 +279,23 @@ const MOOERequestHistory = () => {
               )}
               {/* Action Buttons - Modified to check for superintendent role */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                {user?.role === "superintendent" && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      handleExport(
-                        viewedSubmission,
-                        user?.first_name || "user",
-                        user?.last_name || "name"
-                      )
-                    }
-                    startIcon={<Download className="w-4 h-4" />}
-                  >
-                    Export PDF
-                  </Button>
-                )}
+                {user?.role === "superintendent" ||
+                  (user?.role === "school_head" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        handleExport(
+                          viewedSubmission,
+                          user?.first_name || "user",
+                          user?.last_name || "name"
+                        )
+                      }
+                      startIcon={<Download className="w-4 h-4" />}
+                    >
+                      Export PDF
+                    </Button>
+                  ))}
               </div>
             </div>
           )}

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
@@ -13,7 +14,6 @@ import Badge from "@/components/ui/badge/Badge";
 import { handleExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
-  XCircle,
   Download,
   Search,
   ChevronLeft,
@@ -22,11 +22,24 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
-import axios from "axios";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
+
+// Helper function to map role keys to display names
+function getRoleDisplayName(roleKey: string): string {
+  const roleMap: Record<string, string> = {
+    admin: "Administrator",
+    school_head: "School Head",
+    school_admin: "School Administrative Assistant",
+    district_admin: "District Administrative Assistant",
+    superintendent: "Division Superintendent",
+    liquidator: "Liquidator",
+    accountant: "Division Accountant",
+  };
+  return roleMap[roleKey] || roleKey;
+}
 
 const ApprovedRequestPage = () => {
   // State for submissions and modal
@@ -37,7 +50,7 @@ const ApprovedRequestPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const [schools, setSchools] = useState<School[]>([]);
+  const [, setSchools] = useState<School[]>([]);
 
   // Pagination, search, and sort state
   const [currentPage, setCurrentPage] = useState(1);
@@ -366,7 +379,7 @@ const ApprovedRequestPage = () => {
         open={!!viewedSubmission}
         onOpenChange={() => setViewedSubmission(null)}
       >
-        <DialogContent className="w-full max-w-[90vw] lg:max-w-3xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <DialogContent className="w-full max-w-[90vw] lg:max-w-5xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Priority Submission Details
@@ -381,23 +394,17 @@ const ApprovedRequestPage = () => {
               {/* Sender Details Card - Improved for long IDs */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {" "}
-                  {/* Changed to 3 columns */}
-                  <div className="space-y-1 col-span-2">
-                    {" "}
-                    {/* Takes more space */}
+                  {/* Left section: Request ID, Submitted by, Approved by */}
+                  <div className="space-y-3 col-span-2">
                     <div className="flex items-start">
-                      {" "}
-                      {/* Changed to items-start */}
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
                         Request ID:
                       </span>
                       <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
-                        {" "}
-                        {/* Added min-w-0 */}
                         {viewedSubmission.request_id}
                       </span>
                     </div>
+                    {/* Submitted by with role */}
                     <div className="flex items-center">
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
                         Submitted by:
@@ -406,11 +413,32 @@ const ApprovedRequestPage = () => {
                         {viewedSubmission.user.first_name}{" "}
                         {viewedSubmission.user.last_name}
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                          (School Head)
+                          ({getRoleDisplayName(viewedSubmission.user.role)})
                         </span>
                       </span>
                     </div>
+                    {/* Approved by with role */}
+                    {viewedSubmission.status === "approved" &&
+                      viewedSubmission.reviewed_by && (
+                        <div className="flex items-center">
+                          <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
+                            Approved by:
+                          </span>
+                          <span className="text-gray-900 dark:text-white">
+                            {viewedSubmission.reviewed_by.first_name}{" "}
+                            {viewedSubmission.reviewed_by.last_name}
+                            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                              (
+                              {getRoleDisplayName(
+                                viewedSubmission.reviewed_by.role
+                              )}
+                              )
+                            </span>
+                          </span>
+                        </div>
+                      )}
                   </div>
+                  {/* Right section: School, Status */}
                   <div className="space-y-1">
                     <div className="flex items-center">
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
@@ -443,6 +471,16 @@ const ApprovedRequestPage = () => {
                     Submitted at:{" "}
                     {new Date(viewedSubmission.created_at).toLocaleString()}
                   </span>
+                  {/* Approved at under Submitted at */}
+                  {viewedSubmission.status === "approved" &&
+                    viewedSubmission.date_approved && (
+                      <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Approved at:{" "}
+                        {new Date(
+                          viewedSubmission.date_approved
+                        ).toLocaleString()}
+                      </span>
+                    )}
                 </div>
               </div>
 

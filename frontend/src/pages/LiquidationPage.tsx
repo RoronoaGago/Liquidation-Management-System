@@ -157,6 +157,19 @@ const LiquidationPage = () => {
     if (!e.target.files || !request) return;
     const file = e.target.files[0];
     if (!file) return;
+
+    // Check if file is PDF
+    if (
+      file.type !== "application/pdf" &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      toast.error("Only PDF files are allowed");
+      if (fileInputRefs.current[`${expenseId}-${requirementID}`]) {
+        fileInputRefs.current[`${expenseId}-${requirementID}`]!.value = "";
+      }
+      return;
+    }
+
     setUploading(`${expenseId}-${requirementID}`);
     const formData = new FormData();
     formData.append("request_priority", expenseId);
@@ -169,7 +182,7 @@ const LiquidationPage = () => {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      toast.success("File uploaded!");
+      toast.success("PDF file uploaded successfully!");
       // Refresh data
       const res = await api.get("/liquidation/");
       const data = Array.isArray(res.data) ? res.data[0] : null;
@@ -185,7 +198,7 @@ const LiquidationPage = () => {
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to upload file.");
+      toast.error("Failed to upload PDF file.");
     } finally {
       setUploading(null);
       if (fileInputRefs.current[`${expenseId}-${requirementID}`]) {
@@ -679,10 +692,6 @@ const LiquidationPage = () => {
                       {/* Pending requirements first */}
                       {pendingReqs.length > 0 &&
                         pendingReqs.map((req) => {
-                          const uploadedDoc = getUploadedDocument(
-                            expense.id,
-                            req.requirementID
-                          );
                           return (
                             <div
                               key={`pending-${expense.id}-${req.requirementID}`}
@@ -696,15 +705,20 @@ const LiquidationPage = () => {
                                   <p className="font-medium text-yellow-900 dark:text-yellow-200">
                                     {req.requirementTitle}
                                   </p>
-                                  {req.is_required ? (
-                                    <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
-                                      Required
+                                  <div className="flex gap-2 mt-1">
+                                    {req.is_required ? (
+                                      <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
+                                        Required
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
+                                        Optional
+                                      </span>
+                                    )}
+                                    <span className="text-xs px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded-full">
+                                      PDF only
                                     </span>
-                                  ) : (
-                                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
-                                      Optional
-                                    </span>
-                                  )}
+                                  </div>
                                 </div>
                               </div>
                               <div className="flex gap-2">
@@ -723,7 +737,7 @@ const LiquidationPage = () => {
                                     )
                                   }
                                   className="hidden"
-                                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                  accept=".pdf,application/pdf"
                                   disabled={
                                     uploading ===
                                     `${expense.id}-${req.requirementID}`
@@ -893,6 +907,9 @@ const LiquidationPage = () => {
                             className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                           >
                             <Paperclip className="h-4 w-4 text-gray-500" />
+                            <span className="text-xs px-1 py-0.5 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded mr-1">
+                              PDF
+                            </span>
                             {doc?.document_url ? (
                               <a
                                 href={doc.document_url}
