@@ -51,6 +51,7 @@ const ApprovedRequestPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const [, setSchools] = useState<School[]>([]);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   // Pagination, search, and sort state
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,21 +93,17 @@ const ApprovedRequestPage = () => {
   // Approve handler (should call backend in real app)
   const handleApprove = async (submission: Submission) => {
     try {
-      setLoading(true); // Show loading state
+      setDownloadLoading(true); // Show loading state
       await api.post(`requests/${submission.request_id}/submit-liquidation/`);
-
-      // Close the modal
       setViewedSubmission(null);
       toast.success(
         `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been downloaded.`
       );
-      // Refresh the list with a small delay to ensure backend processed
       fetchSubmissions();
     } catch (err) {
       console.error("Failed to submit for liquidation:", err);
-      // Optionally show an error message to the user
     } finally {
-      setLoading(false);
+      setDownloadLoading(false);
     }
   };
 
@@ -566,8 +563,10 @@ const ApprovedRequestPage = () => {
                       variant="success"
                       onClick={() => handleApprove(viewedSubmission)}
                       startIcon={<CheckCircle className="w-4 h-4" />}
+                      disabled={downloadLoading}
+                      loading={downloadLoading}
                     >
-                      Download
+                      {downloadLoading ? "Processing..." : "Download"}
                     </Button>
                   </div>
                 )}

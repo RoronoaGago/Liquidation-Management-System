@@ -615,7 +615,7 @@ const PriortySubmissionsPage = () => {
                       }
                       loading={actionLoading === "reject"}
                     >
-                      Reject
+                      {loading ? "Processing..." : "Reject"}
                     </Button>
                     <Button
                       type="button"
@@ -628,7 +628,7 @@ const PriortySubmissionsPage = () => {
                       }
                       loading={actionLoading === "approve"}
                     >
-                      Approve
+                      {loading ? "Processing..." : "Approve"}
                     </Button>
                   </div>
                 )}
