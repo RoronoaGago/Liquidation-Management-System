@@ -690,6 +690,28 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             'liquidation_priorities__priority'
         )
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        partial = kwargs.pop('partial', False)
+        data = request.data.copy()
+
+        # If approving at district level, set reviewed_by_district
+        if data.get("status") == "approved_district":
+            data["reviewed_by_district"] = request.user.id
+            data["reviewed_at_district"] = timezone.now()
+
+        # Set the user who changed the status for notification
+        instance._status_changed_by = request.user  # <-- CRUCIAL for notifications!
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        instance._status_changed_by = self.request.user  # <-- CRUCIAL for notifications!
+        serializer.save()
+
 
 @api_view(['POST'])
 def approve_liquidation(request, LiquidationID):
