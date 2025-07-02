@@ -64,7 +64,8 @@ export default function NotificationDropdown() {
       console.log(notification?.notification_title);
       if (notification) {
         if (
-          notification.notification_title === "Request ready for liquidation"
+          notification.notification_title === "Request ready for liquidation" ||
+          notification.notification_title === "Liquidation Needs Revision"
         ) {
           navigate("/liquidation");
         } else if (

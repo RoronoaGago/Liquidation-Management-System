@@ -379,7 +379,7 @@ const ApprovedRequestPage = () => {
         open={!!viewedSubmission}
         onOpenChange={() => setViewedSubmission(null)}
       >
-        <DialogContent className="w-full max-w-[90vw] lg:max-w-3xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <DialogContent className="w-full max-w-[90vw] lg:max-w-5xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Priority Submission Details
