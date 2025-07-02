@@ -308,8 +308,8 @@ class RequestManagement(models.Model):
                 self.date_approved = today
             
             # Downloaded date
-            if self.status == 'downloaded' and not self.date_downloaded:
-                self.date_downloaded = today
+            if self.status == 'downloaded' and not self.downloaded_at:
+                self.downloaded_at = timezone.now()  # Use timezone.now() instead of date.today()
             
             # Rejected date
             if self.status == 'rejected' and not self.rejection_date:
@@ -319,7 +319,7 @@ class RequestManagement(models.Model):
             if self.status != 'approved':
                 self.date_approved = None
             if self.status != 'downloaded':
-                self.date_downloaded = None
+                self.downloaded_at = None
             if self.status != 'rejected':
                 self.rejection_date = None
 
@@ -395,8 +395,8 @@ class LiquidationManagement(models.Model):
 
     @property
     def liquidation_deadline(self):
-        if self.downloaded_at:
-            return (self.downloaded_at + timezone.timedelta(days=30)).date()
+        if self.request.downloaded_at:
+            return (self.request.downloaded_at + timezone.timedelta(days=30)).date()
         return None
 
     def calculate_refund(self):
@@ -411,8 +411,8 @@ class LiquidationManagement(models.Model):
         return total_requested - total_liquidated
 
     def calculate_remaining_days(self):
-        if self.downloaded_at:
-            deadline = self.downloaded_at + timezone.timedelta(days=30)
+        if self.request.downloaded_at:
+            deadline = self.request.downloaded_at + timezone.timedelta(days=30)
             today = date.today()
             remaining = (deadline.date() - today).days
             return max(remaining, 0)
@@ -426,8 +426,8 @@ class LiquidationManagement(models.Model):
             self._old_status = old.status
 
         # Set downloaded_at when status changes to 'downloaded'
-        if self.status == 'downloaded' and not self.downloaded_at:
-            self.downloaded_at = timezone.now()
+        # if self.status == 'downloaded' and not self.downloaded_at:
+        #     self.downloaded_at = timezone.now()
 
         # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:
