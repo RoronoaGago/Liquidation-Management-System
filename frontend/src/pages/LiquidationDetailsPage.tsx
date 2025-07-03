@@ -328,6 +328,12 @@ const LiquidationDetailsPage = () => {
           : d
       )
     );
+    // Update viewDoc so dialog reflects new status
+    setViewDoc((prev) =>
+      prev && prev.id === doc.id
+        ? { ...prev, is_approved: newStatus, reviewer_comment: comment }
+        : prev
+    );
     toast[action === "approve" ? "success" : "error"](
       `Document ${action === "approve" ? "approved" : "rejected"}!`
     );
@@ -335,8 +341,7 @@ const LiquidationDetailsPage = () => {
     setShowApproveConfirm(false);
     setShowRejectConfirm(false);
     setRejectionComment("");
-    // Do NOT close the dialog here:
-    // setViewDoc(null);
+    // Do NOT close the dialog here
   };
 
   // Always show all expenses
