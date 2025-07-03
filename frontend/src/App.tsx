@@ -29,6 +29,7 @@ import LiquidationReportPage from "./pages/LiquidationReportPage";
 import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
+import AssignLiquidatorsPage from "./pages/AssignLiquidatorsPage";
 
 const App = () => {
   return (
@@ -124,6 +125,10 @@ const App = () => {
               <Route
                 path="/approved-requests"
                 element={<ApprovedRequestPage />}
+              />
+              <Route
+                path="/assign-liquidators"
+                element={<AssignLiquidatorsPage />}
               />
             </Route>
 
