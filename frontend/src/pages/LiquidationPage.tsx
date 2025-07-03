@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect, useMemo } from "react";
@@ -121,7 +122,6 @@ const LiquidationPage = () => {
       }
     };
     fetchPendingLiquidation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Toggle expense expansion
@@ -200,6 +200,37 @@ const LiquidationPage = () => {
               }
             : prev
         );
+        // --- Keep the expense open after upload if status is draft ---
+        if (request.status === "draft") {
+          // Find the expense in the refreshed data
+          const updatedExpense = data.request?.priorities?.find(
+            (p: any) => String(p.id || p.priority?.LOPID) === String(expenseId)
+          );
+          // Get all required requirements for this expense
+          const requiredReqs =
+            updatedExpense?.priority?.requirements?.filter(
+              (r: any) => r.is_required
+            ) || [];
+          // Check if all required requirements have uploaded documents
+          const allUploaded = requiredReqs.every((req: any) =>
+            (data.documents || []).some(
+              (doc: any) =>
+                String(doc.request_priority_id) === String(expenseId) &&
+                String(doc.requirement_id) === String(req.requirementID)
+            )
+          );
+          setExpandedExpense((prev) => {
+            if (allUploaded) {
+              // Remove from expanded if all required files are uploaded
+              return prev.filter((id) => id !== String(expenseId));
+            } else {
+              // Keep it open
+              return prev.includes(String(expenseId))
+                ? prev
+                : [...prev, String(expenseId)];
+            }
+          });
+        }
       }
     } catch (err) {
       console.error(err);
@@ -348,12 +379,36 @@ const LiquidationPage = () => {
   };
 
   useEffect(() => {
-    if (request?.status === "resubmit" && request.expenses.length > 0) {
+    if (
+      (request?.status === "resubmit" || request?.status === "draft") &&
+      request.expenses.length > 0
+    ) {
       setExpandedExpense(request.expenses.map((expense) => String(expense.id)));
     } else {
       setExpandedExpense([]);
     }
   }, [request]);
+
+  // Auto-collapse expenses in draft if all required documents are uploaded
+  useEffect(() => {
+    if (request?.status === "draft" && expandedExpense.length > 0) {
+      setExpandedExpense((prev) =>
+        prev.filter((expenseId) => {
+          const expense = request.expenses.find(
+            (e) => String(e.id) === String(expenseId)
+          );
+          if (!expense) return false;
+          // Only keep open if not all required docs are uploaded
+          const allUploaded = expense.requirements
+            .filter((r) => r.is_required)
+            .every(
+              (req) => !!getUploadedDocument(expense.id, req.requirementID)
+            );
+          return !allUploaded;
+        })
+      );
+    }
+  }, [request, expandedExpense]);
 
   if (loading) {
     return (
