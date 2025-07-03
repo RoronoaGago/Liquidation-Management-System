@@ -469,7 +469,7 @@ class LiquidationDocument(models.Model):
         null=True,
         related_name='uploaded_documents'
     )
-    is_approved = models.BooleanField(default=False)
+    is_approved = models.BooleanField(null=True, default=None)
     reviewer_comment = models.TextField(blank=True, null=True)
 
     class Meta:
