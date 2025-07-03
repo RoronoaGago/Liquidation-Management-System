@@ -23,7 +23,8 @@ import {
   History,
   FileSearch,
   UserRoundPenIcon,
-  HandCoinsIcon, // <-- Add this
+  HandCoinsIcon,
+  FileUserIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -47,6 +48,13 @@ const allNavItems: NavItem[] = [
     path: "/schools",
     roles: ["admin"], // Only admin
   },
+  {
+    icon: <FileCheck2Icon />,
+    name: "Approved Requests",
+    path: "/approved-requests",
+    roles: ["accountant"], // Only for division superintendent
+  },
+
   {
     icon: <HandCoinsIcon />,
     name: "Resource Allocation",
@@ -110,10 +118,10 @@ const allNavItems: NavItem[] = [
     roles: ["superintendent"], // Only for division superintendent
   },
   {
-    icon: <FileCheck2Icon />,
-    name: "Approved Requests",
-    path: "/approved-requests",
-    roles: ["accountant"], // Only for division superintendent
+    icon: <FileUserIcon />,
+    name: "Assign Liquidators",
+    path: "/assign-liquidators",
+    roles: ["accountant"], // Only for division accountant
   },
 
   // {
