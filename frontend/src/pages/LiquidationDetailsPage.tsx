@@ -104,8 +104,8 @@ const LiquidationDetailsPage = () => {
   const [expenseList, setExpenseList] = useState<Expense[]>([]);
   const [viewDoc, setViewDoc] = useState<Document | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [, setIsEditingComment] = useState(false);
-  const [, setCurrentComment] = useState("");
+  const [isEditingComment, setIsEditingComment] = useState(false);
+  const [currentComment, setCurrentComment] = useState("");
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
   const [error, setError] = useState<Error | null>(null);
@@ -121,9 +121,18 @@ const LiquidationDetailsPage = () => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [rejectionComment, setRejectionComment] = useState("");
 
+  // --- Add these states at the top of your component ---
+  const [showApproveReportConfirm, setShowApproveReportConfirm] =
+    useState(false);
+  const [showRejectReportConfirm, setShowRejectReportConfirm] = useState(false);
+  const [currentReportAction, setCurrentReportAction] = useState<
+    "approve" | "reject" | null
+  >(null);
+
   // Reset comment editing when changing documents
   useEffect(() => {
     setIsEditingComment(false);
+    setCurrentComment("");
   }, [viewDoc]);
 
   // Filter expenses based on hideApproved state
@@ -265,35 +274,46 @@ const LiquidationDetailsPage = () => {
   // At the bottom of the dialog, after all documents are reviewed:
   const allReviewed = documents.every((doc) => doc.is_approved !== null);
 
-  const handleApproveReport = async () => {
-    try {
-      setActionLoading(true);
-      await api.patch(`/liquidations/${liquidationId}/`, {
-        status: "approved_district",
-        reviewed_at_district: new Date().toISOString(),
-      });
-      toast.success("Liquidation report approved!");
-      navigate("/pre-auditing"); // Changed from "/liquidations" to "/pre-auditing"
-    } catch (err) {
-      toast.error("Failed to approve liquidation report");
-    } finally {
-      setActionLoading(false);
-    }
+  // --- Update handlers to show confirmation dialogs ---
+  const handleApproveReport = () => {
+    setCurrentReportAction("approve");
+    setShowApproveReportConfirm(true);
   };
 
-  const handleRejectReport = async () => {
+  const handleRejectReport = () => {
+    setCurrentReportAction("reject");
+    setShowRejectReportConfirm(true);
+  };
+
+  // --- Unified performReportAction for both actions ---
+  const performReportAction = async () => {
+    if (!currentReportAction) return;
     try {
       setActionLoading(true);
-      await api.patch(`/liquidations/${liquidationId}/`, {
-        status: "resubmit",
-        reviewed_at_district: null,
-      });
-      toast.error("Liquidation report sent back for revision."); // Changed to error (red)
-      navigate("/liquidations");
+      if (currentReportAction === "approve") {
+        await api.patch(`/liquidations/${liquidationId}/`, {
+          status: "approved_district",
+          reviewed_at_district: new Date().toISOString(),
+        });
+        toast.success("Liquidation report approved!");
+        navigate("/pre-auditing");
+      } else {
+        await api.patch(`/liquidations/${liquidationId}/`, {
+          status: "resubmit",
+          reviewed_at_district: null,
+          rejection_comment: rejectionComment,
+        });
+        toast.error("Liquidation report sent back for revision.");
+        navigate("/liquidations");
+      }
     } catch (err) {
-      toast.error("Failed to reject liquidation report");
+      toast.error(`Failed to ${currentReportAction} liquidation report`);
     } finally {
       setActionLoading(false);
+      setShowApproveReportConfirm(false);
+      setShowRejectReportConfirm(false);
+      setCurrentReportAction(null);
+      setRejectionComment("");
     }
   };
 
@@ -483,48 +503,6 @@ const LiquidationDetailsPage = () => {
 
             {viewDoc && (
               <div className="space-y-4">
-                {/* Document Info Section */}
-                <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Requirement
-                      </p>
-                      <p>{viewDoc?.requirement_obj.requirementTitle}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Document Type
-                      </p>
-                      <p>PDF Document</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Status
-                      </p>
-                      <p
-                        className={
-                          viewDoc?.is_approved
-                            ? "text-green-600"
-                            : "text-yellow-600"
-                        }
-                      >
-                        {viewDoc?.is_approved ? "Approved" : "Pending Review"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Uploaded At
-                      </p>
-                      <p>
-                        {viewDoc?.uploaded_at
-                          ? new Date(viewDoc.uploaded_at).toLocaleString()
-                          : "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* File preview */}
                 <div className="relative h-[70vh] bg-gray-50 rounded-lg border">
                   {isLoadingDoc && (
@@ -538,10 +516,7 @@ const LiquidationDetailsPage = () => {
                     <ErrorFallback />
                   ) : (
                     <div className="h-full flex flex-col">
-                      <div className="p-2 bg-gray-100 border-b flex justify-between items-center">
-                        <span className="text-sm font-medium">
-                          {viewDoc?.requirement_obj.requirementTitle}
-                        </span>
+                      <div className="p-2 bg-gray-100 border-b flex justify-end items-center">
                         <div className="flex gap-2">
                           <button
                             onClick={() =>
@@ -577,7 +552,6 @@ const LiquidationDetailsPage = () => {
                           </a>
                         </div>
                       </div>
-
                       <div className="flex-1 overflow-auto">
                         <div className="flex items-center justify-center h-full w-full">
                           <iframe
@@ -707,6 +681,91 @@ const LiquidationDetailsPage = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Rejection Reason Section - NEW */}
+                {viewDoc?.is_approved === false && (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium">Rejection Reason</h4>
+                      {!isEditingComment && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsEditingComment(true);
+                            setCurrentComment(viewDoc?.reviewer_comment || "");
+                          }}
+                        >
+                          Edit Comment
+                        </Button>
+                      )}
+                    </div>
+                    {isEditingComment ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={currentComment}
+                          onChange={(e) => setCurrentComment(e.target.value)}
+                          className="w-full border rounded p-2 text-sm"
+                          rows={3}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsEditingComment(false)}
+                            disabled={actionLoading}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                setActionLoading(true);
+                                await api.patch(
+                                  `/liquidations/${liquidationId}/documents/${viewDoc.id}/`,
+                                  { reviewer_comment: currentComment }
+                                );
+                                setDocuments((docs) =>
+                                  docs.map((d) =>
+                                    d.id === viewDoc.id
+                                      ? {
+                                          ...d,
+                                          reviewer_comment: currentComment,
+                                        }
+                                      : d
+                                  )
+                                );
+                                setViewDoc((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        reviewer_comment: currentComment,
+                                      }
+                                    : null
+                                );
+                                toast.success("Comment updated successfully");
+                                setIsEditingComment(false);
+                              } catch (err) {
+                                toast.error("Failed to update comment");
+                              } finally {
+                                setActionLoading(false);
+                              }
+                            }}
+                            disabled={!currentComment.trim() || actionLoading}
+                          >
+                            {actionLoading ? "Saving..." : "Save"}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 p-3 rounded text-sm">
+                        {viewDoc.reviewer_comment || "No comment provided"}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>
@@ -877,62 +936,164 @@ const LiquidationDetailsPage = () => {
           <div className="flex gap-4 justify-end mt-8">
             <Button
               onClick={handleRejectReport}
-              disabled={!canReject || actionLoading}
+              disabled={
+                !canReject ||
+                (actionLoading && currentReportAction === "reject")
+              }
               variant="destructive"
-              startIcon={<AlertCircle className="h-5 w-5" />}
+              startIcon={
+                actionLoading && currentReportAction === "reject" ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <AlertCircle className="h-5 w-5" />
+                )
+              }
             >
-              Reject Liquidation Report
+              {actionLoading && currentReportAction === "reject"
+                ? "Rejecting..."
+                : "Reject Liquidation Report"}
             </Button>
             <Button
               onClick={handleApproveReport}
-              disabled={!canApprove || actionLoading}
+              disabled={
+                !canApprove ||
+                (actionLoading && currentReportAction === "approve")
+              }
               color="success"
               startIcon={
-                actionLoading ? (
+                actionLoading && currentReportAction === "approve" ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <CheckCircle className="h-5 w-5" />
                 )
               }
             >
-              {actionLoading ? "Approving..." : "Approve Liquidation Report"}
+              {actionLoading && currentReportAction === "approve"
+                ? "Approving..."
+                : "Approve Liquidation Report"}
             </Button>
           </div>
         )}
       </div>
 
-      <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+      {/* --- Add the confirmation dialogs at the bottom of your component --- */}
+
+      {/* Approve Report Confirmation Dialog */}
+      <Dialog
+        open={showApproveReportConfirm}
+        onOpenChange={setShowApproveReportConfirm}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Approval</DialogTitle>
             <DialogDescription>
-              Are you sure you want to approve this document?
+              Are you sure you want to approve this liquidation report? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowApproveReportConfirm(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="success"
+              onClick={performReportAction}
+              disabled={actionLoading}
+              startIcon={
+                actionLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : null
+              }
+            >
+              {actionLoading ? "Approving..." : "Confirm Approval"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Report Confirmation Dialog */}
+      <Dialog
+        open={showRejectReportConfirm}
+        onOpenChange={setShowRejectReportConfirm}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Rejection</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to reject this liquidation report? The
+              submitter will need to resubmit with corrections.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowRejectReportConfirm(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={performReportAction}
+              disabled={actionLoading}
+              startIcon={
+                actionLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : null
+              }
+            >
+              {actionLoading ? "Rejecting..." : "Confirm Rejection"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Approve Confirmation Dialog */}
+      <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Document Approval</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to approve this document? This action cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 mt-4">
             <Button
               variant="outline"
               onClick={() => setShowApproveConfirm(false)}
+              disabled={actionLoading}
             >
               Cancel
             </Button>
             <Button
               variant="success"
-              disabled={actionLoading}
               onClick={async () => {
                 await performDocumentAction("approve", viewDoc!);
+                setShowApproveConfirm(false);
               }}
+              disabled={actionLoading}
+              startIcon={
+                actionLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : null
+              }
             >
-              Confirm Approval
+              {actionLoading ? "Approving..." : "Confirm Approval"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* Document Reject Confirmation Dialog */}
       <Dialog open={showRejectConfirm} onOpenChange={setShowRejectConfirm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Rejection</DialogTitle>
+            <DialogTitle>Confirm Document Rejection</DialogTitle>
             <DialogDescription>
               Please provide a reason for rejecting this document.
             </DialogDescription>
@@ -948,21 +1109,28 @@ const LiquidationDetailsPage = () => {
               <Button
                 variant="outline"
                 onClick={() => setShowRejectConfirm(false)}
+                disabled={actionLoading}
               >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
-                disabled={!rejectionComment.trim() || actionLoading}
                 onClick={async () => {
                   if (!rejectionComment.trim()) {
                     toast.error("Please provide a rejection reason");
                     return;
                   }
                   await performDocumentAction("reject", viewDoc!);
+                  setShowRejectConfirm(false);
                 }}
+                disabled={!rejectionComment.trim() || actionLoading}
+                startIcon={
+                  actionLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : null
+                }
               >
-                Confirm Rejection
+                {actionLoading ? "Rejecting..." : "Confirm Rejection"}
               </Button>
             </div>
           </div>
