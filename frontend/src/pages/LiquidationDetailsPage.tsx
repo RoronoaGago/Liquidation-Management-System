@@ -83,8 +83,13 @@ const statusBadgeStyle = (status: string) => {
 // --- Error Boundary for Document Viewer ---
 function ErrorFallback() {
   return (
-    <div className="text-red-500 text-center py-8">
-      Failed to load document preview.
+    <div className="text-center py-8 space-y-2">
+      <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
+      <h3 className="text-lg font-medium text-red-600">Failed to load PDF</h3>
+      <p className="text-gray-600">
+        The document could not be loaded. Please try opening it in a new tab or
+        contact support if the problem persists.
+      </p>
     </div>
   );
 }
@@ -99,9 +104,8 @@ const LiquidationDetailsPage = () => {
   const [expenseList, setExpenseList] = useState<Expense[]>([]);
   const [viewDoc, setViewDoc] = useState<Document | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [isEditingComment, setIsEditingComment] = useState(false);
-  const [currentComment, setCurrentComment] = useState("");
-  const [, setZoomLevel] = useState(1);
+  const [, setIsEditingComment] = useState(false);
+  const [, setCurrentComment] = useState("");
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
   const [error, setError] = useState<Error | null>(null);
@@ -109,6 +113,13 @@ const LiquidationDetailsPage = () => {
     const savedPreference = localStorage.getItem("hideApprovedDocuments");
     return savedPreference ? JSON.parse(savedPreference) : true;
   });
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [currentAction, setCurrentAction] = useState<
+    "approve" | "reject" | null
+  >(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [rejectionComment, setRejectionComment] = useState("");
 
   // Reset comment editing when changing documents
   useEffect(() => {
@@ -183,7 +194,12 @@ const LiquidationDetailsPage = () => {
         const docRes = await api.get(
           `/liquidations/${liquidationId}/documents/`
         );
-        setDocuments(docRes.data);
+        setDocuments(
+          docRes.data.map((doc: any) => ({
+            ...doc,
+            is_approved: doc.is_approved === null ? null : doc.is_approved,
+          }))
+        );
 
         // Auto-expand first expense with unapproved documents
         if (expenses.length > 0) {
@@ -272,8 +288,8 @@ const LiquidationDetailsPage = () => {
         status: "resubmit",
         reviewed_at_district: null,
       });
-      toast.info("Liquidation report sent back for revision.");
-      navigate("/liquidations"); // Navigate back after rejection
+      toast.error("Liquidation report sent back for revision."); // Changed to error (red)
+      navigate("/liquidations");
     } catch (err) {
       toast.error("Failed to reject liquidation report");
     } finally {
@@ -283,32 +299,44 @@ const LiquidationDetailsPage = () => {
 
   const handleDocumentAction = async (
     action: "approve" | "reject",
+    _doc: Document
+  ) => {
+    setCurrentAction(action);
+    if (action === "approve") {
+      setShowApproveConfirm(true);
+    } else {
+      setRejectionComment("");
+      setShowRejectConfirm(true);
+    }
+  };
+
+  const performDocumentAction = async (
+    action: "approve" | "reject",
     doc: Document
   ) => {
-    try {
-      setActionLoading(true);
-      await api.patch(`/liquidations/${liquidationId}/documents/${doc.id}/`, {
-        is_approved: action === "approve",
-        reviewer_comment: currentComment,
-      });
-
-      toast.success(
-        `Document ${action === "approve" ? "approved" : "rejected"}!`
-      );
-
-      // Refresh documents
-      const res = await api.get(`/liquidations/${liquidationId}/documents/`);
-      setDocuments(res.data);
-
-      // If approving, close the dialog and the document will disappear from view
-      if (action === "approve") {
-        setViewDoc(null);
-      }
-    } catch (err) {
-      toast.error(`Failed to ${action} document`);
-    } finally {
-      setActionLoading(false);
-    }
+    setActionLoading(true);
+    const newStatus = action === "approve";
+    const comment = action === "reject" ? rejectionComment : "";
+    await api.patch(`/liquidations/${liquidationId}/documents/${doc.id}/`, {
+      is_approved: newStatus,
+      reviewer_comment: comment,
+    });
+    setDocuments((docs) =>
+      docs.map((d) =>
+        d.id === doc.id
+          ? { ...d, is_approved: newStatus, reviewer_comment: comment }
+          : d
+      )
+    );
+    toast[action === "approve" ? "success" : "error"](
+      `Document ${action === "approve" ? "approved" : "rejected"}!`
+    );
+    setActionLoading(false);
+    setShowApproveConfirm(false);
+    setShowRejectConfirm(false);
+    setRejectionComment("");
+    // Do NOT close the dialog here:
+    // setViewDoc(null);
   };
 
   // Always show all expenses
@@ -318,7 +346,7 @@ const LiquidationDetailsPage = () => {
     setViewDoc(doc);
     const docIndex = documents.findIndex((d) => d.id === doc.id);
     setCurrentDocIndex(docIndex);
-    setZoomLevel(1);
+    setZoomLevel(1); // Reset zoom when opening new document
   };
 
   // Error boundary for document preview
@@ -461,6 +489,12 @@ const LiquidationDetailsPage = () => {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500">
+                        Document Type
+                      </p>
+                      <p>PDF Document</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
                         Status
                       </p>
                       <p
@@ -470,7 +504,7 @@ const LiquidationDetailsPage = () => {
                             : "text-yellow-600"
                         }
                       >
-                        {viewDoc?.is_approved ? "Approved" : "Pending"}
+                        {viewDoc?.is_approved ? "Approved" : "Pending Review"}
                       </p>
                     </div>
                     <div>
@@ -483,116 +517,158 @@ const LiquidationDetailsPage = () => {
                           : "N/A"}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        File Type
-                      </p>
-                      <p>
-                        {viewDoc?.document_url.split(".").pop()?.toUpperCase()}
-                      </p>
-                    </div>
                   </div>
                 </div>
 
                 {/* File preview */}
-                <div className="relative">
+                <div className="relative h-[70vh] bg-gray-50 rounded-lg border">
                   {isLoadingDoc && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50/50 z-10">
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
                       <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                      <span className="ml-2">Loading document...</span>
+                      <span className="ml-2">Loading PDF...</span>
                     </div>
                   )}
-                  {error && <ErrorFallback />}
-                  {!error && (
-                    <div className="flex flex-col gap-2 items-center">
-                      <a
-                        href={viewDoc?.document_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 underline mb-2"
-                      >
-                        View Fullscreen
-                      </a>
-                      {/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(
-                        viewDoc?.document_url || ""
-                      ) ? (
-                        <img
-                          src={viewDoc?.document_url}
-                          alt="Document Preview"
-                          className="w-full max-w-3xl max-h-[60vh] rounded border shadow object-contain"
-                          style={{ display: "block" }}
-                          onLoad={() => setIsLoadingDoc(false)}
-                          onError={() => {
-                            setIsLoadingDoc(false);
-                            setError(new Error("Failed to load image"));
-                          }}
-                        />
-                      ) : (
-                        <iframe
-                          src={viewDoc?.document_url}
-                          title="Document Preview"
-                          className="w-full h-[60vh] border rounded"
-                          onLoad={() => setIsLoadingDoc(false)}
-                          onError={() => {
-                            setIsLoadingDoc(false);
-                            setError(new Error("Failed to load document"));
-                          }}
-                        />
-                      )}
+
+                  {error ? (
+                    <ErrorFallback />
+                  ) : (
+                    <div className="h-full flex flex-col">
+                      <div className="p-2 bg-gray-100 border-b flex justify-between items-center">
+                        <span className="text-sm font-medium">
+                          {viewDoc?.requirement_obj.requirementTitle}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() =>
+                              setZoomLevel((z) => Math.min(2, z + 0.1))
+                            }
+                            className="px-2 py-1 text-xs bg-white rounded border"
+                            disabled={zoomLevel >= 2}
+                          >
+                            Zoom In (+)
+                          </button>
+                          <button
+                            onClick={() =>
+                              setZoomLevel((z) => Math.max(0.5, z - 0.1))
+                            }
+                            className="px-2 py-1 text-xs bg-white rounded border"
+                            disabled={zoomLevel <= 0.5}
+                          >
+                            Zoom Out (-)
+                          </button>
+                          <button
+                            onClick={() => setZoomLevel(1)}
+                            className="px-2 py-1 text-xs bg-white rounded border"
+                          >
+                            Reset (100%)
+                          </button>
+                          <a
+                            href={viewDoc?.document_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border"
+                          >
+                            Open in New Tab
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-auto">
+                        <div className="flex items-center justify-center h-full w-full">
+                          <iframe
+                            src={`${viewDoc?.document_url}#view=fitH`}
+                            title="PDF Preview"
+                            className="border-0 bg-white"
+                            style={{
+                              width: `${100 * zoomLevel}%`,
+                              height: `${100 * zoomLevel}%`,
+                              transformOrigin: "0 0",
+                            }}
+                            onLoad={() => setIsLoadingDoc(false)}
+                            onError={() => {
+                              setIsLoadingDoc(false);
+                              setError(
+                                new Error("Failed to load PDF document")
+                              );
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Comment and action section */}
                 <div>
-                  <textarea
-                    value={currentComment}
-                    readOnly={!isEditingComment}
-                    onClick={() => setIsEditingComment(true)}
-                    onChange={(e) => setCurrentComment(e.target.value)}
-                    placeholder="Enter reviewer comment"
-                    className={`w-full border rounded p-2 mt-2 ${
-                      !isEditingComment ? "bg-gray-100 cursor-pointer" : ""
-                    }`}
-                    rows={3}
-                  />
-                  {!isEditingComment && (
-                    <div className="text-xs text-gray-400 mt-1">
-                      Click to add or edit comment
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        viewDoc?.is_approved === true
+                          ? "bg-green-100 text-green-800"
+                          : viewDoc?.is_approved === false
+                          ? "bg-red-100 text-red-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {viewDoc?.is_approved === true
+                        ? "Approved"
+                        : viewDoc?.is_approved === false
+                        ? "Rejected"
+                        : "Pending Review"}
+                    </span>
+                    {viewDoc?.uploaded_at && (
+                      <span className="text-xs text-gray-500">
+                        Uploaded:{" "}
+                        {new Date(viewDoc.uploaded_at).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex gap-2 mt-4 justify-between">
                     <div className="flex gap-2">
                       <Button
-                        variant="success"
-                        disabled={
-                          !!actionLoading ||
-                          !!viewDoc?.is_approved ||
-                          !!(
-                            viewDoc?.reviewer_comment &&
-                            viewDoc.reviewer_comment.trim() !== ""
+                        variant={viewDoc?.is_approved ? "success" : "outline"}
+                        disabled={viewDoc?.is_approved || actionLoading}
+                        startIcon={
+                          actionLoading && currentAction === "approve" ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-5 w-5" />
                           )
                         }
-                        startIcon={<CheckCircle className="h-5 w-5" />}
                         onClick={() =>
                           handleDocumentAction("approve", viewDoc!)
                         }
                       >
-                        Approve
+                        {actionLoading && currentAction === "approve"
+                          ? "Approving..."
+                          : viewDoc?.is_approved
+                          ? "Approved"
+                          : "Approve Document"}
                       </Button>
                       <Button
-                        variant="destructive"
-                        disabled={actionLoading}
-                        startIcon={<AlertCircle className="h-5 w-5" />}
-                        onClick={() => {
-                          if (!currentComment.trim()) {
-                            toast.error("Comment is required to reject.");
-                            return;
-                          }
-                          handleDocumentAction("reject", viewDoc!);
-                        }}
+                        variant={
+                          viewDoc?.is_approved === false
+                            ? "destructive"
+                            : "outline"
+                        }
+                        disabled={
+                          viewDoc?.is_approved === false || actionLoading
+                        }
+                        startIcon={
+                          actionLoading && currentAction === "reject" ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5" />
+                          )
+                        }
+                        onClick={() => handleDocumentAction("reject", viewDoc!)}
                       >
-                        Reject
+                        {actionLoading && currentAction === "reject"
+                          ? "Rejecting..."
+                          : viewDoc?.is_approved === false
+                          ? "Rejected"
+                          : "Reject Document"}
                       </Button>
                     </div>
                     <div className="flex items-center gap-4">
@@ -742,16 +818,20 @@ const LiquidationDetailsPage = () => {
                                 {doc && (
                                   <div className="text-xs mt-1">
                                     Status:{" "}
-                                    {doc.is_approved ? (
+                                    {doc?.is_approved === true ? (
                                       <span className="text-green-600">
                                         Approved
+                                      </span>
+                                    ) : doc?.is_approved === false ? (
+                                      <span className="text-red-600">
+                                        Rejected
                                       </span>
                                     ) : (
                                       <span className="text-yellow-600">
                                         Pending
                                       </span>
                                     )}
-                                    {doc.reviewer_comment && (
+                                    {doc?.reviewer_comment && (
                                       <span className="ml-2 text-red-500">
                                         {doc.reviewer_comment}
                                       </span>
@@ -816,7 +896,73 @@ const LiquidationDetailsPage = () => {
         )}
       </div>
 
-      {/* Document View Dialog removed to fix duplicate JSX and parsing error */}
+      <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Approval</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to approve this document?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowApproveConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="success"
+              disabled={actionLoading}
+              onClick={async () => {
+                await performDocumentAction("approve", viewDoc!);
+              }}
+            >
+              Confirm Approval
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRejectConfirm} onOpenChange={setShowRejectConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Rejection</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this document.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <textarea
+              value={rejectionComment}
+              onChange={(e) => setRejectionComment(e.target.value)}
+              placeholder="Enter reason for rejection..."
+              className="w-full border rounded p-3 min-h-[100px] text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowRejectConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={!rejectionComment.trim() || actionLoading}
+                onClick={async () => {
+                  if (!rejectionComment.trim()) {
+                    toast.error("Please provide a rejection reason");
+                    return;
+                  }
+                  await performDocumentAction("reject", viewDoc!);
+                }}
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
