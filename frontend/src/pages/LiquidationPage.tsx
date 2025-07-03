@@ -67,7 +67,7 @@ const LiquidationPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [request, setRequest] = useState<LiquidationRequest | null>(null);
-  const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
+  const [expandedExpense, setExpandedExpense] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -126,7 +126,11 @@ const LiquidationPage = () => {
 
   // Toggle expense expansion
   const toggleExpense = (expenseId: string) => {
-    setExpandedExpense(expandedExpense === expenseId ? null : expenseId);
+    setExpandedExpense((prev) =>
+      prev.includes(expenseId)
+        ? prev.filter((id) => id !== expenseId)
+        : [...prev, expenseId]
+    );
   };
 
   // Build a lookup map for uploaded documents: { "expenseId-requirementID": doc }
@@ -271,7 +275,12 @@ const LiquidationPage = () => {
           req.is_required && !getUploadedDocument(expense.id, req.requirementID)
       )
     ) ||
-    (request.status === "resubmit" && !allRejectedRevised);
+    (request.status === "resubmit" &&
+      request.uploadedDocuments.some(
+        (doc) =>
+          doc.is_approved === false &&
+          !doc.reviewer_comment?.startsWith("[REVISED]")
+      ));
 
   // Calculate progress
   const calculateProgress = () => {
@@ -337,6 +346,14 @@ const LiquidationPage = () => {
     completed: "Completed",
     cancelled: "Cancelled",
   };
+
+  useEffect(() => {
+    if (request?.status === "resubmit" && request.expenses.length > 0) {
+      setExpandedExpense(request.expenses.map((expense) => String(expense.id)));
+    } else {
+      setExpandedExpense([]);
+    }
+  }, [request]);
 
   if (loading) {
     return (
@@ -513,40 +530,65 @@ const LiquidationPage = () => {
                           if (element) {
                             // Expand the expense if needed
                             if (
-                              expandedExpense !==
-                              String(doc.request_priority_id)
-                            ) {
-                              setExpandedExpense(
+                              !expandedExpense.includes(
                                 String(doc.request_priority_id)
-                              );
+                              )
+                            ) {
+                              setExpandedExpense([
+                                String(doc.request_priority_id),
+                              ]);
                               setTimeout(() => {
-                                element.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "center",
-                                });
-                                element.classList.add(
-                                  "ring-2",
-                                  "ring-blue-500"
+                                const element = document.getElementById(
+                                  `requirement-${doc.request_priority_id}-${doc.requirement_id}`
                                 );
-                                setTimeout(() => {
-                                  element.classList.remove(
+                                if (element) {
+                                  element.scrollIntoView({
+                                    behavior: "smooth",
+                                    block: "center",
+                                  });
+                                  element.classList.add(
                                     "ring-2",
                                     "ring-blue-500"
                                   );
-                                }, 2000);
+                                  setTimeout(() => {
+                                    element.classList.remove(
+                                      "ring-2",
+                                      "ring-blue-500"
+                                    );
+                                  }, 2000);
+                                }
                               }, 300);
                             } else {
-                              element.scrollIntoView({
-                                behavior: "smooth",
-                                block: "center",
-                              });
-                              element.classList.add("ring-2", "ring-blue-500");
-                              setTimeout(() => {
-                                element.classList.remove(
-                                  "ring-2",
-                                  "ring-blue-500"
+                              // Expand all expenses if not already expanded
+                              if (
+                                expandedExpense.length !==
+                                request.expenses.length
+                              ) {
+                                setExpandedExpense(
+                                  request.expenses.map((e) => String(e.id))
                                 );
-                              }, 2000);
+                              }
+                              setTimeout(() => {
+                                const element = document.getElementById(
+                                  `requirement-${doc.request_priority_id}-${doc.requirement_id}`
+                                );
+                                if (element) {
+                                  element.scrollIntoView({
+                                    behavior: "smooth",
+                                    block: "center",
+                                  });
+                                  element.classList.add(
+                                    "ring-2",
+                                    "ring-blue-500"
+                                  );
+                                  setTimeout(() => {
+                                    element.classList.remove(
+                                      "ring-2",
+                                      "ring-blue-500"
+                                    );
+                                  }, 2000);
+                                }
+                              }, 300);
                             }
                           }
                         }}
@@ -630,6 +672,14 @@ const LiquidationPage = () => {
             </div>
           </div>
 
+          {/* Instruction for resubmission */}
+          {request.status === "resubmit" && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg">
+              Please re-upload a revised file for each rejected document in
+              order to submit your liquidation report again.
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 justify-end">
             {/* <Button
@@ -699,13 +749,14 @@ const LiquidationPage = () => {
           </h3>
 
           {request.expenses.map((expense) => {
-            // Split requirements into pending and uploaded
+            // Show all requirements as usual
             const pendingReqs = expense.requirements.filter(
               (req) => !getUploadedDocument(expense.id, req.requirementID)
             );
             const uploadedReqs = expense.requirements.filter((req) =>
               getUploadedDocument(expense.id, req.requirementID)
             );
+
             return (
               <div
                 key={expense.id}
@@ -718,7 +769,7 @@ const LiquidationPage = () => {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-300">
-                      {expandedExpense === String(expense.id) ? (
+                      {expandedExpense.includes(String(expense.id)) ? (
                         <ChevronUp className="h-5 w-5" />
                       ) : (
                         <ChevronDown className="h-5 w-5" />
@@ -746,7 +797,7 @@ const LiquidationPage = () => {
                 </div>
 
                 {/* Expense Content - Collapsible */}
-                {expandedExpense === String(expense.id) && (
+                {expandedExpense.includes(String(expense.id)) && (
                   <div className="border-t border-gray-200 dark:border-gray-700 p-4">
                     <div className="space-y-4">
                       {/* Pending requirements first */}
@@ -842,8 +893,12 @@ const LiquidationPage = () => {
                               req.requirementID
                             );
                             return (
-                              request.status !== "resubmit" ||
-                              doc?.is_approved === false
+                              getUploadedDocument(
+                                expense.id,
+                                req.requirementID
+                              ) &&
+                              (request.status !== "resubmit" ||
+                                doc?.is_approved === false)
                             );
                           })
                           .map((req) => {
@@ -883,14 +938,24 @@ const LiquidationPage = () => {
                                       </span>
                                     )}
                                     {uploadedDoc?.is_approved === false && (
-                                      <span className="ml-2 text-xs bg-red-200 text-red-900 dark:bg-red-900/40 dark:text-red-200 rounded-full px-2 py-0.5">
-                                        Rejected
-                                      </span>
+                                      <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/10 rounded">
+                                        <div className="flex items-start gap-2">
+                                          {/* <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" /> */}
+                                          <div>
+                                            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                                              Rejected:{" "}
+                                              {uploadedDoc.reviewer_comment}
+                                            </p>
+                                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                              Please re-upload a revised
+                                              version.
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
                                     )}
                                     {uploadedDoc?.reviewer_comment && (
-                                      <div className="mt-1 text-xs text-red-700 dark:text-red-300">
-                                        {uploadedDoc.reviewer_comment}
-                                      </div>
+                                      <div className="mt-1 text-xs text-red-700 dark:text-red-300"></div>
                                     )}
                                   </div>
                                 </div>
@@ -928,52 +993,6 @@ const LiquidationPage = () => {
                                   >
                                     View
                                   </Button>
-                                  {request.status === "resubmit" &&
-                                    uploadedDoc?.is_approved === false && (
-                                      <Button
-                                        variant="primary"
-                                        size="sm"
-                                        onClick={async () => {
-                                          try {
-                                            await api.patch(
-                                              `/liquidations/${request.liquidationID}/documents/${uploadedDoc.id}/`,
-                                              {
-                                                reviewer_comment: `[REVISED] ${
-                                                  uploadedDoc.reviewer_comment ||
-                                                  ""
-                                                }`,
-                                              }
-                                            );
-                                            toast.success("Marked as revised!");
-                                            // Refresh data
-                                            const res = await api.get(
-                                              "/liquidation/"
-                                            );
-                                            const data = Array.isArray(res.data)
-                                              ? res.data[0]
-                                              : null;
-                                            if (data) {
-                                              setRequest((prev) =>
-                                                prev
-                                                  ? {
-                                                      ...prev,
-                                                      uploadedDocuments:
-                                                        data.documents || [],
-                                                    }
-                                                  : prev
-                                              );
-                                            }
-                                          } catch (err) {
-                                            console.error(err);
-                                            toast.error(
-                                              "Failed to mark as revised"
-                                            );
-                                          }
-                                        }}
-                                      >
-                                        Mark as Revised
-                                      </Button>
-                                    )}
                                 </div>
                               </div>
                             );
