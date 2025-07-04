@@ -56,6 +56,8 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
+    school_district = models.CharField(max_length=100, blank=True, null=True,
+                                       help_text="District assignment (only for district administrative assistants)")
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -288,8 +290,8 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-                and not self._skip_auto_status
-                and self.request_monthyear
+            and not self._skip_auto_status
+            and self.request_monthyear
             ):
             today = date.today()
             try:
@@ -505,31 +507,6 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification to {self.receiver.username}: {self.notification_title}"
-
-
-class LiquidatorAssignment(models.Model):
-    DISTRICT_CHOICES = [
-        ("all", "All Districts"),  # <-- Add this line
-        ("1st District", "1st District"),
-        ("2nd District", "2nd District")
-    ]
-    liquidator = models.ForeignKey(
-        User, on_delete=models.CASCADE, limit_choices_to={'role': 'liquidator'})
-    district = models.CharField(
-        max_length=100, choices=DISTRICT_CHOICES, default='all')
-    # Optionally, you can use a ForeignKey to School if you want assignment per school
-    school = models.ForeignKey(
-        School, on_delete=models.CASCADE, null=True, blank=True)
-
-    assigned_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assignments_made')
-    assigned_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ('liquidator', 'district', 'school')  # <-- update
-
-    def __str__(self):
-        return f"{self.liquidator} assigned to {self.district}"
 
 
 class LiquidationPriority(models.Model):
