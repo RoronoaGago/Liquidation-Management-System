@@ -398,28 +398,34 @@ class LiquidatorAssignmentSerializer(serializers.ModelSerializer):
                             'liquidator', 'assigned_by', 'school']
 
     def create(self, validated_data):
-        liquidator = validated_data['liquidator']
-        district = validated_data['district']
-        assigned_by = validated_data.get('assigned_by', None)
+        district = validated_data.get('district')
+        school = validated_data.get('school')
 
-        # Get all schools in the district
-        schools = School.objects.filter(district=district)
-        assignments = []
-        for school in schools:
-            # Prevent duplicate assignments
-            if not LiquidatorAssignment.objects.filter(liquidator=liquidator, district=district, school=school).exists():
-                assignments.append(
-                    LiquidatorAssignment(
-                        liquidator=liquidator,
-                        district=district,
-                        school=school,
-                        assigned_by=assigned_by
-                    )
-                )
-        # Bulk create assignments
-        LiquidatorAssignment.objects.bulk_create(assignments)
-        # Return the first assignment for serializer response
-        return assignments[0] if assignments else None
+        # Validate school belongs to district
+        if school and school.legislativeDistrict != district:
+            raise serializers.ValidationError({
+                "school": f"School is in {school.legislativeDistrict}, not {district}"
+            })
+
+        # Check for existing assignment
+        if LiquidatorAssignment.objects.filter(
+            liquidator=validated_data['liquidator'],
+            district=district,
+            school=school
+        ).exists():
+            raise serializers.ValidationError("This assignment already exists")
+
+        return LiquidatorAssignment.objects.create(**validated_data)
+
+    def validate(self, data):
+        school = data.get('school')
+        district = data.get('district')
+
+        if school and school.legislativeDistrict != district:
+            raise serializers.ValidationError(
+                {"school": f"School is in {school.legislativeDistrict}, not {district}."}
+            )
+        return data
 
 
 class NotificationSerializer(serializers.ModelSerializer):
