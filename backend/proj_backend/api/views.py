@@ -11,8 +11,8 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment, Notification
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer, NotificationSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -690,6 +690,28 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             'liquidation_priorities__priority'
         )
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        partial = kwargs.pop('partial', False)
+        data = request.data.copy()
+
+        # If approving at district level, set reviewed_by_district
+        if data.get("status") == "approved_district":
+            data["reviewed_by_district"] = request.user.id
+            data["reviewed_at_district"] = timezone.now()
+
+        # Set the user who changed the status for notification
+        instance._status_changed_by = request.user  # <-- CRUCIAL for notifications!
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        instance._status_changed_by = self.request.user  # <-- CRUCIAL for notifications!
+        serializer.save()
+
 
 @api_view(['POST'])
 def approve_liquidation(request, LiquidationID):
@@ -945,15 +967,6 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
             status='draft',
             request__user=self.request.user
         )
-
-
-class LiquidatorAssignmentListCreateAPIView(generics.ListCreateAPIView):
-    queryset = LiquidatorAssignment.objects.all()
-    serializer_class = LiquidatorAssignmentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(assigned_by=self.request.user)
 
 
 @api_view(['PATCH'])

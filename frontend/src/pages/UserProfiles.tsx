@@ -217,8 +217,8 @@ export default function UserProfiles() {
       if (user?.user_id === editUser.id) {
         // Case 1: Sensitive data changed → Update token & user
         if (response.data.token) {
-          localStorage.setItem("access_token", response.data.token.access);
-          localStorage.setItem("refresh_token", response.data.token.refresh);
+          localStorage.setItem("accessToken", response.data.token.access);
+          localStorage.setItem("refreshToken", response.data.token.refresh);
           updateUser(
             {
               user_id: response.data.id,
@@ -378,6 +378,20 @@ export default function UserProfiles() {
                         .replace(/_/g, " ")
                         .replace(/\b\w/g, (l) => l.toUpperCase())
                     : "User"}
+                  {/* Show school district or school next to role */}
+                  {displayUser?.role === "district_admin" &&
+                    displayUser?.school_district && (
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-300 font-normal">
+                        | {displayUser.school_district}
+                      </span>
+                    )}
+                  {(displayUser?.role === "school_head" ||
+                    displayUser?.role === "school_admin") &&
+                    displayUser?.school?.schoolName && (
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-300 font-normal">
+                        | {displayUser.school.schoolName}
+                      </span>
+                    )}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   @{displayUser?.username || "-"}
