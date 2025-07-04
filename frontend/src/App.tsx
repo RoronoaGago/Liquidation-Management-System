@@ -29,11 +29,14 @@ import LiquidationReportPage from "./pages/LiquidationReportPage";
 import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
+import LiquidationReminder from "./components/LiquidationReminder";
 
 const App = () => {
   return (
     <Router>
       <AuthProvider>
+        <LiquidationReminder />
+        {/* Main application routes */}
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<SignIn />} />
