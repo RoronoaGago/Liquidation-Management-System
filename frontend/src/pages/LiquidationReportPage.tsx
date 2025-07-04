@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import LiquidationReportTable from "@/components/tables/BasicTables/LiquidationReportTable";
 import api from "@/api/axios";
+import { useAuth } from "@/context/AuthContext";
 
 type Liquidation = {
   LiquidationID: string;
@@ -15,6 +16,7 @@ type Liquidation = {
       last_name: string;
       school?: {
         schoolName: string;
+        district?: string; // <-- Add this line
       };
     };
   };
@@ -22,6 +24,7 @@ type Liquidation = {
 };
 
 const LiquidationReportPage = () => {
+  const { user } = useAuth();
   const [liquidations, setLiquidations] = useState<Liquidation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm] = useState("");
@@ -46,24 +49,32 @@ const LiquidationReportPage = () => {
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
-    if (!searchTerm) return liquidations;
-    return liquidations.filter((liq) => {
-      const user = liq.request?.user;
-      const school = user?.school?.schoolName || "";
+    let filtered = liquidations;
+    console.log(filtered);
+    // If user is district_admin and has a school_district, filter by district
+    if (user?.role === "district_admin" && user.school_district) {
+      filtered = filtered.filter(
+        (liq) => liq.request?.user?.school?.district === user.school_district
+      );
+    }
+    if (!searchTerm) return filtered;
+    return filtered.filter((liq) => {
+      const userObj = liq.request?.user;
+      const school = userObj?.school?.schoolName || "";
       return (
         liq.LiquidationID.toLowerCase().includes(searchTerm.toLowerCase()) ||
         liq.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
         liq.request?.request_id
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
-        (user &&
-          (`${user.first_name} ${user.last_name}`
+        (userObj &&
+          (`${userObj.first_name} ${userObj.last_name}`
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
             school.toLowerCase().includes(searchTerm.toLowerCase())))
       );
     });
-  }, [liquidations, searchTerm]);
+  }, [liquidations, searchTerm, user]);
 
   const paginatedLiquidations = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;

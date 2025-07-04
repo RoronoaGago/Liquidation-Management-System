@@ -62,6 +62,7 @@ interface LiquidationRequest {
   totalAmount: number;
   expenses: Expense[];
   uploadedDocuments: UploadedDocument[];
+  remaining_days: number | null; // Add this
 }
 
 const LiquidationPage = () => {
@@ -85,15 +86,16 @@ const LiquidationPage = () => {
       try {
         const res = await api.get("/liquidation/");
         const data = Array.isArray(res.data) ? res.data[0] : null;
+        console.log(data);
         if (!data) {
           setRequest(null);
           setFetchError("No pending liquidation found.");
           return;
         }
         setRequest({
-          id: data.request?.request_id || data.LiquidationID || "N/A",
+          id: data.LiquidationID || "N/A",
           liquidationID: data.LiquidationID,
-          month: data.request?.request_month || "N/A",
+          month: data.request?.request_monthyear || "N/A",
           status: data.status || "N/A",
           totalAmount: data.request?.priorities
             ? data.request.priorities.reduce(
@@ -114,6 +116,7 @@ const LiquidationPage = () => {
             ),
           })),
           uploadedDocuments: data.documents || [],
+          remaining_days: data.remaining_days || null,
         });
       } catch (err) {
         setFetchError("Failed to fetch pending liquidation.");
@@ -726,6 +729,65 @@ const LiquidationPage = () => {
               ></div>
             </div>
           </div>
+          {/* Remaining Days Warning Box - Add Here */}
+          {request.remaining_days !== null && (
+            <div
+              className={`mt-4 p-3 rounded-lg border ${
+                request.remaining_days > 7
+                  ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                  : request.remaining_days > 3
+                  ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                  : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <AlertCircle
+                  className={`h-5 w-5 ${
+                    request.remaining_days > 7
+                      ? "text-blue-500"
+                      : request.remaining_days > 3
+                      ? "text-amber-500"
+                      : "text-red-500"
+                  }`}
+                />
+                <div>
+                  <p
+                    className={`font-medium ${
+                      request.remaining_days > 7
+                        ? "text-blue-900 dark:text-blue-200"
+                        : request.remaining_days > 3
+                        ? "text-amber-900 dark:text-amber-200"
+                        : "text-red-900 dark:text-red-200"
+                    }`}
+                  >
+                    {request.remaining_days > 0 ? (
+                      <>
+                        <span className="font-bold">
+                          {request.remaining_days}
+                        </span>{" "}
+                        days remaining to complete liquidation
+                      </>
+                    ) : (
+                      "Liquidation period has ended"
+                    )}
+                  </p>
+                  {request.remaining_days > 0 &&
+                    request.remaining_days <= 7 && (
+                      <p
+                        className={`text-sm mt-1 ${
+                          request.remaining_days > 3
+                            ? "text-amber-700 dark:text-amber-300"
+                            : "text-red-700 dark:text-red-300"
+                        }`}
+                      >
+                        Please complete your liquidation before the deadline to
+                        avoid penalties.
+                      </p>
+                    )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Instruction for resubmission */}
           {request.status === "resubmit" && (
@@ -736,7 +798,7 @@ const LiquidationPage = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3 justify-end">
+          <div className="flex flex-wrap gap-3 justify-end mt-4">
             {/* <Button
               variant="outline"
               onClick={handleSaveDraft}

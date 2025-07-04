@@ -35,6 +35,7 @@ import {
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
 import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
+import { schoolDistrictOptions } from "@/lib/constants";
 
 interface UserFormData {
   first_name: string;
@@ -47,6 +48,7 @@ interface UserFormData {
   phone_number: string;
   role: string;
   school_id: string; // was: school: string;
+  school_district?: string; // Optional for district admin
   profile_picture_base64: string;
 }
 //TODO - make the school search
@@ -107,7 +109,8 @@ const ManageUsers = () => {
     date_of_birth: "",
     email: "",
     phone_number: "",
-    role: "school_admin",
+    role: "admin",
+    school_district: "", // Optional for district admin
     school_id: "",
     profile_picture_base64: "",
   });
@@ -645,6 +648,29 @@ const ManageUsers = () => {
                     <p className="text-red-500 text-sm">{errors.role}</p>
                   )}
                 </div>
+
+                {/* School District Dropdown for District Admin */}
+                {formData.role === "district_admin" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="school_district" className="text-base">
+                      School District
+                    </Label>
+                    <select
+                      id="school_district"
+                      name="school_district"
+                      value={formData.school_district || ""}
+                      onChange={handleChange}
+                      className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                    >
+                      <option value="">Select a district</option>
+                      {schoolDistrictOptions.map((district) => (
+                        <option key={district} value={district}>
+                          {district}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {(formData.role === "school_head" ||
                   formData.role === "school_admin") && (
