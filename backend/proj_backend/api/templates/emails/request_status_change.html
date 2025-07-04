@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Status Update Notification</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        .email-container {
+            max-width: 37.5rem;
+            margin: 2.5rem auto;
+            background: #fff;
+            border-radius: .5rem;
+            box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
+        .header {
+            background: #094684;
+            color: #fff;
+            padding: 1.5rem 0 1rem 0;
+            text-align: center;
+        }
+        .header img {
+            max-height: 3.75rem;
+            margin-bottom: 0.625rem;
+            
+        }
+        .company-name {
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 0.063rem;
+        }
+        .content {
+            padding: 2rem 2rem 1.5rem 2rem;
+            color: #222;
+        }
+        .status {
+            font-size: 1.1em;
+            color: #003366;
+            font-weight: bold;
+        }
+        .footer {
+            background: #f0f0f0;
+            color: #888;
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.95em;
+        }
+        .reason {
+            background: #f8d7da;
+            color: #721c24;
+            border-radius: 0.25rem;
+            padding: 0.75rem 1rem;
+            margin: 1.125rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <img src="DepEd_logo-W.png" alt="DepEd Logo">
+            <div class="company-name">La Union Schools Division Office<br>Department of Education</div>
+        </div>
+        <div class="content">
+            <p>Dear {{ user.first_name }},</p>
+            <p>
+                This is to formally notify you that your <strong>{{ object_type|title }}</strong> 
+                (ID: <strong>{{ object.request_id }}</strong>) status has changed to:
+                <span class="status">{{ status|title }}</span>.
+            </p>
+            {% if object.rejection_comment %}
+            <div class="reason">
+                <strong>Reason:</strong> {{ object.rejection_comment }}
+            </div>
+            {% endif %}
+            <p>
+                If you have any questions or concerns, please do not hesitate to contact our office.
+            </p>
+            <p>Thank you,<br>
+            <strong>La Union Schools Division Office<br>Department of Education</strong></p>
+        </div>
+        <div class="footer">
+            &copy; {{ now|date:"Y" }} La Union Schools Division Office, Department of Education. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
