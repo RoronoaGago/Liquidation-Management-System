@@ -56,6 +56,8 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
+    school_district = models.CharField(max_length=100, blank=True, null=True,
+                                       help_text="District assignment (only for district administrative assistants)")
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -88,7 +90,12 @@ class School(models.Model):
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     district = models.CharField(max_length=100)
-    legislativeDistrict = models.CharField(max_length=100)
+    legislativeDistrict = models.CharField(
+        max_length=100,
+        # Must match LiquidatorAssignment
+        choices=[("1st District", "1st District"),
+                 ("2nd District", "2nd District")]
+    )
     is_active = models.BooleanField(default=True)  # Added for archiving
     max_budget = models.DecimalField(
         max_digits=15,
@@ -185,6 +192,7 @@ def generate_request_id():
         allowed_chars=string.ascii_uppercase + string.digits
     )
     return f"{prefix}{random_part}"
+
 
 class RequestManagement(models.Model):
     STATUS_CHOICES = [
@@ -283,9 +291,9 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-                    and not self._skip_auto_status
-                    and self.request_monthyear
-                ):
+            and not self._skip_auto_status
+            and self.request_monthyear
+            ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -301,13 +309,13 @@ class RequestManagement(models.Model):
     def handle_status_change_dates(self):
         """Automatically set date fields based on status changes"""
         today = date.today()
-        
+
         # Check if status changed
         if self._old_status != self.status:
             # Approved date
             if self.status == 'approved' and not self.date_approved:
                 self.date_approved = today
-            
+
             # Downloaded date
             if self.status == 'downloaded' and not self.downloaded_at:
                 self.downloaded_at = timezone.now()  # Use timezone.now() instead of date.today()
@@ -315,7 +323,7 @@ class RequestManagement(models.Model):
             # Rejected date
             if self.status == 'rejected' and not self.rejection_date:
                 self.rejection_date = today
-            
+
             # Reset dates if status changes back from these states
             if self.status != 'approved':
                 self.date_approved = None
@@ -323,6 +331,7 @@ class RequestManagement(models.Model):
                 self.downloaded_at = None
             if self.status != 'rejected':
                 self.rejection_date = None
+
 
 class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
@@ -478,7 +487,7 @@ class LiquidationDocument(models.Model):
         null=True,
         related_name='uploaded_documents'
     )
-    is_approved = models.BooleanField(default=False)
+    is_approved = models.BooleanField(null=True, default=None)
     reviewer_comment = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -507,31 +516,6 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification to {self.receiver.username}: {self.notification_title}"
-
-
-class LiquidatorAssignment(models.Model):
-    DISTRICT_CHOICES = [
-        ('all', 'All District'),
-        ('1st', '1st District'),
-        ('2nd', '2nd District')
-    ]
-    liquidator = models.ForeignKey(
-        User, on_delete=models.CASCADE, limit_choices_to={'role': 'liquidator'})
-    district = models.CharField(
-        max_length=100, choices=DISTRICT_CHOICES, default='all')
-    # Optionally, you can use a ForeignKey to School if you want assignment per school
-    school = models.ForeignKey(
-        School, on_delete=models.CASCADE, null=True, blank=True)
-
-    assigned_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assignments_made')
-    assigned_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ('liquidator', 'district')
-
-    def __str__(self):
-        return f"{self.liquidator} assigned to {self.district}"
 
 
 class LiquidationPriority(models.Model):
