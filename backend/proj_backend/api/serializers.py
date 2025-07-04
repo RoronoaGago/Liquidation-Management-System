@@ -131,6 +131,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['last_name'] = user.last_name
         token['username'] = user.username
         token['role'] = user.role
+        token['school_district'] = user.school_district
         token['email'] = user.email
 
         # Add profile picture URL (not the ImageFieldFile object)
