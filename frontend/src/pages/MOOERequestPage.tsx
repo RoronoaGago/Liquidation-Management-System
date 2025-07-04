@@ -70,6 +70,7 @@ const MOOERequestPage = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   const [hasPendingRequest, setHasPendingRequest] = useState(true);
   const [pendingRequestData, setPendingRequestData] = useState<any>(null);
@@ -267,32 +268,11 @@ const MOOERequestPage = () => {
   // Submit handler with resubmission logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("location.state:", location.state);
-    if (selectedPriorities.length < 2) {
-      toast.error("Please select at least two expenses.");
-      return;
-    }
-
-    if (totalAmount > allocatedBudget) {
-      toast.error(
-        `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
-      );
-      return;
-    }
-
-    const emptyAmounts = selectedPriorities.filter(
-      (item) => !item.amount || item.amount === "0"
-    );
-    if (emptyAmounts.length > 0) {
-      toast.error("Please enter amounts for all selected expenses.");
-      return;
-    }
-
+    setActionLoading(true);
     setSubmitting(true);
     try {
       let requestId: string | null = null;
       if (location.state?.rejectedRequestId) {
-        // Resubmit existing request
         const res = await api.put(
           `requests/${location.state.rejectedRequestId}/resubmit/`,
           {
@@ -301,7 +281,6 @@ const MOOERequestPage = () => {
         );
         requestId = res.data?.request_id || location.state.rejectedRequestId;
       } else {
-        // Create new request
         const res = await api.post("requests/", {
           priority_amounts: selectedPriorities,
           request_month: new Date().toLocaleString("default", {
@@ -316,13 +295,14 @@ const MOOERequestPage = () => {
       }
 
       setSelected({});
-      setLastRequestId(requestId || null); // <-- Store the request ID
+      setLastRequestId(requestId || null);
       setShowSuccessDialog(true);
 
+      // Add a longer delay (e.g., 4 seconds) before redirecting
       setTimeout(() => {
         setShowSuccessDialog(false);
         navigate("/requests-history");
-      }, 2500);
+      }, 4000);
     } catch (error: any) {
       console.error("Error:", error);
       const errorMessage =
@@ -331,6 +311,7 @@ const MOOERequestPage = () => {
       toast.error(errorMessage, { autoClose: 4000 });
     } finally {
       setSubmitting(false);
+      setActionLoading(false);
     }
   };
 
@@ -838,10 +819,12 @@ const MOOERequestPage = () => {
                   setShowSubmitDialog(false);
                   await handleSubmit(new Event("submit") as any);
                 }}
-                disabled={submitting || totalAmount < allocatedBudget}
+                disabled={
+                  actionLoading || submitting || totalAmount < allocatedBudget
+                }
                 className="px-4 py-2"
               >
-                {submitting ? (
+                {actionLoading || submitting ? (
                   <span className="flex items-center gap-2">
                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                       <circle
