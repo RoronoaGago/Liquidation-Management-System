@@ -86,6 +86,9 @@ const MOOERequestPage = () => {
   const [expenseToRemove, setExpenseToRemove] = useState<string | null>(null);
   const [showClearAllDialog, setShowClearAllDialog] = useState(false);
 
+  // Add a state to store the last submitted request ID
+  const [lastRequestId, setLastRequestId] = useState<string | null>(null);
+
   // Handle pre-filling from a rejected request
   useEffect(() => {
     if (location.state?.rejectedRequestId) {
@@ -287,17 +290,19 @@ const MOOERequestPage = () => {
 
     setSubmitting(true);
     try {
+      let requestId: string | null = null;
       if (location.state?.rejectedRequestId) {
         // Resubmit existing request
-        await api.put(
+        const res = await api.put(
           `requests/${location.state.rejectedRequestId}/resubmit/`,
           {
             priority_amounts: selectedPriorities,
           }
         );
+        requestId = res.data?.request_id || location.state.rejectedRequestId;
       } else {
         // Create new request
-        await api.post("requests/", {
+        const res = await api.post("requests/", {
           priority_amounts: selectedPriorities,
           request_month: new Date().toLocaleString("default", {
             month: "long",
@@ -307,14 +312,16 @@ const MOOERequestPage = () => {
             ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
             : undefined,
         });
+        requestId = res.data?.request_id;
       }
 
       setSelected({});
-      setShowSuccessDialog(true); // <-- Show success dialog
+      setLastRequestId(requestId || null); // <-- Store the request ID
+      setShowSuccessDialog(true);
 
       setTimeout(() => {
         setShowSuccessDialog(false);
-        navigate("/requests-history"); // <-- Redirect after 2.5s
+        navigate("/requests-history");
       }, 2500);
     } catch (error: any) {
       console.error("Error:", error);
@@ -518,6 +525,16 @@ const MOOERequestPage = () => {
           </DialogHeader>
           <div className="flex flex-col items-center py-4">
             <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+            {lastRequestId && (
+              <div className="mb-2 text-center">
+                <span className="text-gray-700 dark:text-gray-200 text-sm">
+                  Request ID:&nbsp;
+                  <span className="font-semibold text-brand-600 dark:text-brand-400">
+                    {lastRequestId}
+                  </span>
+                </span>
+              </div>
+            )}
             <p className="text-gray-600 dark:text-gray-300 text-center">
               Redirecting to request history...
             </p>
