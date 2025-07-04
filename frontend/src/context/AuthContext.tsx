@@ -15,6 +15,7 @@ interface UserData {
   first_name: string;
   last_name: string;
   phone_number?: string;
+  school_district?: string; // Optional for district admin
   email: string;
   profile_picture?: string;
 }
@@ -41,6 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user_id: string;
         username: string;
         email: string;
+        school_district?: string; // Optional for district admin
         first_name: string;
         last_name: string;
         role: string;
@@ -52,6 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         first_name: decoded.first_name,
         last_name: decoded.last_name,
         email: decoded.email,
+        school_district: decoded.school_district || "", // Optional for district admin
         role: decoded.role,
         profile_picture: decoded.profile_picture,
       };

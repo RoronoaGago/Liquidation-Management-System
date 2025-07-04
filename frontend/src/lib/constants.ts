@@ -17,28 +17,28 @@ export const laUnionMunicipalities = [
 
 // Map municipality to possible districts
 export const municipalityDistricts: Record<string, string[]> = {
-  AGOO: ["AGOO EAST", "AGOO WEST"],
-  LUNA: ["LUNA I", "LUNA II"],
-  BAUANG: ["BAUANG NORTH", "BAUANG SOUTH"],
+  AGOO: ["Agoo East", "Agoo West"],
+  LUNA: ["Luna I", "Luna II"],
+  BAUANG: ["Bauang North", "Bauang South"],
   // ...add other mappings as needed...
   // For municipalities with only one district, use a single-element array
-  "SAN FERNANDO CITY": ["SAN FERNANDO CITY"],
-  "ARINGAY": ["ARINGAY"],
-  "BACNOTAN": ["BACNOTAN"],
-  "BAGULIN": ["BAGULIN"],
-  "BALAOAN": ["BALAOAN"],
-  "BANGAR": ["BANGAR"],
-  "BURGOS": ["BURGOS"],
-  "CABA": ["CABA"],
-  "NAGUILIAN": ["NAGUILIAN"],
-  "ROSARIO": ["ROSARIO"],
-  "PUGO": ["PUGO"],
-  "SAN GABRIEL": ["SAN GABRIEL"],
-  "SAN JUAN": ["SAN JUAN"],
-  "SANTO TOMAS": ["SANTO TOMAS"],
-  "SANTOL": ["SANTOL"],
-  "SUDIPEN": ["SUDIPEN"],
-  "TUBAO": ["TUBAO"],
+  "SAN FERNANDO CITY": ["San Fernando City"],
+  "ARINGAY": ["Aringay"],
+  "BACNOTAN": ["Bacnotan"],
+  "BAGULIN": ["Bagulin"],
+  "BALAOAN": ["Balaoan"],
+  "BANGAR": ["Bangar"],
+  "BURGOS": ["Burgos"],
+  "CABA": ["Caba"],
+  "NAGUILIAN": ["Naguilian"],
+  "ROSARIO": ["Rosario"],
+  "PUGO": ["Pugo"],
+  "SAN GABRIEL": ["San Gabriel"],
+  "SAN JUAN": ["San Juan"],
+  "SANTO TOMAS": ["Santo Tomas"],
+  "SANTOL": ["Santol"],
+  "SUDIPEN": ["Sudipen"],
+  "TUBAO": ["Tubao"],
 
   // etc.
 };
@@ -156,4 +156,28 @@ export interface Transaction {
   updated_at: string;
   completed_at: string | null;
 }
+
+// School district options for district admin role
+export const schoolDistrictOptions = [
+  "Agoo East", "Agoo West",
+  "Luna I", "Luna II",
+  "Bauang North", "Bauang South",
+  "San Fernando City",
+  "Aringay",
+  "Bacnotan",
+  "Bagulin",
+  "Balaoan",
+  "Bangar",
+  "Burgos",
+  "Caba",
+  "Naguilian",
+  "Rosario",
+  "Pugo",
+  "San Gabriel",
+  "San Juan",
+  "Santo Tomas",
+  "Santol",
+  "Sudipen",
+  "Tubao"
+];
 

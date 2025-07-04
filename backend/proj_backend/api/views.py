@@ -11,8 +11,8 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment, Notification
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer, NotificationSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -966,15 +966,6 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
             status='draft',
             request__user=self.request.user
         )
-
-
-class LiquidatorAssignmentListCreateAPIView(generics.ListCreateAPIView):
-    queryset = LiquidatorAssignment.objects.all()
-    serializer_class = LiquidatorAssignmentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(assigned_by=self.request.user)
 
 
 @api_view(['PATCH'])
