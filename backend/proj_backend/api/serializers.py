@@ -348,6 +348,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'reviewer_comments',
             'created_at',
             'liquidation_priorities',  # <-- Add this line
+            'refund',
             'remaining_days',  # <-- Add this
         ]
 
