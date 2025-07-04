@@ -94,7 +94,7 @@ def handle_status_change_notification(instance):
                 # fallback if template fails
                 message=notification_map[instance.status]['details'],
                 recipient=instance.user,
-                template_name="emails/request_status_change.txt",
+                template_name="emails/request_status_change.html",
                 context=context
             )
 
