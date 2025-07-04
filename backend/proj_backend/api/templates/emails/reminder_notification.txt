@@ -1,0 +1,25 @@
+Dear {{ request.user.get_full_name }},
+
+This is a reminder that your request (ID: {{ request.request_id }}) 
+needs to be liquidated within the next 30 days.
+
+Request Details:
+- Created: {{ request.created_at|date:"Y-m-d" }}
+- Month: {{ request.request_month }}
+- Priorities: 
+{% for priority in request.priorities.all %}
+  - {{ priority.expenseTitle }}
+{% endfor %}
+Dear {{ request.user.get_full_name }},
+
+Failure to liquidate by the deadline will result in:
+1. Automatic expiration of the request
+2. A formal demand letter from our legal department
+3. Possible suspension of future fund requests
+
+
+Please complete the liquidation process before the deadline to avoid expiration and legal action.
+
+Regards,
+La Union Schools Division Office
+Department of Education 
