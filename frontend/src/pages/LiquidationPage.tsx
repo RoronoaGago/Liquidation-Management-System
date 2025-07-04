@@ -709,11 +709,11 @@ const LiquidationPage = () => {
                 ) : (
                   <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
                 )}
-                {request.status === "draft" || request.status === "resubmit" ? (
+                {request.status == "draft" || request.status == "resubmit" ? (
                   <div>
                     <h4 className="font-semibold mb-1">
                       {dynamicRefund > 0
-                        ? "Refund Due to Requestor"
+                        ? "Refund Due to requestee"
                         : dynamicRefund < 0
                         ? "Over-Expenditure (No Refund Due)"
                         : "Fully Liquidated (No Refund Due)"}
@@ -722,7 +722,7 @@ const LiquidationPage = () => {
                       {dynamicRefund > 0
                         ? `You must return ${formatCurrency(
                             dynamicRefund
-                          )} to the requestor. This is the unspent portion of the requested funds.`
+                          )} to the requestee. This is the unspent portion of the requested funds.`
                         : dynamicRefund < 0
                         ? `You have spent ${formatCurrency(
                             Math.abs(dynamicRefund)
@@ -734,7 +734,7 @@ const LiquidationPage = () => {
                   <div>
                     <h4 className="font-semibold mb-1">
                       {request.refund > 0
-                        ? "Refund Due to Requestor"
+                        ? "Refund Due to requestee"
                         : request.refund < 0
                         ? "Over-Expenditure (No Refund Due)"
                         : "Fully Liquidated (No Refund Due)"}
@@ -743,7 +743,7 @@ const LiquidationPage = () => {
                       {request.refund > 0
                         ? `You must return ${formatCurrency(
                             request.refund
-                          )} to the requestor.`
+                          )} to the requestee.`
                         : request.refund < 0
                         ? `You have spent ${formatCurrency(
                             Math.abs(request.refund)
@@ -873,7 +873,7 @@ const LiquidationPage = () => {
                         <div>
                           <h4 className="font-semibold mb-1">
                             {dynamicRefund > 0
-                              ? "Refund Due to Requestor"
+                              ? "Refund Due to Requestee"
                               : dynamicRefund < 0
                               ? "Over-Expenditure (No Refund Due)"
                               : "Fully Liquidated (No Refund Due)"}
@@ -882,7 +882,7 @@ const LiquidationPage = () => {
                             {dynamicRefund > 0
                               ? `You must return ${formatCurrency(
                                   dynamicRefund
-                                )} to the requestor. This is the unspent portion of the requested funds.`
+                                )} to the Requestee. This is the unspent portion of the requested funds.`
                               : dynamicRefund < 0
                               ? `You have spent ${formatCurrency(
                                   Math.abs(dynamicRefund)
@@ -1001,7 +1001,10 @@ const LiquidationPage = () => {
                             <input
                               type="number"
                               value={expense.actualAmount || ""}
-                              disabled={request.status !== "draft"}
+                              disabled={
+                                request.status !== "draft" &&
+                                request.status !== "resubmit"
+                              }
                               onChange={(event) => {
                                 const updatedExpenses = request?.expenses.map(
                                   (exp) =>
