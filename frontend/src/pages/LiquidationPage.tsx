@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect, useMemo } from "react";
@@ -41,6 +42,7 @@ interface UploadedDocument {
   document_url?: string;
   uploaded_at?: string;
   reviewer_comment?: string;
+  is_approved?: boolean | null; // Add this line
   // Add other fields as needed
 }
 
@@ -67,7 +69,7 @@ const LiquidationPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [request, setRequest] = useState<LiquidationRequest | null>(null);
-  const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
+  const [expandedExpense, setExpandedExpense] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -123,12 +125,15 @@ const LiquidationPage = () => {
       }
     };
     fetchPendingLiquidation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Toggle expense expansion
   const toggleExpense = (expenseId: string) => {
-    setExpandedExpense(expandedExpense === expenseId ? null : expenseId);
+    setExpandedExpense((prev) =>
+      prev.includes(expenseId)
+        ? prev.filter((id) => id !== expenseId)
+        : [...prev, expenseId]
+    );
   };
 
   // Build a lookup map for uploaded documents: { "expenseId-requirementID": doc }
@@ -198,6 +203,37 @@ const LiquidationPage = () => {
               }
             : prev
         );
+        // --- Keep the expense open after upload if status is draft ---
+        if (request.status === "draft") {
+          // Find the expense in the refreshed data
+          const updatedExpense = data.request?.priorities?.find(
+            (p: any) => String(p.id || p.priority?.LOPID) === String(expenseId)
+          );
+          // Get all required requirements for this expense
+          const requiredReqs =
+            updatedExpense?.priority?.requirements?.filter(
+              (r: any) => r.is_required
+            ) || [];
+          // Check if all required requirements have uploaded documents
+          const allUploaded = requiredReqs.every((req: any) =>
+            (data.documents || []).some(
+              (doc: any) =>
+                String(doc.request_priority_id) === String(expenseId) &&
+                String(doc.requirement_id) === String(req.requirementID)
+            )
+          );
+          setExpandedExpense((prev) => {
+            if (allUploaded) {
+              // Remove from expanded if all required files are uploaded
+              return prev.filter((id) => id !== String(expenseId));
+            } else {
+              // Keep it open
+              return prev.includes(String(expenseId))
+                ? prev
+                : [...prev, String(expenseId)];
+            }
+          });
+        }
       }
     } catch (err) {
       console.error(err);
@@ -252,6 +288,18 @@ const LiquidationPage = () => {
     }
   };
 
+  const allRejectedRevised = useMemo(() => {
+    if (!request || request.status !== "resubmit") return true;
+    const rejectedDocs = request.uploadedDocuments.filter(
+      (doc) => doc.is_approved === false
+    );
+    if (rejectedDocs.length === 0) return true;
+    return rejectedDocs.every(
+      (doc) =>
+        doc.reviewer_comment && doc.reviewer_comment.startsWith("[REVISED]")
+    );
+  }, [request]);
+
   // Check if all required documents are uploaded
   const isSubmitDisabled =
     !request ||
@@ -260,7 +308,13 @@ const LiquidationPage = () => {
         (req) =>
           req.is_required && !getUploadedDocument(expense.id, req.requirementID)
       )
-    );
+    ) ||
+    (request.status === "resubmit" &&
+      request.uploadedDocuments.some(
+        (doc) =>
+          doc.is_approved === false &&
+          !doc.reviewer_comment?.startsWith("[REVISED]")
+      ));
 
   // Calculate progress
   const calculateProgress = () => {
@@ -326,6 +380,38 @@ const LiquidationPage = () => {
     completed: "Completed",
     cancelled: "Cancelled",
   };
+
+  useEffect(() => {
+    if (
+      (request?.status === "resubmit" || request?.status === "draft") &&
+      request.expenses.length > 0
+    ) {
+      setExpandedExpense(request.expenses.map((expense) => String(expense.id)));
+    } else {
+      setExpandedExpense([]);
+    }
+  }, [request]);
+
+  // Auto-collapse expenses in draft if all required documents are uploaded
+  useEffect(() => {
+    if (request?.status === "draft" && expandedExpense.length > 0) {
+      setExpandedExpense((prev) =>
+        prev.filter((expenseId) => {
+          const expense = request.expenses.find(
+            (e) => String(e.id) === String(expenseId)
+          );
+          if (!expense) return false;
+          // Only keep open if not all required docs are uploaded
+          const allUploaded = expense.requirements
+            .filter((r) => r.is_required)
+            .every(
+              (req) => !!getUploadedDocument(expense.id, req.requirementID)
+            );
+          return !allUploaded;
+        })
+      );
+    }
+  }, [request, expandedExpense]);
 
   if (loading) {
     return (
@@ -478,48 +564,117 @@ const LiquidationPage = () => {
                 {request.uploadedDocuments
                   .filter(
                     (doc) =>
-                      doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
+                      doc.reviewer_comment &&
+                      doc.reviewer_comment.trim() !== "" &&
+                      doc.is_approved === false
                   )
-                  .map((doc, idx) => (
-                    <div
-                      key={doc.id || idx}
-                      className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0">
-                          <DocumentTextIcon className="h-5 w-5 text-gray-500" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-800 dark:text-white">
-                            {/* Show the requirement/document name if available */}
-                            {(() => {
-                              // Try to find the requirement title from the expense requirements
-                              let reqTitle = "Document";
-                              for (const expense of request.expenses) {
-                                const req = expense.requirements.find(
-                                  (r) =>
-                                    String(r.requirementID) ===
-                                    String(doc.requirement_id)
+                  .map((doc, idx) => {
+                    // Find the expense and requirement for this document
+                    const expense = request.expenses.find(
+                      (e) => String(e.id) === String(doc.request_priority_id)
+                    );
+                    const requirement = expense?.requirements.find(
+                      (r) =>
+                        String(r.requirementID) === String(doc.requirement_id)
+                    );
+                    return (
+                      <div
+                        key={doc.id || idx}
+                        className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                        onClick={() => {
+                          const element = document.getElementById(
+                            `requirement-${doc.request_priority_id}-${doc.requirement_id}`
+                          );
+                          if (element) {
+                            // Expand the expense if needed
+                            if (
+                              !expandedExpense.includes(
+                                String(doc.request_priority_id)
+                              )
+                            ) {
+                              setExpandedExpense([
+                                String(doc.request_priority_id),
+                              ]);
+                              setTimeout(() => {
+                                const element = document.getElementById(
+                                  `requirement-${doc.request_priority_id}-${doc.requirement_id}`
                                 );
-                                if (req) {
-                                  reqTitle = req.requirementTitle;
-                                  break;
+                                if (element) {
+                                  element.scrollIntoView({
+                                    behavior: "smooth",
+                                    block: "center",
+                                  });
+                                  element.classList.add(
+                                    "ring-2",
+                                    "ring-blue-500"
+                                  );
+                                  setTimeout(() => {
+                                    element.classList.remove(
+                                      "ring-2",
+                                      "ring-blue-500"
+                                    );
+                                  }, 2000);
                                 }
+                              }, 300);
+                            } else {
+                              // Expand all expenses if not already expanded
+                              if (
+                                expandedExpense.length !==
+                                request.expenses.length
+                              ) {
+                                setExpandedExpense(
+                                  request.expenses.map((e) => String(e.id))
+                                );
                               }
-                              return reqTitle;
-                            })()}
-                          </h4>
-                          <p className="mt-1 text-gray-700 dark:text-gray-300">
-                            {doc.reviewer_comment}
-                          </p>
+                              setTimeout(() => {
+                                const element = document.getElementById(
+                                  `requirement-${doc.request_priority_id}-${doc.requirement_id}`
+                                );
+                                if (element) {
+                                  element.scrollIntoView({
+                                    behavior: "smooth",
+                                    block: "center",
+                                  });
+                                  element.classList.add(
+                                    "ring-2",
+                                    "ring-blue-500"
+                                  );
+                                  setTimeout(() => {
+                                    element.classList.remove(
+                                      "ring-2",
+                                      "ring-blue-500"
+                                    );
+                                  }, 2000);
+                                }
+                              }, 300);
+                            }
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0">
+                            <DocumentTextIcon className="h-5 w-5 text-gray-500" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-800 dark:text-white">
+                              {requirement?.requirementTitle || "Document"}
+                            </h4>
+                            <p className="mt-1 text-gray-700 dark:text-gray-300">
+                              {doc.reviewer_comment}
+                            </p>
+                            <p className="mt-1 text-sm text-blue-600 dark:text-blue-400">
+                              Click to jump to this document
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                {/* If no feedback, show a message */}
+                    );
+                  })}
                 {request.uploadedDocuments.filter(
                   (doc) =>
-                    doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
+                    doc.reviewer_comment &&
+                    doc.reviewer_comment.trim() !== "" &&
+                    doc.is_approved === false
                 ).length === 0 && (
                   <div className="text-gray-500 dark:text-gray-400 italic">
                     No reviewer feedback yet.
@@ -633,6 +788,15 @@ const LiquidationPage = () => {
               </div>
             </div>
           )}
+
+          {/* Instruction for resubmission */}
+          {request.status === "resubmit" && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg">
+              Please re-upload a revised file for each rejected document in
+              order to submit your liquidation report again.
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 justify-end mt-4">
             {/* <Button
@@ -658,6 +822,8 @@ const LiquidationPage = () => {
                 >
                   {request.status === "submitted"
                     ? "Already Submitted"
+                    : request.status === "resubmit" && !allRejectedRevised
+                    ? "Please Revise All Rejected Files"
                     : isSubmitting
                     ? "Submitting..."
                     : "Submit Liquidation"}
@@ -700,13 +866,14 @@ const LiquidationPage = () => {
           </h3>
 
           {request.expenses.map((expense) => {
-            // Split requirements into pending and uploaded
+            // Show all requirements as usual
             const pendingReqs = expense.requirements.filter(
               (req) => !getUploadedDocument(expense.id, req.requirementID)
             );
             const uploadedReqs = expense.requirements.filter((req) =>
               getUploadedDocument(expense.id, req.requirementID)
             );
+
             return (
               <div
                 key={expense.id}
@@ -719,7 +886,7 @@ const LiquidationPage = () => {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-300">
-                      {expandedExpense === String(expense.id) ? (
+                      {expandedExpense.includes(String(expense.id)) ? (
                         <ChevronUp className="h-5 w-5" />
                       ) : (
                         <ChevronDown className="h-5 w-5" />
@@ -747,7 +914,7 @@ const LiquidationPage = () => {
                 </div>
 
                 {/* Expense Content - Collapsible */}
-                {expandedExpense === String(expense.id) && (
+                {expandedExpense.includes(String(expense.id)) && (
                   <div className="border-t border-gray-200 dark:border-gray-700 p-4">
                     <div className="space-y-4">
                       {/* Pending requirements first */}
@@ -836,73 +1003,117 @@ const LiquidationPage = () => {
                         })}
                       {/* Uploaded requirements after */}
                       {uploadedReqs.length > 0 &&
-                        uploadedReqs.map((req) => {
-                          const uploadedDoc = getUploadedDocument(
-                            expense.id,
-                            req.requirementID
-                          );
-                          return (
-                            <div
-                              key={`uploaded-${expense.id}-${req.requirementID}`}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="flex-shrink-0">
-                                  <CheckCircle className="h-5 w-5 text-green-500" />
+                        uploadedReqs
+                          .filter((req) => {
+                            const doc = getUploadedDocument(
+                              expense.id,
+                              req.requirementID
+                            );
+                            return (
+                              getUploadedDocument(
+                                expense.id,
+                                req.requirementID
+                              ) &&
+                              (request.status !== "resubmit" ||
+                                doc?.is_approved === false)
+                            );
+                          })
+                          .map((req) => {
+                            const uploadedDoc = getUploadedDocument(
+                              expense.id,
+                              req.requirementID
+                            );
+                            return (
+                              <div
+                                key={`uploaded-${expense.id}-${req.requirementID}`}
+                                id={`requirement-${expense.id}-${req.requirementID}`}
+                                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg ${
+                                  uploadedDoc?.is_approved === false
+                                    ? "bg-red-50 dark:bg-red-900/10 border-l-4 border-red-400"
+                                    : "bg-gray-50 dark:bg-gray-700/30"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0">
+                                    {uploadedDoc?.is_approved === false ? (
+                                      <AlertCircle className="h-5 w-5 text-red-500" />
+                                    ) : (
+                                      <CheckCircle className="h-5 w-5 text-green-500" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-800 dark:text-white">
+                                      {req.requirementTitle}
+                                    </p>
+                                    {req.is_required ? (
+                                      <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
+                                        Required
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
+                                        Optional
+                                      </span>
+                                    )}
+                                    {uploadedDoc?.is_approved === false && (
+                                      <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/10 rounded">
+                                        <div className="flex items-start gap-2">
+                                          {/* <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" /> */}
+                                          <div>
+                                            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                                              Rejected:{" "}
+                                              {uploadedDoc.reviewer_comment}
+                                            </p>
+                                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                              Please re-upload a revised
+                                              version.
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {uploadedDoc?.reviewer_comment && (
+                                      <div className="mt-1 text-xs text-red-700 dark:text-red-300"></div>
+                                    )}
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="font-medium text-gray-800 dark:text-white">
-                                    {req.requirementTitle}
-                                  </p>
-                                  {req.is_required ? (
-                                    <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
-                                      Required
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
-                                      Optional
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    removeFile(
-                                      String(expense.id),
-                                      String(req.requirementID)
-                                    )
-                                  }
-                                >
-                                  Remove
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  startIcon={
-                                    <DownloadIcon className="h-4 w-4" />
-                                  }
-                                  onClick={() => {
-                                    if (uploadedDoc?.document_url) {
-                                      window.open(
-                                        uploadedDoc.document_url,
-                                        "_blank"
-                                      );
-                                    } else {
-                                      toast.info(
-                                        `No file available for ${req.requirementTitle}`
-                                      );
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      removeFile(
+                                        String(expense.id),
+                                        String(req.requirementID)
+                                      )
                                     }
-                                  }}
-                                >
-                                  View
-                                </Button>
+                                  >
+                                    Remove
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    startIcon={
+                                      <DownloadIcon className="h-4 w-4" />
+                                    }
+                                    onClick={() => {
+                                      if (uploadedDoc?.document_url) {
+                                        window.open(
+                                          uploadedDoc.document_url,
+                                          "_blank"
+                                        );
+                                      } else {
+                                        toast.info(
+                                          `No file available for ${req.requirementTitle}`
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    View
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                       {/* If no requirements at all */}
                       {expense.requirements.length === 0 && (
                         <div className="text-sm text-gray-500 italic">
