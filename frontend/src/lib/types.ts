@@ -61,9 +61,20 @@ export type DialogState = {
   bulkArchive: boolean;
 };
 
+
+export interface Assignment {
+  id: number;
+  district: string;
+  school: School | null;
+  assigned_at: string;
+}
 export interface FilterOptions {
   role: string;
   dateRange: { start: string; end: string };
+  searchTerm: string;
+}
+
+export interface AssignLiquidatorsFilterOptions {
   searchTerm: string;
 }
 export interface FormUser extends BaseUser {
@@ -119,10 +130,10 @@ export type ListofPriorityData = {
   is_active?: boolean;
   requirements?: (
     | {
-        requirementID: number;
-        requirementTitle: string;
-        is_required: boolean;
-      }
+      requirementID: number;
+      requirementTitle: string;
+      is_required: boolean;
+    }
     | ListofPriorityData
   )[];
 };
@@ -162,13 +173,13 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   children: React.ReactNode; // Button text or content
   size?: "sm" | "md"; // Button size
   variant?:
-    | "primary"
-    | "secondary" // Added secondary variant
-    | "outline"
-    | "error"
-    | "success"
-    | "destructive"
-    | "ghost"; // Button variant
+  | "primary"
+  | "secondary" // Added secondary variant
+  | "outline"
+  | "error"
+  | "success"
+  | "destructive"
+  | "ghost"; // Button variant
   loading?: boolean;
   startIcon?: React.ReactNode; // Icon before the text
   endIcon?: React.ReactNode; // Icon after the text
