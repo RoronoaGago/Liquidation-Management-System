@@ -117,12 +117,6 @@ const allNavItems: NavItem[] = [
     path: "/schools-priorities-submissions",
     roles: ["superintendent"], // Only for division superintendent
   },
-  {
-    icon: <FileUserIcon />,
-    name: "Assign Liquidators",
-    path: "/assign-liquidators",
-    roles: ["accountant"], // Only for division accountant
-  },
 
   // {
   //   icon: <ReportIcon />,

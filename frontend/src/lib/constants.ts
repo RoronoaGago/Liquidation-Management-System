@@ -157,3 +157,27 @@ export interface Transaction {
   completed_at: string | null;
 }
 
+// School district options for district admin role
+export const schoolDistrictOptions = [
+  "AGOO EAST", "AGOO WEST",
+  "LUNA I", "LUNA II",
+  "BAUANG NORTH", "BAUANG SOUTH",
+  "SAN FERNANDO CITY",
+  "ARINGAY",
+  "BACNOTAN",
+  "BAGULIN",
+  "BALAOAN",
+  "BANGAR",
+  "BURGOS",
+  "CABA",
+  "NAGUILIAN",
+  "ROSARIO",
+  "PUGO",
+  "SAN GABRIEL",
+  "SAN JUAN",
+  "SANTO TOMAS",
+  "SANTOL",
+  "SUDIPEN",
+  "TUBAO"
+];
+

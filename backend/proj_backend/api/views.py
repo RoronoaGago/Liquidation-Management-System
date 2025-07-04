@@ -11,8 +11,8 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, LiquidatorAssignment, Notification
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, LiquidatorAssignmentSerializer, NotificationSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -966,41 +966,6 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
             status='draft',
             request__user=self.request.user
         )
-
-
-class LiquidatorAssignmentListCreateAPIView(generics.ListCreateAPIView):
-    queryset = LiquidatorAssignment.objects.all()
-    serializer_class = LiquidatorAssignmentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        liquidator_id = self.request.query_params.get('liquidator_id')
-        district = self.request.query_params.get('district')
-        school_id = self.request.query_params.get('school_id')
-        if liquidator_id:
-            queryset = queryset.filter(liquidator_id=liquidator_id)
-        if district:
-            queryset = queryset.filter(district=district)
-        if school_id:
-            queryset = queryset.filter(school_id=school_id)
-        return queryset.select_related('liquidator', 'school', 'assigned_by')
-
-    def perform_create(self, serializer):
-        # Ensure school assignments are properly handled
-        district = serializer.validated_data.get('district')
-        school = serializer.validated_data.get('school')
-
-        if school and school.district != district:
-            raise ValidationError("School must be in the selected district")
-
-        serializer.save(assigned_by=self.request.user)
-
-
-class LiquidatorAssignmentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = LiquidatorAssignment.objects.all()
-    serializer_class = LiquidatorAssignmentSerializer
-    permission_classes = [IsAuthenticated]
 
 
 @api_view(['PATCH'])
