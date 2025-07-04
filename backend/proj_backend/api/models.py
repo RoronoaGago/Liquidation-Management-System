@@ -192,6 +192,7 @@ class RequestManagement(models.Model):
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
         ('downloaded', 'Downloaded'),
+        ('unliquidated', 'Unliquidated'),
         ('liquidated', 'Liquidated'),
         ('advanced', 'Advanced'),
     ]
