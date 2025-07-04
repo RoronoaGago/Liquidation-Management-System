@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import api from "@/api/axios";
+import DocumentTextIcon from "@heroicons/react/outline/DocumentTextIcon";
 
 const CATEGORY_LABELS: Record<string, string> = {
   travel: "Travel Expenses",
@@ -529,19 +530,44 @@ const MOOERequestPage = () => {
         open={showRequirementsDialog}
         onOpenChange={setShowRequirementsDialog}
       >
-        <DialogContent>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-md flex flex-col max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>Required Documents</DialogTitle>
+            <DialogTitle>Document Requirements</DialogTitle>
             <DialogDescription>For: {currentPriorityTitle}</DialogDescription>
           </DialogHeader>
-          <div className="mt-4">
+          <div className="mt-4 max-h-[60vh] overflow-y-auto px-1">
             {currentPriorityRequirements.length > 0 ? (
-              <ul className="list-disc pl-5 space-y-2">
-                {currentPriorityRequirements.map((req, index) => (
-                  <li key={index} className="text-gray-700 dark:text-gray-300">
-                    {req}
-                  </li>
-                ))}
+              <ul className="space-y-3 pr-2">
+                {currentPriorityRequirements.map((req, index) => {
+                  const isRequired = true; // Default to required
+                  return (
+                    <li
+                      key={index}
+                      className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
+                    >
+                      <DocumentTextIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-800 dark:text-white">
+                            {req}
+                          </span>
+                          {isRequired ? (
+                            <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
+                              Required
+                            </span>
+                          ) : (
+                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
+                              Optional
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          PDF format required
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-gray-500 dark:text-gray-400">
@@ -555,7 +581,7 @@ const MOOERequestPage = () => {
       {/* Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent
-          className="[&>button]:hidden w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-lg border border-gray-200 dark:border-gray-700"
+          className="[&>button]:hidden w-full max-w-[95vw] rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]"
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
@@ -698,31 +724,94 @@ const MOOERequestPage = () => {
 
       {/* Submit Confirmation Dialog */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <DialogContent className="max-w-md">
-          <div className="p-6 space-y-4">
-            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-              Confirm Submission
-            </h2>
-            <div className="mb-4 space-y-2">
-              <p>
-                <span className="font-medium">Total Amount:</span> ₱
-                {totalAmount.toLocaleString()}
-              </p>
-              <p>
-                <span className="font-medium">Items Selected:</span>{" "}
-                {Object.keys(selected).length}
-              </p>
-              {allocatedBudget > 0 && (
-                <p>
-                  <span className="font-medium">Remaining Budget:</span> ₱
-                  {(allocatedBudget - totalAmount).toLocaleString()}
-                </p>
-              )}
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-md rounded-lg flex flex-col max-h-[90vh]">
+          <div className="p-6 space-y-4 overflow-y-auto">
+            {/* Header with icon */}
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                Confirm MOOE Request Submission
+              </h2>
             </div>
-            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+
+            <div className="max-h-[50vh] overflow-y-auto space-y-4">
+              {/* Budget Compliance Check */}
+              <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-100 dark:border-green-900/20">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                    Allocated Budget:
+                  </span>
+                  <span className="font-bold text-green-800 dark:text-green-200">
+                    ₱{allocatedBudget.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                    Request Total:
+                  </span>
+                  <span className="font-bold text-green-800 dark:text-green-200">
+                    ₱{totalAmount.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Success checkmark if full budget is used */}
+              {totalAmount === allocatedBudget && (
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/10 rounded border border-green-100 dark:border-green-900/20">
+                  <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Full budget allocated (complies with policy).
+                  </p>
+                </div>
+              )}
+
+              {/* Warning if budget is not fully used */}
+              {totalAmount < allocatedBudget && (
+                <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-900/10 rounded border border-amber-100 dark:border-amber-900/20">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-500 dark:text-amber-400 mt-0.5" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    You have{" "}
+                    <strong>
+                      ₱{(allocatedBudget - totalAmount).toLocaleString()}
+                    </strong>{" "}
+                    remaining. Ensure the full budget is utilized before
+                    submission.
+                  </p>
+                </div>
+              )}
+
+              {/* Selected Items Summary */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Selected Expenses ({Object.keys(selected).length}):
+                </h3>
+                <div className="max-h-[40vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md">
+                  <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {Object.entries(selected).map(([expenseTitle, amount]) => (
+                      <li key={expenseTitle} className="px-3 py-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[180px]">
+                            {expenseTitle}
+                          </span>
+                          <span className="text-sm font-mono font-medium">
+                            ₱{amount || "0"}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button
                 variant="outline"
                 onClick={() => setShowSubmitDialog(false)}
+                className="px-4 py-2"
               >
                 Cancel
               </Button>
@@ -732,9 +821,31 @@ const MOOERequestPage = () => {
                   setShowSubmitDialog(false);
                   await handleSubmit(new Event("submit") as any);
                 }}
-                disabled={submitting}
+                disabled={submitting || totalAmount < allocatedBudget}
+                className="px-4 py-2"
               >
-                {submitting ? "Submitting..." : "Confirm & Submit"}
+                {submitting ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Submitting...
+                  </span>
+                ) : (
+                  "Confirm & Submit"
+                )}
               </Button>
             </div>
           </div>
