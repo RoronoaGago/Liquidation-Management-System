@@ -25,7 +25,13 @@ import { ListofPriorityData } from "@/lib/types";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useLocation, useNavigate } from "react-router";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import api from "@/api/axios";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -173,12 +179,15 @@ const MOOERequestPage = () => {
 
   const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
 
+  // Update handleCheck to show toast notifications
   const handleCheck = (expense: string) => {
     setSelected((prev) => {
       if (expense in prev) {
         const { [expense]: _, ...rest } = prev;
+        toast.info(`Removed ${expense} from selection`);
         return rest;
       } else {
+        toast.success(`Added ${expense} to selection`);
         return { ...prev, [expense]: "" };
       }
     });
@@ -428,16 +437,18 @@ const MOOERequestPage = () => {
         open={!!expenseToRemove}
         onOpenChange={() => setExpenseToRemove(null)}
       >
-        <DialogContent className="max-w-md">
-          <div className="p-6 space-y-4">
-            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-              Remove Expense
-            </h2>
-            <p>
-              Are you sure you want to remove{" "}
-              <span className="font-semibold">{expenseToRemove}</span>?
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Removal</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove this expense from your request?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-2">
+            <p className="font-medium">
+              Expense: <span className="text-brand-600">{expenseToRemove}</span>
             </p>
-            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex justify-end gap-2 mt-4">
               <Button
                 variant="outline"
                 onClick={() => setExpenseToRemove(null)}
@@ -445,13 +456,13 @@ const MOOERequestPage = () => {
                 Cancel
               </Button>
               <Button
-                variant="primary"
+                variant="destructive"
                 onClick={() => {
                   if (expenseToRemove) handleCheck(expenseToRemove);
                   setExpenseToRemove(null);
                 }}
               >
-                Confirm Removal
+                Remove Expense
               </Button>
             </div>
           </div>
@@ -460,13 +471,18 @@ const MOOERequestPage = () => {
 
       {/* Clear All Dialog */}
       <Dialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
-        <DialogContent className="max-w-md">
-          <div className="p-6 space-y-4">
-            <h2 className="text-lg font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-              Clear All Selections
-            </h2>
-            <p>This will remove all selected expenses. Are you sure?</p>
-            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear All Selections</DialogTitle>
+            <DialogDescription>
+              This will remove all selected expenses from your request.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-2">
+            <p className="font-medium">
+              {Object.keys(selected).length} items will be removed
+            </p>
+            <div className="flex justify-end gap-2 mt-4">
               <Button
                 variant="outline"
                 onClick={() => setShowClearAllDialog(false)}
@@ -474,13 +490,14 @@ const MOOERequestPage = () => {
                 Cancel
               </Button>
               <Button
-                variant="primary"
+                variant="destructive"
                 onClick={() => {
                   setSelected({});
                   setShowClearAllDialog(false);
+                  toast.success("Cleared all selections");
                 }}
               >
-                Confirm
+                Clear All
               </Button>
             </div>
           </div>
@@ -489,15 +506,18 @@ const MOOERequestPage = () => {
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center">
-          <div className="flex flex-col items-center py-8">
-            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+        <DialogContent className="flex flex-col items-center justify-center">
+          <DialogHeader>
+            <DialogTitle className="text-center">
               Request Submitted!
-            </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-center mb-2">
+            </DialogTitle>
+            <DialogDescription className="text-center">
               Your MOOE request was submitted successfully.
-              <br />
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-4">
+            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+            <p className="text-gray-600 dark:text-gray-300 text-center">
               Redirecting to request history...
             </p>
           </div>
@@ -509,11 +529,12 @@ const MOOERequestPage = () => {
         open={showRequirementsDialog}
         onOpenChange={setShowRequirementsDialog}
       >
-        <DialogContent className="max-w-md">
-          <div className="p-6">
-            <h2 className="text-lg font-bold mb-4">
-              Required Documents for {currentPriorityTitle}
-            </h2>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Required Documents</DialogTitle>
+            <DialogDescription>For: {currentPriorityTitle}</DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
             {currentPriorityRequirements.length > 0 ? (
               <ul className="list-disc pl-5 space-y-2">
                 {currentPriorityRequirements.map((req, index) => (
@@ -527,14 +548,6 @@ const MOOERequestPage = () => {
                 No specific requirements for this priority.
               </p>
             )}
-            <div className="flex justify-end mt-6">
-              {/* <Button
-                variant="primary"
-                onClick={() => setShowRequirementsDialog(false)}
-              >
-                Close
-              </Button> */}
-            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -650,17 +663,19 @@ const MOOERequestPage = () => {
         open={!!categoryToSelect}
         onOpenChange={() => setCategoryToSelect(null)}
       >
-        <DialogContent className="max-w-md">
-          <div className="p-6">
-            <h2 className="text-lg font-bold mb-2">Select All in Category</h2>
-            <p>
-              Are you sure you want to select all items under{" "}
-              <span className="font-semibold">
-                {CATEGORY_LABELS[categoryToSelect ?? ""] || categoryToSelect}
-              </span>
-              ?
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select All in Category</DialogTitle>
+            <DialogDescription>
+              This will select all items under this category
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-2">
+            <p className="font-medium">
+              Category:{" "}
+              {CATEGORY_LABELS[categoryToSelect ?? ""] || categoryToSelect}
             </p>
-            <div className="flex justify-end gap-2 mt-6">
+            <div className="flex justify-end gap-2 mt-4">
               <Button
                 variant="outline"
                 onClick={() => setCategoryToSelect(null)}
@@ -669,9 +684,12 @@ const MOOERequestPage = () => {
               </Button>
               <Button
                 variant="primary"
-                onClick={() => doCategorySelectAll(categoryToSelect!)}
+                onClick={() => {
+                  doCategorySelectAll(categoryToSelect!);
+                  toast.success(`Selected all items in ${categoryToSelect}`);
+                }}
               >
-                Yes, Select All
+                Select All
               </Button>
             </div>
           </div>
