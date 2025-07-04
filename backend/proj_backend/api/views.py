@@ -211,6 +211,7 @@ def user_detail(request, pk):
 class SchoolListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = SchoolSerializer
     pagination_class = SchoolPagination
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         queryset = School.objects.all()
