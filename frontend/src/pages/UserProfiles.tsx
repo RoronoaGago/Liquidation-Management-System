@@ -378,6 +378,20 @@ export default function UserProfiles() {
                         .replace(/_/g, " ")
                         .replace(/\b\w/g, (l) => l.toUpperCase())
                     : "User"}
+                  {/* Show school district or school next to role */}
+                  {displayUser?.role === "district_admin" &&
+                    displayUser?.school_district && (
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-300 font-normal">
+                        | District: {displayUser.school_district}
+                      </span>
+                    )}
+                  {(displayUser?.role === "school_head" ||
+                    displayUser?.role === "school_admin") &&
+                    displayUser?.school?.schoolName && (
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-300 font-normal">
+                        | School: {displayUser.school.schoolName}
+                      </span>
+                    )}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   @{displayUser?.username || "-"}
