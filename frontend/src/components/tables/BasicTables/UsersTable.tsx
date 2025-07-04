@@ -64,8 +64,8 @@ import {
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { roleOptions } from "@/pages/ManageUsers";
+import { roleMap, schoolDistrictOptions } from "@/lib/constants";
 import SkeletonRow from "@/components/ui/skeleton";
-import { roleMap } from "@/lib/constants";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
 import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
@@ -404,6 +404,7 @@ export default function UsersTable({
       formData.append("email", selectedUser.email);
       formData.append("username", selectedUser.username); // Add this
       formData.append("date_of_birth", selectedUser.date_of_birth || ""); // Handle null case
+      formData.append("school_district", selectedUser.school_district || "");
 
       // Contact info
       if (selectedUser.phone_number) {
@@ -421,6 +422,7 @@ export default function UsersTable({
           : ""
       );
       console.log("Selected User School ID:", selectedUser.school?.schoolId);
+      console.log("Selected school district:", selectedUser.school_district);
 
       // Password (only if changed)
       if (selectedUser.password) {
@@ -1275,6 +1277,29 @@ export default function UsersTable({
                   <p className="text-red-500 text-sm">{formErrors.role}</p>
                 )}
               </div>
+
+              {/* School District Dropdown for District Admin */}
+              {selectedUser.role === "district_admin" && (
+                <div className="space-y-2">
+                  <Label htmlFor="school_district" className="text-base">
+                    School District
+                  </Label>
+                  <select
+                    id="school_district"
+                    name="school_district"
+                    value={selectedUser.school_district || ""}
+                    onChange={handleChange}
+                    className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  >
+                    <option value="">Select a district</option>
+                    {schoolDistrictOptions.map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {(selectedUser.role === "school_head" ||
                 selectedUser.role === "school_admin") && (
