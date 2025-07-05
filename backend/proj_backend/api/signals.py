@@ -41,15 +41,25 @@ def create_new_request_notification(instance):
 
 def send_notification_email(subject, message, recipient, template_name=None, context=None):
     if recipient and getattr(recipient, 'email', None):
+        html_message = None
         if template_name and context:
             # Render the email body from template
-            message = render_to_string(template_name, context)
+            html_message = render_to_string(template_name, context)
+            # Optionally, also render a plain text version for fallback
+            if template_name.endswith('.html'):
+                # Try to find a .txt fallback with the same name
+                txt_template = template_name.replace('.html', '.txt')
+                try:
+                    message = render_to_string(txt_template, context)
+                except Exception:
+                    pass  # If no .txt template, keep the original message
         send_mail(
             subject=subject,
             message=message,
             from_email=None,  # Uses DEFAULT_FROM_EMAIL
             recipient_list=[recipient.email],
             fail_silently=True,
+            html_message=html_message,  # This enables HTML email
         )
 
 
@@ -227,7 +237,7 @@ def handle_liquidation_status_change(instance):
                 subject=notification_info['title'],
                 message=notification_info['details'],
                 recipient=receiver,
-                template_name="emails/liquidation_status_change.txt",
+                template_name="emails/liquidation_status_change.html",
                 context=context
             )
 

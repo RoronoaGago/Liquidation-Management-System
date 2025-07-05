@@ -69,7 +69,7 @@
             <p>Dear {{ user.first_name }},</p>
             <p>
                 This is to formally notify you that your <strong>{{ object_type|title }}</strong> 
-                (ID: <strong>{{ object.request_id }}</strong>) status has changed to:
+                (ID: <strong>{{ object.LiquidationId }}</strong>) status has changed to:
                 <span class="status">{{ status|title }}</span>.
             </p>
             {% if object.rejection_comment %}
