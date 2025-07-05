@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import LiquidatorsTable from "@/components/tables/BasicTables/LiquidatorsTable";
 import api from "@/api/axios";
+import { toast } from "react-toastify";
 
 // Define the Liquidation type if not imported from elsewhere
 type Liquidation = {
@@ -50,6 +51,20 @@ const LiquidatorsPage = () => {
     };
     fetchLiquidations();
   }, []);
+
+  const handleView = async (liq: Liquidation) => {
+    try {
+      // Change status to under_review_division when division admin views
+      if (liq.status === "approved_district") {
+        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+          status: "under_review_division",
+        });
+      }
+      navigate(`/liquidation-finalize/${liq.LiquidationID}`);
+    } catch (err) {
+      toast.error("Failed to update status");
+    }
+  };
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
@@ -98,7 +113,7 @@ const LiquidatorsPage = () => {
             setLoading(false);
           }
         }}
-        onView={(liq) => navigate(`/liquidation-finalize/${liq.LiquidationID}`)}
+        onView={handleView}
       />
     </div>
   );

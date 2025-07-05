@@ -93,6 +93,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   } | null>(null);
   const [, setDisabledLiquidationIDs] = useState<string[]>([]);
   const navigate = useNavigate();
+  const [viewLoading, setViewLoading] = useState<string | null>(null);
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
@@ -168,8 +169,23 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
   // Replace the handleView function:
-  const handleView = (liq: Liquidation) => {
-    navigate(`/liquidations/${liq.LiquidationID}`);
+  const handleView = async (liq: Liquidation) => {
+    if (viewLoading) return;
+    setViewLoading(liq.LiquidationID);
+    try {
+      // Change status to under_review_district when district admin views
+      if (liq.status === "submitted") {
+        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+          status: "under_review_district",
+        });
+        await refreshList(); // Refresh the list to show new status
+      }
+      navigate(`/liquidations/${liq.LiquidationID}`);
+    } catch (err) {
+      toast.error("Failed to update status");
+    } finally {
+      setViewLoading(null);
+    }
   };
 
   // Document completion calculation
@@ -489,6 +505,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                           liq.status === "approved_division" ||
                           liq.status === "completed"
                             ? "Viewing is disabled for approved or completed liquidations."
+                            : viewLoading === liq.LiquidationID
+                            ? "Loading..."
                             : "View"
                         }
                         style={{
@@ -497,7 +515,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                             liq.status === "approved" ||
                             liq.status === "approved_district" ||
                             liq.status === "approved_division" ||
-                            liq.status === "completed"
+                            liq.status === "completed" ||
+                            viewLoading === liq.LiquidationID
                               ? 0.5
                               : 1,
                           pointerEvents:
@@ -505,7 +524,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                             liq.status === "approved" ||
                             liq.status === "approved_district" ||
                             liq.status === "approved_division" ||
-                            liq.status === "completed"
+                            liq.status === "completed" ||
+                            viewLoading === liq.LiquidationID
                               ? "none"
                               : "auto",
                         }}
@@ -514,14 +534,24 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                           liq.status === "approved" ||
                           liq.status === "approved_district" ||
                           liq.status === "approved_division" ||
-                          liq.status === "completed"
+                          liq.status === "completed" ||
+                          viewLoading === liq.LiquidationID
                             ? -1
                             : 0
                         }
                         role="link"
                       >
-                        View
-                        <LucideEye className="w-4 h-4 ml-1" />
+                        {viewLoading === liq.LiquidationID ? (
+                          <>
+                            <span className="animate-spin mr-1 w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full inline-block align-middle"></span>
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            View
+                            <LucideEye className="w-4 h-4 ml-1" />
+                          </>
+                        )}
                       </span>
                     </TableCell>
                   </TableRow>

@@ -295,11 +295,20 @@ const LiquidationDetailsPage = () => {
     try {
       setActionLoading(true);
       if (currentReportAction === "approve") {
+        // Set status based on user role
+        let newStatus = "approved_district";
+        if (user?.role === "liquidator") {
+          newStatus = "liquidated";
+        }
         await api.patch(`/liquidations/${liquidationId}/`, {
-          status: "approved_district",
+          status: newStatus,
           reviewed_at_district: new Date().toISOString(),
         });
-        toast.success("Liquidation report approved!");
+        toast.success(
+          newStatus === "liquidated"
+            ? "Liquidation report finalized!"
+            : "Liquidation report approved!"
+        );
       } else {
         await api.patch(`/liquidations/${liquidationId}/`, {
           status: "resubmit",

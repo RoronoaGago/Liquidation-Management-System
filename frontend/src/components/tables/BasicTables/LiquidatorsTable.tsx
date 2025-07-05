@@ -80,6 +80,7 @@ interface LiquidationReportTableProps {
 const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
   liquidations,
   refreshList,
+  loading,
   onView,
 }) => {
   const [selected, setSelected] = useState<Liquidation | null>(null);
@@ -583,8 +584,11 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
-                        className="text-blue-600 hover:underline font-medium"
-                        onClick={() => onView(liq)}
+                        className={`text-blue-600 hover:underline font-medium ${
+                          loading ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                        onClick={() => !loading && onView(liq)}
+                        disabled={loading}
                       >
                         View
                       </button>
