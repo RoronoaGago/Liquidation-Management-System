@@ -380,7 +380,7 @@ class LiquidationManagement(models.Model):
     )
     refund = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True)
-    comment_id = models.CharField(max_length=255, blank=True, null=True)
+    rejection_comment = models.TextField(null=True, blank=True)
     status = models.CharField(
         max_length=30, choices=STATUS_CHOICES, default='draft'
     )

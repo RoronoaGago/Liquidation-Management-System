@@ -9,6 +9,14 @@ interface BreadcrumbProps {
 const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle, backUrl }) => {
   const navigate = useNavigate();
 
+  // Dynamic button text based on pageTitle
+  let buttonText = "Home";
+  if (pageTitle === "District Liquidation Management") {
+    buttonText = "District Liquidation Management";
+  } else if (pageTitle === "Finalize Liquidation Report") {
+    buttonText = "Finalize Liquidation Report";
+  }
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
       <h2 className="text-xl font-semibold text-gray-800 dark:text-white/90">
@@ -21,7 +29,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle, backUrl }) => {
               onClick={() => (backUrl ? navigate(backUrl) : navigate("/"))}
               className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             >
-              {backUrl ? "District Liquidation Management" : "Home"}
+              {buttonText}
               <svg
                 className="stroke-current"
                 width="17"

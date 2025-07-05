@@ -582,7 +582,7 @@ const LiquidationPage = () => {
                   </h4>
                   <p className="text-red-700 dark:text-red-300">
                     Your liquidation request requires revisions. Please address
-                    the reviewer feedback below and resubmit.
+                    the following issues and resubmit.
                   </p>
                 </div>
               </div>

@@ -300,15 +300,19 @@ const LiquidationDetailsPage = () => {
           reviewed_at_district: new Date().toISOString(),
         });
         toast.success("Liquidation report approved!");
-        navigate("/pre-auditing");
       } else {
         await api.patch(`/liquidations/${liquidationId}/`, {
           status: "resubmit",
-          reviewed_at_district: null,
+          reviewed_at_district: new Date().toISOString(),
           rejection_comment: rejectionComment,
         });
         toast.error("Liquidation report sent back for revision.");
-        navigate("/liquidations");
+      }
+      // Dynamic navigation after approve/reject
+      if (user?.role === "district_admin") {
+        navigate("/pre-auditing");
+      } else if (user?.role === "liquidator") {
+        navigate("/liquidation-finalize");
       }
     } catch (err) {
       toast.error(`Failed to ${currentReportAction} liquidation report`);
@@ -423,12 +427,19 @@ const LiquidationDetailsPage = () => {
 
   // --- Dynamic back button logic ---
   let backUrl = "/";
-  if (isDistrictAdmin) backUrl = "/pre-auditing";
-  else if (isLiquidator) backUrl = "/liquidation-finalize";
+  let pageBreadcrumbText = "Liquidation Details";
+  if (isDistrictAdmin) {
+    backUrl = "/pre-auditing";
+    pageBreadcrumbText = "District Liquidation Management";
+  } else if (isLiquidator) {
+    backUrl = "/liquidation-finalize";
+    pageBreadcrumbText = "Finalize Liquidation Report";
+  }
 
   // --- Role-based action logic ---
   const showDistrictAdminActions =
-    isDistrictAdmin && status === "under_review_district";
+    isDistrictAdmin && status === "under_review_district" && allReviewed;
+  // For liquidators, allow reject/finalize as long as status is correct, regardless of allReviewed
   const showLiquidatorActions = isLiquidator && status === "approved_district";
 
   return (
@@ -443,11 +454,7 @@ const LiquidationDetailsPage = () => {
           <Undo2Icon />
         </Button>
       </div>
-      <PageBreadcrumb
-        pageTitle={`Liquidation Details: ${liquidation.LiquidationID}`}
-        backUrl={backUrl}
-      />
-
+      <PageBreadcrumb pageTitle={pageBreadcrumbText} backUrl={backUrl} />
       <div className="bg-white rounded-lg shadow p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div>
@@ -532,7 +539,6 @@ const LiquidationDetailsPage = () => {
                 Review the document and take action.
               </DialogDescription>
             </DialogHeader>
-
             {viewDoc && (
               <div className="space-y-4">
                 {/* File preview */}
@@ -634,53 +640,86 @@ const LiquidationDetailsPage = () => {
                       </span>
                     )}
                   </div>
-
                   <div className="flex gap-2 mt-4 justify-between">
                     <div className="flex gap-2">
-                      <Button
-                        variant={viewDoc?.is_approved ? "success" : "outline"}
-                        disabled={viewDoc?.is_approved || actionLoading}
-                        startIcon={
-                          actionLoading && currentAction === "approve" ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-5 w-5" />
-                          )
-                        }
-                        onClick={() =>
-                          handleDocumentAction("approve", viewDoc!)
-                        }
-                      >
-                        {actionLoading && currentAction === "approve"
-                          ? "Approving..."
-                          : viewDoc?.is_approved
-                          ? "Approved"
-                          : "Approve Document"}
-                      </Button>
-                      <Button
-                        variant={
-                          viewDoc?.is_approved === false
-                            ? "destructive"
-                            : "outline"
-                        }
-                        disabled={
-                          viewDoc?.is_approved === false || actionLoading
-                        }
-                        startIcon={
-                          actionLoading && currentAction === "reject" ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                          ) : (
-                            <AlertCircle className="h-5 w-5" />
-                          )
-                        }
-                        onClick={() => handleDocumentAction("reject", viewDoc!)}
-                      >
-                        {actionLoading && currentAction === "reject"
-                          ? "Rejecting..."
-                          : viewDoc?.is_approved === false
-                          ? "Rejected"
-                          : "Reject Document"}
-                      </Button>
+                      {/* Only show approve/reject for district admin, hide for liquidator */}
+                      {isDistrictAdmin && (
+                        <>
+                          <Button
+                            variant={
+                              viewDoc?.is_approved ? "success" : "outline"
+                            }
+                            disabled={viewDoc?.is_approved || actionLoading}
+                            startIcon={
+                              actionLoading && currentAction === "approve" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-5 w-5" />
+                              )
+                            }
+                            onClick={() =>
+                              handleDocumentAction("approve", viewDoc!)
+                            }
+                          >
+                            {actionLoading && currentAction === "approve"
+                              ? "Approving..."
+                              : viewDoc?.is_approved
+                              ? "Approved"
+                              : "Approve Document"}
+                          </Button>
+                          <Button
+                            variant={
+                              viewDoc?.is_approved === false
+                                ? "destructive"
+                                : "outline"
+                            }
+                            disabled={
+                              viewDoc?.is_approved === false || actionLoading
+                            }
+                            startIcon={
+                              actionLoading && currentAction === "reject" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <AlertCircle className="h-5 w-5" />
+                              )
+                            }
+                            onClick={() =>
+                              handleDocumentAction("reject", viewDoc!)
+                            }
+                          >
+                            {actionLoading && currentAction === "reject"
+                              ? "Rejecting..."
+                              : viewDoc?.is_approved === false
+                              ? "Rejected"
+                              : "Reject Document"}
+                          </Button>
+                        </>
+                      )}
+                      {/* If liquidator, show disabled buttons for clarity (optional) */}
+                      {isLiquidator && (
+                        <>
+                          <Button
+                            variant={
+                              viewDoc?.is_approved ? "success" : "outline"
+                            }
+                            disabled
+                            startIcon={<CheckCircle className="h-5 w-5" />}
+                          >
+                            Approve Document
+                          </Button>
+                          <Button
+                            variant={
+                              viewDoc?.is_approved === false
+                                ? "destructive"
+                                : "outline"
+                            }
+                            disabled
+                            startIcon={<AlertCircle className="h-5 w-5" />}
+                          >
+                            Reject Document
+                          </Button>
+                        </>
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <Button
@@ -964,12 +1003,12 @@ const LiquidationDetailsPage = () => {
         </div>
 
         {/* Approve/Reject Report Buttons (District Admin) */}
-        {showDistrictAdminActions && allReviewed && (
+        {showDistrictAdminActions && (
           <div className="flex gap-4 justify-end mt-8">
             <Button
               onClick={handleRejectReport}
               disabled={
-                !canReject ||
+                !rejectionComment.trim() ||
                 (actionLoading && currentReportAction === "reject")
               }
               variant="destructive"
@@ -1006,16 +1045,12 @@ const LiquidationDetailsPage = () => {
             </Button>
           </div>
         )}
-
         {/* Finalize/Reject Buttons (Liquidator) */}
-        {showLiquidatorActions && allReviewed && (
+        {showLiquidatorActions && (
           <div className="flex gap-4 justify-end mt-8">
             <Button
               onClick={handleRejectReport}
-              disabled={
-                !canReject ||
-                (actionLoading && currentReportAction === "reject")
-              }
+              disabled={actionLoading && currentReportAction === "reject"}
               variant="destructive"
               startIcon={
                 actionLoading && currentReportAction === "reject" ? (
@@ -1090,7 +1125,6 @@ const LiquidationDetailsPage = () => {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Reject Report Confirmation Dialog */}
       <Dialog
         open={showRejectReportConfirm}
@@ -1104,30 +1138,37 @@ const LiquidationDetailsPage = () => {
               submitter will need to resubmit with corrections.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowRejectReportConfirm(false)}
-              disabled={actionLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={performReportAction}
-              disabled={actionLoading}
-              startIcon={
-                actionLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : null
-              }
-            >
-              {actionLoading ? "Rejecting..." : "Confirm Rejection"}
-            </Button>
+          <div className="space-y-4">
+            <textarea
+              value={rejectionComment}
+              onChange={(e) => setRejectionComment(e.target.value)}
+              placeholder="Enter reason for rejection..."
+              className="w-full border rounded p-3 min-h-[100px] text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowRejectReportConfirm(false)}
+                disabled={actionLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={performReportAction}
+                disabled={!rejectionComment.trim() || actionLoading}
+                startIcon={
+                  actionLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : null
+                }
+              >
+                {actionLoading ? "Rejecting..." : "Confirm Rejection"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Document Approve Confirmation Dialog */}
       <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
         <DialogContent>
@@ -1164,7 +1205,6 @@ const LiquidationDetailsPage = () => {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Document Reject Confirmation Dialog */}
       <Dialog open={showRejectConfirm} onOpenChange={setShowRejectConfirm}>
         <DialogContent>

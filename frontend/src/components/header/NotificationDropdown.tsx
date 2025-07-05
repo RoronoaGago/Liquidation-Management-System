@@ -82,9 +82,17 @@ export default function NotificationDropdown() {
           console.log("oh yeah");
           navigate("/pre-auditing");
         } else if (
-          notification.notification_title === "Liquidation Approved by District"
+          notification.notification_title ===
+            "Liquidation Approved by District" &&
+          user?.role === "liquidator"
         ) {
           navigate("/liquidation-finalize");
+        } else if (
+          notification.notification_title ===
+            "Liquidation Approved by District" &&
+          user?.role === "school_head"
+        ) {
+          navigate("/liquidation");
         } else if (notification.notification_title.includes("New Request")) {
           console.log("New Request Notification");
           navigate("/schools-priorities-submissions");
