@@ -21,6 +21,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   AlertTriangleIcon,
+  Loader2,
+  Loader2Icon,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
 import api from "@/api/axios";
@@ -45,6 +47,9 @@ const PriortySubmissionsPage = () => {
   >(null);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [submissionToReject, setSubmissionToReject] =
+    useState<Submission | null>(null);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [submissionToApprove, setSubmissionToApprove] =
     useState<Submission | null>(null);
   // Pagination, search, and sort state
 
@@ -620,15 +625,13 @@ const PriortySubmissionsPage = () => {
                     <Button
                       type="button"
                       variant="success"
-                      onClick={() => handleApprove(viewedSubmission)}
-                      startIcon={<CheckCircle className="w-4 h-4" />}
-                      disabled={
-                        actionLoading === "approve" ||
-                        actionLoading === "reject"
-                      }
-                      loading={actionLoading === "approve"}
+                      onClick={() => {
+                        setSubmissionToApprove(viewedSubmission);
+                        setShowApproveConfirm(true);
+                      }}
+                      disabled={!!actionLoading}
                     >
-                      {loading ? "Processing..." : "Approve"}
+                      Approve
                     </Button>
                   </div>
                 )}
@@ -758,6 +761,45 @@ const PriortySubmissionsPage = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Approval</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to approve this submission? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowApproveConfirm(false)}
+              disabled={!!actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="success"
+              onClick={async () => {
+                if (submissionToApprove) {
+                  await handleApprove(submissionToApprove);
+                  setShowApproveConfirm(false);
+                }
+              }}
+              disabled={!!actionLoading}
+              startIcon={
+                actionLoading ? (
+                  <Loader2Icon className="h-5 w-5 animate-spin" />
+                ) : null
+              }
+            >
+              {actionLoading ? "Approving..." : "Confirm Approval"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
