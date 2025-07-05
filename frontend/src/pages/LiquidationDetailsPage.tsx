@@ -440,7 +440,8 @@ const LiquidationDetailsPage = () => {
   const showDistrictAdminActions =
     isDistrictAdmin && status === "under_review_district" && allReviewed;
   // For liquidators, allow reject/finalize as long as status is correct, regardless of allReviewed
-  const showLiquidatorActions = isLiquidator && status === "approved_district";
+  const showLiquidatorActions =
+    isLiquidator && status === "under_review_division";
 
   return (
     <div className="container mx-auto px-5 py-10">
