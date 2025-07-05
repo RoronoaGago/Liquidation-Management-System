@@ -100,6 +100,7 @@ const LiquidationPage = () => {
           return;
         }
         console.log(data);
+        // In LiquidationPage.tsx, update the data mapping:
         setRequest({
           id: data.LiquidationID || "N/A",
           liquidationID: data.LiquidationID,
@@ -115,10 +116,12 @@ const LiquidationPage = () => {
             id: priority.id || priority.priority?.LOPID || "",
             title: priority.priority?.expenseTitle || "",
             amount: Number(priority.amount) || 0,
+            // Add this line to include actual amounts from liquidation priorities
             actualAmount:
-              priority.actualAmount !== undefined
-                ? Number(priority.actualAmount)
-                : 0, // Ensure actualAmount is always a number
+              data.actual_amounts?.find(
+                (a: any) =>
+                  a.expense_id === (priority.id || priority.priority?.LOPID)
+              )?.actual_amount || 0,
             requirements: (priority.priority?.requirements || []).map(
               (req: any) => ({
                 requirementID: req.requirementID,
@@ -127,7 +130,7 @@ const LiquidationPage = () => {
               })
             ),
           })),
-          refund: Number(data.refund) || 0, // Always parse refund as number
+          refund: Number(data.refund) || 0,
           uploadedDocuments: data.documents || [],
           remaining_days: data.remaining_days || null,
         });

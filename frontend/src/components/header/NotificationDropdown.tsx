@@ -82,9 +82,9 @@ export default function NotificationDropdown() {
           console.log("oh yeah");
           navigate("/pre-auditing");
         } else if (
-          notification.notification_title === "New comment on your post"
+          notification.notification_title === "Liquidation Approved by District"
         ) {
-          navigate("/posts");
+          navigate("/liquidation-finalize");
         } else if (notification.notification_title.includes("New Request")) {
           console.log("New Request Notification");
           navigate("/schools-priorities-submissions");

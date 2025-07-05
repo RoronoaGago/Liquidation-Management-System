@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import LiquidatorsTable from "@/components/tables/BasicTables/LiquidatorsTable";
 import api from "@/api/axios";
@@ -32,6 +33,7 @@ const LiquidatorsPage = () => {
   const [searchTerm] = useState("");
   const [itemsPerPage] = useState(10);
   const [currentPage] = useState(1);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchLiquidations = async () => {
@@ -96,6 +98,7 @@ const LiquidatorsPage = () => {
             setLoading(false);
           }
         }}
+        onView={(liq) => navigate(`/liquidation-finalize/${liq.LiquidationID}`)}
       />
     </div>
   );

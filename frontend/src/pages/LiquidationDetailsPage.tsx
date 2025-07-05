@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
+import { useAuth } from "../context/AuthContext";
 
 // --- Type Safety Improvements ---
 interface Document {
@@ -128,6 +129,8 @@ const LiquidationDetailsPage = () => {
   const [currentReportAction, setCurrentReportAction] = useState<
     "approve" | "reject" | null
   >(null);
+
+  const { user } = useAuth();
 
   // Reset comment editing when changing documents
   useEffect(() => {
@@ -409,6 +412,19 @@ const LiquidationDetailsPage = () => {
     );
   }
 
+  // --- Role/Status logic ---
+  const isDistrictAdmin = user?.role === "district_admin";
+  const isLiquidator = user?.role === "liquidator";
+  const status = liquidation?.status;
+  const canDistrictAdminAct =
+    isDistrictAdmin && status === "under_review_district";
+  const canLiquidatorAct = isLiquidator && status === "approved_district";
+
+  // --- Role-based action logic ---
+  const showDistrictAdminActions =
+    isDistrictAdmin && status === "under_review_district";
+  const showLiquidatorActions = isLiquidator && status === "approved_district";
+
   return (
     <div className="container mx-auto px-5 py-10">
       <PageBreadcrumb
@@ -491,7 +507,7 @@ const LiquidationDetailsPage = () => {
 
         {/* Expenses and Documents */}
         <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
-          <DialogContent className="w-full max-w-2xl sm:max-w-3xl md:max-w-4xl xl:max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-full max-w-2xl sm:max-w-3xl md:max-w-4xl xl:max-w-5xl max-h-[90vh] overflow-y-auto custom-scrollbar">
             <DialogHeader>
               <DialogTitle>
                 {viewDoc?.requirement_obj.requirementTitle}
@@ -504,7 +520,7 @@ const LiquidationDetailsPage = () => {
             {viewDoc && (
               <div className="space-y-4">
                 {/* File preview */}
-                <div className="relative h-[70vh] bg-gray-50 rounded-lg border">
+                <div className="relative h-[70vh] bg-gray-50 rounded-lg border custom-scrollbar">
                   {isLoadingDoc && (
                     <div className="absolute inset-0 flex items-center justify-center z-10">
                       <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -515,7 +531,7 @@ const LiquidationDetailsPage = () => {
                   {error ? (
                     <ErrorFallback />
                   ) : (
-                    <div className="h-full flex flex-col">
+                    <div className="h-full flex flex-col custom-scrollbar">
                       <div className="p-2 bg-gray-100 border-b flex justify-end items-center">
                         <div className="flex gap-2">
                           <button
@@ -552,8 +568,8 @@ const LiquidationDetailsPage = () => {
                           </a>
                         </div>
                       </div>
-                      <div className="flex-1 overflow-auto">
-                        <div className="flex items-center justify-center h-full w-full">
+                      <div className="flex-1 overflow-auto custom-scrollbar">
+                        <div className="flex items-center justify-center h-full w-full custom-scrollbar">
                           <iframe
                             src={`${viewDoc?.document_url}#view=fitH`}
                             title="PDF Preview"
@@ -931,8 +947,8 @@ const LiquidationDetailsPage = () => {
           )}
         </div>
 
-        {/* Approve/Reject Report Buttons */}
-        {allReviewed && (
+        {/* Approve/Reject Report Buttons (District Admin) */}
+        {showDistrictAdminActions && allReviewed && (
           <div className="flex gap-4 justify-end mt-8">
             <Button
               onClick={handleRejectReport}
@@ -971,6 +987,50 @@ const LiquidationDetailsPage = () => {
               {actionLoading && currentReportAction === "approve"
                 ? "Approving..."
                 : "Approve Liquidation Report"}
+            </Button>
+          </div>
+        )}
+
+        {/* Finalize/Reject Buttons (Liquidator) */}
+        {showLiquidatorActions && allReviewed && (
+          <div className="flex gap-4 justify-end mt-8">
+            <Button
+              onClick={handleRejectReport}
+              disabled={
+                !canReject ||
+                (actionLoading && currentReportAction === "reject")
+              }
+              variant="destructive"
+              startIcon={
+                actionLoading && currentReportAction === "reject" ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <AlertCircle className="h-5 w-5" />
+                )
+              }
+            >
+              {actionLoading && currentReportAction === "reject"
+                ? "Rejecting..."
+                : "Reject Liquidation Report"}
+            </Button>
+            <Button
+              onClick={handleApproveReport}
+              disabled={
+                !canApprove ||
+                (actionLoading && currentReportAction === "approve")
+              }
+              color="success"
+              startIcon={
+                actionLoading && currentReportAction === "approve" ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-5 w-5" />
+                )
+              }
+            >
+              {actionLoading && currentReportAction === "approve"
+                ? "Finalizing..."
+                : "Finalize Liquidation Report"}
             </Button>
           </div>
         )}
