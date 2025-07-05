@@ -12,6 +12,7 @@ import {
   ChevronUp,
   Eye,
   Loader2,
+  Undo2Icon,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import {
@@ -420,6 +421,11 @@ const LiquidationDetailsPage = () => {
     isDistrictAdmin && status === "under_review_district";
   const canLiquidatorAct = isLiquidator && status === "approved_district";
 
+  // --- Dynamic back button logic ---
+  let backUrl = "/";
+  if (isDistrictAdmin) backUrl = "/pre-auditing";
+  else if (isLiquidator) backUrl = "/liquidation-finalize";
+
   // --- Role-based action logic ---
   const showDistrictAdminActions =
     isDistrictAdmin && status === "under_review_district";
@@ -427,9 +433,19 @@ const LiquidationDetailsPage = () => {
 
   return (
     <div className="container mx-auto px-5 py-10">
+      <div className="mb-4">
+        <Button
+          variant="outline"
+          onClick={() => navigate(backUrl)}
+          className="mb-2"
+          size="sm"
+        >
+          <Undo2Icon />
+        </Button>
+      </div>
       <PageBreadcrumb
         pageTitle={`Liquidation Details: ${liquidation.LiquidationID}`}
-        backUrl="/pre-auditing"
+        backUrl={backUrl}
       />
 
       <div className="bg-white rounded-lg shadow p-6">
