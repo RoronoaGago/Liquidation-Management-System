@@ -645,7 +645,10 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'liquidator':
-            return LiquidationManagement.objects.filter(status='approved_district')
+            # Show both approved_district and under_review_division for liquidators
+            return LiquidationManagement.objects.filter(
+                status__in=['approved_district', 'under_review_division']
+            )
         # All other users see all liquidations
         return LiquidationManagement.objects.all()
 
