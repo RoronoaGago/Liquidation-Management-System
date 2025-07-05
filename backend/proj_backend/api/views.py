@@ -679,6 +679,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        instance._old_status = instance.status  # Track previous status for signals
         partial = kwargs.pop('partial', False)
         data = request.data.copy()
 
@@ -686,6 +687,16 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         if data.get("status") == "approved_district":
             data["reviewed_by_district"] = request.user.id
             data["reviewed_at_district"] = timezone.now()
+
+        # If rejecting (resubmit), capture rejection_comment
+        if data.get("status") == "resubmit":
+            rejection_comment = data.get('rejection_comment', '').strip()
+            if not rejection_comment:
+                return Response(
+                    {"detail": "Please provide a rejection comment for resubmission."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            instance.rejection_comment = rejection_comment
 
         # Set the user who changed the status for notification
         instance._status_changed_by = request.user  # <-- CRUCIAL for notifications!

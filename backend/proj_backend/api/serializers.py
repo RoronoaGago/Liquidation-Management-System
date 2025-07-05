@@ -337,7 +337,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
         fields = [
             'LiquidationID',
             'request',
-            'comment_id',
+            'rejection_comment',
             'status',
             'reviewed_by_district',      # <-- ENSURE THIS IS INCLUDED
             'reviewed_at_district',
