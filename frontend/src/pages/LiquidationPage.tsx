@@ -428,11 +428,12 @@ const LiquidationPage = () => {
   const statusLabels: Record<string, string> = {
     draft: "Draft",
     submitted: "Submitted",
-    under_review: "Under Review",
+    under_review_district: "Under Review (District)",
+    under_review_division: "Under Review (Division)",
     resubmit: "Needs Revision",
     approved: "Approved",
     rejected: "Rejected",
-    completed: "Completed",
+    liquidated: "Liquidated",
     cancelled: "Cancelled",
   };
 
@@ -440,14 +441,16 @@ const LiquidationPage = () => {
     draft: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
     submitted:
       "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    under_review:
+    under_review_district:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    under_review_division:
       "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     resubmit:
       "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     approved:
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-    completed:
+    liquidated:
       "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
     cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
@@ -455,11 +458,12 @@ const LiquidationPage = () => {
   const statusIcons: Record<string, React.ReactNode> = {
     draft: <FileText className="h-4 w-4" />,
     submitted: <Clock className="h-4 w-4" />,
-    under_review: <RefreshCw className="h-4 w-4 animate-spin" />,
+    under_review_district: <RefreshCw className="h-4 w-4 animate-spin" />,
+    under_review_division: <RefreshCw className="h-4 w-4 animate-spin" />,
     resubmit: <AlertCircle className="h-4 w-4" />,
     approved: <CheckCircle className="h-4 w-4" />,
     rejected: <XCircle className="h-4 w-4" />,
-    completed: <CheckCircle className="h-4 w-4" />,
+    liquidated: <CheckCircle className="h-4 w-4" />,
     cancelled: <XCircle className="h-4 w-4" />,
   };
 

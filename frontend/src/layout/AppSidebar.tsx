@@ -154,6 +154,8 @@ const allNavItems: NavItem[] = [
       "district_admin",
       "superintendent",
       "admin",
+      "liquidator",
+      "accountant",
     ], // All roles
   },
   {
