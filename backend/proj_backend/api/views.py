@@ -644,26 +644,13 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        # Only filter for liquidators
         if user.role == 'liquidator':
-            assignments = LiquidatorAssignment.objects.filter(liquidator=user)
-            # If assigned to 'all', show all liquidations
-            if assignments.filter(district='all').exists():
-                return LiquidationManagement.objects.all()
-            # Otherwise, filter by assigned districts and/or schools
-            districts = assignments.exclude(district__isnull=True).exclude(
-                district='').values_list('district', flat=True)
-            district_schools = School.objects.filter(district__in=districts)
-            # Get schools assigned directly
-            school_ids = assignments.exclude(school__isnull=True).exclude(
-                school='').values_list('school', flat=True)
-            direct_schools = School.objects.filter(id__in=school_ids)
-            # Combine both sets of schools
-            all_schools = district_schools | direct_schools
-            all_schools = all_schools.distinct()
-            return LiquidationManagement.objects.filter(request__user__school__in=all_schools)
-        # For other roles, default behavior (e.g., admin sees all)
-        return super().get_queryset()
+            return LiquidationManagement.objects.filter(status='approved_district')
+        # All other users see all liquidations
+        return LiquidationManagement.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):

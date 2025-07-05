@@ -7,13 +7,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import Button from "@/components/ui/button/Button";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
-import Badge from "@/components/ui/badge/Badge";
 import { handleExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
   XCircle,
+  Clock,
+  RefreshCw,
+  ArrowDownCircle,
+  AlertCircle,
   Download,
   Search,
   ChevronLeft,
@@ -21,8 +23,10 @@ import {
   ChevronsLeft,
   ChevronsRight,
   AlertTriangleIcon,
+  Loader2Icon,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
+import Button from "@/components/ui/button/Button";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
@@ -45,6 +49,9 @@ const PriortySubmissionsPage = () => {
   >(null);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [submissionToReject, setSubmissionToReject] =
+    useState<Submission | null>(null);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [submissionToApprove, setSubmissionToApprove] =
     useState<Submission | null>(null);
   // Pagination, search, and sort state
 
@@ -232,6 +239,41 @@ const PriortySubmissionsPage = () => {
   // Pagination controls
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
+  };
+
+  // Status badge mappings (shared with tables)
+  const statusLabels: Record<string, string> = {
+    approved: "Approved",
+    rejected: "Rejected",
+    pending: "Pending",
+    downloaded: "Downloaded",
+    unliquidated: "Unliquidated",
+    liquidated: "Liquidated",
+    advanced: "Advanced",
+  };
+  const statusColors: Record<string, string> = {
+    approved:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    pending:
+      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    downloaded:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    unliquidated:
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    liquidated:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    advanced:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  };
+  const statusIcons: Record<string, React.ReactNode> = {
+    approved: <CheckCircle className="h-4 w-4" />,
+    rejected: <XCircle className="h-4 w-4" />,
+    pending: <Clock className="h-4 w-4" />,
+    downloaded: <ArrowDownCircle className="h-4 w-4" />,
+    unliquidated: <AlertCircle className="h-4 w-4" />,
+    liquidated: <CheckCircle className="h-4 w-4" />,
+    advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
 
   return (
@@ -441,17 +483,33 @@ const PriortySubmissionsPage = () => {
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
                         Status:
                       </span>
-                      <Badge
-                        color={
-                          viewedSubmission.status === "pending"
-                            ? "warning"
-                            : viewedSubmission.status === "approved"
-                            ? "success"
-                            : "error"
-                        }
-                      >
-                        {viewedSubmission.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
+                            statusColors[
+                              viewedSubmission.status?.toLowerCase?.()
+                            ] ||
+                            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                          style={{
+                            maxWidth: "140px",
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {
+                            statusIcons[
+                              viewedSubmission.status?.toLowerCase?.()
+                            ]
+                          }
+                          {statusLabels[
+                            viewedSubmission.status?.toLowerCase?.()
+                          ] ||
+                            viewedSubmission.status.charAt(0).toUpperCase() +
+                              viewedSubmission.status.slice(1)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -620,15 +678,13 @@ const PriortySubmissionsPage = () => {
                     <Button
                       type="button"
                       variant="success"
-                      onClick={() => handleApprove(viewedSubmission)}
-                      startIcon={<CheckCircle className="w-4 h-4" />}
-                      disabled={
-                        actionLoading === "approve" ||
-                        actionLoading === "reject"
-                      }
-                      loading={actionLoading === "approve"}
+                      onClick={() => {
+                        setSubmissionToApprove(viewedSubmission);
+                        setShowApproveConfirm(true);
+                      }}
+                      disabled={!!actionLoading}
                     >
-                      {loading ? "Processing..." : "Approve"}
+                      Approve
                     </Button>
                   </div>
                 )}
@@ -758,6 +814,45 @@ const PriortySubmissionsPage = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Approval</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to approve this submission? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowApproveConfirm(false)}
+              disabled={!!actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="success"
+              onClick={async () => {
+                if (submissionToApprove) {
+                  await handleApprove(submissionToApprove);
+                  setShowApproveConfirm(false);
+                }
+              }}
+              disabled={!!actionLoading}
+              startIcon={
+                actionLoading ? (
+                  <Loader2Icon className="h-5 w-5 animate-spin" />
+                ) : null
+              }
+            >
+              {actionLoading ? "Approving..." : "Confirm Approval"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

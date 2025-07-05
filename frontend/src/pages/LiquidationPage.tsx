@@ -620,7 +620,23 @@ const LiquidationPage = () => {
                       <div
                         key={doc.id || idx}
                         className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-                        onClick={() => toggleExpense(String(expense?.id))}
+                        onClick={() => {
+                          const expenseId = String(expense?.id);
+                          if (!expandedExpense.includes(expenseId)) {
+                            toggleExpense(expenseId);
+                          }
+                          setTimeout(() => {
+                            const element = document.getElementById(
+                              `requirement-${expenseId}-${doc.requirement_id}`
+                            );
+                            if (element) {
+                              element.scrollIntoView({
+                                behavior: "smooth",
+                                block: "center",
+                              });
+                            }
+                          }, 100); // Small delay to allow expansion to complete
+                        }}
                       >
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0 pt-0.5">
@@ -692,66 +708,64 @@ const LiquidationPage = () => {
 
           <div className="p-6 space-y-4">
             {/* Refund Notice */}
+
             <div
               className={`p-4 rounded-lg border ${
-                dynamicRefund > 0
+                (request.status === "draft" ? dynamicRefund : request.refund) >
+                0
                   ? "border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800"
-                  : dynamicRefund < 0
+                  : (request.status === "draft"
+                      ? dynamicRefund
+                      : request.refund) < 0
                   ? "border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800"
                   : "border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800"
               }`}
             >
               <div className="flex items-start gap-3">
-                {dynamicRefund > 0 ? (
+                {(request.status === "draft" ? dynamicRefund : request.refund) >
+                0 ? (
                   <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                ) : dynamicRefund < 0 ? (
+                ) : (request.status === "draft"
+                    ? dynamicRefund
+                    : request.refund) < 0 ? (
                   <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
                 ) : (
                   <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
                 )}
-                {request.status === "draft" || request.status === "resubmit" ? (
-                  <div>
-                    <h4 className="font-semibold mb-1">
-                      {dynamicRefund > 0
-                        ? "Refund Due to Requestor"
-                        : dynamicRefund < 0
-                        ? "Over-Expenditure (No Refund Due)"
-                        : "Fully Liquidated (No Refund Due)"}
-                    </h4>
-                    <p className="text-gray-700 dark:text-gray-300">
-                      {dynamicRefund > 0
-                        ? `You must return ${formatCurrency(
-                            dynamicRefund
-                          )} to the requestor. This is the unspent portion of the requested funds.`
-                        : dynamicRefund < 0
-                        ? `You have spent ${formatCurrency(
-                            Math.abs(dynamicRefund)
-                          )} more than the requested amount. No refund is due.`
-                        : "All funds have been fully liquidated. No refund is due."}
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <h4 className="font-semibold mb-1">
-                      {request.refund > 0
-                        ? "Refund Due to Requestor"
-                        : request.refund < 0
-                        ? "Over-Expenditure (No Refund Due)"
-                        : "Fully Liquidated (No Refund Due)"}
-                    </h4>
-                    <p className="text-gray-700 dark:text-gray-300">
-                      {request.refund > 0
-                        ? `You must return ${formatCurrency(
-                            request.refund
-                          )} to the requestor.`
-                        : request.refund < 0
-                        ? `You have spent ${formatCurrency(
-                            Math.abs(request.refund)
-                          )} more than the requested amount. No refund is due.`
-                        : "All funds have been fully liquidated. No refund is due."}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <h4 className="font-semibold mb-1">
+                    {(request.status === "draft"
+                      ? dynamicRefund
+                      : request.refund) > 0
+                      ? "Refund Due to requestee"
+                      : (request.status === "draft"
+                          ? dynamicRefund
+                          : request.refund) < 0
+                      ? "Over-Expenditure (No Refund Due)"
+                      : "Fully Liquidated (No Refund Due)"}
+                  </h4>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    {(request.status === "draft"
+                      ? dynamicRefund
+                      : request.refund) > 0
+                      ? `You must return ${formatCurrency(
+                          request.status === "draft"
+                            ? dynamicRefund
+                            : request.refund
+                        )} to the requestee. This is the unspent portion of the requested funds.`
+                      : (request.status === "draft"
+                          ? dynamicRefund
+                          : request.refund) < 0
+                      ? `You have spent ${formatCurrency(
+                          Math.abs(
+                            request.status === "draft"
+                              ? dynamicRefund
+                              : request.refund
+                          )
+                        )} more than the requested amount. No refund is due.`
+                      : "All funds have been fully liquidated. No refund is due."}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -855,37 +869,59 @@ const LiquidationPage = () => {
                   <div className="p-6 space-y-4">
                     <div
                       className={`p-4 rounded-lg border ${
-                        dynamicRefund > 0
+                        (request.status === "draft"
+                          ? dynamicRefund
+                          : request.refund) > 0
                           ? "border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800"
-                          : dynamicRefund < 0
+                          : (request.status === "draft"
+                              ? dynamicRefund
+                              : request.refund) < 0
                           ? "border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800"
                           : "border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800"
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        {dynamicRefund > 0 ? (
+                        {(request.status === "draft"
+                          ? dynamicRefund
+                          : request.refund) > 0 ? (
                           <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                        ) : dynamicRefund < 0 ? (
+                        ) : (request.status === "draft"
+                            ? dynamicRefund
+                            : request.refund) < 0 ? (
                           <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
                         ) : (
                           <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
                         )}
                         <div>
                           <h4 className="font-semibold mb-1">
-                            {dynamicRefund > 0
-                              ? "Refund Due to Requestor"
-                              : dynamicRefund < 0
+                            {(request.status === "draft"
+                              ? dynamicRefund
+                              : request.refund) > 0
+                              ? "Refund Due to requestee"
+                              : (request.status === "draft"
+                                  ? dynamicRefund
+                                  : request.refund) < 0
                               ? "Over-Expenditure (No Refund Due)"
                               : "Fully Liquidated (No Refund Due)"}
                           </h4>
                           <p className="text-gray-700 dark:text-gray-300">
-                            {dynamicRefund > 0
+                            {(request.status === "draft"
+                              ? dynamicRefund
+                              : request.refund) > 0
                               ? `You must return ${formatCurrency(
-                                  dynamicRefund
-                                )} to the requestor. This is the unspent portion of the requested funds.`
-                              : dynamicRefund < 0
+                                  request.status === "draft"
+                                    ? dynamicRefund
+                                    : request.refund
+                                )} to the requestee. This is the unspent portion of the requested funds.`
+                              : (request.status === "draft"
+                                  ? dynamicRefund
+                                  : request.refund) < 0
                               ? `You have spent ${formatCurrency(
-                                  Math.abs(dynamicRefund)
+                                  Math.abs(
+                                    request.status === "draft"
+                                      ? dynamicRefund
+                                      : request.refund
+                                  )
                                 )} more than the requested amount. No refund is due.`
                               : "All funds have been fully liquidated. No refund is due."}
                           </p>
@@ -1003,14 +1039,12 @@ const LiquidationPage = () => {
                               value={expense.actualAmount || ""}
                               disabled={request.status !== "draft"}
                               onChange={(event) => {
+                                const value =
+                                  parseFloat(event.target.value) || 0;
                                 const updatedExpenses = request?.expenses.map(
                                   (exp) =>
                                     exp.id === expense.id
-                                      ? {
-                                          ...exp,
-                                          actualAmount:
-                                            parseFloat(event.target.value) || 0,
-                                        }
+                                      ? { ...exp, actualAmount: value }
                                       : exp
                                 );
                                 setRequest((prev) =>
@@ -1018,6 +1052,13 @@ const LiquidationPage = () => {
                                     ? {
                                         ...prev,
                                         expenses: updatedExpenses || [],
+                                        refund:
+                                          prev.totalAmount -
+                                          (updatedExpenses?.reduce(
+                                            (sum, e) =>
+                                              sum + (e.actualAmount || 0),
+                                            0
+                                          ) || 0),
                                       }
                                     : null
                                 );
