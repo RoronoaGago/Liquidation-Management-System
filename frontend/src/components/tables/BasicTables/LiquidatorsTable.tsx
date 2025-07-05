@@ -74,11 +74,13 @@ interface LiquidationReportTableProps {
   liquidations: Liquidation[];
   loading: boolean;
   refreshList: () => Promise<void>;
+  onView: (liq: Liquidation) => void;
 }
 
 const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
   liquidations,
   refreshList,
+  onView,
 }) => {
   const [selected, setSelected] = useState<Liquidation | null>(null);
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
@@ -526,7 +528,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
               {paginatedLiquidations.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="py-8 text-center text-gray-500"
                   >
                     No records found.
@@ -580,20 +582,12 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                       {liq.request?.user?.school?.schoolName || "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        onClick={() => handleView(liq)}
-                        className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline cursor-pointer font-medium"
-                        title="View"
-                        style={{
-                          opacity: 1,
-                          pointerEvents: "auto",
-                        }}
-                        tabIndex={0}
-                        role="link"
+                      <button
+                        className="text-blue-600 hover:underline font-medium"
+                        onClick={() => onView(liq)}
                       >
                         View
-                        <LucideEye className="w-4 h-4 ml-1" />
-                      </span>
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))

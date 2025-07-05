@@ -76,8 +76,8 @@ const allNavItems: NavItem[] = [
   },
   {
     icon: <StampIcon />,
-    name: "Liquidation Approval",
-    path: "/liquidation-approval",
+    name: "Finalize Liquidation Report",
+    path: "/liquidation-finalize",
     roles: ["liquidator"], // Only liquidator
   },
   {

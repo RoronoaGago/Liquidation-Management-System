@@ -363,6 +363,19 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                 })
         return comments
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Add actual amounts from LiquidationPriority records
+        if hasattr(instance, 'liquidation_priorities'):
+            data['actual_amounts'] = [
+                {
+                    'expense_id': lp.priority.LOPID,
+                    'actual_amount': float(lp.amount)
+                }
+                for lp in instance.liquidation_priorities.all()
+            ]
+        return data
+
 
 class NotificationSerializer(serializers.ModelSerializer):
     receiver = UserSerializer(read_only=True)
