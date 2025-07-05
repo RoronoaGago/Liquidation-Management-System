@@ -304,6 +304,15 @@ const LiquidationDetailsPage = () => {
           status: newStatus,
           reviewed_at_district: new Date().toISOString(),
         });
+        // If liquidator, also mark the connected request as liquidated
+        if (user?.role === "liquidator" && liquidation?.request?.request_id) {
+          await api.patch(
+            `/requests/${liquidation.request.request_id}/`,
+            {
+              status: "liquidated",
+            }
+          );
+        }
         toast.success(
           newStatus === "liquidated"
             ? "Liquidation report finalized!"
