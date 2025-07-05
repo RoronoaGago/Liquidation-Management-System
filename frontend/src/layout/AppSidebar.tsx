@@ -24,7 +24,8 @@ import {
   FileSearch,
   UserRoundPenIcon,
   HandCoinsIcon,
-  FileUserIcon, // <-- Add this
+  FileUserIcon,
+  StampIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -74,7 +75,7 @@ const allNavItems: NavItem[] = [
     roles: ["admin"], // Only admin
   },
   {
-    icon: <BanknoteIcon />,
+    icon: <StampIcon />,
     name: "Liquidation Approval",
     path: "/liquidation-approval",
     roles: ["liquidator"], // Only liquidator

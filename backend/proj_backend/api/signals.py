@@ -128,11 +128,19 @@ def handle_liquidation_notifications(sender, instance, created, **kwargs):
 
 
 def create_new_liquidation_notification(instance):
-    # Notify district admin when liquidation is created (submitted)
-    district_admins = User.objects.filter(role='district_admin')
+    # Get the requestor's school district
+    school = instance.request.user.school
+    if not school or not school.district:
+        return  # No school or district info, skip notification
+
+    # Notify only the district admin for the requestor's district
+    district_admins = User.objects.filter(
+        role='district_admin',
+        school_district=school.district
+    )
     for admin in district_admins:
         Notification.objects.create(
-            notification_title=f"New Liquidation Submitted",
+            notification_title="New Liquidation Submitted",
             details=f"New liquidation {instance.LiquidationID} has been submitted for request {instance.request.request_id}",
             receiver=admin,
             sender=instance.request.user

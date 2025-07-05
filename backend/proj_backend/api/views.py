@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
 from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -644,26 +644,13 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        # Only filter for liquidators
         if user.role == 'liquidator':
-            assignments = LiquidatorAssignment.objects.filter(liquidator=user)
-            # If assigned to 'all', show all liquidations
-            if assignments.filter(district='all').exists():
-                return LiquidationManagement.objects.all()
-            # Otherwise, filter by assigned districts and/or schools
-            districts = assignments.exclude(district__isnull=True).exclude(
-                district='').values_list('district', flat=True)
-            district_schools = School.objects.filter(district__in=districts)
-            # Get schools assigned directly
-            school_ids = assignments.exclude(school__isnull=True).exclude(
-                school='').values_list('school', flat=True)
-            direct_schools = School.objects.filter(id__in=school_ids)
-            # Combine both sets of schools
-            all_schools = district_schools | direct_schools
-            all_schools = all_schools.distinct()
-            return LiquidationManagement.objects.filter(request__user__school__in=all_schools)
-        # For other roles, default behavior (e.g., admin sees all)
-        return super().get_queryset()
+            return LiquidationManagement.objects.filter(status='approved_district')
+        # All other users see all liquidations
+        return LiquidationManagement.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -847,52 +834,92 @@ def submit_for_liquidation(request, request_id):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def submit_liquidation(request, LiquidationID):
     try:
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=LiquidationID)
+        with transaction.atomic():
+            liquidation = LiquidationManagement.objects.select_for_update().get(
+                LiquidationID=LiquidationID
+            )
 
-        # Check if all required documents are uploaded
-        required_docs_missing = False
-        for rp in liquidation.request.requestpriority_set.all():
-            for req in rp.priority.requirements.filter(is_required=True):
-                if not LiquidationDocument.objects.filter(
-                    liquidation=liquidation,
-                    request_priority=rp,
-                    requirement=req
-                ).exists():
-                    required_docs_missing = True
+            # Check if all required documents are uploaded
+            required_docs_missing = False
+            for rp in liquidation.request.requestpriority_set.all():
+                for req in rp.priority.requirements.filter(is_required=True):
+                    if not LiquidationDocument.objects.filter(
+                        liquidation=liquidation,
+                        request_priority=rp,
+                        requirement=req
+                    ).exists():
+                        required_docs_missing = True
+                        break
+                if required_docs_missing:
                     break
+
+            # Allow submission if status is 'draft' or 'resubmit'
+            if liquidation.status not in ['draft', 'resubmit']:
+                return Response(
+                    {'error': 'Liquidation must be in draft or resubmit status to be submitted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             if required_docs_missing:
-                break
+                return Response(
+                    {'error': 'All required documents must be uploaded before submission'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        # Allow submission if status is 'draft' or 'resubmit'
-        if liquidation.status not in ['draft', 'resubmit']:
-            return Response(
-                {'error': 'Liquidation must be in draft or resubmit status to be submitted'},
-                status=status.HTTP_400_BAD_REQUEST
+            # Get the actual amounts from the request data
+            actual_amounts = request.data.get('actual_amounts', [])
+
+            # Update liquidation priorities with actual amounts
+            for amount_data in actual_amounts:
+                try:
+                    priority = ListOfPriority.objects.get(
+                        LOPID=amount_data['expense_id'])
+                    liquidation_priority, created = LiquidationPriority.objects.get_or_create(
+                        liquidation=liquidation,
+                        priority=priority,
+                        defaults={'amount': amount_data['actual_amount']}
+                    )
+                    if not created:
+                        liquidation_priority.amount = amount_data['actual_amount']
+                        liquidation_priority.save()
+                except (ListOfPriority.DoesNotExist, KeyError):
+                    continue
+
+            # Recalculate refund
+            liquidation.refund = liquidation.calculate_refund()
+
+            # Update status to submitted and track who changed it
+            liquidation._status_changed_by = request.user
+            liquidation.status = 'submitted'
+            liquidation.save()
+
+            # Create notification for the reviewer
+            # Notification.objects.create(
+            #     notification_title="New Liquidation Submitted",
+            #     details=f"Liquidation {liquidation.LiquidationID} has been submitted for review.",
+            #     receiver=liquidation.request.user,  # Or the appropriate reviewer
+            #     sender=request.user,
+            # )
+
+            serializer = LiquidationManagementSerializer(
+                liquidation,
+                context={'request': request}
             )
-        if required_docs_missing:
-            return Response(
-                {'error': 'All required documents must be uploaded before submission'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Update status to submitted and track who changed it
-        liquidation._status_changed_by = request.user  # <-- Add this line
-        liquidation.status = 'submitted'
-        liquidation.save()
-
-        serializer = LiquidationManagementSerializer(
-            liquidation,
-            context={'request': request}
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
     except LiquidationManagement.DoesNotExist:
         return Response(
             {'error': 'Liquidation not found'},
             status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error submitting liquidation: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'An unexpected error occurred during submission'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 

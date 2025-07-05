@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import Button from "@/components/ui/button/Button";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
@@ -14,18 +15,25 @@ import Badge from "@/components/ui/badge/Badge";
 import { handleExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
+  XCircle,
   Download,
   Search,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Loader2,
+  Clock,
+  RefreshCw,
+  AlertCircle,
+  ArrowDownCircle,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
+import { format } from "date-fns";
 
 // Helper function to map role keys to display names
 function getRoleDisplayName(roleKey: string): string {
@@ -41,6 +49,42 @@ function getRoleDisplayName(roleKey: string): string {
   return roleMap[roleKey] || roleKey;
 }
 
+const statusLabels: Record<string, string> = {
+  approved: "Approved",
+  rejected: "Rejected",
+  pending: "Pending",
+  downloaded: "Downloaded",
+  unliquidated: "Unliquidated",
+  liquidated: "Liquidated",
+  advanced: "Advanced",
+};
+
+const statusColors: Record<string, string> = {
+  approved:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  pending:
+    "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  downloaded:
+    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  unliquidated:
+    "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  liquidated:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  advanced:
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+};
+
+const statusIcons: Record<string, React.ReactNode> = {
+  approved: <CheckCircle className="h-4 w-4" />,
+  rejected: <XCircle className="h-4 w-4" />,
+  pending: <Clock className="h-4 w-4" />,
+  downloaded: <ArrowDownCircle className="h-4 w-4" />,
+  unliquidated: <AlertCircle className="h-4 w-4" />,
+  liquidated: <CheckCircle className="h-4 w-4" />,
+  advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
+};
+
 const ApprovedRequestPage = () => {
   // State for submissions and modal
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
@@ -52,6 +96,11 @@ const ApprovedRequestPage = () => {
   const { user } = useAuth();
   const [, setSchools] = useState<School[]>([]);
   const [downloadLoading, setDownloadLoading] = useState(false);
+
+  // Confirmation dialog state
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [submissionToApprove, setSubmissionToApprove] =
+    useState<Submission | null>(null);
 
   // Pagination, search, and sort state
   const [currentPage, setCurrentPage] = useState(1);
@@ -74,7 +123,6 @@ const ApprovedRequestPage = () => {
     try {
       const res = await api.get("requests/?status=approved");
       setSubmissionsState(res.data);
-      console.log("Fetched submissions:", res.data);
       // Fetch schools for filter dropdown
       const schoolRes = await api.get("schools/");
       setSchools(schoolRes.data);
@@ -102,29 +150,11 @@ const ApprovedRequestPage = () => {
       fetchSubmissions();
     } catch (err) {
       console.error("Failed to submit for liquidation:", err);
+      toast.error("Failed to submit for liquidation. Please try again.");
     } finally {
       setDownloadLoading(false);
     }
   };
-
-  // Reject handler (should call backend in real app)
-  // const handleReject = async (submission: Submission) => {
-  //   try {
-  //     await api.put(`/api/requests/${submission.request_id}/`, {
-  //       status: "rejected",
-  //     });
-  //     setViewedSubmission(null); // Close the modal
-  //     setSubmissionsState((prev) =>
-  //       prev.map((s) =>
-  //         s.request_id === submission.request_id
-  //           ? { ...s, status: "rejected" }
-  //           : s
-  //       )
-  //     );
-  //   } catch (err) {
-  //     // handle error
-  //   }
-  // };
 
   // Debounce search
   useEffect(() => {
@@ -248,32 +278,6 @@ const ApprovedRequestPage = () => {
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           </div>
-          {/* <select
-            value={filterOptions.status}
-            onChange={(e) =>
-              setFilterOptions((prev) => ({ ...prev, status: e.target.value }))
-            }
-            className="min-w-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
-          >
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          <select
-            value={filterOptions.school}
-            onChange={(e) =>
-              setFilterOptions((prev) => ({ ...prev, school: e.target.value }))
-            }
-            className="min-w-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
-          >
-            <option value="">All Schools</option>
-            {schools.map((school) => (
-              <option key={school.schoolId} value={school.schoolId}>
-                {school.schoolName}
-              </option>
-            ))}
-          </select> */}
         </div>
         <div className="flex gap-4 w-full md:w-auto items-center">
           <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
@@ -388,7 +392,7 @@ const ApprovedRequestPage = () => {
 
           {viewedSubmission && (
             <div className="space-y-6">
-              {/* Sender Details Card - Improved for long IDs */}
+              {/* Sender Details Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Left section: Request ID, Submitted by, Approved by */}
@@ -449,17 +453,33 @@ const ApprovedRequestPage = () => {
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
                         Status:
                       </span>
-                      <Badge
-                        color={
-                          viewedSubmission.status === "pending"
-                            ? "warning"
-                            : viewedSubmission.status === "approved"
-                            ? "success"
-                            : "error"
-                        }
-                      >
-                        {viewedSubmission.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium w-fit min-w-[90px] justify-center ${
+                            statusColors[
+                              viewedSubmission.status?.toLowerCase?.()
+                            ] ||
+                            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                          style={{
+                            maxWidth: "140px",
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {
+                            statusIcons[
+                              viewedSubmission.status?.toLowerCase?.()
+                            ]
+                          }
+                          {statusLabels[
+                            viewedSubmission.status?.toLowerCase?.()
+                          ] ||
+                            viewedSubmission.status.charAt(0).toUpperCase() +
+                              viewedSubmission.status.slice(1)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -561,18 +581,60 @@ const ApprovedRequestPage = () => {
                     <Button
                       type="button"
                       variant="success"
-                      onClick={() => handleApprove(viewedSubmission)}
+                      onClick={() => {
+                        setSubmissionToApprove(viewedSubmission);
+                        setShowApproveConfirm(true);
+                      }}
                       startIcon={<CheckCircle className="w-4 h-4" />}
                       disabled={downloadLoading}
                       loading={downloadLoading}
                     >
-                      {downloadLoading ? "Processing..." : "Download"}
+                      Download Fund
                     </Button>
                   </div>
                 )}
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Download</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to download this fund request? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowApproveConfirm(false)}
+              disabled={downloadLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="success"
+              onClick={async () => {
+                if (submissionToApprove) {
+                  await handleApprove(submissionToApprove);
+                  setShowApproveConfirm(false);
+                }
+              }}
+              disabled={downloadLoading}
+              startIcon={
+                downloadLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : null
+              }
+            >
+              {downloadLoading ? "Processing..." : "Confirm Download"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

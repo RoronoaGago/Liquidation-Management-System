@@ -29,11 +29,14 @@ import LiquidationReportPage from "./pages/LiquidationReportPage";
 import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
+import LiquidationReminder from "./components/LiquidationReminder";
 
 const App = () => {
   return (
     <Router>
       <AuthProvider>
+        <LiquidationReminder />
+        {/* Main application routes */}
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<SignIn />} />
@@ -105,16 +108,20 @@ const App = () => {
               {/* <Route path="/liquidation" element={<Liquidation />} /> */}
             </Route>
             {/* Liquidators routes */}
-            <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
+            {/* <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
               <Route
-                path="/fund-request-approval"
+                path="/liquidation-approval"
                 element={<FundRequestApproval />}
               />
-            </Route>
+            </Route> */}
             <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
               <Route
                 path="/liquidation-approval"
                 element={<LiquidatorsPage />}
+              />
+              <Route
+                path="/liquidation-approval/:liquidationId"
+                element={<LiquidationDetailsPage />}
               />
             </Route>
 

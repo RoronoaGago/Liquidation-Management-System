@@ -9,6 +9,14 @@ import {
 } from "../../ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCw,
+  AlertCircle,
+  ArrowDownCircle,
+} from "lucide-react";
 import { Submission } from "@/lib/types";
 import { formatDateTime } from "@/lib/helpers";
 
@@ -25,6 +33,42 @@ const ApprovedRequestTable: React.FC<
     requestSort?: (key: string) => void;
   }
 > = ({ submissions, onView, loading, error, sortConfig, requestSort }) => {
+  const statusLabels: Record<string, string> = {
+    approved: "Approved",
+    rejected: "Rejected",
+    pending: "Pending",
+    downloaded: "Downloaded",
+    unliquidated: "Unliquidated",
+    liquidated: "Liquidated",
+    advanced: "Advanced",
+  };
+
+  const statusColors: Record<string, string> = {
+    approved:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    pending:
+      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    downloaded:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    unliquidated:
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    liquidated:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    advanced:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  };
+
+  const statusIcons: Record<string, React.ReactNode> = {
+    approved: <CheckCircle className="h-4 w-4" />,
+    rejected: <XCircle className="h-4 w-4" />,
+    pending: <Clock className="h-4 w-4" />,
+    downloaded: <ArrowDownCircle className="h-4 w-4" />,
+    unliquidated: <AlertCircle className="h-4 w-4" />,
+    liquidated: <CheckCircle className="h-4 w-4" />,
+    advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
@@ -228,18 +272,23 @@ const ApprovedRequestTable: React.FC<
                     {submission.user.school?.schoolName}
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    <Badge
-                      color={
-                        submission.status === "pending"
-                          ? "warning"
-                          : submission.status === "approved"
-                          ? "success"
-                          : "error"
-                      }
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium w-fit min-w-[90px] justify-center ${
+                        statusColors[submission.status?.toLowerCase?.()] ||
+                        "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
+                      style={{
+                        maxWidth: "140px",
+                        whiteSpace: "nowrap",
+                        textOverflow: "ellipsis",
+                        overflow: "hidden",
+                      }}
                     >
-                      {submission.status.charAt(0).toUpperCase() +
-                        submission.status.slice(1)}
-                    </Badge>
+                      {statusIcons[submission.status?.toLowerCase?.()]}
+                      {statusLabels[submission.status?.toLowerCase?.()] ||
+                        submission.status.charAt(0).toUpperCase() +
+                          submission.status.slice(1)}
+                    </span>
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                     {formatDateTime(submission.created_at)}

@@ -15,11 +15,67 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import Badge from "@/components/ui/badge/Badge";
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCw,
+  FileText,
+  AlertCircle,
+  ArrowDownCircle,
+  ArrowUpCircle,
+} from "lucide-react";
 import { handleExport } from "@/lib/pdfHelpers";
-import { Download, XCircle } from "lucide-react";
+import { Download } from "lucide-react";
 import { format } from "date-fns";
 import Button from "@/components/ui/button/Button";
+
+type SubmissionStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "downloaded"
+  | "liquidated"
+  | "advanced"
+  | "unliquidated"
+  | "approved_district"
+  | "approved_division";
+
+const statusLabels: Record<string, string> = {
+  approved: "Approved",
+  rejected: "Rejected",
+  pending: "Pending",
+  downloaded: "Downloaded",
+  unliquidated: "Unliquidated",
+  liquidated: "Liquidated",
+  advanced: "Advanced",
+};
+
+const statusColors: Record<string, string> = {
+  approved:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  pending:
+    "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  downloaded:
+    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  unliquidated:
+    "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  liquidated:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  advanced:
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+};
+
+const statusIcons: Record<string, React.ReactNode> = {
+  approved: <CheckCircle className="h-4 w-4" />,
+  rejected: <XCircle className="h-4 w-4" />,
+  pending: <Clock className="h-4 w-4" />,
+  downloaded: <ArrowDownCircle className="h-4 w-4" />,
+  unliquidated: <AlertCircle className="h-4 w-4" />,
+  liquidated: <CheckCircle className="h-4 w-4" />,
+  advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
+};
 
 const MOOERequestHistory = () => {
   const navigate = useNavigate();
@@ -30,9 +86,9 @@ const MOOERequestHistory = () => {
     key: string;
     direction: "asc" | "desc";
   } | null>(null);
-  const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
-    null
-  );
+  const [viewedSubmission, setViewedSubmission] = useState<
+    (Submission & { status: SubmissionStatus }) | null
+  >(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -42,6 +98,7 @@ const MOOERequestHistory = () => {
       try {
         const res = await api.get("/user-requests/");
         setSubmissions(Array.isArray(res.data) ? res.data : []);
+        console.log(res.data);
       } catch (err: any) {
         setError("Failed to load requests.");
       } finally {
@@ -136,17 +193,26 @@ const MOOERequestHistory = () => {
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
                         Status:
                       </span>
-                      <Badge
-                        color={
-                          viewedSubmission.status === "pending"
-                            ? "warning"
-                            : viewedSubmission.status === "approved"
-                            ? "success"
-                            : "error"
-                        }
-                      >
-                        {viewedSubmission.status}
-                      </Badge>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
+                            statusColors[
+                              viewedSubmission.status?.toLowerCase?.()
+                            ] ||
+                            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {
+                            statusIcons[
+                              viewedSubmission.status?.toLowerCase?.()
+                            ]
+                          }
+                          {statusLabels[
+                            viewedSubmission.status?.toLowerCase?.()
+                          ] || viewedSubmission.status}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
