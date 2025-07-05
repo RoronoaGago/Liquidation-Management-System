@@ -23,6 +23,10 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Loader2,
+  Clock,
+  RefreshCw,
+  AlertCircle,
+  ArrowDownCircle,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
 import api from "@/api/axios";
@@ -45,6 +49,42 @@ function getRoleDisplayName(roleKey: string): string {
   return roleMap[roleKey] || roleKey;
 }
 
+const statusLabels: Record<string, string> = {
+  approved: "Approved",
+  rejected: "Rejected",
+  pending: "Pending",
+  downloaded: "Downloaded",
+  unliquidated: "Unliquidated",
+  liquidated: "Liquidated",
+  advanced: "Advanced",
+};
+
+const statusColors: Record<string, string> = {
+  approved:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  pending:
+    "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  downloaded:
+    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  unliquidated:
+    "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  liquidated:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  advanced:
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+};
+
+const statusIcons: Record<string, React.ReactNode> = {
+  approved: <CheckCircle className="h-4 w-4" />,
+  rejected: <XCircle className="h-4 w-4" />,
+  pending: <Clock className="h-4 w-4" />,
+  downloaded: <ArrowDownCircle className="h-4 w-4" />,
+  unliquidated: <AlertCircle className="h-4 w-4" />,
+  liquidated: <CheckCircle className="h-4 w-4" />,
+  advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
+};
+
 const ApprovedRequestPage = () => {
   // State for submissions and modal
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
@@ -59,7 +99,8 @@ const ApprovedRequestPage = () => {
 
   // Confirmation dialog state
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
-  const [submissionToApprove, setSubmissionToApprove] = useState<Submission | null>(null);
+  const [submissionToApprove, setSubmissionToApprove] =
+    useState<Submission | null>(null);
 
   // Pagination, search, and sort state
   const [currentPage, setCurrentPage] = useState(1);
@@ -388,7 +429,11 @@ const ApprovedRequestPage = () => {
                             {viewedSubmission.reviewed_by.first_name}{" "}
                             {viewedSubmission.reviewed_by.last_name}
                             <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                              ({getRoleDisplayName(viewedSubmission.reviewed_by.role)})
+                              (
+                              {getRoleDisplayName(
+                                viewedSubmission.reviewed_by.role
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
@@ -408,17 +453,33 @@ const ApprovedRequestPage = () => {
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
                         Status:
                       </span>
-                      <Badge
-                        color={
-                          viewedSubmission.status === "pending"
-                            ? "warning"
-                            : viewedSubmission.status === "approved"
-                            ? "success"
-                            : "error"
-                        }
-                      >
-                        {viewedSubmission.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium w-fit min-w-[90px] justify-center ${
+                            statusColors[
+                              viewedSubmission.status?.toLowerCase?.()
+                            ] ||
+                            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                          style={{
+                            maxWidth: "140px",
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {
+                            statusIcons[
+                              viewedSubmission.status?.toLowerCase?.()
+                            ]
+                          }
+                          {statusLabels[
+                            viewedSubmission.status?.toLowerCase?.()
+                          ] ||
+                            viewedSubmission.status.charAt(0).toUpperCase() +
+                              viewedSubmission.status.slice(1)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -544,7 +605,8 @@ const ApprovedRequestPage = () => {
           <DialogHeader>
             <DialogTitle>Confirm Download</DialogTitle>
             <DialogDescription>
-              Are you sure you want to download this fund request? This action cannot be undone.
+              Are you sure you want to download this fund request? This action
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 mt-4">
