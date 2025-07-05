@@ -334,14 +334,9 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'reviewed_at_division',
             'documents',
             'created_at',
-<<<<<<< HEAD
-            'liquidation_priorities',
-            'remaining_days',
-=======
             'liquidation_priorities',  # <-- Add this line
             'refund',
             'remaining_days',  # <-- Add this
->>>>>>> origin/main
         ]
 
     def get_reviewer_comments(self, obj):
