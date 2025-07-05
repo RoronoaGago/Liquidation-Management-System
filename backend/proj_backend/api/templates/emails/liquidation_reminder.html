@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Formal Liquidation Notice</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f8fa;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            color: #333333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+        .header {
+            background: #003366;
+            color: #ffffff;
+            text-align: center;
+            padding: 28px 0 20px 0;
+            border-bottom: 4px solid #ffcc00;
+        }
+        .header img {
+            height: 70px;
+            margin-bottom: 12px;
+        }
+        .company-name {
+            font-size: 1.4em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .content {
+            padding: 36px 40px 28px 40px;
+        }
+        .footer {
+            background: #f8f9fa;
+            color: #6c757d;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9em;
+            border-top: 1px solid #e9ecef;
+        }
+        .notice-title {
+            font-size: 1.3em;
+            color: #003366;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+        .deadline-alert {
+            background: #fff3cd;
+            color: #856404;
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .action-items {
+            background: #e7f5ff;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #1a73e8;
+        }
+        .consequences {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #dc3545;
+        }
+        .signature {
+            margin-top: 30px;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 20px;
+        }
+        .urgent {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="DepEd_logo-W.png" alt="DepEd Logo">
+            <div class="company-name">La Union Schools Division Office</div>
+            <div>Department of Education</div>
+        </div>
+
+        <div class="content">
+            <div class="notice-title">FORMAL NOTICE OF PENDING LIQUIDATION DEADLINE</div>
+            <div style="text-align: right; margin-bottom: 20px;">{{ today|date:"F j, Y" }}</div>
+
+            <p>To: {{ user.get_full_name }}<br>
+            From: Finance Compliance Office</p>
+
+            <p><strong>Subject: Urgent: Pending Liquidation Deadline for Request {{ request.request_id }}</strong></p>
+
+            <p>Dear {{ user.get_full_name }},</p>
+
+            <div class="deadline-alert">
+                This is a formal notice that your liquidation for <strong>Request {{ request.request_id }}</strong> remains unresolved. As of today, <span class="urgent">{{ days_left }} days remain</span> to comply with the mandatory 30-day liquidation period (deadline: <strong>{{ deadline|date:"F j, Y" }}</strong>).
+            </div>
+
+            <div class="action-items">
+                <p><strong>Required Actions</strong><br>
+                To avoid escalation, you must:</p>
+                <ol>
+                    <li>Submit all liquidation documents immediately via the system portal.</li>
+                    <li>Confirm receipt of this notice by replying to this email.</li>
+                </ol>
+            </div>
+
+            <div class="consequences">
+                <p><strong>Consequences of Non-Compliance</strong><br>
+                If liquidation is not completed by the deadline, the following actions will be taken:</p>
+                <ul>
+                    <li>A formal demand letter will be issued.</li>
+                    <li>Salary deductions for unrecovered amounts.</li>
+                    <li>Temporary suspension of future fund requests.</li>
+                </ul>
+            </div>
+
+            <p><strong>Assistance</strong><br>
+            If you encounter issues, contact the Finance Team at <a href="mailto:jp.boado@deped.gov.ph">jp.boado@deped.gov.ph</a> within <span class="urgent">24 hours</span> to discuss alternatives.</p>
+
+            <p class="urgent">This is your final reminder.</p>
+
+            <div class="signature">
+                <p>Sincerely,</p>
+                <p><strong>La Union Schools Division Office</strong><br>
+                LUSDO<br>
+                jp.boado@deped.gov.ph</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>This is an official communication. Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+</html>
