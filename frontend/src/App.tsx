@@ -108,16 +108,20 @@ const App = () => {
               {/* <Route path="/liquidation" element={<Liquidation />} /> */}
             </Route>
             {/* Liquidators routes */}
-            <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
+            {/* <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
               <Route
-                path="/fund-request-approval"
+                path="/liquidation-approval"
                 element={<FundRequestApproval />}
               />
-            </Route>
+            </Route> */}
             <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
               <Route
                 path="/liquidation-approval"
                 element={<LiquidatorsPage />}
+              />
+              <Route
+                path="/liquidation-approval/:liquidationId"
+                element={<LiquidationDetailsPage />}
               />
             </Route>
 

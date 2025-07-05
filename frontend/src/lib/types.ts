@@ -213,7 +213,7 @@ export type Submission = {
     school: School | null; // Use School type for school details
   };
   priorities: Priority[];
-  status: "pending" | "approved" | "rejected" | "unliquidated";
+  status: "pending" | "approved" | "rejected" | "unliquidated" | "downloaded" | "liquidated" | "advanced";
   created_at: string;
   rejection_comment: string; // Optional field for rejection reason
   rejection_date: string; // Optional field for when the rejection occurred
