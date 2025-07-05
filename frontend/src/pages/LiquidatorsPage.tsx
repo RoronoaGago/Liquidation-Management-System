@@ -54,6 +54,7 @@ const LiquidatorsPage = () => {
 
   const handleView = async (liq: Liquidation) => {
     try {
+      setLoading(true);
       // Change status to under_review_division when division admin views
       if (liq.status === "approved_district") {
         await api.patch(`/liquidations/${liq.LiquidationID}/`, {
@@ -63,6 +64,8 @@ const LiquidatorsPage = () => {
       navigate(`/liquidation-finalize/${liq.LiquidationID}`);
     } catch (err) {
       toast.error("Failed to update status");
+    } finally {
+      setLoading(false);
     }
   };
 
