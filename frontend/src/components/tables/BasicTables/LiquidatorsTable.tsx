@@ -20,17 +20,22 @@ import {
 } from "@/components/ui/dialog";
 import Input from "@/components/form/input/InputField";
 import { toast } from "react-toastify";
-import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
-import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
-import Badge from "@/components/ui/badge/Badge"; // Add this if you want to match PrioritySubmissions dialog badge
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  Filter,
+  X,
+} from "lucide-react";
+import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react";
+import Badge from "@/components/ui/badge/Badge";
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 
-// Define the Liquidation type (or import it if shared)
 type Liquidation = {
-  reviewed_at_district?: any; // <-- make optional
-  reviewed_by_district?: any; // <-- make optional
-  created_at?: any; // <-- make optional
+  reviewed_at_district?: any;
+  reviewed_by_district?: any;
+  created_at?: any;
   LiquidationID: string;
   status: string;
   request?: {
@@ -40,11 +45,13 @@ type Liquidation = {
       last_name: string;
       school?: {
         schoolName: string;
+        legislativeDistrict?: string;
+        municipality?: string;
+        district?: string;
       };
     };
     priorities?: any[];
   };
-  // Add other fields as needed
 };
 
 interface Requirement {
@@ -93,7 +100,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isEditingComment, setIsEditingComment] = useState(false); // Add this state
+  const [isEditingComment, setIsEditingComment] = useState(false);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -102,29 +109,105 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
   const [districtAdmins, setDistrictAdmins] = useState<
     Record<number, { first_name: string; last_name: string }>
   >({});
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
+    useState("");
+  const [filterMunicipality, setFilterMunicipality] = useState("");
+  const [filterDistrict, setFilterDistrict] = useState("");
+
+  // Extract filter options from liquidations
+  const legislativeDistrictOptions = useMemo(() => {
+    const districts = new Set<string>();
+    liquidations.forEach((liq) => {
+      const district = liq.request?.user?.school?.legislativeDistrict;
+      if (district) districts.add(district);
+    });
+    return Array.from(districts).sort();
+  }, [liquidations]);
+
+  const filterMunicipalityOptions = useMemo(() => {
+    const municipalities = new Set<string>();
+    liquidations.forEach((liq) => {
+      if (
+        liq.request?.user?.school?.legislativeDistrict ===
+        filterLegislativeDistrict
+      ) {
+        const municipality = liq.request?.user?.school?.municipality;
+        if (municipality) municipalities.add(municipality);
+      }
+    });
+    return Array.from(municipalities).sort();
+  }, [liquidations, filterLegislativeDistrict]);
+
+  const filterDistrictOptions = useMemo(() => {
+    const districts = new Set<string>();
+    liquidations.forEach((liq) => {
+      if (
+        liq.request?.user?.school?.municipality === filterMunicipality &&
+        liq.request?.user?.school?.legislativeDistrict ===
+          filterLegislativeDistrict
+      ) {
+        const district = liq.request?.user?.school?.district;
+        if (district) districts.add(district);
+      }
+    });
+    return Array.from(districts).sort();
+  }, [liquidations, filterMunicipality, filterLegislativeDistrict]);
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
-    if (!searchTerm) return liquidations;
-    return liquidations.filter((liq) => {
-      const user = liq.request?.user;
-      const school = user?.school?.schoolName || "";
-      return (
-        liq.LiquidationID.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        liq.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        liq.request?.request_id
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        (user &&
-          (`${user.first_name} ${user.last_name}`
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-            school.toLowerCase().includes(searchTerm.toLowerCase())))
-      );
-    });
-  }, [liquidations, searchTerm]);
+    let result = liquidations;
 
-  // Sorting logic
+    // Apply search term filter
+    if (searchTerm) {
+      result = result.filter((liq) => {
+        const user = liq.request?.user;
+        const school = user?.school?.schoolName || "";
+        return (
+          liq.LiquidationID.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          liq.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          liq.request?.request_id
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          (user &&
+            (`${user.first_name} ${user.last_name}`
+              .toLowerCase()
+              .includes(searchTerm.toLowerCase()) ||
+              school.toLowerCase().includes(searchTerm.toLowerCase())))
+        );
+      });
+    }
+
+    // Apply location filters
+    if (filterLegislativeDistrict) {
+      result = result.filter(
+        (liq) =>
+          liq.request?.user?.school?.legislativeDistrict ===
+          filterLegislativeDistrict
+      );
+    }
+
+    if (filterMunicipality) {
+      result = result.filter(
+        (liq) => liq.request?.user?.school?.municipality === filterMunicipality
+      );
+    }
+
+    if (filterDistrict) {
+      result = result.filter(
+        (liq) => liq.request?.user?.school?.district === filterDistrict
+      );
+    }
+
+    return result;
+  }, [
+    liquidations,
+    searchTerm,
+    filterLegislativeDistrict,
+    filterMunicipality,
+    filterDistrict,
+  ]);
+
   // Helper to safely access sortable fields
   const getSortableValue = (
     liq: Liquidation,
@@ -176,12 +259,10 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
     return sortedLiquidations.slice(start, start + itemsPerPage);
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
-  // Remove status change on view!
   const handleView = async (liq: Liquidation) => {
     setSelected(liq);
     setExpandedExpense(null);
     setDocLoading(true);
-    // Build expense list from priorities
     const priorities = liq.request?.priorities || [];
     const expenses: Expense[] = priorities.map((p: any) => ({
       id: p.id || p.priority?.LOPID || "",
@@ -195,13 +276,11 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
     }));
     setExpenseList(expenses);
 
-    // Fetch all documents for this liquidation
     const res = await api.get(`/liquidations/${liq.LiquidationID}/documents/`);
     setDocuments(res.data);
     setDocLoading(false);
   };
 
-  // Document completion calculation
   const getCompletion = () => {
     const totalRequired = documents.filter(
       (doc) => doc.requirement_obj && doc.is_approved !== undefined
@@ -210,20 +289,14 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
     return { approved, totalRequired };
   };
 
-  // Calculate completion
   const totalRequired = documents.length;
   const approvedCount = documents.filter((doc) => doc.is_approved).length;
   const hasAnyComment = documents.some(
     (doc) => doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
   );
 
-  // Approve enabled only if all required docs are approved
   const canApprove = totalRequired > 0 && approvedCount === totalRequired;
-
-  // Reject enabled only if at least one reviewer comment exists
   const canReject = hasAnyComment;
-
-  // At the bottom of the dialog, after all documents are reviewed:
   const allReviewed = documents.every((doc) => doc.is_approved !== null);
 
   const handleApproveReport = async () => {
@@ -236,7 +309,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
     if (selected?.LiquidationID) {
       setDisabledLiquidationIDs((prev) => [...prev, selected.LiquidationID]);
     }
-    setSelected(null); // Close the dialog after approval
+    setSelected(null);
   };
 
   const handleRejectReport = async () => {
@@ -248,7 +321,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
     if (selected?.LiquidationID) {
       setDisabledLiquidationIDs((prev) => [...prev, selected.LiquidationID]);
     }
-    setSelected(null); // Close the dialog after rejection
+    setSelected(null);
   };
 
   const handleSort = (key: string) => {
@@ -261,7 +334,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
   };
 
   useEffect(() => {
-    // Find all unique district admin IDs that are numbers
     const ids = Array.from(
       new Set(
         liquidations
@@ -275,7 +347,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
     );
     if (ids.length === 0) return;
 
-    // Fetch all district admins in parallel
     Promise.all(
       ids.map((id) =>
         api.get(`/users/${id}/`).then((res) => ({ id, ...res.data }))
@@ -307,7 +378,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
             }}
             className="w-full pl-10"
           />
-          {/* Optional: Add a search icon inside the input */}
           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
             <svg
               width="16"
@@ -323,6 +393,13 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
           </span>
         </div>
         <div className="flex gap-2 items-center mt-2 md:mt-0">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            startIcon={<Filter className="size-4" />}
+          >
+            Filters
+          </Button>
           <label className="text-sm text-gray-600 dark:text-gray-400">
             Items per page:
           </label>
@@ -342,6 +419,100 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
           </select>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 mb-4">
+          <div className="space-y-2">
+            <label
+              htmlFor="filter-legislative-district"
+              className="text-sm font-medium"
+            >
+              Legislative District
+            </label>
+            <select
+              id="filter-legislative-district"
+              value={filterLegislativeDistrict}
+              onChange={(e) => {
+                setFilterLegislativeDistrict(e.target.value);
+                setFilterMunicipality("");
+                setFilterDistrict("");
+                setCurrentPage(1);
+              }}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+            >
+              <option value="">All</option>
+              {legislativeDistrictOptions.map((ld) => (
+                <option key={ld} value={ld}>
+                  {ld}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="filter-municipality"
+              className="text-sm font-medium"
+            >
+              Municipality
+            </label>
+            <select
+              id="filter-municipality"
+              value={filterMunicipality}
+              onChange={(e) => {
+                setFilterMunicipality(e.target.value);
+                setFilterDistrict("");
+                setCurrentPage(1);
+              }}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              disabled={!filterLegislativeDistrict}
+            >
+              <option value="">All</option>
+              {filterMunicipalityOptions.map((mun) => (
+                <option key={mun} value={mun}>
+                  {mun}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="filter-district" className="text-sm font-medium">
+              District
+            </label>
+            <select
+              id="filter-district"
+              value={filterDistrict}
+              onChange={(e) => {
+                setFilterDistrict(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              disabled={!filterMunicipality}
+            >
+              <option value="">All</option>
+              {filterDistrictOptions.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-3 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilterLegislativeDistrict("");
+                setFilterMunicipality("");
+                setFilterDistrict("");
+                setCurrentPage(1);
+              }}
+              startIcon={<X className="size-4" />}
+            >
+              Clear Filters
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -554,7 +725,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                       </span>
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                      {/* Format created_at as YYYY-MM-DD or your preferred format */}
                       {liq.reviewed_at_district
                         ? new Date(
                             liq.reviewed_at_district
@@ -650,7 +820,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
         </div>
       </div>
 
-      {/* Main Dialog: Match PrioritySubmissionsPage style */}
+      {/* Main Dialog */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="w-full max-w-[90vw] lg:max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">
@@ -794,14 +964,12 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                   variant="success"
                   onClick={async () => {
                     try {
-                      // 1. Mark the liquidation as liquidated
                       await api.patch(
                         `/liquidations/${selected.LiquidationID}/`,
                         {
                           status: "liquidated",
                         }
                       );
-                      // 2. Also mark the connected request as liquidated
                       if (selected.request?.request_id) {
                         await api.patch(
                           `/requests/${selected.request.request_id}/`,
@@ -851,7 +1019,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                 >
                   View Fullscreen
                 </a>
-                {/* Image preview */}
                 {/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(
                   viewDoc.document_url
                 ) ? (
@@ -862,7 +1029,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                     style={{ display: "block" }}
                   />
                 ) : (
-                  // Fallback for non-image files (e.g. PDF)
                   <iframe
                     src={viewDoc.document_url}
                     title="Document Preview"
@@ -870,7 +1036,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                   />
                 )}
               </div>
-              {/* Comment and action buttons */}
               <div>
                 <textarea
                   value={viewDoc.reviewer_comment || ""}
@@ -909,7 +1074,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                           }
                         );
                         toast.success("Document approved!");
-                        // Refresh documents
                         const res = await api.get(
                           `/liquidations/${selected?.LiquidationID}/documents/`
                         );
@@ -943,7 +1107,6 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                           }
                         );
                         toast.success("Document rejected!");
-                        // Refresh documents
                         const res = await api.get(
                           `/liquidations/${selected?.LiquidationID}/documents/`
                         );
