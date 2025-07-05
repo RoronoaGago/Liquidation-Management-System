@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Login Notification - Liquidation Management System</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: #f5f8fa; 
+            margin: 0; 
+            padding: 0; 
+            line-height: 1.6; 
+            color: #333333;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 40px auto; 
+            background: #ffffff; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+            overflow: hidden; 
+            border: 1px solid #e0e0e0;
+        }
+        .header { 
+            background: #094684; 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 28px 0 20px 0; 
+            border-bottom: 4px solid #fbaf3d;}
+        .header img { 
+            height: 70px; 
+            margin-bottom: 12px;
+        }
+        .company-name { 
+            font-size: 1.4em; 
+            font-weight: 600; 
+            letter-spacing: 0.5px;
+        }
+        .content { 
+            padding: 36px 40px 28px 40px; 
+        }
+        .footer { 
+            background: #f8f9fa; 
+            color: #6c757d; 
+            text-align: center; 
+            padding: 20px; 
+            font-size: 0.9em; 
+            border-top: 1px solid #e9ecef;
+        }
+        .location-box {
+            background: #f0f7ff; 
+            border-left: 4px solid #0066cc; 
+            padding: 12px 16px; 
+            margin: 20px 0; 
+            border-radius: 0 4px 4px 0;
+        }
+        .location-title {
+            font-weight: 600; 
+            color: #0066cc; 
+            margin-bottom: 8px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #0066cc;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 500;
+            margin-top: 15px;
+        }
+        .signature {
+            margin-top: 30px;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="DepEd_logo-W.png" alt="DepEd Logo">
+            <div class="company-name">Liquidation Management System</div>
+        </div>
+        <div class="content">
+            <p>Dear {{ user.first_name|default:user.username }},</p>
+            
+            <p>We would like to inform you that a successful login to your account on the Liquidation Management System was recorded.</p>
+            
+            <div class="location-box">
+                <div class="location-title">Login Details:</div>
+                <strong>Date & Time:</strong> {{ now|date:"F j, Y H:i" }}<br>
+                <strong>IP Address:</strong> {{ ip }}<br>
+                {% if location %}
+                <strong>Approximate Location:</strong> {{ location }}
+                {% endif %}
+            </div>
+            
+            <p>If you recognize this activity, no further action is required. However, if you did not initiate this login or notice any suspicious activity, please take immediate action to secure your account.</p>
+            
+            <div class="signature">
+                <p>Best regards,</p>
+                <p><strong>Liquidation Management System Team</strong><br>
+                Department of Education</p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ now|date:"Y" }} La Union Schools Division Office, Department of Education. - Liquidation Management System. All rights reserved.</p>
+            <p>This is an automated message. Please do not reply directly to this email.</p>
+        </div>
+    </div>
+</body>
+</html>
