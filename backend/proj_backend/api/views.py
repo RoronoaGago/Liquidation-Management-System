@@ -649,6 +649,11 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
             return LiquidationManagement.objects.filter(
                 status__in=['approved_district', 'under_review_division']
             )
+        elif user.role == 'school_head':
+            # Only return the latest liquidation for the school_head's requests
+            qs = LiquidationManagement.objects.filter(request__user=user).order_by('-created_at')
+            latest = qs.first()
+            return LiquidationManagement.objects.filter(pk=latest.pk) if latest else LiquidationManagement.objects.none()
         # All other users see all liquidations
         return LiquidationManagement.objects.all()
 

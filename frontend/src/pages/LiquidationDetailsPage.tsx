@@ -273,7 +273,9 @@ const LiquidationDetailsPage = () => {
   const canApprove = totalRequired > 0 && approved === totalRequired;
 
   // Reject enabled only if at least one reviewer comment exists
-  const canReject = hasAnyComment;
+  const canReject = documents.some(
+    (doc) => doc.is_approved === false && doc.reviewer_comment?.trim()
+  );
 
   // At the bottom of the dialog, after all documents are reviewed:
   const allReviewed = documents.every((doc) => doc.is_approved !== null);
@@ -306,12 +308,9 @@ const LiquidationDetailsPage = () => {
         });
         // If liquidator, also mark the connected request as liquidated
         if (user?.role === "liquidator" && liquidation?.request?.request_id) {
-          await api.patch(
-            `/requests/${liquidation.request.request_id}/`,
-            {
-              status: "liquidated",
-            }
-          );
+          await api.patch(`/requests/${liquidation.request.request_id}/`, {
+            status: "liquidated",
+          });
         }
         toast.success(
           newStatus === "liquidated"
@@ -1027,8 +1026,8 @@ const LiquidationDetailsPage = () => {
             <Button
               onClick={handleRejectReport}
               disabled={
-                !rejectionComment.trim() ||
-                (actionLoading && currentReportAction === "reject")
+                (actionLoading && currentReportAction === "reject") ||
+                !hasAnyComment
               }
               variant="destructive"
               startIcon={
