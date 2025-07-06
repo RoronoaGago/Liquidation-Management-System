@@ -4,46 +4,127 @@
     <meta charset="UTF-8">
     <title>Status Update Notification</title>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f8fa; margin: 0; padding: 0; line-height: 1.6; color: #333333;}
-        .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid #e0e0e0;}
-        .header { background: #003366; color: #ffffff; text-align: center; padding: 28px 0 20px 0; border-bottom: 4px solid #ffcc00;}
-        .header img { height: 70px; margin-bottom: 12px;}
-        .company-name { font-size: 1.4em; font-weight: 600; letter-spacing: 0.5px;}
-        .content { padding: 36px 40px 28px 40px; }
-        .footer { background: #f8f9fa; color: #6c757d; text-align: center; padding: 20px; font-size: 0.9em; border-top: 1px solid #e9ecef;}
-        .status { font-size: 1.1em; color: #003366; font-weight: bold; }
-        .reason { background: #f8d7da; color: #dd1f2f; border-radius: 4px; padding: 12px 16px; margin: 20px 0; }
-        .signature { margin-top: 30px; border-top: 1px solid #e0e0e0; padding-top: 20px; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: #f5f8fa; 
+            margin: 0; 
+            padding: 0; 
+            line-height: 1.6;
+            color: #333;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 30px auto; 
+            background: #fff; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+            overflow: hidden; 
+        }
+        .header { 
+            background: linear-gradient(135deg, #094684 0%, #DD1F2F 50%, #FBAF3D 100%); 
+            color: #fff; 
+            text-align: center; 
+            padding: 30px 0 20px 0;
+            position: relative;
+        }
+        .header:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(0,0,0,0.1);
+        }
+        .header img { 
+            max-height: 70px; 
+            margin-bottom: 15px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+        .company-name { 
+            font-size: 1.5em; 
+            font-weight: 600; 
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        .content { 
+            padding: 35px 40px 25px 40px; 
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: #f0f7ff;
+            color: #094684;
+            border-radius: 20px;
+            font-weight: 600;
+            margin: 5px 0;
+            border: 1px solid #d0e3ff;
+        }
+        .reason-box {
+            background: #fff0f0;
+            border-left: 4px solid #DD1F2F;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .signature {
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .item-details {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #094684;
+        }
+        .footer { 
+            background: #f0f3f7; 
+            color: #666; 
+            text-align: center; 
+            padding: 20px; 
+            font-size: 0.85em;
+            border-top: 1px solid #e0e4e8;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <img src="DepEd_logo-W.png" alt="DepEd Logo">
-            <div class="company-name">Liquidation Management System</div>
+            <div class="company-name">MOOE Liquidation Management System</div>
+            <div class="company-subtitle">Department of Education, La Union Schools Division</div>
         </div>
+
         <div class="content">
             <p>Dear {{ user.first_name }},</p>
-            <p>
-                This is to formally notify you that your <strong>{{ object_type|title }}</strong> 
-                (ID: <strong>{{ object.LiquidationID }}</strong>) status has changed to:
-                <span class="status">{{ status|title }}</span>.
-            </p>
+
+            <div class="item-details">
+                <p>This is to formally notify you that your <strong>{{ object_type|title }}</strong> status has been updated:</p>
+                <p><strong>Reference ID:</strong> {{ object.LiquidationID }}</p>
+                <p><strong>New Status:</strong> <span class="status-badge">{{ status|title }}</span></p>
+                <p><strong>Date & Time:</strong>  {{ now|date:"F j, Y H:i" }} </p>
+            </div>
+
             {% if object.rejection_comment %}
-            <div class="reason">
-                <strong>Reason:</strong> {{ object.rejection_comment }}
+            <div class="reason-box">
+                <p><strong>Reason for Update:</strong></p>
+                <p>{{ abject.rejection_comment }}</p>
             </div>
             {% endif %}
-            <p>
-                If you have any questions or concerns, please do not hesitate to contact our office.
-            </p>
+
+            <p>If you have any questions or require clarification regarding this status change, please don't hesitate to contact our office.</p>
+
             <div class="signature">
                 <p>Thank you,</p>
-                <p><strong>La Union Schools Division Office<br>Department of Education</strong></p>
+                <p><strong>La Union Schools Division Office</strong><br>
+                Department of Education</p>
             </div>
         </div>
+
         <div class="footer">
-            <p>&copy; {{ now|date:"Y" }} La Union Schools Division Office, Department of Education. - Liquidation Management System. All rights reserved.</p>
+            <p>&copy; {{ now|date:"Y" }} La Union Schools Division Office. All rights reserved.</p>
             <p>This is an automated message. Please do not reply directly to this email.</p>
         </div>
     </div>
