@@ -472,7 +472,7 @@ const ResourceAllocation = () => {
         </select>
       </div>
       {/* New filter for can request next month */}
-      <div className="space-y-2">
+      {/* <div className="space-y-2">
         <Label className="text-sm font-medium">Request Status</Label>
         <div className="flex gap-2 items-center">
           <select
@@ -495,7 +495,7 @@ const ResourceAllocation = () => {
             <option value="false">Cannot Request Yet</option>
           </select>
         </div>
-      </div>
+      </div> */}
       {/* Liquidation details toggle */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Show Liquidation Details</Label>
