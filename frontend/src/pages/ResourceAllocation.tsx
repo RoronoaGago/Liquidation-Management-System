@@ -19,6 +19,8 @@ import {
   ArrowRight,
   CheckCircle,
   Filter,
+  CalendarCheck,
+  CalendarX,
 } from "lucide-react";
 import {
   Dialog,
@@ -30,13 +32,29 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Skeleton } from "antd";
 import { municipalityDistricts } from "@/lib/constants";
 import Label from "@/components/form/Label";
+import Toggle from "@/components/form/Toggle";
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const QUICK_ADD_AMOUNTS = [1000, 5000, 10000];
 const MIN_SEARCH_LENGTH = 3;
 const SEARCH_DEBOUNCE_MS = 500;
 
-// Update School type to include backlog info
+// Month names for display
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
 type School = {
   schoolId: string;
   schoolName: string;
@@ -45,8 +63,9 @@ type School = {
   district?: string;
   legislativeDistrict?: string;
   is_active?: boolean;
-  hasBacklog?: boolean;
-  pendingAmount?: number;
+  hasUnliquidated?: boolean; // Critical for eligibility
+  last_liquidated_month?: number;
+  last_liquidated_year?: number;
 };
 
 const ResourceAllocation = () => {
@@ -72,6 +91,19 @@ const ResourceAllocation = () => {
     useState<string>("");
   const [filterMunicipality, setFilterMunicipality] = useState<string>("");
   const [filterDistrict, setFilterDistrict] = useState<string>("");
+  const [showLiquidationDetails, setShowLiquidationDetails] = useState<boolean>(
+    () => {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("showLiquidationDetails");
+        return saved === "true";
+      }
+      return false;
+    }
+  );
+
+  const [filterCanRequest, setFilterCanRequest] = useState<boolean | null>(
+    null
+  );
 
   const [legislativeDistricts, setLegislativeDistricts] = useState<{
     [key: string]: string[];
@@ -86,19 +118,45 @@ const ResourceAllocation = () => {
     []
   );
 
+  // Helper function to check if school can request next month
+  // Helper function to check if school can request next month
+  const canRequestNextMonth = useCallback((school: School) => {
+    // Block if school is inactive
+    if (!school.is_active) return false;
+
+    // Block if there are any unliquidated requests
+    if (school.hasUnliquidated) return false;
+
+    return true;
+  }, []);
+
+  // Fetch backlog data for schools
   // Fetch backlog data for schools
   const fetchBacklogData = async (schoolIds: string[]) => {
     try {
       const res = await api.get("requests/", {
         params: {
-          status: ["approved", "downloaded"].join(","),
+          status: ["approved", "downloaded", "pending", "unliquidated"].join(
+            ","
+          ),
           school_ids: schoolIds.join(","),
         },
       });
-      return res.data.results || res.data;
+
+      const requests = res.data.results || res.data;
+      console.log("Fetched unliquidated requests:", requests);
+
+      // Create a set of school IDs with unliquidated requests
+      const schoolsWithUnliquidated = new Set<string>();
+      requests.forEach((request: any) => {
+        const schoolId = request.user.school.schoolId;
+        schoolsWithUnliquidated.add(schoolId);
+      });
+
+      return schoolsWithUnliquidated;
     } catch (error) {
       console.error("Error fetching backlog data:", error);
-      return [];
+      return new Set<string>();
     }
   };
 
@@ -120,29 +178,31 @@ const ResourceAllocation = () => {
 
       // Fetch schools
       const schoolsRes = await api.get("schools/", { params });
-      setSchools(schoolsRes.data.results || schoolsRes.data);
-      setTotalSchools(schoolsRes.data.count ?? schoolsRes.data.length);
+      let schoolsData = schoolsRes.data.results || schoolsRes.data;
+
+      // Apply canRequest filter if set
+      if (filterCanRequest !== null) {
+        schoolsData = schoolsData.filter((school: School) =>
+          filterCanRequest
+            ? canRequestNextMonth(school)
+            : !canRequestNextMonth(school)
+        );
+      }
 
       // Fetch backlog data for the fetched schools
-      const schoolIds = schoolsRes.data.results.map(
-        (school: School) => school.schoolId
-      );
+      const schoolIds = schoolsData.map((school: School) => school.schoolId);
       const backlogData = await fetchBacklogData(schoolIds);
 
       // Map backlog data to schools
-      const schoolsWithBacklog = schoolsRes.data.results.map(
-        (school: School) => {
-          const backlog = backlogData.find(
-            (b: any) => b.schoolId === school.schoolId
-          );
-          return {
-            ...school,
-            hasBacklog: !!backlog,
-            pendingAmount: backlog?.totalAmount || 0,
-          };
-        }
-      );
+      // Map backlog data to schools
+      const schoolsWithBacklog = schoolsData.map((school: School) => {
+        const hasUnliquidated = backlogData.has(school.schoolId);
 
+        return {
+          ...school,
+          hasUnliquidated, // Critical for eligibility
+        };
+      });
       const initialBudgets = schoolsWithBacklog.reduce(
         (acc: Record<string, number>, school: School) => {
           acc[school.schoolId] = school.max_budget || 0;
@@ -153,6 +213,8 @@ const ResourceAllocation = () => {
 
       setEditingBudgets(initialBudgets);
       setSchools(schoolsWithBacklog);
+      console.log(schoolsWithBacklog);
+      setTotalSchools(schoolsRes.data.count ?? schoolsData.length);
     } catch (error) {
       console.error("Error fetching schools data:", error);
     } finally {
@@ -166,6 +228,7 @@ const ResourceAllocation = () => {
       setLegislativeDistrictOptions(Object.keys(res.data));
     });
   }, []);
+
   useEffect(() => {
     if (
       debouncedSearch.length === 0 ||
@@ -176,7 +239,7 @@ const ResourceAllocation = () => {
       setSchools([]);
       setTotalSchools(0);
     }
-  }, [currentPage, itemsPerPage, debouncedSearch]);
+  }, [currentPage, itemsPerPage, debouncedSearch, filterCanRequest]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -298,6 +361,12 @@ const ResourceAllocation = () => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
+  const handleLiquidationToggle = (checked: boolean) => {
+    setShowLiquidationDetails(checked);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("showLiquidationDetails", String(checked));
+    }
+  };
   // Save budgets for selected
   const saveBudgets = async () => {
     setIsSaving(true);
@@ -340,7 +409,122 @@ const ResourceAllocation = () => {
     }
   };
 
-  // Update the school card rendering to show backlog info
+  // Modify the filters panel to include the new toggle and filter
+  const renderFiltersPanel = () => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+      <div className="space-y-2">
+        <Label
+          htmlFor="filter-legislative-district"
+          className="text-sm font-medium"
+        >
+          Legislative District
+        </Label>
+        <select
+          id="filter-legislative-district"
+          value={filterLegislativeDistrict}
+          onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
+          className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+        >
+          <option value="">All</option>
+          {legislativeDistrictOptions.map((ld) => (
+            <option key={ld} value={ld}>
+              {ld}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="filter-municipality" className="text-sm font-medium">
+          Municipality
+        </Label>
+        <select
+          id="filter-municipality"
+          value={filterMunicipality}
+          onChange={(e) => setFilterMunicipality(e.target.value)}
+          className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+          disabled={!filterLegislativeDistrict}
+        >
+          <option value="">All</option>
+          {filterMunicipalityOptions.map((mun) => (
+            <option key={mun} value={mun}>
+              {mun}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="filter-district" className="text-sm font-medium">
+          District
+        </Label>
+        <select
+          id="filter-district"
+          value={filterDistrict}
+          onChange={(e) => setFilterDistrict(e.target.value)}
+          className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+          disabled={!filterMunicipality}
+        >
+          <option value="">All</option>
+          {filterDistrictOptions.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
+      </div>
+      {/* New filter for can request next month */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Request Status</Label>
+        <div className="flex gap-2 items-center">
+          <select
+            value={
+              filterCanRequest === null
+                ? ""
+                : filterCanRequest
+                ? "true"
+                : "false"
+            }
+            onChange={(e) =>
+              setFilterCanRequest(
+                e.target.value === "" ? null : e.target.value === "true"
+              )
+            }
+            className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+          >
+            <option value="">All Schools</option>
+            <option value="true">Can Request Next Month</option>
+            <option value="false">Cannot Request Yet</option>
+          </select>
+        </div>
+      </div>
+      {/* Liquidation details toggle */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Show Liquidation Details</Label>
+        <div className="flex gap-2 items-center">
+          <Toggle
+            checked={showLiquidationDetails}
+            onChange={handleLiquidationToggle}
+          />
+        </div>
+      </div>
+      <div className="md:col-span-3 flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setFilterLegislativeDistrict("");
+            setFilterMunicipality("");
+            setFilterDistrict("");
+            setFilterCanRequest(null);
+          }}
+          startIcon={<X className="size-4" />}
+        >
+          Clear Filters
+        </Button>
+      </div>
+    </div>
+  );
+
+  // Modify the school card rendering to include liquidation status
   const renderSchoolCards = () => {
     if (loading) {
       return Array.from({ length: itemsPerPage }).map((_, idx) => (
@@ -364,12 +548,13 @@ const ResourceAllocation = () => {
       );
     }
 
-    return sortedSchools.map((school) => {
+    return schools.map((school) => {
       const isSelected = selectedSchools.includes(school.schoolId);
       const isExpanded = expandedCards.includes(school.schoolId);
       const prevBudget = Number(school.max_budget || 0);
       const currentBudget = editingBudgets[school.schoolId] ?? 0;
       const difference = currentBudget - prevBudget;
+      const canRequest = canRequestNextMonth(school);
 
       return (
         <div
@@ -378,7 +563,7 @@ const ResourceAllocation = () => {
             ${isExpanded ? "h-auto" : "h-[120px]"} ${
             isSelected
               ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
-              : getBorderColor(difference, isSelected, isExpanded)
+              : "border-gray-200 dark:border-gray-700"
           } hover:border-brand-400 dark:hover:border-brand-500`}
           onClick={(e) => {
             if (
@@ -403,9 +588,11 @@ const ResourceAllocation = () => {
               <div className="flex flex-col items-end gap-1">
                 {difference !== 0 && (
                   <div
-                    className={`text-xs px-2 py-1 rounded-full ${getBadgeColor(
-                      difference
-                    )}`}
+                    className={`text-xs px-2 py-1 rounded-full ${
+                      difference > 0
+                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                    }`}
                   >
                     {difference > 0 ? "+" : ""}
                     {formatCurrency(difference)}
@@ -416,10 +603,28 @@ const ResourceAllocation = () => {
                     ) : null}
                   </div>
                 )}
-                {school.hasBacklog && (
-                  <div className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-                    Pending: {formatCurrency(school.pendingAmount || 0)}
-                    <AlertTriangle className="h-3 w-3 inline ml-1" />
+
+                {/* Liquidation status badge */}
+                {/* Liquidation status badge - Only show when toggle is on */}
+                {showLiquidationDetails && (
+                  <div
+                    className={`text-xs px-2 py-1 rounded-full ${
+                      canRequestNextMonth(school)
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
+                        : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200"
+                    }`}
+                  >
+                    {canRequestNextMonth(school) ? (
+                      <>
+                        <CalendarCheck className="h-3 w-3 inline mr-1" />
+                        Eligible
+                      </>
+                    ) : (
+                      <>
+                        <CalendarX className="h-3 w-3 inline mr-1" />
+                        Cannot Request Yet
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -441,16 +646,21 @@ const ResourceAllocation = () => {
                   </div>
                   <div className="text-sm">{formatCurrency(prevBudget)}</div>
                 </div>
-                {school.hasBacklog && (
+
+                {/* Show liquidation details if toggled on */}
+                {showLiquidationDetails && school.last_liquidated_month && (
                   <div className="mt-1 flex items-center justify-between">
-                    <div className="text-sm text-amber-600 dark:text-amber-400">
-                      Pending Requests
+                    <div className="text-sm text-purple-600 dark:text-purple-400">
+                      Last Liquidation
                     </div>
-                    <div className="text-sm text-amber-600 dark:text-amber-400">
-                      {formatCurrency(school.pendingAmount || 0)}
+                    <div className="text-sm text-purple-600 dark:text-purple-400">
+                      {monthNames[school.last_liquidated_month - 1]}{" "}
+                      {school.last_liquidated_year}
                     </div>
                   </div>
                 )}
+
+                {/* Rest of your existing card content (budget adjustment controls) */}
 
                 <div className="mt-4 space-y-3">
                   <div className="flex items-center justify-center gap-4">
@@ -533,31 +743,6 @@ const ResourceAllocation = () => {
           <div className="text-gray-600 dark:text-gray-300">
             The total change will be {formatCurrency(totalDifference)}.
           </div>
-          {selectedSchools.some(
-            (id) => schools.find((s) => s.schoolId === id)?.hasBacklog
-          ) && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-md border border-amber-200 dark:border-amber-800">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm">
-                  Warning:{" "}
-                  {
-                    selectedSchools.filter(
-                      (id) => schools.find((s) => s.schoolId === id)?.hasBacklog
-                    ).length
-                  }{" "}
-                  selected school(s) have pending requests totaling{" "}
-                  {formatCurrency(
-                    selectedSchools.reduce((sum, id) => {
-                      const school = schools.find((s) => s.schoolId === id);
-                      return sum + (school?.pendingAmount || 0);
-                    }, 0)
-                  )}
-                  . Ensure this allocation accounts for those commitments.
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
@@ -632,28 +817,22 @@ const ResourceAllocation = () => {
 
       <SaveConfirmationDialog />
 
-      {/* Rest of your existing dialogs and UI components... */}
-      {/* (Reset confirmation dialog, search controls, adjustment controls, etc.) */}
-
       <div className="mt-8">
-        <div className="mt-8">
-          <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
-            <h3 className="text-lg font-medium text-brand-800 dark:text-brand-200 flex items-center gap-2 mb-2">
-              <Info className="h-5 w-5" /> How to allocate resource
-            </h3>
-            <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
-              <li>Click on school cards to select them</li>
-              <li>Select an adjustment amount from the top controls</li>
-              <li>
-                Use the + and - buttons in each selected school to adjust the
-                budget
-              </li>
-              <li>Click "Save Selected" when ready</li>
-            </ol>
-          </div>
+        <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
+          <h3 className="text-lg font-medium text-brand-800 dark:text-brand-200 flex items-center gap-2 mb-2">
+            <Info className="h-5 w-5" /> How to allocate resource
+          </h3>
+          <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
+            <li>Click on school cards to select them</li>
+            <li>Select an adjustment amount from the top controls</li>
+            <li>
+              Use the + and - buttons in each selected school to adjust the
+              budget
+            </li>
+            <li>Click "Save Selected" when ready</li>
+            <li>Use filters to find schools that can request next month</li>
+          </ol>
         </div>
-
-        {/* Reset Confirmation Dialog */}
 
         {/* Search and Controls */}
         <div className="flex flex-col gap-4">
@@ -712,89 +891,7 @@ const ResourceAllocation = () => {
             </div>
           </div>
           {/* Filters panel */}
-          {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="filter-legislative-district"
-                  className="text-sm font-medium"
-                >
-                  Legislative District
-                </Label>
-                <select
-                  id="filter-legislative-district"
-                  value={filterLegislativeDistrict}
-                  onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
-                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                >
-                  <option value="">All</option>
-                  {legislativeDistrictOptions.map((ld) => (
-                    <option key={ld} value={ld}>
-                      {ld}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="filter-municipality"
-                  className="text-sm font-medium"
-                >
-                  Municipality
-                </Label>
-                <select
-                  id="filter-municipality"
-                  value={filterMunicipality}
-                  onChange={(e) => setFilterMunicipality(e.target.value)}
-                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  disabled={!filterLegislativeDistrict}
-                >
-                  <option value="">All</option>
-                  {filterMunicipalityOptions.map((mun) => (
-                    <option key={mun} value={mun}>
-                      {mun}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="filter-district"
-                  className="text-sm font-medium"
-                >
-                  District
-                </Label>
-                <select
-                  id="filter-district"
-                  value={filterDistrict}
-                  onChange={(e) => setFilterDistrict(e.target.value)}
-                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  disabled={!filterMunicipality}
-                >
-                  <option value="">All</option>
-                  {filterDistrictOptions.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-3 flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setFilterLegislativeDistrict("");
-                    setFilterMunicipality("");
-                    setFilterDistrict("");
-                  }}
-                  startIcon={<X className="size-4" />}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          )}
+          {showFilters && renderFiltersPanel()}
         </div>
 
         {/* Adjustment Controls */}
@@ -815,6 +912,7 @@ const ResourceAllocation = () => {
             ))}
           </div>
         </div>
+
         {/* Summary Bar */}
         {selectedSchools.length > 0 && (
           <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 mb-6 py-3 px-4 shadow-sm">
@@ -834,20 +932,6 @@ const ResourceAllocation = () => {
                   {formatCurrency(Math.abs(totalDifference))}
                   {totalDifference !== 0 && (totalDifference > 0 ? "↑" : "↓")}
                 </span>
-                {selectedSchools.some(
-                  (id) => schools.find((s) => s.schoolId === id)?.hasBacklog
-                ) && (
-                  <span className="ml-2 text-amber-600 dark:text-amber-400">
-                    •{" "}
-                    {
-                      selectedSchools.filter(
-                        (id) =>
-                          schools.find((s) => s.schoolId === id)?.hasBacklog
-                      ).length
-                    }{" "}
-                    with pending requests
-                  </span>
-                )}
               </div>
               <div className="flex gap-2">
                 <Button

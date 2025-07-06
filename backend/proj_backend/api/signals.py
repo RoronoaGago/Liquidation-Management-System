@@ -202,7 +202,7 @@ def handle_liquidation_status_change(instance):
         },
         'resubmit': {
             'title': "Liquidation Needs Revision",
-            'details': f"Your liquidation {instance.LiquidationID} needs revision. Comments: {instance.comment_id or 'No comments provided'}",
+            'details': f"Your liquidation {instance.LiquidationID} needs revision. Comments: {instance.rejection_comment or 'No comments provided'}",
             'receivers': [instance.request.user],
             'additional_receivers': []
         },
