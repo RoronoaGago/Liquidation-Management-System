@@ -63,11 +63,9 @@ type School = {
   district?: string;
   legislativeDistrict?: string;
   is_active?: boolean;
-  hasBacklog?: boolean;
-  pendingAmount?: number;
+  hasUnliquidated?: boolean; // Critical for eligibility
   last_liquidated_month?: number;
   last_liquidated_year?: number;
-  hasUnliquidated?: boolean; // Critical for eligibility
 };
 
 const ResourceAllocation = () => {
@@ -93,7 +91,16 @@ const ResourceAllocation = () => {
     useState<string>("");
   const [filterMunicipality, setFilterMunicipality] = useState<string>("");
   const [filterDistrict, setFilterDistrict] = useState<string>("");
-  const [showLiquidationDetails, setShowLiquidationDetails] = useState(false);
+  const [showLiquidationDetails, setShowLiquidationDetails] = useState<boolean>(
+    () => {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("showLiquidationDetails");
+        return saved === "true";
+      }
+      return false;
+    }
+  );
+
   const [filterCanRequest, setFilterCanRequest] = useState<boolean | null>(
     null
   );
@@ -112,30 +119,18 @@ const ResourceAllocation = () => {
   );
 
   // Helper function to check if school can request next month
+  // Helper function to check if school can request next month
   const canRequestNextMonth = useCallback((school: School) => {
     // Block if school is inactive
     if (!school.is_active) return false;
 
-    // Block if ANY request is unliquidated
+    // Block if there are any unliquidated requests
     if (school.hasUnliquidated) return false;
 
-    // Block if liquidation is not up-to-date
-    if (!school.last_liquidated_month || !school.last_liquidated_year) {
-      return true; // No liquidation history = eligible
-    }
-
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1; // 1-12
-    const currentYear = now.getFullYear();
-
-    // Eligible if last liquidation was in a past month/year
-    return (
-      school.last_liquidated_year < currentYear ||
-      (school.last_liquidated_year === currentYear &&
-        school.last_liquidated_month < currentMonth)
-    );
+    return true;
   }, []);
 
+  // Fetch backlog data for schools
   // Fetch backlog data for schools
   const fetchBacklogData = async (schoolIds: string[]) => {
     try {
@@ -149,47 +144,19 @@ const ResourceAllocation = () => {
       });
 
       const requests = res.data.results || res.data;
-      console.log("Fetched requests:", requests);
+      console.log("Fetched unliquidated requests:", requests);
 
-      // Group requests by school and check for unliquidated status
-      const backlogBySchool: Record<
-        string,
-        {
-          hasUnliquidated: boolean;
-          totalAmount: number;
-          requests: any[];
-        }
-      > = {};
-
+      // Create a set of school IDs with unliquidated requests
+      const schoolsWithUnliquidated = new Set<string>();
       requests.forEach((request: any) => {
         const schoolId = request.user.school.schoolId;
-        const isUnliquidated = request.status === "unliquidated";
-        const totalAmount = request.priorities.reduce(
-          (sum: number, priority: any) => sum + parseFloat(priority.amount),
-          0
-        );
-
-        if (!backlogBySchool[schoolId]) {
-          backlogBySchool[schoolId] = {
-            hasUnliquidated: false,
-            totalAmount: 0,
-            requests: [],
-          };
-        }
-
-        backlogBySchool[schoolId].totalAmount += totalAmount;
-        backlogBySchool[schoolId].requests.push(request);
-
-        // Mark if ANY request is unliquidated
-        if (isUnliquidated) {
-          backlogBySchool[schoolId].hasUnliquidated = true;
-        }
+        schoolsWithUnliquidated.add(schoolId);
       });
 
-      return backlogBySchool;
+      return schoolsWithUnliquidated;
     } catch (error) {
       console.error("Error fetching backlog data:", error);
-      return {};
+      return new Set<string>();
     }
   };
 
@@ -227,19 +194,13 @@ const ResourceAllocation = () => {
       const backlogData = await fetchBacklogData(schoolIds);
 
       // Map backlog data to schools
+      // Map backlog data to schools
       const schoolsWithBacklog = schoolsData.map((school: School) => {
-        const schoolBacklog = backlogData[school.schoolId] || {
-          hasUnliquidated: false,
-          totalAmount: 0,
-          requests: [],
-        };
+        const hasUnliquidated = backlogData.has(school.schoolId);
 
         return {
           ...school,
-          hasBacklog: schoolBacklog.requests.length > 0,
-          hasUnliquidated: schoolBacklog.hasUnliquidated, // Critical for eligibility
-          pendingAmount: schoolBacklog.totalAmount,
-          pendingRequests: schoolBacklog.requests,
+          hasUnliquidated, // Critical for eligibility
         };
       });
       const initialBudgets = schoolsWithBacklog.reduce(
@@ -400,6 +361,12 @@ const ResourceAllocation = () => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
+  const handleLiquidationToggle = (checked: boolean) => {
+    setShowLiquidationDetails(checked);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("showLiquidationDetails", String(checked));
+    }
+  };
   // Save budgets for selected
   const saveBudgets = async () => {
     setIsSaving(true);
@@ -535,12 +502,8 @@ const ResourceAllocation = () => {
         <div className="flex gap-2 items-center">
           <Toggle
             checked={showLiquidationDetails}
-            onChange={() => setShowLiquidationDetails(!showLiquidationDetails)}
-            label="Show Liquidation Details"
+            onChange={handleLiquidationToggle}
           />
-          <span className="text-sm text-gray-600 dark:text-gray-300">
-            {showLiquidationDetails ? "Showing" : "Hidden"}
-          </span>
         </div>
       </div>
       <div className="md:col-span-3 flex justify-end gap-2">
@@ -640,22 +603,18 @@ const ResourceAllocation = () => {
                     ) : null}
                   </div>
                 )}
-                {school.hasBacklog && (
-                  <div className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-                    Pending: {formatCurrency(school.pendingAmount || 0)}
-                    <AlertTriangle className="h-3 w-3 inline ml-1" />
-                  </div>
-                )}
+
                 {/* Liquidation status badge */}
+                {/* Liquidation status badge - Only show when toggle is on */}
                 {showLiquidationDetails && (
                   <div
                     className={`text-xs px-2 py-1 rounded-full ${
-                      canRequest
+                      canRequestNextMonth(school)
                         ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
                         : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200"
                     }`}
                   >
-                    {canRequest ? (
+                    {canRequestNextMonth(school) ? (
                       <>
                         <CalendarCheck className="h-3 w-3 inline mr-1" />
                         Eligible
@@ -663,11 +622,7 @@ const ResourceAllocation = () => {
                     ) : (
                       <>
                         <CalendarX className="h-3 w-3 inline mr-1" />
-                        Liquidated{" "}
-                        {school?.last_liquidated_month !== undefined
-                          ? monthNames[school.last_liquidated_month - 1]
-                          : "Unknown"}{" "}
-                        {school?.last_liquidated_year ?? ""}
+                        Cannot Request Yet
                       </>
                     )}
                   </div>
@@ -691,16 +646,7 @@ const ResourceAllocation = () => {
                   </div>
                   <div className="text-sm">{formatCurrency(prevBudget)}</div>
                 </div>
-                {school.hasBacklog && (
-                  <div className="mt-1 flex items-center justify-between">
-                    <div className="text-sm text-amber-600 dark:text-amber-400">
-                      Pending Requests
-                    </div>
-                    <div className="text-sm text-amber-600 dark:text-amber-400">
-                      {formatCurrency(school.pendingAmount || 0)}
-                    </div>
-                  </div>
-                )}
+
                 {/* Show liquidation details if toggled on */}
                 {showLiquidationDetails && school.last_liquidated_month && (
                   <div className="mt-1 flex items-center justify-between">
@@ -797,31 +743,6 @@ const ResourceAllocation = () => {
           <div className="text-gray-600 dark:text-gray-300">
             The total change will be {formatCurrency(totalDifference)}.
           </div>
-          {selectedSchools.some(
-            (id) => schools.find((s) => s.schoolId === id)?.hasBacklog
-          ) && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-md border border-amber-200 dark:border-amber-800">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm">
-                  Warning:{" "}
-                  {
-                    selectedSchools.filter(
-                      (id) => schools.find((s) => s.schoolId === id)?.hasBacklog
-                    ).length
-                  }{" "}
-                  selected school(s) have pending requests totaling{" "}
-                  {formatCurrency(
-                    selectedSchools.reduce((sum, id) => {
-                      const school = schools.find((s) => s.schoolId === id);
-                      return sum + (school?.pendingAmount || 0);
-                    }, 0)
-                  )}
-                  . Ensure this allocation accounts for those commitments.
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
@@ -1011,20 +932,6 @@ const ResourceAllocation = () => {
                   {formatCurrency(Math.abs(totalDifference))}
                   {totalDifference !== 0 && (totalDifference > 0 ? "↑" : "↓")}
                 </span>
-                {selectedSchools.some(
-                  (id) => schools.find((s) => s.schoolId === id)?.hasBacklog
-                ) && (
-                  <span className="ml-2 text-amber-600 dark:text-amber-400">
-                    •{" "}
-                    {
-                      selectedSchools.filter(
-                        (id) =>
-                          schools.find((s) => s.schoolId === id)?.hasBacklog
-                      ).length
-                    }{" "}
-                    with pending requests
-                  </span>
-                )}
               </div>
               <div className="flex gap-2">
                 <Button
