@@ -17,7 +17,7 @@ const Toggle: React.FC<ToggleProps> = ({
 }) => {
   return (
     <label className={`inline-flex items-center cursor-pointer ${className}`}>
-      <span className="relative">
+      <span className="relative mt-2">
         <input
           type="checkbox"
           checked={checked}
