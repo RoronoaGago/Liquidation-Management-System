@@ -650,10 +650,10 @@ const ResourceAllocation = () => {
                 {/* Show liquidation details if toggled on */}
                 {showLiquidationDetails && school.last_liquidated_month && (
                   <div className="mt-1 flex items-center justify-between">
-                    <div className="text-sm text-purple-600 dark:text-purple-400">
+                    <div className="text-sm text-green-800 dark:text-green-200 ">
                       Last Liquidation
                     </div>
-                    <div className="text-sm text-purple-600 dark:text-purple-400">
+                    <div className="text-sm text-green-800 dark:text-green-200">
                       {monthNames[school.last_liquidated_month - 1]}{" "}
                       {school.last_liquidated_year}
                     </div>
