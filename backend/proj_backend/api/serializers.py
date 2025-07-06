@@ -353,7 +353,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
         fields = [
             'LiquidationID',
             'request',
-            'comment_id',
+            'rejection_comment',
             'status',
             'reviewed_by_district',
             'reviewed_at_district',
@@ -377,18 +377,18 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                 })
         return comments
 
-    def create(self, validated_data):
-        priorities_data = validated_data.pop('liquidation_priorities', [])
-        liquidation = LiquidationManagement.objects.create(**validated_data)
-        for item in priorities_data:
-            LiquidationPriority.objects.create(liquidation=liquidation, **item)
-        return liquidation
-
-    def update(self, instance, validated_data):
-        priorities_data = validated_data.pop('liquidation_priorities', [])
-        instance = super().update(instance, validated_data)
-        # Optionally update priorities here
-        return instance
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Add actual amounts from LiquidationPriority records
+        if hasattr(instance, 'liquidation_priorities'):
+            data['actual_amounts'] = [
+                {
+                    'expense_id': lp.priority.LOPID,
+                    'actual_amount': float(lp.amount)
+                }
+                for lp in instance.liquidation_priorities.all()
+            ]
+        return data
 
 
 class NotificationSerializer(serializers.ModelSerializer):

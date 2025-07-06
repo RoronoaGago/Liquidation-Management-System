@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import LiquidatorsTable from "@/components/tables/BasicTables/LiquidatorsTable";
 import api from "@/api/axios";
+import { toast } from "react-toastify";
 
 // Define the Liquidation type if not imported from elsewhere
 type Liquidation = {
@@ -32,6 +34,7 @@ const LiquidatorsPage = () => {
   const [searchTerm] = useState("");
   const [itemsPerPage] = useState(10);
   const [currentPage] = useState(1);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchLiquidations = async () => {
@@ -48,6 +51,23 @@ const LiquidatorsPage = () => {
     };
     fetchLiquidations();
   }, []);
+
+  const handleView = async (liq: Liquidation) => {
+    try {
+      setLoading(true);
+      // Change status to under_review_division when division admin views
+      if (liq.status === "approved_district") {
+        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+          status: "under_review_division",
+        });
+      }
+      navigate(`/liquidation-finalize/${liq.LiquidationID}`);
+    } catch (err) {
+      toast.error("Failed to update status");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
@@ -96,6 +116,7 @@ const LiquidatorsPage = () => {
             setLoading(false);
           }
         }}
+        onView={handleView}
       />
     </div>
   );

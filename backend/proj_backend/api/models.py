@@ -291,9 +291,9 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-            and not self._skip_auto_status
-            and self.request_monthyear
-            ):
+                and not self._skip_auto_status
+                and self.request_monthyear
+                ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -381,7 +381,7 @@ class LiquidationManagement(models.Model):
     )
     refund = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True)
-    comment_id = models.CharField(max_length=255, blank=True, null=True)
+    rejection_comment = models.TextField(null=True, blank=True)
     status = models.CharField(
         max_length=30, choices=STATUS_CHOICES, default='draft'
     )
@@ -442,6 +442,16 @@ class LiquidationManagement(models.Model):
         # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:
             self.date_liquidated = timezone.now().date()
+
+            # Update the school's last liquidation date
+            if self.request and self.request.user and self.request.user.school:
+                school = self.request.user.school
+                if self.request.request_monthyear:  # Format: YYYY-MM
+                    year, month = map(
+                        int, self.request.request_monthyear.split('-'))
+                    school.last_liquidated_month = month
+                    school.last_liquidated_year = year
+                    school.save()
         elif self.status != 'liquidated' and self.date_liquidated is not None:
             self.date_liquidated = None
 

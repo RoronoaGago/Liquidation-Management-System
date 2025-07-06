@@ -386,9 +386,22 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = RequestManagement.objects.all()
 
-        # Filter by status if provided
-        if status_param := self.request.query_params.get('status'):
-            queryset = queryset.filter(status=status_param)
+        # Filter by multiple statuses if provided (comma-separated)
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            status_list = [s.strip()
+                           for s in status_param.split(',') if s.strip()]
+            if status_list:
+                queryset = queryset.filter(status__in=status_list)
+
+        # Filter by multiple school_ids if provided (comma-separated)
+        school_ids_param = self.request.query_params.get('school_ids')
+        if school_ids_param:
+            school_ids_list = [s.strip()
+                               for s in school_ids_param.split(',') if s.strip()]
+            if school_ids_list:
+                queryset = queryset.filter(
+                    user__school__schoolId__in=school_ids_list)
 
         # For non-admin users, only show their own requests
         if self.request.user.role not in ['admin', 'superintendent', 'accountant']:
@@ -645,7 +658,16 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'liquidator':
-            return LiquidationManagement.objects.filter(status='approved_district')
+            # Show both approved_district and under_review_division for liquidators
+            return LiquidationManagement.objects.filter(
+                status__in=['approved_district', 'under_review_division']
+            )
+        elif user.role == 'school_head':
+            # Only return the latest liquidation for the school_head's requests
+            qs = LiquidationManagement.objects.filter(
+                request__user=user).order_by('-created_at')
+            latest = qs.first()
+            return LiquidationManagement.objects.filter(pk=latest.pk) if latest else LiquidationManagement.objects.none()
         # All other users see all liquidations
         return LiquidationManagement.objects.all()
 
@@ -679,6 +701,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        instance._old_status = instance.status  # Track previous status for signals
         partial = kwargs.pop('partial', False)
         data = request.data.copy()
 
@@ -686,6 +709,16 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         if data.get("status") == "approved_district":
             data["reviewed_by_district"] = request.user.id
             data["reviewed_at_district"] = timezone.now()
+
+        # If rejecting (resubmit), capture rejection_comment
+        if data.get("status") == "resubmit":
+            rejection_comment = data.get('rejection_comment', '').strip()
+            if not rejection_comment:
+                return Response(
+                    {"detail": "Please provide a rejection comment for resubmission."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            instance.rejection_comment = rejection_comment
 
         # Set the user who changed the status for notification
         instance._status_changed_by = request.user  # <-- CRUCIAL for notifications!

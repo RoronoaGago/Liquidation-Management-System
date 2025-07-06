@@ -116,11 +116,11 @@ const App = () => {
             </Route> */}
             <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
               <Route
-                path="/liquidation-approval"
+                path="/liquidation-finalize"
                 element={<LiquidatorsPage />}
               />
               <Route
-                path="/liquidation-approval/:liquidationId"
+                path="/liquidation-finalize/:liquidationId"
                 element={<LiquidationDetailsPage />}
               />
             </Route>
