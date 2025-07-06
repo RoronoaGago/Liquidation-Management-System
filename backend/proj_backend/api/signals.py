@@ -8,7 +8,11 @@ from django.template.loader import render_to_string
 from datetime import timedelta
 from .tasks import send_liquidation_reminder, send_liquidation_demand_letter
 from django.contrib.auth.signals import user_logged_in
+from django.urls import reverse
+from django.utils import timezone
 import logging
+import geoip2.database
+import user_agents
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -278,15 +282,75 @@ def handle_liquidation_status_change(instance):
 
 @receiver(user_logged_in)
 def send_login_email(sender, user, request, **kwargs):
+    # Get IP address
+    ip_address = request.META.get('REMOTE_ADDR')
+    
+    # Get approximate location (requires GeoIP2 database)
+    location = None
+    try:
+        with geoip2.database.Reader('path/to/GeoLite2-City.mmdb') as reader:
+            response = reader.city(ip_address)
+            location_parts = []
+            if response.city.name:
+                location_parts.append(response.city.name)
+            if response.subdivisions.most_specific.name:
+                location_parts.append(response.subdivisions.most_specific.name)
+            if response.country.name:
+                location_parts.append(response.country.name)
+            location = ', '.join(location_parts)
+    except Exception:
+        pass
+    
+    # Parse user agent
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    agent = user_agents.parse(user_agent)
+    device_info = f"{agent.get_device()} ({agent.get_browser()} {agent.browser.version_string})"
+    
+    # Prepare context
+    context = {
+        'user': user,
+        'ip': ip_address,
+        'login_time': timezone.now(),
+        'location': location,
+        'device_info': device_info,
+        'account_settings_url': request.build_absolute_uri('/account/settings/'),
+        'now': timezone.now(),
+    }
+    
+    # Render both text and HTML versions
+    text_message = render_to_string('emails/login_notification.txt', context)
+    html_message = render_to_string('emails/login_notification.html', context)
+    
     subject = "Login Notification"
-    message = render_to_string(
-        'emails/login_notification.txt',
-        {'user': user, 'ip': request.META.get('REMOTE_ADDR')}
-    )
+    
     send_mail(
         subject,
-        message,
+        text_message,
         None,  # Uses DEFAULT_FROM_EMAIL
         [user.email],
+        html_message=html_message,  # Add HTML version
         fail_silently=True,
     )
+
+@receiver(post_save, sender=User)
+def send_new_user_welcome_email(sender, instance, created, **kwargs):
+    if created:
+        # Assume temp_password is set as an attribute on the user instance during creation
+        temp_password = getattr(instance, 'temp_password', None)
+        # If not, you may need to pass it another way or generate it here
+        login_url = "https://your-domain.com/login/"  # <-- Change to your actual login URL
+        context = {
+            'user': instance,
+            'temp_password': temp_password or '[Set by admin]',
+            'login_url': login_url,
+            'now': timezone.now(),
+        }
+        html_message = render_to_string('emails/new_user_welcome.html', context)
+        send_mail(
+            subject="Welcome to Liquidation Management System",
+            message="You have been registered. Please see the HTML version of this email.",
+            from_email=None,
+            recipient_list=[instance.email],
+            fail_silently=True,
+            html_message=html_message,
+        )

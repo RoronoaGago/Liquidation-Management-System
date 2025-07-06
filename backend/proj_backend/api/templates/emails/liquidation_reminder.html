@@ -4,89 +4,113 @@
     <meta charset="UTF-8">
     <title>Formal Liquidation Notice</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: #f5f8fa;
-            margin: 0;
-            padding: 0;
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: #f5f8fa; 
+            margin: 0; 
+            padding: 0; 
             line-height: 1.6;
-            color: #333333;
+            color: #333;
         }
-        .container {
-            max-width: 600px;
-            margin: 40px auto;
-            background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            overflow: hidden;
-            border: 1px solid #e0e0e0;
+        .container { 
+            max-width: 600px; 
+            margin: 30px auto; 
+            background: #fff; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+            overflow: hidden; 
         }
-        .header {
-            background: #003366;
-            color: #ffffff;
-            text-align: center;
-            padding: 28px 0 20px 0;
-            border-bottom: 4px solid #ffcc00;
+        .header { 
+            background: linear-gradient(135deg, #094684 0%, #DD1F2F 50%, #FBAF3D 100%); 
+            color: #fff; 
+            text-align: center; 
+            padding: 30px 0 20px 0;
+            position: relative;
         }
-        .header img {
-            height: 70px;
-            margin-bottom: 12px;
+        .header:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(0,0,0,0.1);
         }
-        .company-name {
-            font-size: 1.4em;
-            font-weight: 600;
+        .header img { 
+            max-height: 70px; 
+            margin-bottom: 15px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+        .company-name { 
+            font-size: 1.5em; 
+            font-weight: 600; 
             letter-spacing: 0.5px;
+            margin-bottom: 5px;
         }
-        .content {
-            padding: 36px 40px 28px 40px;
-        }
-        .footer {
-            background: #f8f9fa;
-            color: #6c757d;
-            text-align: center;
-            padding: 20px;
+        .company-subtitle {
             font-size: 0.9em;
-            border-top: 1px solid #e9ecef;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        .content { 
+            padding: 35px 40px 25px 40px; 
         }
         .notice-title {
-            font-size: 1.3em;
-            color: #003366;
+            font-size: 1.4em;
+            color: #094684;
             font-weight: bold;
             text-align: center;
             margin-bottom: 20px;
             text-transform: uppercase;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
         }
         .deadline-alert {
-            background: #fff3cd;
-            color: #856404;
-            border-radius: 4px;
-            padding: 12px 16px;
+            background: #fff8f0;
+            color: #8a4d00;
+            border-radius: 6px;
+            padding: 16px;
             margin: 20px 0;
-            border-left: 4px solid #ffc107;
+            border-left: 4px solid #FBAF3D;
         }
         .action-items {
-            background: #e7f5ff;
+            background: #f0f7ff;
             padding: 16px;
-            border-radius: 4px;
+            border-radius: 6px;
             margin: 20px 0;
-            border-left: 4px solid #1a73e8;
+            border-left: 4px solid #094684;
         }
         .consequences {
-            background: #f8d7da;
-            color: #721c24;
+            background: #fff0f0;
+            color: #DD1F2F;
             padding: 16px;
-            border-radius: 4px;
+            border-radius: 6px;
             margin: 20px 0;
-            border-left: 4px solid #dc3545;
+            border-left: 4px solid #DD1F2F;
         }
         .signature {
             margin-top: 30px;
-            border-top: 1px solid #e0e0e0;
+            border-top: 1px solid #eee;
             padding-top: 20px;
         }
         .urgent {
-            color: #dc3545;
+            color: #DD1F2F;
             font-weight: bold;
+        }
+        .recipient-info {
+            background: #f0f7ff;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+        .footer { 
+            background: #f0f3f7; 
+            color: #666; 
+            text-align: center; 
+            padding: 20px; 
+            font-size: 0.85em;
+            border-top: 1px solid #e0e4e8;
         }
     </style>
 </head>
@@ -94,23 +118,25 @@
     <div class="container">
         <div class="header">
             <img src="DepEd_logo-W.png" alt="DepEd Logo">
-            <div class="company-name">La Union Schools Division Office</div>
-            <div>Department of Education</div>
+            <div class="company-name">MOOE Liquidation Management System</div>
+            <div class="company-subtitle">Department of Education, La Union Schools Division</div>
         </div>
 
         <div class="content">
-            <div class="notice-title">FORMAL NOTICE OF PENDING LIQUIDATION DEADLINE</div>
-            <div style="text-align: right; margin-bottom: 20px;">{{ today|date:"F j, Y" }}</div>
+            <div class="notice-title">FORMAL NOTICE OF PENDING LIQUIDATION</div>
+            <div class="date" style="text-align: right; margin-bottom: 20px;">{{ now|date:"F j, Y" }}</div>
 
-            <p>To: {{ user.get_full_name }}<br>
-            From: Finance Compliance Office</p>
+            <div class="recipient-info">
+                <strong>To:</strong> {{ recipient_name }}<br>
+                <strong>From:</strong> Finance Compliance Office
+            </div>
 
-            <p><strong>Subject: Urgent: Pending Liquidation Deadline for Request {{ request.request_id }}</strong></p>
+            <p><strong>Subject:</strong> Urgent: Pending Liquidation for Request {{ request_id }}</p>
 
-            <p>Dear {{ user.get_full_name }},</p>
+            <p>Dear {{ recipient_name }},</p>
 
             <div class="deadline-alert">
-                This is a formal notice that your liquidation for <strong>Request {{ request.request_id }}</strong> remains unresolved. As of today, <span class="urgent">{{ days_left }} days remain</span> to comply with the mandatory 30-day liquidation period (deadline: <strong>{{ deadline|date:"F j, Y" }}</strong>).
+                This is a formal notice that your liquidation for <strong>Request {{ request_id }}</strong> remains unresolved. As of today, <span class="urgent">{{ days_left }} days remain</span> to comply with the mandatory 30-day liquidation period (deadline: <strong>{{ deadline|date:"F j, Y" }}</strong>).
             </div>
 
             <div class="action-items">
@@ -133,15 +159,15 @@
             </div>
 
             <p><strong>Assistance</strong><br>
-            If you encounter issues, contact the Finance Team at <a href="mailto:jp.boado@deped.gov.ph">jp.boado@deped.gov.ph</a> within <span class="urgent">24 hours</span> to discuss alternatives.</p>
+            If you encounter issues, contact the Finance Team at <a href="mailto:{{ contact_email }}" style="color: #094684;">{{ contact_email }}</a> within <span class="urgent">24 hours</span> to discuss alternatives.</p>
 
             <p class="urgent">This is your final reminder.</p>
 
             <div class="signature">
                 <p>Sincerely,</p>
                 <p><strong>La Union Schools Division Office</strong><br>
-                LUSDO<br>
-                jp.boado@deped.gov.ph</p>
+                Finance Compliance Office<br>
+                {{ contact_email }}</p>
             </div>
         </div>
 

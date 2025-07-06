@@ -1,3 +1,7 @@
+# to get the Location
+## pip install requests
+## pip install pyyaml ua-parser user-agents
+## pip install geoip2
 # Backend Setup Guide
 
 This guide will walk you through the steps to set up and run the backend of this project.
