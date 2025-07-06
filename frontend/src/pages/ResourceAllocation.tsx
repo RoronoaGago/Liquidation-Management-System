@@ -67,6 +67,7 @@ type School = {
   pendingAmount?: number;
   last_liquidated_month?: number;
   last_liquidated_year?: number;
+  hasUnliquidated?: boolean; // Critical for eligibility
 };
 
 const ResourceAllocation = () => {
@@ -112,19 +113,26 @@ const ResourceAllocation = () => {
 
   // Helper function to check if school can request next month
   const canRequestNextMonth = useCallback((school: School) => {
-    if (school.hasBacklog) return false; // Block if pending requests
-    if (!school.last_liquidated_month || !school.last_liquidated_year)
-      return true;
+    // Block if school is inactive
+    if (!school.is_active) return false;
+
+    // Block if ANY request is unliquidated
+    if (school.hasUnliquidated) return false;
+
+    // Block if liquidation is not up-to-date
+    if (!school.last_liquidated_month || !school.last_liquidated_year) {
+      return true; // No liquidation history = eligible
+    }
 
     const now = new Date();
-    const currentMonth = now.getMonth() + 1; // JS months are 0-11
+    const currentMonth = now.getMonth() + 1; // 1-12
     const currentYear = now.getFullYear();
 
-    // If liquidation was in a previous year, or same year but previous month
+    // Eligible if last liquidation was in a past month/year
     return (
       school.last_liquidated_year < currentYear ||
       (school.last_liquidated_year === currentYear &&
-        school.last_liquidated_month <= currentMonth)
+        school.last_liquidated_month < currentMonth)
     );
   }, []);
 
@@ -139,11 +147,49 @@ const ResourceAllocation = () => {
           school_ids: schoolIds.join(","),
         },
       });
-      console.log(res.data);
-      return res.data.results || res.data;
+
+      const requests = res.data.results || res.data;
+      console.log("Fetched requests:", requests);
+
+      // Group requests by school and check for unliquidated status
+      const backlogBySchool: Record<
+        string,
+        {
+          hasUnliquidated: boolean;
+          totalAmount: number;
+          requests: any[];
+        }
+      > = {};
+
+      requests.forEach((request: any) => {
+        const schoolId = request.user.school.schoolId;
+        const isUnliquidated = request.status === "unliquidated";
+        const totalAmount = request.priorities.reduce(
+          (sum: number, priority: any) => sum + parseFloat(priority.amount),
+          0
+        );
+
+        if (!backlogBySchool[schoolId]) {
+          backlogBySchool[schoolId] = {
+            hasUnliquidated: false,
+            totalAmount: 0,
+            requests: [],
+          };
+        }
+
+        backlogBySchool[schoolId].totalAmount += totalAmount;
+        backlogBySchool[schoolId].requests.push(request);
+
+        // Mark if ANY request is unliquidated
+        if (isUnliquidated) {
+          backlogBySchool[schoolId].hasUnliquidated = true;
+        }
+      });
+
+      return backlogBySchool;
     } catch (error) {
       console.error("Error fetching backlog data:", error);
-      return [];
+      return {};
     }
   };
 
@@ -182,16 +228,20 @@ const ResourceAllocation = () => {
 
       // Map backlog data to schools
       const schoolsWithBacklog = schoolsData.map((school: School) => {
-        const backlog = backlogData.find(
-          (b: any) => b.schoolId === school.schoolId
-        );
+        const schoolBacklog = backlogData[school.schoolId] || {
+          hasUnliquidated: false,
+          totalAmount: 0,
+          requests: [],
+        };
+
         return {
           ...school,
-          hasBacklog: !!backlog,
-          pendingAmount: backlog?.totalAmount || 0,
+          hasBacklog: schoolBacklog.requests.length > 0,
+          hasUnliquidated: schoolBacklog.hasUnliquidated, // Critical for eligibility
+          pendingAmount: schoolBacklog.totalAmount,
+          pendingRequests: schoolBacklog.requests,
         };
       });
-
       const initialBudgets = schoolsWithBacklog.reduce(
         (acc: Record<string, number>, school: School) => {
           acc[school.schoolId] = school.max_budget || 0;
@@ -202,6 +252,7 @@ const ResourceAllocation = () => {
 
       setEditingBudgets(initialBudgets);
       setSchools(schoolsWithBacklog);
+      console.log(schoolsWithBacklog);
       setTotalSchools(schoolsRes.data.count ?? schoolsData.length);
     } catch (error) {
       console.error("Error fetching schools data:", error);
