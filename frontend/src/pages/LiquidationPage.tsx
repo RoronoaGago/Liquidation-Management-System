@@ -431,7 +431,7 @@ const LiquidationPage = () => {
     under_review_district: "Under Review (District)",
     under_review_division: "Under Review (Division)",
     resubmit: "Needs Revision",
-    approved: "Approved",
+    approved_district: "Approved (District)",
     rejected: "Rejected",
     liquidated: "Liquidated",
     cancelled: "Cancelled",
@@ -447,7 +447,7 @@ const LiquidationPage = () => {
       "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     resubmit:
       "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-    approved:
+    approved_district:
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     liquidated:
@@ -461,7 +461,7 @@ const LiquidationPage = () => {
     under_review_district: <RefreshCw className="h-4 w-4 animate-spin" />,
     under_review_division: <RefreshCw className="h-4 w-4 animate-spin" />,
     resubmit: <AlertCircle className="h-4 w-4" />,
-    approved: <CheckCircle className="h-4 w-4" />,
+    approved_district: <CheckCircle className="h-4 w-4" />,
     rejected: <XCircle className="h-4 w-4" />,
     liquidated: <CheckCircle className="h-4 w-4" />,
     cancelled: <XCircle className="h-4 w-4" />,
