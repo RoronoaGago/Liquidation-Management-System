@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
-from datetime import date
+from datetime import datetime, timedelta, date
 import string
 import logging
 # Configure logging
@@ -293,7 +293,7 @@ class RequestManagement(models.Model):
         if (not hasattr(self, '_status_changed_by')
                 and not self._skip_auto_status
                 and self.request_monthyear
-                ):
+            ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -319,7 +319,7 @@ class RequestManagement(models.Model):
             # Downloaded date
             if self.status == 'downloaded' and not self.downloaded_at:
                 self.downloaded_at = timezone.now()  # Use timezone.now() instead of date.today()
-            
+
             # Rejected date
             if self.status == 'rejected' and not self.rejection_date:
                 self.rejection_date = today
@@ -421,11 +421,16 @@ class LiquidationManagement(models.Model):
         return total_requested - total_liquidated
 
     def calculate_remaining_days(self):
-        if self.request.downloaded_at:
-            deadline = self.request.downloaded_at + timezone.timedelta(days=30)
-            today = date.today()
-            remaining = (deadline.date() - today).days
-            return max(remaining, 0)
+        if self.request and self.request.downloaded_at:
+            # Ensure downloaded_at is timezone-aware if working with timezones
+            deadline = self.request.downloaded_at + timedelta(days=30)
+
+            # Use timezone-aware now() if working with timezones
+            today = datetime.now(
+                deadline.tzinfo) if deadline.tzinfo else datetime.now()
+
+            remaining = (deadline - today).days
+            return max(remaining, 0)  # Returns 0 if deadline has passed
         return None
 
     def save(self, *args, **kwargs):
@@ -462,7 +467,7 @@ class LiquidationManagement(models.Model):
 
         # Calculate fields
         self.refund = self.calculate_refund()
-        self.remaining_days = self.calculate_remaining_days()
+
         super().save(*args, **kwargs)
 
     def clean(self):

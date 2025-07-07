@@ -34,6 +34,11 @@ import { Submission, School } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(customParseFormat);
 
 // Helper function to map role keys to display names
 function getRoleDisplayName(roleKey: string): string {
@@ -96,6 +101,9 @@ const ApprovedRequestPage = () => {
   const { user } = useAuth();
   const [, setSchools] = useState<School[]>([]);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDownloadDate, setSelectedDownloadDate] =
+    useState<dayjs.Dayjs | null>(null);
 
   // Confirmation dialog state
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -139,10 +147,17 @@ const ApprovedRequestPage = () => {
   }, []);
 
   // Approve handler (should call backend in real app)
-  const handleApprove = async (submission: Submission) => {
+  const handleApprove = async (
+    submission: Submission,
+    downloadDate?: string
+  ) => {
     try {
-      setDownloadLoading(true); // Show loading state
-      await api.post(`requests/${submission.request_id}/submit-liquidation/`);
+      setDownloadLoading(true);
+      const payload = downloadDate ? { download_date: downloadDate } : {};
+      await api.post(
+        `requests/${submission.request_id}/submit-liquidation/`,
+        payload
+      );
       setViewedSubmission(null);
       toast.success(
         `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been downloaded.`
@@ -153,6 +168,7 @@ const ApprovedRequestPage = () => {
       toast.error("Failed to submit for liquidation. Please try again.");
     } finally {
       setDownloadLoading(false);
+      setSelectedDownloadDate(null);
     }
   };
 
@@ -583,7 +599,8 @@ const ApprovedRequestPage = () => {
                       variant="success"
                       onClick={() => {
                         setSubmissionToApprove(viewedSubmission);
-                        setShowApproveConfirm(true);
+                        setShowDatePicker(true);
+                        setSelectedDownloadDate(dayjs()); // Set default to current date
                       }}
                       startIcon={<CheckCircle className="w-4 h-4" />}
                       disabled={downloadLoading}
@@ -598,7 +615,73 @@ const ApprovedRequestPage = () => {
           )}
         </DialogContent>
       </Dialog>
-
+      {/* Date Picker Confirmation Dialog */}
+      <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Download Date</DialogTitle>
+            <DialogDescription>
+              Please select the date when the funds were downloaded.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 mb-6">
+            <DatePicker
+              className="w-full p-4"
+              value={selectedDownloadDate}
+              onChange={(date) => {
+                setSelectedDownloadDate(date);
+                console.log(date);
+              }}
+              disabledDate={(current) => {
+                if (!submissionToApprove?.date_approved) return false;
+                const approvedDate = dayjs(submissionToApprove.date_approved);
+                return (
+                  current &&
+                  (current < approvedDate.startOf("day") ||
+                    current > dayjs().endOf("day"))
+                );
+              }}
+              format="MMMM D, YYYY"
+              style={{
+                padding: "8px",
+                fontFamily: "Outfit, sans-serif",
+              }}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDatePicker(false);
+                setSelectedDownloadDate(null);
+              }}
+              disabled={downloadLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="success"
+              onClick={async () => {
+                if (submissionToApprove && selectedDownloadDate) {
+                  await handleApprove(
+                    submissionToApprove,
+                    selectedDownloadDate.format("YYYY-MM-DD")
+                  );
+                  setShowDatePicker(false);
+                }
+              }}
+              disabled={downloadLoading || !selectedDownloadDate}
+              startIcon={
+                downloadLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : null
+              }
+            >
+              {downloadLoading ? "Processing..." : "Confirm Download"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Approve Confirmation Dialog */}
       <Dialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
         <DialogContent>

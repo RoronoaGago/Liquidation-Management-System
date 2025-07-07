@@ -813,10 +813,37 @@ def submit_for_liquidation(request, request_id):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # First update the request status to 'downloaded' to satisfy LiquidationManagement validation
-            request_obj._status_changed_by = request.user  # <-- Add this line
+            # Get download date from request data or use current date
+            download_date = request.data.get('download_date')
+            if download_date:
+                try:
+                    download_date = timezone.datetime.strptime(
+                        download_date, '%Y-%m-%d').date()
+                except (ValueError, TypeError):
+                    return Response(
+                        {'error': 'Invalid download date format. Use YYYY-MM-DD'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Validate download date is not in the future and not before approval date
+                if download_date > timezone.now().date():
+                    return Response(
+                        {'error': 'Download date cannot be in the future'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if request_obj.date_approved and download_date < request_obj.date_approved:
+                    return Response(
+                        {'error': 'Download date cannot be before approval date'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                download_date = timezone.now().date()
+
+            # First update the request status to 'downloaded' and set date_downloaded
+            request_obj._status_changed_by = request.user
             request_obj.status = 'downloaded'
-            request_obj.downloaded_at = timezone.now()  # Explicitly set the timestamp
+            request_obj.downloaded_at = download_date  # Use the selected date
             request_obj.save(update_fields=['status', 'downloaded_at'])
 
             # Create liquidation record
@@ -835,16 +862,6 @@ def submit_for_liquidation(request, request_id):
             request_obj.status = 'unliquidated'
             request_obj.save(update_fields=['status'])
 
-            # --- Notification logic ---
-            # from .models import Notification
-            # Notification.objects.create(
-            #     notification_title="Request for Liquidation",
-            #     details="Your request has been submitted for liquidation.",
-            #     receiver=request_obj.user,
-            #     sender=request.user,
-            # )
-            # --- End notification logic ---
-
             serializer = LiquidationManagementSerializer(liquidation)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -857,13 +874,6 @@ def submit_for_liquidation(request, request_id):
         return Response(
             {'error': str(e)},
             status=status.HTTP_400_BAD_REQUEST
-        )
-    except Exception as e:
-        logger.error(
-            f"Error submitting for liquidation: {str(e)}", exc_info=True)
-        return Response(
-            {'error': 'An unexpected error occurred during liquidation submission'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
