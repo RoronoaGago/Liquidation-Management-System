@@ -330,7 +330,15 @@ const LiquidationPage = () => {
     const key = `${expenseId}-${requirementID}`;
     fileInputRefs.current[key]?.click();
   };
-
+  const hasUnmodifiedActualAmounts = useMemo(() => {
+    if (!request) return true;
+    return request.expenses.some(
+      (expense) =>
+        expense.actualAmount === undefined ||
+        isNaN(expense.actualAmount) ||
+        expense.actualAmount === expense.amount
+    );
+  }, [request]);
   const allRejectedRevised = useMemo(() => {
     if (!request || request.status !== "resubmit") return true;
     const rejectedDocs = request.uploadedDocuments.filter(
@@ -356,7 +364,8 @@ const LiquidationPage = () => {
         (doc) =>
           doc.is_approved === false &&
           !doc.reviewer_comment?.startsWith("[REVISED]")
-      ));
+      )) ||
+    hasUnmodifiedActualAmounts; // Add this condition
 
   const calculateProgress = () => {
     if (!request) return { uploadedRequired: 0, totalRequired: 0 };
@@ -382,6 +391,7 @@ const LiquidationPage = () => {
   const handleSubmit = async () => {
     if (!request) return;
 
+    // Check if any actual amounts are missing or unmodified
     const missingAmounts = request.expenses.some(
       (expense) =>
         expense.actualAmount === undefined || isNaN(expense.actualAmount)
@@ -389,6 +399,20 @@ const LiquidationPage = () => {
 
     if (missingAmounts) {
       toast.error("Please enter actual amounts for all expenses");
+      return;
+    }
+
+    // Check for expenses with actual amount = 0
+    const zeroAmountExpenses = request.expenses.filter(
+      (expense) => expense.actualAmount === 0
+    );
+
+    if (zeroAmountExpenses.length > 0) {
+      const expenseNames = zeroAmountExpenses.map((e) => e.title).join(", ");
+      toast.error(
+        `The following expenses have an actual amount of 0: ${expenseNames}!`
+      );
+      // toast.error("Please enter actual amount spent for all expenses");
       return;
     }
 
