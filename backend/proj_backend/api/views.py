@@ -86,7 +86,6 @@ def user_list(request):
             queryset = queryset.filter(
                 Q(first_name__icontains=search_term) |
                 Q(last_name__icontains=search_term) |
-                Q(username__icontains=search_term) |
                 Q(email__icontains=search_term) |
                 Q(phone_number__icontains=search_term) |
                 Q(sex__icontains=search_term) |
@@ -149,7 +148,7 @@ def user_detail(request, pk):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if sensitive fields were modified
-        sensitive_fields = ['email', 'password', 'username', 'role']
+        sensitive_fields = ['email',  'password', 'role']
         needs_new_token = any(
             field in request.data for field in sensitive_fields)
 

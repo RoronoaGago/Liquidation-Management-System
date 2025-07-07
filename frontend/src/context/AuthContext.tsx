@@ -10,7 +10,6 @@ import { jwtDecode } from "jwt-decode";
 
 interface UserData {
   user_id: string | number;
-  username: string;
   role: string;
   first_name: string;
   last_name: string;
@@ -23,7 +22,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: UserData | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (userData: UserData, newToken?: string) => void; // Add this
 }
@@ -40,7 +39,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const decoded = jwtDecode<{
         user_id: string;
-        username: string;
         email: string;
         school_district?: string; // Optional for district admin
         first_name: string;
@@ -50,7 +48,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }>(token);
       return {
         user_id: decoded.user_id,
-        username: decoded.username,
         first_name: decoded.first_name,
         last_name: decoded.last_name,
         email: decoded.email,
@@ -83,10 +80,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth();
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const authData = await authLogin(username, password);
+      const authData = await authLogin(email, password);
 
       if (!authData?.access) {
         throw new Error("Authentication failed");

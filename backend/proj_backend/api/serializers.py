@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
 from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
@@ -11,6 +12,8 @@ import uuid
 import string
 import logging
 logger = logging.getLogger(__name__)
+
+DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -42,12 +45,11 @@ class UserSerializer(serializers.ModelSerializer):
             "id",
             "first_name",
             "last_name",
-            "username",
             "password",
             "email",
             "role",
-            "school",  # now returns full school object
-            "school_id",  # write-only field for school ID
+            "school",
+            "school_id",
             "date_of_birth",
             "sex",
             "phone_number",
@@ -58,36 +60,43 @@ class UserSerializer(serializers.ModelSerializer):
             "date_joined"
         ]
         extra_kwargs = {
-            "password": {"write_only": True},
+            "password": {
+                "write_only": True,
+                "required": False,  # This is the critical change
+                "allow_blank": True
+            },
             "id": {"read_only": True},
         }
 
     def validate(self, data):
-        # School validation for certain roles
+        # Remove any username validation
+        if 'email' not in data:
+            raise serializers.ValidationError("Email is required")
         if data.get('role') in ['school_head', 'school_admin'] and not data.get('school'):
             raise serializers.ValidationError(
-                "School is required for this role"
-            )
+                "School is required for this role")
         if data.get('profile_picture_base64') == "":
-            data.pop('profile_picture_base64')  # Remove empty string
-        return super().validate(data)
-        # Only admins can create other admins
-        request = self.context.get('request')
-        # if request and request.user.role != 'admin' and data.get('role') == 'admin':
-        #     raise serializers.ValidationError(
-        #         "Only administrators can create admin users"
-        #     )
-
+            data.pop('profile_picture_base64')
         return data
 
     def create(self, validated_data):
         profile_picture_base64 = validated_data.pop(
             'profile_picture_base64', None)
 
-        user = User.objects.create_user(**validated_data)
+        # Set default password if not provided
+        password = validated_data.pop('password', DEFAULT_PASSWORD)
+
+        # Remove email from validated_data since we'll pass it separately
+        email = validated_data.pop('email')
+
+        # Create the user with the custom manager
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            **validated_data
+        )
 
         if profile_picture_base64:
-            # Handle base64 image upload
             format, imgstr = profile_picture_base64.split(';base64,')
             ext = format.split('/')[-1]
             data = ContentFile(
@@ -97,7 +106,26 @@ class UserSerializer(serializers.ModelSerializer):
             user.profile_picture = data
             user.save()
 
+        # self.send_welcome_email(user)
         return user
+
+    # def send_welcome_email(self, user):
+    #     """Send welcome email with instructions to change password"""
+    #     subject = "Welcome to the Maintenance and Operating Expenses System"
+    #     message = render_to_string('emails/welcome_email.html', {
+    #         'user': user,
+    #         'login_url': settings.FRONTEND_LOGIN_URL,
+    #         'default_password': DEFAULT_PASSWORD
+    #     })
+
+    #     send_mail(
+    #         subject=subject,
+    #         message="",  # Empty message since we're using html_message
+    #         from_email=None,  # Uses DEFAULT_FROM_EMAIL
+    #         recipient_list=[user.email],
+    #         html_message=message,
+    #         fail_silently=True,
+    #     )
 
     def update(self, instance, validated_data):
         profile_picture_base64 = validated_data.pop(
@@ -126,18 +154,25 @@ class UserSerializer(serializers.ModelSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
+        # Map email to username for the parent class validation
+        attrs['username'] = attrs.get('email', '')
+
+        # Perform the standard validation
         data = super().validate(attrs)
+
+        # Get user and request context
         user = self.user
         request = self.context.get('request')
         ip = request.META.get('REMOTE_ADDR') if request else None
-        # Optionally get location here if you want
 
+        # Prepare context for email notification
         context = {
             'user': user,
             'ip': ip,
-            # 'location': location,  # Add if you have location logic
             'now': timezone.now(),
         }
+
+        # Send login notification email
         html_message = render_to_string(
             'emails/login_notification.html', context)
         send_mail(
@@ -148,23 +183,22 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             fail_silently=True,
             html_message=html_message,
         )
+
         return data
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
 
-        # Add custom claims (only serializable data)
+        # Add custom claims to the token
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
-        token['username'] = user.username
+        token['email'] = user.email  # Now the primary identifier
         token['role'] = user.role
         token['school_district'] = user.school_district
-        token['email'] = user.email
 
-        # Add profile picture URL (not the ImageFieldFile object)
+        # Add profile picture URL if available
         if user.profile_picture:
-            # Returns the file URL
             token['profile_picture'] = user.profile_picture.url
         else:
             token['profile_picture'] = None
