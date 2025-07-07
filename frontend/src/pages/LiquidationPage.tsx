@@ -232,7 +232,7 @@ const LiquidationPage = () => {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      toast.success("Document uploaded successfully!");
+      
 
       // Refresh data
       const res = await api.get("/liquidation/");
@@ -310,7 +310,7 @@ const LiquidationPage = () => {
       await api.delete(
         `/liquidations/${request.liquidationID}/documents/${docId}/`
       );
-      toast.success("File removed successfully");
+      
 
       // Refresh data
       const res = await api.get("/liquidation/");
