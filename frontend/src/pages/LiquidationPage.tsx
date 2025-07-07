@@ -364,8 +364,7 @@ const LiquidationPage = () => {
         (doc) =>
           doc.is_approved === false &&
           !doc.reviewer_comment?.startsWith("[REVISED]")
-      )) ||
-    hasUnmodifiedActualAmounts; // Add this condition
+      ));
 
   const calculateProgress = () => {
     if (!request) return { uploadedRequired: 0, totalRequired: 0 };
@@ -768,7 +767,7 @@ const LiquidationPage = () => {
                     {(request.status === "draft"
                       ? dynamicRefund
                       : request.refund) > 0
-                      ? "Refund Due to requestee"
+                      ? "Refund Due to Requestee"
                       : (request.status === "draft"
                           ? dynamicRefund
                           : request.refund) < 0
@@ -928,7 +927,7 @@ const LiquidationPage = () => {
                             {(request.status === "draft"
                               ? dynamicRefund
                               : request.refund) > 0
-                              ? "Refund Due to requestee"
+                              ? "Refund Due to Requestee"
                               : (request.status === "draft"
                                   ? dynamicRefund
                                   : request.refund) < 0
@@ -943,7 +942,7 @@ const LiquidationPage = () => {
                                   request.status === "draft"
                                     ? dynamicRefund
                                     : request.refund
-                                )} to the requestee. This is the unspent portion of the requested funds.`
+                                )} to the Requestee. This is the unspent portion of the requested funds.`
                               : (request.status === "draft"
                                   ? dynamicRefund
                                   : request.refund) < 0
