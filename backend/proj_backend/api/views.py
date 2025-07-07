@@ -813,11 +813,37 @@ def submit_for_liquidation(request, request_id):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # Get download date from request data or use current date
+            download_date = request.data.get('download_date')
+            if download_date:
+                try:
+                    download_date = timezone.datetime.strptime(
+                        download_date, '%Y-%m-%d').date()
+                except (ValueError, TypeError):
+                    return Response(
+                        {'error': 'Invalid download date format. Use YYYY-MM-DD'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Validate download date is not in the future and not before approval date
+                if download_date > timezone.now().date():
+                    return Response(
+                        {'error': 'Download date cannot be in the future'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if request_obj.date_approved and download_date < request_obj.date_approved:
+                    return Response(
+                        {'error': 'Download date cannot be before approval date'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                download_date = timezone.now().date()
+
             # First update the request status to 'downloaded' and set date_downloaded
             request_obj._status_changed_by = request.user
             request_obj.status = 'downloaded'
-            request_obj.date_downloaded = timezone.now().date()  # Add this line
-            # Update fields
+            request_obj.date_downloaded = download_date  # Use the selected date
             request_obj.save(update_fields=['status', 'date_downloaded'])
 
             # Create liquidation record
