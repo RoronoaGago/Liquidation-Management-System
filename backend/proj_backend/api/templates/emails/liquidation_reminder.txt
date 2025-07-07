@@ -1,7 +1,7 @@
-Dear {{ request.user.get_full_name }},
+Dear {{ user.first_name|default:user.username }},
 
-This is a reminder that your request (ID: {{ request.request_id }}) 
-needs to be liquidated within the next 30 days.
+This is a reminder that your request (Liquidation ID: {{ liquidation.LiquidationID }}) 
+needs to be liquidated within the next {{ days_left }} days.
 
 Request Details:
 - Created: {{ request.created_at|date:"Y-m-d" }}
