@@ -189,10 +189,8 @@ const MOOERequestPage = () => {
     setSelected((prev) => {
       if (expense in prev) {
         const { [expense]: _, ...rest } = prev;
-        toast.info(`Removed ${expense} from selection`);
         return rest;
       } else {
-        toast.success(`Added ${expense} to selection`);
         return { ...prev, [expense]: "" };
       }
     });

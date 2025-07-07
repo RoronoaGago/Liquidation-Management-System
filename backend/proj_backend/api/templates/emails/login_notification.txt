@@ -1,0 +1,9 @@
+Hello {{ user.first_name|default:user.username }},
+
+You have just logged in to the Liquidation Management System.
+IP Address: {{ ip }}
+
+If this wasn't you, please contact the administrator immediately.
+
+Thank you,
+Liquidation Management System Team
