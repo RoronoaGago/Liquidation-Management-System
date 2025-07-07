@@ -472,7 +472,11 @@ const LiquidationDetailsPage = () => {
           <Undo2Icon />
         </Button>
       </div>
-      <PageBreadcrumb pageTitle={pageBreadcrumbText} backUrl={backUrl} />
+      <PageBreadcrumb
+        pageTitle={pageBreadcrumbText}
+        backUrl={backUrl}
+        liquidationId={liquidation.LiquidationID}
+      />
       <div className="bg-white rounded-lg shadow p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div>
