@@ -374,6 +374,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                 }
                 for lp in instance.liquidation_priorities.all()
             ]
+        data['remaining_days'] = instance.calculate_remaining_days()
         return data
 
 
