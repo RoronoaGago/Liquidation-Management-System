@@ -1,0 +1,45 @@
+DATE: [Today’s Date, e.g., July 10, 2024]
+
+To: [Recipient’s Full Name]
+From: [Your Name/Position, e.g., Finance Compliance Officer, Bagulin District]
+Cc: [Legal Office, Audit Team Leader – as per template]
+
+Subject: Formal Demand for Liquidation of Cash Advance (Request [Request ID])
+
+Dear [Sir/Madam] [Recipient’s Last Name],
+
+This serves as a formal demand letter to notify you that, as of [Today’s Date], our records indicate the following cash advances remain unliquidated and overdue despite prior reminders:
+
+Unliquidated Cash Advances:
+Check/ADA No.	Issue Date	Particulars	Balance Due
+[Number]	[Date]	[Description]	[Amount]
+[Number]	[Date]	[Description]	[Amount]
+Total			[Total Amount]
+You are hereby directed to:
+
+Submit all required liquidation documents to the Accounting Office no later than [Deadline: 5 days from today].
+
+Refund any excess amounts to the Cashier immediately.
+
+Provide a written explanation for the delay.
+
+Consequences of Non-Compliance (Per CSC Resolution No. 1900929):
+Gross Neglect of Duty charges (penalty: dismissal for first offense).
+
+Withholding of salaries (per COA Circular 97-002).
+
+Administrative/criminal action and impact on performance ratings.
+
+Failure to comply by [Deadline] will result in escalation to the Legal Office and Commission on Audit (COA).
+
+Attachments:
+
+Copy of original request ([Request ID]).
+
+CSC Resolution No. 1900929 (for reference).
+
+Sincerely,
+[Your Full Name]
+[Your Position]
+[District/Office Name]
+[Contact Information]

@@ -816,7 +816,8 @@ def submit_for_liquidation(request, request_id):
             # First update the request status to 'downloaded' to satisfy LiquidationManagement validation
             request_obj._status_changed_by = request.user  # <-- Add this line
             request_obj.status = 'downloaded'
-            request_obj.save(update_fields=['status'])
+            request_obj.downloaded_at = timezone.now()  # Explicitly set the timestamp
+            request_obj.save(update_fields=['status', 'downloaded_at'])
 
             # Create liquidation record
             liquidation, created = LiquidationManagement.objects.get_or_create(
