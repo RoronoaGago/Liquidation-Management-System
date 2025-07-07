@@ -322,7 +322,7 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
-    remaining_days = serializers.IntegerField(read_only=True)
+    remaining_days = serializers.SerializerMethodField()
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     submitted_at = serializers.DateTimeField(
@@ -352,6 +352,9 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'remaining_days',  # <-- Add this
         ]
 
+    def get_remaining_days(self, obj):
+        return obj.calculate_remaining_days()
+
     def get_reviewer_comments(self, obj):
         # Get all reviewer comments from documents
         comments = []
@@ -365,17 +368,17 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+
         # Add actual amounts from LiquidationPriority records
         if hasattr(instance, 'liquidation_priorities'):
             data['actual_amounts'] = [
                 {
                     'expense_id': lp.priority.LOPID,
-                    'actual_amount': float(lp.amount)
+                    'actual_amount': lp.amount  # Remove float() if not needed
                 }
                 for lp in instance.liquidation_priorities.all()
             ]
-        # Always calculate fresh remaining days
-        data['remaining_days'] = instance.calculate_remaining_days()
+
         return data
 
 
