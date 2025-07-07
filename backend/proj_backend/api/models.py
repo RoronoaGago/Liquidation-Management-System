@@ -4,11 +4,10 @@ from django.utils.crypto import get_random_string
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
-from datetime import timedelta
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
-from datetime import date
+from datetime import datetime, timedelta, date
 import string
 import logging
 # Configure logging
@@ -294,7 +293,7 @@ class RequestManagement(models.Model):
         if (not hasattr(self, '_status_changed_by')
                 and not self._skip_auto_status
                 and self.request_monthyear
-                ):
+            ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -422,11 +421,16 @@ class LiquidationManagement(models.Model):
         return total_requested - total_liquidated
 
     def calculate_remaining_days(self):
-        if self.request and self.request.date_downloaded:
-            deadline = self.request.date_downloaded + timedelta(days=30)
-            today = date.today()
+        if self.request and self.request.downloaded_at:
+            # Ensure downloaded_at is timezone-aware if working with timezones
+            deadline = self.request.downloaded_at + timedelta(days=30)
+
+            # Use timezone-aware now() if working with timezones
+            today = datetime.now(
+                deadline.tzinfo) if deadline.tzinfo else datetime.now()
+
             remaining = (deadline - today).days
-            return max(remaining, 0)  # Ensure it doesn't go negative
+            return max(remaining, 0)  # Returns 0 if deadline has passed
         return None
 
     def save(self, *args, **kwargs):

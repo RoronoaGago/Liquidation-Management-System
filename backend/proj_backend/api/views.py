@@ -843,8 +843,8 @@ def submit_for_liquidation(request, request_id):
             # First update the request status to 'downloaded' and set date_downloaded
             request_obj._status_changed_by = request.user
             request_obj.status = 'downloaded'
-            request_obj.date_downloaded = download_date  # Use the selected date
-            request_obj.save(update_fields=['status', 'date_downloaded'])
+            request_obj.downloaded_at = download_date  # Use the selected date
+            request_obj.save(update_fields=['status', 'downloaded_at'])
 
             # Create liquidation record
             liquidation, created = LiquidationManagement.objects.get_or_create(
