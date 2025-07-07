@@ -232,7 +232,7 @@ const LiquidationPage = () => {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      toast.success("Document uploaded successfully!");
+      
 
       // Refresh data
       const res = await api.get("/liquidation/");
@@ -310,7 +310,7 @@ const LiquidationPage = () => {
       await api.delete(
         `/liquidations/${request.liquidationID}/documents/${docId}/`
       );
-      toast.success("File removed successfully");
+      
 
       // Refresh data
       const res = await api.get("/liquidation/");
@@ -330,7 +330,15 @@ const LiquidationPage = () => {
     const key = `${expenseId}-${requirementID}`;
     fileInputRefs.current[key]?.click();
   };
-
+  const hasUnmodifiedActualAmounts = useMemo(() => {
+    if (!request) return true;
+    return request.expenses.some(
+      (expense) =>
+        expense.actualAmount === undefined ||
+        isNaN(expense.actualAmount) ||
+        expense.actualAmount === expense.amount
+    );
+  }, [request]);
   const allRejectedRevised = useMemo(() => {
     if (!request || request.status !== "resubmit") return true;
     const rejectedDocs = request.uploadedDocuments.filter(
@@ -382,6 +390,7 @@ const LiquidationPage = () => {
   const handleSubmit = async () => {
     if (!request) return;
 
+    // Check if any actual amounts are missing or unmodified
     const missingAmounts = request.expenses.some(
       (expense) =>
         expense.actualAmount === undefined || isNaN(expense.actualAmount)
@@ -389,6 +398,20 @@ const LiquidationPage = () => {
 
     if (missingAmounts) {
       toast.error("Please enter actual amounts for all expenses");
+      return;
+    }
+
+    // Check for expenses with actual amount = 0
+    const zeroAmountExpenses = request.expenses.filter(
+      (expense) => expense.actualAmount === 0
+    );
+
+    if (zeroAmountExpenses.length > 0) {
+      const expenseNames = zeroAmountExpenses.map((e) => e.title).join(", ");
+      toast.error(
+        `The following expenses have an actual amount of 0: ${expenseNames}!`
+      );
+      // toast.error("Please enter actual amount spent for all expenses");
       return;
     }
 
@@ -744,7 +767,7 @@ const LiquidationPage = () => {
                     {(request.status === "draft"
                       ? dynamicRefund
                       : request.refund) > 0
-                      ? "Refund Due to requestee"
+                      ? "Refund Due to Requestee"
                       : (request.status === "draft"
                           ? dynamicRefund
                           : request.refund) < 0
@@ -904,7 +927,7 @@ const LiquidationPage = () => {
                             {(request.status === "draft"
                               ? dynamicRefund
                               : request.refund) > 0
-                              ? "Refund Due to requestee"
+                              ? "Refund Due to Requestee"
                               : (request.status === "draft"
                                   ? dynamicRefund
                                   : request.refund) < 0
@@ -919,7 +942,7 @@ const LiquidationPage = () => {
                                   request.status === "draft"
                                     ? dynamicRefund
                                     : request.refund
-                                )} to the requestee. This is the unspent portion of the requested funds.`
+                                )} to the Requestee. This is the unspent portion of the requested funds.`
                               : (request.status === "draft"
                                   ? dynamicRefund
                                   : request.refund) < 0

@@ -138,7 +138,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             # 'location': location,  # Add if you have location logic
             'now': timezone.now(),
         }
-        html_message = render_to_string('emails/login_notification.html', context)
+        html_message = render_to_string(
+            'emails/login_notification.html', context)
         send_mail(
             subject="Login Notification",
             message="You have just logged in to the Liquidation Management System.",
@@ -256,7 +257,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'reviewed_at',
         ]
         read_only_fields = ['request_id', 'created_at',
-                            'date_approved', 'date_downloaded', 'reviewed_by', 'reviewed_at']
+                            'date_approved', 'reviewed_by', 'reviewed_at']
 
     def get_priorities(self, obj):
         request_priorities = obj.requestpriority_set.all()
@@ -346,7 +347,15 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
-    liquidation_priorities = LiquidationPrioritySerializer(many=True)
+    remaining_days = serializers.SerializerMethodField()
+    request = RequestManagementSerializer(read_only=True)
+    documents = LiquidationDocumentSerializer(many=True, read_only=True)
+    submitted_at = serializers.DateTimeField(
+        source='created_at', read_only=True)
+    reviewer_comments = serializers.SerializerMethodField()
+    reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
+    liquidation_priorities = LiquidationPrioritySerializer(
+        many=True)
 
     class Meta:
         model = LiquidationManagement
@@ -359,12 +368,17 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'reviewed_at_district',
             'reviewed_by_division',
             'reviewed_at_division',
+            'submitted_at',
+            'reviewer_comments',
             'documents',
             'created_at',
             'liquidation_priorities',  # <-- Add this line
             'refund',
             'remaining_days',  # <-- Add this
         ]
+
+    def get_remaining_days(self, obj):
+        return obj.calculate_remaining_days()
 
     def get_reviewer_comments(self, obj):
         # Get all reviewer comments from documents
@@ -379,15 +393,17 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+
         # Add actual amounts from LiquidationPriority records
         if hasattr(instance, 'liquidation_priorities'):
             data['actual_amounts'] = [
                 {
                     'expense_id': lp.priority.LOPID,
-                    'actual_amount': float(lp.amount)
+                    'actual_amount': lp.amount  # Remove float() if not needed
                 }
                 for lp in instance.liquidation_priorities.all()
             ]
+
         return data
 
 
