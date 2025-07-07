@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.utils.crypto import get_random_string
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
@@ -14,9 +14,33 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('The Email must be set')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save()
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        return self.create_user(email, password, **extra_fields)
+
+
 class User(AbstractUser):
     # Custom ID field - primary key
     id = models.CharField(primary_key=True, max_length=10, editable=False)
+    password_change_required = models.BooleanField(default=True)
+    username = None  # Remove username field
+
+    email = models.EmailField(
+        unique=True,
+        verbose_name='email address',
+        help_text='Required. Must be a valid email address.'
+    )
 
     # Role choices
     ROLE_CHOICES = [
@@ -56,8 +80,17 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
-    school_district = models.CharField(max_length=100, blank=True, null=True,
-                                       help_text="District assignment (only for district administrative assistants)")
+    school_district = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="District assignment (only for district administrative assistants)"
+    )
+
+    USERNAME_FIELD = 'email'  # Use email as the login identifier
+    REQUIRED_FIELDS = ['first_name', 'last_name']  # Add basic required fields
+    # Add these at the bottom of your User model class
+    objects = UserManager()
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -78,10 +111,22 @@ class User(AbstractUser):
 
             self.id = f"{date_part}{seq_part}"
 
+        # Normalize email address
+        if self.email:
+            self.email = self.email.lower()
+
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name} ({self.username})"
+        return f"{self.get_full_name()} ({self.email})"
+
+    def clean(self):
+        super().clean()
+        # Add any additional validation here
+        if self.phone_number:
+            # Example: Remove all non-digit characters
+            self.phone_number = ''.join(
+                c for c in self.phone_number if c.isdigit())
 
 
 class School(models.Model):

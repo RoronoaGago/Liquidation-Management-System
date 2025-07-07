@@ -10,7 +10,7 @@ export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [credentials, setCredentials] = useState({
-    username: "",
+    email: "",
     password: "",
   });
   const { login, isLoading } = useAuth();
@@ -28,16 +28,16 @@ export default function SignInForm() {
     e.preventDefault();
     setError("");
 
-    if (!credentials.username || !credentials.password) {
-      setError("Please enter both username and password");
+    if (!credentials.email || !credentials.password) {
+      setError("Please enter both email and password");
       return;
     }
 
     try {
-      await login(credentials.username, credentials.password);
+      await login(credentials.email, credentials.password);
       navigate("/");
     } catch (err) {
-      setError("Invalid username or password");
+      setError("Invalid email or password");
     }
   };
 
@@ -76,17 +76,17 @@ export default function SignInForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label
-              htmlFor="username"
+              htmlFor="email"
               className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Username
+              Email
             </Label>
             <Input
-              id="username"
-              placeholder="Enter username"
+              id="email"
+              placeholder="Enter email"
               onChange={handleChange}
-              name="username"
-              value={credentials.username}
+              name="email"
+              value={credentials.email}
               className="w-full px-3 py-2"
             />
           </div>
@@ -125,9 +125,7 @@ export default function SignInForm() {
           <button
             className="w-full px-4 py-2 mt-6 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-brand-500 dark:hover:bg-brand-600 disabled:opacity-50"
             type="submit"
-            disabled={
-              isLoading || !credentials.username || !credentials.password
-            }
+            disabled={isLoading || !credentials.email || !credentials.password}
           >
             {isLoading ? "Logging in..." : "Login"}
           </button>
