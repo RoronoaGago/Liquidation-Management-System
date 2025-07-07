@@ -201,6 +201,7 @@ class RequestManagement(models.Model):
         ('rejected', 'Rejected'),
         ('pending', 'Pending'),
         ('downloaded', 'Downloaded'),
+        ('unliquidated', 'Unliquidated'),
         ('liquidated', 'Liquidated'),
         ('advanced', 'Advanced'),
     ]
@@ -227,7 +228,7 @@ class RequestManagement(models.Model):
     demand_letter_sent = models.BooleanField(default=False)
     demand_letter_date = models.DateField(null=True, blank=True)
     date_approved = models.DateField(null=True, blank=True)
-    date_downloaded = models.DateField(null=True, blank=True)
+    downloaded_at = models.DateTimeField(null=True, blank=True)
     rejection_comment = models.TextField(null=True, blank=True)
     rejection_date = models.DateField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
@@ -317,8 +318,8 @@ class RequestManagement(models.Model):
                 self.date_approved = today
 
             # Downloaded date
-            if self.status == 'downloaded' and not self.date_downloaded:
-                self.date_downloaded = today
+            if self.status == 'downloaded' and not self.downloaded_at:
+                self.downloaded_at = timezone.now()  # Use timezone.now() instead of date.today()
 
             # Rejected date
             if self.status == 'rejected' and not self.rejection_date:
@@ -328,7 +329,7 @@ class RequestManagement(models.Model):
             if self.status != 'approved':
                 self.date_approved = None
             if self.status != 'downloaded':
-                self.date_downloaded = None
+                self.downloaded_at = None
             if self.status != 'rejected':
                 self.rejection_date = None
 
@@ -403,6 +404,12 @@ class LiquidationManagement(models.Model):
         self._old_status = self.status  # Track initial status
         self._status_changed_by = None  # Track who changed the status
 
+    @property
+    def liquidation_deadline(self):
+        if self.request.downloaded_at:
+            return (self.request.downloaded_at + timezone.timedelta(days=30)).date()
+        return None
+
     def calculate_refund(self):
         total_requested = sum(
             rp.amount for rp in self.request.requestpriority_set.all()
@@ -428,6 +435,10 @@ class LiquidationManagement(models.Model):
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
             self._old_status = old.status
+
+        # Set downloaded_at when status changes to 'downloaded'
+        # if self.status == 'downloaded' and not self.downloaded_at:
+        #     self.downloaded_at = timezone.now()
 
         # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:

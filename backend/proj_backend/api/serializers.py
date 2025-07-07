@@ -3,6 +3,9 @@ from rest_framework import serializers
 from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.files.base import ContentFile
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils import timezone
 import base64
 import uuid
 import string
@@ -122,6 +125,31 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        user = self.user
+        request = self.context.get('request')
+        ip = request.META.get('REMOTE_ADDR') if request else None
+        # Optionally get location here if you want
+
+        context = {
+            'user': user,
+            'ip': ip,
+            # 'location': location,  # Add if you have location logic
+            'now': timezone.now(),
+        }
+        html_message = render_to_string(
+            'emails/login_notification.html', context)
+        send_mail(
+            subject="Login Notification",
+            message="You have just logged in to the Liquidation Management System.",
+            from_email=None,  # Uses DEFAULT_FROM_EMAIL
+            recipient_list=[user.email],
+            fail_silently=True,
+            html_message=html_message,
+        )
+        return data
+
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
@@ -222,7 +250,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'status', 'priorities', 'created_at',
             'priority_amounts',
             'date_approved',
-            'date_downloaded',
+            'downloaded_at',
             'rejection_comment',
             'rejection_date',
             'reviewed_by',
@@ -259,17 +287,14 @@ class RequestManagementSerializer(serializers.ModelSerializer):
 
 
 class LiquidationPrioritySerializer(serializers.ModelSerializer):
-    priority = ListOfPrioritySerializer(read_only=True)
     priority_id = serializers.PrimaryKeyRelatedField(
         queryset=ListOfPriority.objects.all(),
-        source='priority',
-        write_only=True
+        source='priority'
     )
 
     class Meta:
         model = LiquidationPriority
-        fields = ['id', 'liquidation', 'priority', 'priority_id', 'amount']
-        read_only_fields = ['id', 'liquidation', 'priority']
+        fields = ['priority_id', 'amount']
 
 
 class LiquidationDocumentSerializer(serializers.ModelSerializer):
@@ -330,7 +355,7 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
     reviewer_comments = serializers.SerializerMethodField()
     reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
     liquidation_priorities = LiquidationPrioritySerializer(
-        many=True, read_only=True)
+        many=True)
 
     class Meta:
         model = LiquidationManagement
@@ -339,13 +364,11 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'request',
             'rejection_comment',
             'status',
-            'reviewed_by_district',      # <-- ENSURE THIS IS INCLUDED
+            'reviewed_by_district',
             'reviewed_at_district',
             'reviewed_by_division',
             'reviewed_at_division',
             'documents',
-            'submitted_at',
-            'reviewer_comments',
             'created_at',
             'liquidation_priorities',  # <-- Add this line
             'refund',

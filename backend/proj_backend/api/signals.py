@@ -5,7 +5,14 @@ from django.dispatch import receiver
 from .models import RequestManagement, LiquidationManagement, Notification
 from django.contrib.auth import get_user_model
 from django.template.loader import render_to_string
+from datetime import timedelta
+from .tasks import send_liquidation_reminder, send_liquidation_demand_letter
+from django.contrib.auth.signals import user_logged_in
+from django.urls import reverse
+from django.utils import timezone
 import logging
+import geoip2.database
+import user_agents
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -38,15 +45,25 @@ def create_new_request_notification(instance):
 
 def send_notification_email(subject, message, recipient, template_name=None, context=None):
     if recipient and getattr(recipient, 'email', None):
+        html_message = None
         if template_name and context:
             # Render the email body from template
-            message = render_to_string(template_name, context)
+            html_message = render_to_string(template_name, context)
+            # Optionally, also render a plain text version for fallback
+            if template_name.endswith('.html'):
+                # Try to find a .txt fallback with the same name
+                txt_template = template_name.replace('.html', '.txt')
+                try:
+                    message = render_to_string(txt_template, context)
+                except Exception:
+                    pass  # If no .txt template, keep the original message
         send_mail(
             subject=subject,
             message=message,
             from_email=None,  # Uses DEFAULT_FROM_EMAIL
             recipient_list=[recipient.email],
             fail_silently=True,
+            html_message=html_message,  # This enables HTML email
         )
 
 
@@ -91,7 +108,7 @@ def handle_status_change_notification(instance):
                 # fallback if template fails
                 message=notification_map[instance.status]['details'],
                 recipient=instance.user,
-                template_name="emails/request_status_change.txt",
+                template_name="emails/request_status_change.html",
                 context=context
             )
 
@@ -121,6 +138,21 @@ def handle_liquidation_notifications(sender, instance, created, **kwargs):
         if created:
             create_new_liquidation_notification(instance)
         else:
+            if instance.status == 'downloaded' and instance.downloaded_at:
+                # Schedule reminders
+                send_liquidation_reminder.apply_async(
+                    args=[instance.pk, 15],
+                    eta=instance.downloaded_at + timedelta(days=15)
+                )
+                send_liquidation_reminder.apply_async(
+                    args=[instance.pk, 5],
+                    eta=instance.downloaded_at + timedelta(days=25)
+                )
+                # Schedule demand letter on 30th day
+                send_liquidation_demand_letter.apply_async(
+                    args=[instance.pk],
+                    eta=instance.downloaded_at + timedelta(days=30)
+                )
             handle_liquidation_status_change(instance)
     except Exception as e:
         logger.error(
@@ -217,7 +249,7 @@ def handle_liquidation_status_change(instance):
                 subject=notification_info['title'],
                 message=notification_info['details'],
                 recipient=receiver,
-                template_name="emails/liquidation_status_change.txt",
+                template_name="emails/liquidation_status_change.html",
                 context=context
             )
 
@@ -246,3 +278,79 @@ def handle_liquidation_status_change(instance):
                 template_name="emails/liquidation_status_change.txt",
                 context=context
             )
+
+
+@receiver(user_logged_in)
+def send_login_email(sender, user, request, **kwargs):
+    # Get IP address
+    ip_address = request.META.get('REMOTE_ADDR')
+    
+    # Get approximate location (requires GeoIP2 database)
+    location = None
+    try:
+        with geoip2.database.Reader('path/to/GeoLite2-City.mmdb') as reader:
+            response = reader.city(ip_address)
+            location_parts = []
+            if response.city.name:
+                location_parts.append(response.city.name)
+            if response.subdivisions.most_specific.name:
+                location_parts.append(response.subdivisions.most_specific.name)
+            if response.country.name:
+                location_parts.append(response.country.name)
+            location = ', '.join(location_parts)
+    except Exception:
+        pass
+    
+    # Parse user agent
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    agent = user_agents.parse(user_agent)
+    device_info = f"{agent.get_device()} ({agent.get_browser()} {agent.browser.version_string})"
+    
+    # Prepare context
+    context = {
+        'user': user,
+        'ip': ip_address,
+        'login_time': timezone.now(),
+        'location': location,
+        'device_info': device_info,
+        'account_settings_url': request.build_absolute_uri('/account/settings/'),
+        'now': timezone.now(),
+    }
+    
+    # Render both text and HTML versions
+    text_message = render_to_string('emails/login_notification.txt', context)
+    html_message = render_to_string('emails/login_notification.html', context)
+    
+    subject = "Login Notification"
+    
+    send_mail(
+        subject,
+        text_message,
+        None,  # Uses DEFAULT_FROM_EMAIL
+        [user.email],
+        html_message=html_message,  # Add HTML version
+        fail_silently=True,
+    )
+
+@receiver(post_save, sender=User)
+def send_new_user_welcome_email(sender, instance, created, **kwargs):
+    if created:
+        # Assume temp_password is set as an attribute on the user instance during creation
+        temp_password = getattr(instance, 'temp_password', None)
+        # If not, you may need to pass it another way or generate it here
+        login_url = "https://your-domain.com/login/"  # <-- Change to your actual login URL
+        context = {
+            'user': instance,
+            'temp_password': temp_password or '[Set by admin]',
+            'login_url': login_url,
+            'now': timezone.now(),
+        }
+        html_message = render_to_string('emails/new_user_welcome.html', context)
+        send_mail(
+            subject="Welcome to Liquidation Management System",
+            message="You have been registered. Please see the HTML version of this email.",
+            from_email=None,
+            recipient_list=[instance.email],
+            fail_silently=True,
+            html_message=html_message,
+        )

@@ -1,0 +1,8 @@
+Hello {{ user.first_name|default:user.username }},
+
+This is a DEMAND LETTER. Your liquidation (ID: {{ liquidation.LiquidationID }}) has not been completed within the 30-day period.
+
+Please contact the office immediately to resolve this matter.
+
+Thank you,
+Liquidation Management System
