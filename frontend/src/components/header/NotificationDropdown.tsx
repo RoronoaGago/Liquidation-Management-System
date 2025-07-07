@@ -1,9 +1,12 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable no-dupe-else-if */
 import { useState, useEffect } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { getNotifications, markAsRead } from "@/services/notificationService";
+import { BellIcon } from "@heroicons/react/outline";
 
 interface Notification {
   id: string;
@@ -23,6 +26,8 @@ export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
+  const [selectedNotification, setSelectedNotification] =
+    useState<Notification | null>(null); // Modal state
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -47,78 +52,90 @@ export default function NotificationDropdown() {
     }
   };
 
+  // Helper to sort notifications: unread first, then by date descending
+  const sortedNotifications = [...notifications].sort((a, b) => {
+    if (a.is_read === b.is_read) {
+      // Newest first
+      return (
+        new Date(b.notification_date).getTime() -
+        new Date(a.notification_date).getTime()
+      );
+    }
+    // Unread first
+    return a.is_read ? 1 : -1;
+  });
+
   const handleNotificationClick = async (notificationId: string) => {
     try {
       const notification = notifications.find((n) => n.id === notificationId);
+      if (!notification) return;
+
       await markAsRead(notificationId);
-      setNotifications(
-        notifications.map((n) =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        )
+
+      // Move the notification down the list by marking as read and sorting again
+      const updatedNotifications = notifications.map((n) =>
+        n.id === notificationId ? { ...n, is_read: true } : n
       );
+      setNotifications(updatedNotifications);
       setHasUnread(
-        notifications.some((n) => !n.is_read && n.id !== notificationId)
+        updatedNotifications.some((n) => !n.is_read && n.id !== notificationId)
       );
 
-      // Navigation logic based on notification title
-      console.log(notification?.notification_title);
-      if (notification) {
-        if (
-          notification.notification_title === "Request ready for liquidation" ||
-          notification.notification_title === "Liquidation Needs Revision" ||
-          notification.notification_title === "Liquidation Completed"
-        ) {
-          navigate("/liquidation");
-        } else if (
-          notification.notification_title === "Your request was approved"
-        ) {
-          navigate("/requests-history");
-        } else if (
-          notification.notification_title === "Your request was rejected"
-        ) {
-          navigate("/requests-history");
-        } else if (
-          notification.notification_title === "New Liquidation Submitted"
-        ) {
-          console.log("oh yeah");
-          navigate("/pre-auditing");
-        } else if (
-          notification.notification_title ===
-            "Liquidation Approved by District" &&
-          user?.role === "liquidator"
-        ) {
-          navigate("/liquidation-finalize");
-        } else if (
-          notification.notification_title ===
-            "Liquidation Approved by District" &&
-          user?.role === "school_head"
-        ) {
-          navigate("/liquidation");
-        } else if (notification.notification_title.includes("New Request")) {
-          console.log("New Request Notification");
-          navigate("/schools-priorities-submissions");
-        } else if (notification.details.includes("for accounting")) {
-          console.log("New Accounting Notification");
-          navigate("/approved-requests");
-        } else if (
-          notification.notification_title === "New Liquidation Submitted" &&
-          user?.role === "district_admin"
-        ) {
-          navigate("/pre-auditing");
-        } else if (
-          notification.notification_title ===
-            "Liquidation Under District Review" ||
-          notification.notification_title === "Liquidation Submitted"
-        ) {
-          navigate("/liquidation");
-        }
+      // Show modal with notification details
+      setSelectedNotification(notification);
 
-        // Add more conditions as needed for other notification types
-      }
-      closeDropdown();
+      // Do not close dropdown here, let modal handle navigation/close
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
+  };
+
+  // Extracted navigation logic for modal action
+  const handleNotificationNavigation = (notification: Notification) => {
+    if (!notification) return;
+
+    if (
+      notification.notification_title === "Request ready for liquidation" ||
+      notification.notification_title === "Liquidation Needs Revision"
+    ) {
+      navigate("/liquidation");
+    } else if (
+      notification.notification_title === "Your request was approved" ||
+      notification.notification_title === "Your request was rejected"
+    ) {
+      navigate("/requests-history");
+    } else if (
+      notification.notification_title === "New Liquidation Submitted"
+    ) {
+      navigate("/pre-auditing");
+    } else if (
+      notification.notification_title === "Liquidation Approved by District" &&
+      user?.role === "liquidator"
+    ) {
+      navigate("/liquidation-finalize");
+    } else if (
+      notification.notification_title === "Liquidation Approved by District" &&
+      user?.role === "school_head"
+    ) {
+      navigate("/liquidation");
+    } else if (notification.notification_title.includes("New Request")) {
+      navigate("/schools-priorities-submissions");
+    } else if (notification.details.includes("for accounting")) {
+      navigate("/approved-requests");
+    } else if (
+      notification.notification_title === "New Liquidation Submitted" &&
+      user?.role === "district_admin"
+    ) {
+      navigate("/pre-auditing");
+    } else if (
+      notification.notification_title === "Liquidation Under District Review" ||
+      notification.notification_title === "Liquidation Submitted"
+    ) {
+      navigate("/liquidation");
+    }
+
+    closeDropdown();
+    setSelectedNotification(null);
   };
 
   function toggleDropdown() {
@@ -165,7 +182,7 @@ export default function NotificationDropdown() {
       "bg-orange-500",
       "bg-indigo-500",
     ];
-    let stringId = sender.id?.toString() || "";
+    const stringId = sender.id?.toString() || "";
     const hash =
       stringId && typeof stringId === "string"
         ? stringId.charCodeAt(0) + stringId.charCodeAt(stringId.length - 1)
@@ -185,27 +202,14 @@ export default function NotificationDropdown() {
         className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full dropdown-toggle hover:text-gray-700 h-11 w-11 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
         onClick={toggleDropdown}
       >
-        <span
-          className={`absolute right-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400 ${
-            !hasUnread ? "hidden" : "flex"
-          }`}
-        >
-          <span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
-        </span>
-        <svg
-          className="fill-current"
-          width="20"
-          height="20"
-          viewBox="0 0 20 20"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M10.75 2.29248C10.75 1.87827 10.4143 1.54248 10 1.54248C9.58583 1.54248 9.25004 1.87827 9.25004 2.29248V2.83613C6.08266 3.20733 3.62504 5.9004 3.62504 9.16748V14.4591H3.33337C2.91916 14.4591 2.58337 14.7949 2.58337 15.2091C2.58337 15.6234 2.91916 15.9591 3.33337 15.9591H4.37504H15.625H16.6667C17.0809 15.9591 17.4167 15.6234 17.4167 15.2091C17.4167 14.7949 17.0809 14.4591 16.6667 14.4591H16.375V9.16748C16.375 5.9004 13.9174 3.20733 10.75 2.83613V2.29248ZM14.875 14.4591V9.16748C14.875 6.47509 12.6924 4.29248 10 4.29248C7.30765 4.29248 5.12504 6.47509 5.12504 9.16748V14.4591H14.875ZM8.00004 17.7085C8.00004 18.1228 8.33583 18.4585 8.75004 18.4585H11.25C11.6643 18.4585 12 18.1228 12 17.7085C12 17.2943 11.6643 16.9585 11.25 16.9585H8.75004C8.33583 16.9585 8.00004 17.2943 8.00004 17.7085Z"
-            fill="currentColor"
-          />
-        </svg>
+        {/* Notification count badge */}
+        {hasUnread && (
+          <span className="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 text-xs font-medium text-white bg-red-500 rounded-full">
+            {notifications.filter((n) => !n.is_read).length}
+          </span>
+        )}
+        {/* Use BellIcon from icons */}
+        <BellIcon className="fill-current" width={20} height={20} />
       </button>
       <Dropdown
         isOpen={isOpen}
@@ -237,8 +241,8 @@ export default function NotificationDropdown() {
           </button>
         </div>
         <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
+          {sortedNotifications.length > 0 ? (
+            sortedNotifications.map((notification) => (
               <li key={notification.id}>
                 <DropdownItem
                   onItemClick={() => handleNotificationClick(notification.id)}
@@ -298,13 +302,84 @@ export default function NotificationDropdown() {
             </li>
           )}
         </ul>
-        {/* <Link
-          to="/notifications"
-          className="block px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-        >
-          View All Notifications
-        </Link> */}
       </Dropdown>
+      {/* Notification Detail Modal */}
+      {selectedNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/30 backdrop-blur-sm">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-lg dark:bg-gray-800">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                {selectedNotification.notification_title}
+              </h3>
+              <button
+                onClick={() => setSelectedNotification(null)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="flex items-start mb-4 space-x-3">
+              {selectedNotification.sender?.profile_picture ? (
+                <img
+                  src={selectedNotification.sender.profile_picture}
+                  alt={`${selectedNotification.sender.first_name} ${selectedNotification.sender.last_name}`}
+                  className="w-10 h-10 rounded-full"
+                />
+              ) : (
+                <div
+                  className={`flex items-center justify-center w-10 h-10 rounded-full text-white font-bold ${getSenderAvatarColor(
+                    selectedNotification.sender || {}
+                  )}`}
+                >
+                  {getSenderInitials(selectedNotification.sender || {})}
+                </div>
+              )}
+              <div>
+                <p className="font-medium text-gray-800 dark:text-white">
+                  {selectedNotification.sender
+                    ? `${selectedNotification.sender.first_name} ${selectedNotification.sender.last_name}`
+                    : "Unknown Sender"}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {formatDate(selectedNotification.notification_date)}
+                </p>
+              </div>
+            </div>
+            <div className="p-4 text-gray-700 bg-gray-100 rounded-lg dark:bg-gray-700 dark:text-gray-300">
+              {selectedNotification.details || "No additional details"}
+            </div>
+            <div className="flex justify-end mt-4 space-x-2">
+              <button
+                onClick={() =>
+                  handleNotificationNavigation(selectedNotification)
+                }
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                View Related Content
+              </button>
+              <button
+                onClick={() => setSelectedNotification(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:text-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
