@@ -197,6 +197,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email  # Now the primary identifier
         token['role'] = user.role
         token['school_district'] = user.school_district
+        token['password_change_required'] = user.password_change_required
 
         # Add profile picture URL if available
         if user.profile_picture:
