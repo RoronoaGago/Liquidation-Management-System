@@ -58,14 +58,22 @@ def change_password(request):
     new_password = request.data.get('new_password')
 
     if not user.check_password(old_password):
-        return Response({"error": "Old password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Current password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password) < 8:
+        return Response({"error": "Password must be at least 8 characters"}, status=status.HTTP_400_BAD_REQUEST)
 
     user.set_password(new_password)
     user.password_change_required = False
     user.save()
-    update_session_auth_hash(request, user)  # Important to keep user logged in
 
-    return Response({"message": "Password updated successfully"})
+    # Update the token to prevent automatic logout
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "message": "Password updated successfully"
+    })
 
 
 @api_view(['GET', 'POST'])
