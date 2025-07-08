@@ -20,6 +20,7 @@ import logging
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
 import string
+from django.contrib.auth import update_session_auth_hash
 from django.utils.crypto import get_random_string
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,24 @@ class ProtectedView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    user = request.user
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not user.check_password(old_password):
+        return Response({"error": "Old password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.password_change_required = False
+    user.save()
+    update_session_auth_hash(request, user)  # Important to keep user logged in
+
+    return Response({"message": "Password updated successfully"})
 
 
 @api_view(['GET', 'POST'])

@@ -7,12 +7,14 @@ import {
 } from "react";
 import { login as authLogin, logout as authLogout } from "../api/auth";
 import { jwtDecode } from "jwt-decode";
+import api from "@/api/axios";
 
 interface UserData {
   user_id: string | number;
   role: string;
   first_name: string;
   last_name: string;
+  password_change_required?: boolean; // Optional for first login
   phone_number?: string;
   school_district?: string; // Optional for district admin
   email: string;
@@ -25,6 +27,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (userData: UserData, newToken?: string) => void; // Add this
+  changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  passwordChangeRequired: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +37,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [user, setUser] = useState<UserData | null>(null); // Store user data
+  // In your AuthProvider component:
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   // const [userRole] = useState<string>("admin"); // Default to admin
   // Decode token and extract user info
   const decodeToken = (token: string): UserData => {
@@ -60,14 +66,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Invalid token");
     }
   };
+  // Add this to your context value:
+  const changePassword = async (oldPassword: string, newPassword: string) => {
+    try {
+      const response = await api.post("/change-password/", {
+        old_password: oldPassword,
+        new_password: newPassword,
+      });
+      setPasswordChangeRequired(false);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  };
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("accessToken");
       if (token) {
         try {
-          setUser(decodeToken(token));
-
+          const userData = decodeToken(token);
+          setUser(userData);
           setIsAuthenticated(true);
+          setPasswordChangeRequired(userData.password_change_required || false);
         } catch {
           // If token is invalid, clear it
           localStorage.removeItem("accessToken");
@@ -128,6 +148,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         updateUser,
+        changePassword,
+        passwordChangeRequired,
       }}
     >
       {children}
