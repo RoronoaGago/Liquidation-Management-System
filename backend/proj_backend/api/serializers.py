@@ -95,6 +95,7 @@ class UserSerializer(serializers.ModelSerializer):
             password=password,
             **validated_data
         )
+        user.password_change_required = True  # Force password change on first login
 
         if profile_picture_base64:
             format, imgstr = profile_picture_base64.split(';base64,')
