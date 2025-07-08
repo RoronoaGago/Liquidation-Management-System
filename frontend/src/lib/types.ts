@@ -222,7 +222,7 @@ export type Submission = {
   is_resubmission?: boolean;
 };
 
-type Priority = {
+export type Priority = {
   id: number;
   priority: {
     LOPID: number;
