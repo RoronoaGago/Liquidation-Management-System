@@ -652,42 +652,101 @@ def check_pending_requests(request):
 @permission_classes([IsAuthenticated])
 def resubmit_request(request, request_id):
     try:
-        req = RequestManagement.objects.get(
-            request_id=request_id, user=request.user)
+        with transaction.atomic():
+            original_request = RequestManagement.objects.get(
+                request_id=request_id, user=request.user)
 
-        if req.status != 'rejected':
-            return Response({"error": "Only rejected requests can be resubmitted"}, status=400)
+            if original_request.status != 'rejected':
+                return Response({"error": "Only rejected requests can be resubmitted"}, status=400)
 
-        # Update priorities
-        RequestPriority.objects.filter(request=req).delete()
-        for pa in request.data.get('priority_amounts', []):
-            priority = ListOfPriority.objects.get(LOPID=pa['LOPID'])
-            RequestPriority.objects.create(
-                request=req,
-                priority=priority,
-                amount=pa['amount']
-            )
+            # Option 1: Update existing request (original functionality)
+            if not request.data.get('create_new_version', False):
+                # Update priorities
+                RequestPriority.objects.filter(
+                    request=original_request).delete()
+                for pa in request.data.get('priority_amounts', []):
+                    priority = ListOfPriority.objects.get(LOPID=pa['LOPID'])
+                    RequestPriority.objects.create(
+                        request=original_request,
+                        priority=priority,
+                        amount=pa['amount']
+                    )
 
-        # Reset status and clear rejection fields
-        req.status = 'pending'
-        # req.rejection_comment = None
-        # req.rejection_date = None
-        req.save()
+                # Reset status and clear rejection fields
+                original_request.status = 'pending'
+                original_request.save()
 
-        # --- Notification logic ---
-        from .models import Notification
-        Notification.objects.create(
-            notification_title="Request Resubmitted",
-            details="Your request has been resubmitted and is pending review.",
-            receiver=req.user,
-            sender=request.user,
-        )
-        # --- End notification logic ---
+                # Notification logic
+                from .models import Notification
+                Notification.objects.create(
+                    notification_title="Request Resubmitted",
+                    details="Your request has been resubmitted and is pending review.",
+                    receiver=original_request.user,
+                    sender=request.user,
+                )
 
-        return Response(RequestManagementSerializer(req).data)
+                return Response(RequestManagementSerializer(original_request).data)
+
+            # Option 2: Create new version (new functionality)
+            else:
+                # Create a new request that links back to the original
+                new_request = RequestManagement.objects.create(
+                    user=request.user,
+                    status='pending',
+                    is_resubmission=True,
+                    previous_version=original_request,
+                    rejection_comment=original_request.rejection_comment,
+                    # Copy other relevant fields from original_request...
+                )
+
+                # Copy priorities with potential modifications
+                for pa in request.data.get('priority_amounts', []):
+                    priority = ListOfPriority.objects.get(LOPID=pa['LOPID'])
+                    RequestPriority.objects.create(
+                        request=new_request,
+                        priority=priority,
+                        amount=pa['amount']
+                    )
+
+                # Notification logic for new version
+                from .models import Notification
+                Notification.objects.create(
+                    notification_title="Request Resubmitted as New Version",
+                    details="Your request has been resubmitted as a new version and is pending review.",
+                    receiver=new_request.user,
+                    sender=request.user,
+                )
+
+                return Response(RequestManagementSerializer(new_request).data)
 
     except RequestManagement.DoesNotExist:
         return Response({"error": "Request not found"}, status=404)
+    except ListOfPriority.DoesNotExist:
+        return Response({"error": "Invalid priority specified"}, status=400)
+
+
+# In views.py
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def compare_requests(request, request_id):
+    current_request = get_object_or_404(
+        RequestManagement, request_id=request_id)
+
+    if not current_request.previous_version:
+        return Response({"error": "No previous version to compare with"}, status=400)
+
+    previous = current_request.previous_version
+
+    # Compare priorities
+    comparison = {
+        'previous_priorities': RequestPrioritySerializer(
+            previous.requestpriority_set.all(), many=True).data,
+        'current_priorities': RequestPrioritySerializer(
+            current_request.requestpriority_set.all(), many=True).data,
+        'rejection_comment': previous.rejection_comment
+    }
+
+    return Response(comparison)
 
 
 class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
