@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
 from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -156,10 +156,11 @@ class UserSerializer(serializers.ModelSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         # Map email to username for the parent class validation
+        # Map email to username for validation
         attrs['username'] = attrs.get('email', '')
+        data = super().validate(attrs)
 
         # Perform the standard validation
-        data = super().validate(attrs)
 
         # Get user and request context
         user = self.user
@@ -206,6 +207,24 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['profile_picture'] = None
 
         return token
+
+
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        # Get the user ID from the token (if needed)
+        from rest_framework_simplejwt.tokens import AccessToken
+        access_token = AccessToken(data['access'])
+        user_id = access_token['user_id']
+
+        # Verify the user exists (optional, but helps prevent invalid tokens)
+        try:
+            User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User not found")
+
+        return data
 
 
 class RequirementSerializer(serializers.ModelSerializer):
