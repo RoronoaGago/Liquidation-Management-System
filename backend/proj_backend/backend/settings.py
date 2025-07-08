@@ -76,6 +76,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
 
+FRONTEND_LOGIN_URL = 'http://localhost:5173/login'
+
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True  # If using HTTPS
 CSRF_COOKIE_SAMESITE = 'None'

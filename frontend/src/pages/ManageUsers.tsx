@@ -40,9 +40,6 @@ import { schoolDistrictOptions } from "@/lib/constants";
 interface UserFormData {
   first_name: string;
   last_name: string;
-  username: string;
-  password: string;
-  confirm_password: string;
   date_of_birth: string;
   email: string;
   phone_number: string;
@@ -63,15 +60,7 @@ export const roleOptions = [
   { value: "accountant", label: "Division Accountant" },
 ];
 
-const requiredFields = [
-  "first_name",
-  "last_name",
-  "username",
-  "password",
-  "confirm_password",
-  "email",
-  "role",
-];
+const requiredFields = ["first_name", "last_name", "email", "role"];
 const ManageUsers = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -103,9 +92,6 @@ const ManageUsers = () => {
   const [formData, setFormData] = useState<UserFormData>({
     first_name: "",
     last_name: "",
-    username: "",
-    password: "",
-    confirm_password: "",
     date_of_birth: "",
     email: "",
     phone_number: "",
@@ -279,29 +265,6 @@ const ManageUsers = () => {
             delete newErrors.email;
           }
           break;
-        case "password":
-          if (!validatePassword(value)) {
-            newErrors.password =
-              "Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character.";
-          } else {
-            delete newErrors.password;
-            if (
-              formData.confirm_password &&
-              value !== formData.confirm_password
-            ) {
-              newErrors.confirm_password = "Passwords do not match.";
-            } else {
-              delete newErrors.confirm_password;
-            }
-          }
-          break;
-        case "confirm_password":
-          if (value !== formData.password) {
-            newErrors.confirm_password = "Passwords do not match.";
-          } else {
-            delete newErrors.confirm_password;
-          }
-          break;
         case "phone_number":
           if (value && !validatePhoneNumber(value)) {
             newErrors.phone_number =
@@ -421,9 +384,6 @@ const ManageUsers = () => {
       setFormData({
         first_name: "",
         last_name: "",
-        username: "",
-        password: "",
-        confirm_password: "",
         date_of_birth: "",
         email: "",
         phone_number: "",
@@ -604,22 +564,6 @@ const ManageUsers = () => {
                   error={errors.phone_number}
                 />
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="text-base">
-                    Username *
-                  </Label>
-                  <Input
-                    type="text"
-                    id="username"
-                    name="username"
-                    placeholder="johndoe123"
-                    value={formData.username}
-                    onChange={handleChange}
-                  />
-                  {errors.username && (
-                    <p className="text-red-500 text-sm">{errors.username}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="role" className="text-base">
                     Role *
                   </Label>
@@ -690,81 +634,6 @@ const ManageUsers = () => {
                     error={errors.school_id}
                   />
                 )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-base">
-                      Password *
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        id="password"
-                        name="password"
-                        className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                        placeholder="••••••••"
-                        value={formData.password}
-                        onChange={handleChange}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                        aria-label={
-                          showPassword ? "Hide password" : "Show password"
-                        }
-                      >
-                        {showPassword ? (
-                          <EyeClosedIcon className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <EyeIcon className="h-5 w-5 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                    {errors.password && (
-                      <p className="text-red-500 text-sm">{errors.password}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm_password" className="text-base">
-                      Confirm Password *
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        type={showConfirmPassword ? "text" : "password"}
-                        id="confirm_password"
-                        name="confirm_password"
-                        className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                        placeholder="••••••••"
-                        value={formData.confirm_password}
-                        onChange={handleChange}
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                        aria-label={
-                          showConfirmPassword
-                            ? "Hide password"
-                            : "Show password"
-                        }
-                      >
-                        {showConfirmPassword ? (
-                          <EyeClosedIcon className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <EyeIcon className="h-5 w-5 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                    {errors.confirm_password && (
-                      <p className="text-red-500 text-sm">
-                        {errors.confirm_password}
-                      </p>
-                    )}
-                  </div>
-                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="date_of_birth" className="text-base">
@@ -802,9 +671,6 @@ const ManageUsers = () => {
                       setFormData({
                         first_name: "",
                         last_name: "",
-                        username: "",
-                        password: "",
-                        confirm_password: "",
                         date_of_birth: "",
                         email: "",
                         phone_number: "",
