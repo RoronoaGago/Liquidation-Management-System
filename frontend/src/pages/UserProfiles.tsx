@@ -222,7 +222,6 @@ export default function UserProfiles() {
           updateUser(
             {
               user_id: response.data.id,
-              username: response.data.username,
               first_name: response.data.first_name,
               last_name: response.data.last_name,
               email: response.data.email,
@@ -237,7 +236,6 @@ export default function UserProfiles() {
         else {
           updateUser({
             user_id: response.data.id,
-            username: response.data.username,
             first_name: response.data.first_name,
             last_name: response.data.last_name,
             email: response.data.email,

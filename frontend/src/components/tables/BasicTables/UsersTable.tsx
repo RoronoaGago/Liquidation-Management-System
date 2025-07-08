@@ -152,7 +152,7 @@ export default function UsersTable({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const requiredFields = ["first_name", "last_name", "username", "email"];
+  const requiredFields = ["first_name", "last_name", "email"];
 
   const isFormValid = useMemo(() => {
     if (!selectedUser) return false;
@@ -402,7 +402,6 @@ export default function UsersTable({
       formData.append("first_name", selectedUser.first_name);
       formData.append("last_name", selectedUser.last_name);
       formData.append("email", selectedUser.email);
-      formData.append("username", selectedUser.username); // Add this
       formData.append("date_of_birth", selectedUser.date_of_birth || ""); // Handle null case
       formData.append("school_district", selectedUser.school_district || "");
 
@@ -455,9 +454,7 @@ export default function UsersTable({
     } catch (error) {
       let errorMessage = "Failed to update user. Please try again.";
       if (axios.isAxiosError(error) && error.response) {
-        if (error.response.data.username) {
-          errorMessage = "Username already exists.";
-        } else if (error.response.data.email) {
+        if (error.response.data.email) {
           errorMessage = "Email already exists.";
         } else if (error.response.data.password) {
           errorMessage = "Password doesn't meet requirements.";
@@ -789,36 +786,6 @@ export default function UsersTable({
                 >
                   <div
                     className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
-                    onClick={() => onRequestSort("username")}
-                  >
-                    Username
-                    <span className="inline-flex flex-col ml-1">
-                      <ChevronUp
-                        className={`h-3 w-3 transition-colors ${
-                          currentSort?.key === "username" &&
-                          currentSort.direction === "asc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      />
-                      <ChevronDown
-                        className={`h-3 w-3 -mt-1 transition-colors ${
-                          currentSort?.key === "username" &&
-                          currentSort.direction === "desc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      />
-                    </span>
-                  </div>
-                </TableCell>
-
-                <TableCell
-                  isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-                >
-                  <div
-                    className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.05]"
                     onClick={() => onRequestSort("email")}
                   >
                     Email
@@ -941,9 +908,7 @@ export default function UsersTable({
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {user.username}
-                    </TableCell>
+
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {user.email}
                     </TableCell>
@@ -1231,23 +1196,7 @@ export default function UsersTable({
                 required={false}
                 autoComplete="tel"
               />
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-base">
-                  Username *
-                </Label>
-                <Input
-                  type="text"
-                  id="username"
-                  name="username"
-                  placeholder="johndoe123"
-                  value={selectedUser.username}
-                  onChange={handleChange}
-                  disabled // Username shouldn't be editable
-                />
-                {formErrors.username && (
-                  <p className="text-red-500 text-sm">{formErrors.username}</p>
-                )}
-              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="role" className="text-base">
                   Role *
@@ -1539,14 +1488,6 @@ export default function UsersTable({
                     Basic Information
                   </h3>
                   <div className="space-y-3">
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Username
-                      </Label>
-                      <p className="text-gray-800 dark:text-gray-200 mt-1">
-                        {userToView.username}
-                      </p>
-                    </div>
                     <div>
                       <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                         Email

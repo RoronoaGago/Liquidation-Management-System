@@ -12,15 +12,17 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
 import string
+from django.contrib.auth import update_session_auth_hash
 from django.utils.crypto import get_random_string
+
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,36 @@ class ProtectedView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    serializer_class = CustomTokenRefreshSerializer
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    user = request.user
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not user.check_password(old_password):
+        return Response({"error": "Current password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password) < 8:
+        return Response({"error": "Password must be at least 8 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.password_change_required = False
+    user.save()
+
+    # Update the token to prevent automatic logout
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "message": "Password updated successfully"
+    })
 
 
 @api_view(['GET', 'POST'])
@@ -86,7 +118,6 @@ def user_list(request):
             queryset = queryset.filter(
                 Q(first_name__icontains=search_term) |
                 Q(last_name__icontains=search_term) |
-                Q(username__icontains=search_term) |
                 Q(email__icontains=search_term) |
                 Q(phone_number__icontains=search_term) |
                 Q(sex__icontains=search_term) |
@@ -149,7 +180,7 @@ def user_detail(request, pk):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if sensitive fields were modified
-        sensitive_fields = ['email', 'password', 'username', 'role']
+        sensitive_fields = ['email',  'password', 'role']
         needs_new_token = any(
             field in request.data for field in sensitive_fields)
 
@@ -421,6 +452,15 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
         # Set the sender for notification
         instance._status_changed_by = self.request.user
         serializer.save()
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_request_versions(request, request_id):
+    request_versions = RequestManagement.objects.filter(
+        request_id=request_id).order_by('-created_at')
+    serializer = RequestManagementSerializer(request_versions, many=True)
+    return Response(serializer.data)
 
 
 class ApproveRequestView(generics.UpdateAPIView):

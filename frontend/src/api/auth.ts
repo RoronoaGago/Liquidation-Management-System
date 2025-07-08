@@ -1,9 +1,9 @@
 import api from './axios';
 
-export const login = async (username: string, password: string) => {
+export const login = async (email: string, password: string) => {
     try {
         const response = await api.post('http://127.0.0.1:8000/api/token/', {
-            username,
+            email,
             password
         });
 
@@ -21,7 +21,7 @@ export const login = async (username: string, password: string) => {
         if (error.response) {
             // Handle HTTP errors
             if (error.response.status === 401) {
-                throw new Error('Invalid username or password');
+                throw new Error('Invalid email or password');
             } else if (error.response.status >= 500) {
                 throw new Error('Server error. Please try again later.');
             }
