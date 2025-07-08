@@ -283,9 +283,6 @@ class RequestManagement(models.Model):
         related_name='reviewed_requests'
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
-    previous_version = models.ForeignKey(
-        'self', on_delete=models.SET_NULL, null=True, blank=True)
-    is_resubmission = models.BooleanField(default=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -339,9 +336,9 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-                    and not self._skip_auto_status
-                    and self.request_monthyear
-                ):
+            and not self._skip_auto_status
+            and self.request_monthyear
+            ):
             today = date.today()
             try:
                 req_year, req_month = map(

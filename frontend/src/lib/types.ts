@@ -219,6 +219,7 @@ export type Submission = {
   rejection_date: string; // Optional field for when the rejection occurred
   reviewed_by: User;
   reviewed_at?: string;
+  is_resubmission?: boolean;
 };
 
 type Priority = {
