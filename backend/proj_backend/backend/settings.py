@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'api',
     'django_celery_results',  # For storing Celery task results
     'django_celery_beat',     # For scheduled tasks
+    'simple_history',  # For tracking model history
 ]
 # JWT Configuration
 REST_FRAMEWORK = {

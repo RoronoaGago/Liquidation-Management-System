@@ -8,6 +8,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import datetime, timedelta, date
+from simple_history.models import HistoricalRecords
 import string
 import logging
 # Configure logging
@@ -283,6 +284,7 @@ class RequestManagement(models.Model):
         related_name='reviewed_requests'
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    history = HistoricalRecords()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -442,6 +444,7 @@ class LiquidationManagement(models.Model):
     date_districtApproved = models.DateField(null=True, blank=True)
     date_liquidated = models.DateField(null=True, blank=True)
     remaining_days = models.IntegerField(null=True, blank=True)
+    history = HistoricalRecords()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
