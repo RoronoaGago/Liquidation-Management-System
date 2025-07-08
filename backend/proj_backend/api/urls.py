@@ -49,8 +49,6 @@ urlpatterns = [
     path('requests/<str:request_id>/resubmit/',
          views.resubmit_request, name='resubmit-request'),
     # In urls.py
-    path('requests/<str:request_id>/compare/',
-         views.compare_requests, name='compare-requests'),
     path('requests/<str:pk>/approve/',
          views.ApproveRequestView.as_view(), name='approve-request'),
     path('requests/<str:pk>/reject/',
