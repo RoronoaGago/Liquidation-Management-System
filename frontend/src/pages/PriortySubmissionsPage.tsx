@@ -24,6 +24,15 @@ import {
   ChevronsRight,
   AlertTriangleIcon,
   Loader2Icon,
+  ArrowUp,
+  ArrowDown,
+  PlusCircle,
+  MinusCircle,
+  BadgeCheck,
+  FileDiff,
+  Info,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
@@ -33,11 +42,75 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 
+type HistoryItem = {
+  priorities: Priority[];
+  status: string;
+  rejection_comment?: string;
+  rejection_date?: string;
+  created_at: string;
+  user: Submission["user"];
+  request_id: string;
+  [key: string]: any;
+};
+
+type PriorityDiff = {
+  expenseTitle: string;
+  prevAmount?: number;
+  currAmount?: number;
+  change: "added" | "removed" | "increased" | "decreased" | "unchanged";
+};
+
+const getPriorityDiffs = (
+  prev: Priority[] = [],
+  curr: Priority[] = []
+): PriorityDiff[] => {
+  const prevMap = new Map<string, number>();
+  prev.forEach((p) =>
+    prevMap.set(
+      p.priority.expenseTitle,
+      Number(p.amount != null ? p.amount : 0)
+    )
+  );
+  const currMap = new Map<string, number>();
+  curr.forEach((p) =>
+    currMap.set(
+      p.priority.expenseTitle,
+      Number(p.amount != null ? p.amount : 0)
+    )
+  );
+  const allKeys = Array.from(
+    new Set([...Array.from(prevMap.keys()), ...Array.from(currMap.keys())])
+  );
+  return allKeys.map((expenseTitle) => {
+    const prevAmount = prevMap.get(expenseTitle);
+    const currAmount = currMap.get(expenseTitle);
+    let change: PriorityDiff["change"] = "unchanged";
+    if (prevAmount == null && currAmount != null) change = "added";
+    else if (prevAmount != null && currAmount == null) change = "removed";
+    else if (prevAmount != null && currAmount != null) {
+      if (prevAmount < currAmount) change = "increased";
+      else if (prevAmount > currAmount) change = "decreased";
+      else change = "unchanged";
+    }
+    return {
+      expenseTitle,
+      prevAmount,
+      currAmount,
+      change,
+    };
+  });
+};
+
 const PriortySubmissionsPage = () => {
-  // State for submissions and modal
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
+  const [submissionHistory, setSubmissionHistory] = useState<
+    HistoryItem[] | null
+  >(null);
+  const [showAllDiffs, setShowAllDiffs] = useState(false); // Toggle show all/only changed
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   const [rejectionReason, setRejectionReason] = useState("");
   const [submissionsState, setSubmissionsState] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,8 +126,6 @@ const PriortySubmissionsPage = () => {
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [submissionToApprove, setSubmissionToApprove] =
     useState<Submission | null>(null);
-  // Pagination, search, and sort state
-
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [filterOptions, setFilterOptions] = useState({
@@ -67,6 +138,41 @@ const PriortySubmissionsPage = () => {
     direction: "asc" | "desc";
   } | null>({ key: "created_at", direction: "desc" });
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Status badge mappings
+  const statusLabels: Record<string, string> = {
+    approved: "Approved",
+    rejected: "Rejected",
+    pending: "Pending",
+    downloaded: "Downloaded",
+    unliquidated: "Unliquidated",
+    liquidated: "Liquidated",
+    advanced: "Advanced",
+  };
+  const statusColors: Record<string, string> = {
+    approved:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    pending:
+      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    downloaded:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    unliquidated:
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    liquidated:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    advanced:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  };
+  const statusIcons: Record<string, React.ReactNode> = {
+    approved: <CheckCircle className="h-4 w-4" />,
+    rejected: <XCircle className="h-4 w-4" />,
+    pending: <Clock className="h-4 w-4" />,
+    downloaded: <ArrowDownCircle className="h-4 w-4" />,
+    unliquidated: <AlertCircle className="h-4 w-4" />,
+    liquidated: <CheckCircle className="h-4 w-4" />,
+    advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
+  };
 
   // Fetch submissions and schools from backend
   const fetchSubmissions = async () => {
@@ -238,40 +344,209 @@ const PriortySubmissionsPage = () => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
-  // Status badge mappings (shared with tables)
-  const statusLabels: Record<string, string> = {
-    approved: "Approved",
-    rejected: "Rejected",
-    pending: "Pending",
-    downloaded: "Downloaded",
-    unliquidated: "Unliquidated",
-    liquidated: "Liquidated",
-    advanced: "Advanced",
+  // Fetch request history when viewing a submission
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!viewedSubmission) {
+        setSubmissionHistory(null);
+        setLoadingHistory(false);
+        return;
+      }
+      setLoadingHistory(true);
+      try {
+        const res = await api.get(
+          `/requests/${viewedSubmission.request_id}/history/`
+        );
+        setSubmissionHistory(res.data as HistoryItem[]);
+      } catch (err) {
+        setSubmissionHistory(null);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+    fetchHistory();
+  }, [viewedSubmission]);
+
+  // Helper: get previous rejected state for a resubmission
+  const getPreviousRejected = (
+    history: HistoryItem[] | null
+  ): HistoryItem | null => {
+    if (!history || history.length < 2) return null;
+    // Find most recent version with status "rejected"
+    return (
+      history.find((item, idx) => idx !== 0 && item.status === "rejected") ||
+      null
+    );
   };
-  const statusColors: Record<string, string> = {
-    approved:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-    pending:
-      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-    downloaded:
-      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    unliquidated:
-      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-    liquidated:
-      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-    advanced:
-      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  };
-  const statusIcons: Record<string, React.ReactNode> = {
-    approved: <CheckCircle className="h-4 w-4" />,
-    rejected: <XCircle className="h-4 w-4" />,
-    pending: <Clock className="h-4 w-4" />,
-    downloaded: <ArrowDownCircle className="h-4 w-4" />,
-    unliquidated: <AlertCircle className="h-4 w-4" />,
-    liquidated: <CheckCircle className="h-4 w-4" />,
-    advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
-  };
+
+  // Helper: get human friendly date
+  function formatDateString(dateStr?: string) {
+    if (!dateStr) return "N/A";
+    try {
+      return format(new Date(dateStr), "MMM dd, yyyy hh:mm a");
+    } catch {
+      return dateStr;
+    }
+  }
+
+  // UI for the diff table
+  function HistoryComparisonTable({
+    prev,
+    curr,
+    showAll = false,
+  }: {
+    prev: Priority[] | undefined;
+    curr: Priority[] | undefined;
+    showAll?: boolean;
+  }) {
+    const diffs = getPriorityDiffs(prev, curr);
+    const hasChanged = diffs.some((d) => d.change !== "unchanged");
+    const shownDiffs = showAll
+      ? diffs
+      : diffs.filter((d) => d.change !== "unchanged");
+    return (
+      <div>
+        <div className="flex items-center mb-2 gap-2">
+          <FileDiff className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <span className="font-semibold text-blue-800 dark:text-blue-200">
+            Resubmission Changes
+          </span>
+          <span
+            className={`ml-2 px-2 py-0.5 text-xs rounded-full font-medium ${
+              hasChanged
+                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
+            }`}
+          >
+            {hasChanged
+              ? `${shownDiffs.length} change${
+                  shownDiffs.length !== 1 ? "s" : ""
+                }`
+              : "No changes"}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowAllDiffs((s) => !s)}
+            className="flex items-center gap-1 ml-2"
+            startIcon={
+              showAll ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )
+            }
+          >
+            {showAll ? "Show Only Changes" : "Show All"}
+          </Button>
+        </div>
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-4 py-2 text-left">Expense</th>
+                <th className="px-4 py-2 text-right">Previous Amount</th>
+                <th className="px-4 py-2 text-right">Current Amount</th>
+                <th className="px-4 py-2 text-center">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shownDiffs.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="text-center py-8 text-gray-500">
+                    No changes detected.
+                  </td>
+                </tr>
+              )}
+              {shownDiffs.map((diff) => (
+                <tr
+                  key={diff.expenseTitle}
+                  className="border-b last:border-b-0"
+                >
+                  <td className="px-4 py-3 font-medium">{diff.expenseTitle}</td>
+                  <td className="px-4 py-3 text-right">
+                    {diff.prevAmount != null ? (
+                      <span
+                        className={
+                          diff.change === "removed"
+                            ? "line-through text-red-500"
+                            : diff.change === "decreased"
+                            ? "text-red-700 font-semibold"
+                            : diff.change === "increased"
+                            ? "text-yellow-700"
+                            : undefined
+                        }
+                      >
+                        ₱
+                        {diff.prevAmount.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {diff.currAmount != null ? (
+                      <span
+                        className={
+                          diff.change === "added"
+                            ? "text-green-600 font-semibold"
+                            : diff.change === "increased"
+                            ? "text-green-700 font-semibold"
+                            : diff.change === "decreased"
+                            ? "text-yellow-700"
+                            : undefined
+                        }
+                      >
+                        ₱
+                        {diff.currAmount.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {
+                      {
+                        added: (
+                          <span className="inline-flex items-center gap-1 text-green-700 font-semibold">
+                            <PlusCircle className="h-4 w-4" /> Added
+                          </span>
+                        ),
+                        removed: (
+                          <span className="inline-flex items-center gap-1 text-red-600 font-semibold">
+                            <MinusCircle className="h-4 w-4" /> Removed
+                          </span>
+                        ),
+                        increased: (
+                          <span className="inline-flex items-center gap-1 text-green-700 font-semibold">
+                            <ArrowUp className="h-4 w-4" /> Increased
+                          </span>
+                        ),
+                        decreased: (
+                          <span className="inline-flex items-center gap-1 text-amber-700 font-semibold">
+                            <ArrowDown className="h-4 w-4" /> Decreased
+                          </span>
+                        ),
+                        unchanged: (
+                          <span className="inline-flex items-center gap-1 text-gray-400">
+                            <BadgeCheck className="h-4 w-4" /> Unchanged
+                          </span>
+                        ),
+                      }[diff.change]
+                    }
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -305,7 +580,7 @@ const PriortySubmissionsPage = () => {
               setItemsPerPage(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700"
           >
             {[5, 10, 20, 50].map((num) => (
               <option key={num} value={num}>
@@ -405,7 +680,6 @@ const PriortySubmissionsPage = () => {
               Review and manage this priority submission
             </DialogDescription>
           </DialogHeader>
-
           {viewedSubmission && (
             <div className="space-y-6">
               {/* Sender Details Card */}
@@ -483,6 +757,61 @@ const PriortySubmissionsPage = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Enhanced: Resubmission comparison */}
+              {loadingHistory ? (
+                <div className="flex items-center gap-2 text-gray-500 pl-2">
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                  Loading submission history...
+                </div>
+              ) : (
+                submissionHistory &&
+                submissionHistory.length > 1 &&
+                getPreviousRejected(submissionHistory) && (
+                  <div className="border border-blue-200 dark:border-blue-900/30 rounded-lg p-4 bg-blue-50/50 dark:bg-blue-900/10 shadow-sm">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Info className="h-4 w-4 text-blue-700" />
+                      <span className="font-medium text-blue-800 dark:text-blue-200">
+                        This is a resubmission. Below is a comparison with the
+                        previous version.
+                      </span>
+                    </div>
+                    {/* Summary of the previous rejection */}
+                    <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangleIcon className="h-5 w-5 text-yellow-500" />
+                        <span className="font-medium text-yellow-800 dark:text-yellow-200">
+                          Previous Rejection:
+                        </span>
+                        <span className="text-xs text-gray-500 ml-2">
+                          {formatDateString(
+                            getPreviousRejected(submissionHistory)
+                              ?.rejection_date
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 rounded-full">
+                          Reason:
+                        </span>
+                        <span className="italic text-yellow-900 dark:text-yellow-200">
+                          {
+                            getPreviousRejected(submissionHistory)
+                              ?.rejection_comment
+                          }
+                        </span>
+                      </div>
+                    </div>
+                    {/* Diff table */}
+                    <HistoryComparisonTable
+                      prev={getPreviousRejected(submissionHistory)?.priorities}
+                      curr={submissionHistory[0]?.priorities}
+                      showAll={showAllDiffs}
+                    />
+                  </div>
+                )
+              )}
+
               {/* Priorities Table */}
               <div className="space-y-2">
                 <h3 className="font-semibold text-lg text-gray-800 dark:text-white">
@@ -544,6 +873,7 @@ const PriortySubmissionsPage = () => {
                   </div>
                 </div>
               </div>
+
               {/* Rejection details */}
               {viewedSubmission?.status === "rejected" &&
                 viewedSubmission.rejection_comment && (
@@ -556,7 +886,6 @@ const PriortySubmissionsPage = () => {
                         <h4 className="font-medium text-red-800 dark:text-red-200">
                           Rejection Details
                         </h4>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                           <div>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -572,7 +901,6 @@ const PriortySubmissionsPage = () => {
                             </p>
                           </div>
                         </div>
-
                         <div className="mt-3">
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             Reason for rejection
@@ -597,7 +925,6 @@ const PriortySubmissionsPage = () => {
                         <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
                           Previously Rejected
                         </h4>
-
                         <div className="mt-2">
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             Previous rejection reason
@@ -673,7 +1000,6 @@ const PriortySubmissionsPage = () => {
               Please provide a reason for rejection
             </DialogDescription>
           </DialogHeader>
-
           {submissionToReject && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -687,13 +1013,12 @@ const PriortySubmissionsPage = () => {
                   id="rejection-reason"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:text-white"
                   rows={4}
                   placeholder="Explain why this request is being rejected..."
                   required
                 />
               </div>
-
               <div className="flex justify-end gap-3 pt-2">
                 <Button
                   type="button"
