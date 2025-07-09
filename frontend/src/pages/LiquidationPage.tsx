@@ -232,7 +232,6 @@ const LiquidationPage = () => {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      
 
       // Refresh data
       const res = await api.get("/liquidation/");
@@ -310,7 +309,6 @@ const LiquidationPage = () => {
       await api.delete(
         `/liquidations/${request.liquidationID}/documents/${docId}/`
       );
-      
 
       // Refresh data
       const res = await api.get("/liquidation/");
@@ -853,7 +851,13 @@ const LiquidationPage = () => {
                           days remaining
                         </>
                       ) : (
-                        "Liquidation period has ended"
+                        <>
+                          Liquidation period has ended
+                          <p className="text-sm mt-1 text-red-600 font-semibold">
+                            Overdue! A demand letter has been sent to your
+                            email.
+                          </p>
+                        </>
                       )}
                     </h4>
                     {request.remaining_days > 0 &&
@@ -863,6 +867,11 @@ const LiquidationPage = () => {
                           to avoid penalties.
                         </p>
                       )}
+                    {request.remaining_days <= 0 && (
+                      <p className="text-sm mt-1 text-red-600 font-semibold">
+                        Overdue! A demand letter has been sent to your email.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

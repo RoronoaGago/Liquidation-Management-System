@@ -85,6 +85,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (response.data.access) {
         localStorage.setItem("accessToken", response.data.access);
+        if (response.data.refresh) {
+          localStorage.setItem("refreshToken", response.data.refresh);
+        }
         setPasswordChangeRequired(false);
       }
 
