@@ -459,7 +459,7 @@ const PriortySubmissionsPage = () => {
             {showAll ? "Show Only Changes" : "Show All"}
           </Button>
         </div>
-        <div className="overflow-x-auto border rounded-lg">
+        <div className="overflow-x-auto border rounded-lg custom-scrollbar">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
@@ -687,7 +687,7 @@ const PriortySubmissionsPage = () => {
         open={!!viewedSubmission}
         onOpenChange={() => setViewedSubmission(null)}
       >
-        <DialogContent className="w-full max-w-[90vw] lg:max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <DialogContent className="w-full max-w-[95vw] xl:max-w-6xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Priority Submission Details
@@ -697,7 +697,7 @@ const PriortySubmissionsPage = () => {
             </DialogDescription>
           </DialogHeader>
           {viewedSubmission && (
-            <div className="space-y-6">
+            <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
               {/* Sender Details Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -828,20 +828,22 @@ const PriortySubmissionsPage = () => {
                 )
               )}
 
-              {/* Priorities Table */}
+              {/* Enhanced: Resubmission comparison - unchanged */}
+
+              {/* Priorities Table - updated */}
               <div className="space-y-2">
                 <h3 className="font-semibold text-lg text-gray-800 dark:text-white">
                   List of Priorities
                 </h3>
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto custom-scrollbar">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                       <thead className="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[200px] w-2/3">
                             Expense
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[120px]">
                             Amount
                           </th>
                         </tr>
@@ -853,8 +855,10 @@ const PriortySubmissionsPage = () => {
                               key={idx}
                               className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                             >
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                                {priority.priority.expenseTitle}
+                              <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200 max-w-[400px]">
+                                <div className="line-clamp-2">
+                                  {priority.priority.expenseTitle}
+                                </div>
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
                                 ₱
@@ -869,7 +873,7 @@ const PriortySubmissionsPage = () => {
                           )
                         )}
                         <tr className="bg-gray-50/50 dark:bg-gray-700/30 font-semibold">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
                             TOTAL
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
