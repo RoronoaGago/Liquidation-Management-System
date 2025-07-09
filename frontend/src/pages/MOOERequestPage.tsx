@@ -5,10 +5,6 @@ import { Disclosure, Transition } from "@headlessui/react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import {
   Search,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   ChevronDown,
   Info,
   X,
@@ -63,10 +59,11 @@ const MOOERequestPage = () => {
   const navigate = useNavigate();
   const [priorities, setPriorities] = useState<ListofPriorityData[]>([]);
   const [selected, setSelected] = useState<{ [key: string]: string }>({});
+  const [selectedOrder, setSelectedOrder] = useState<string[]>([]); // Track selection order
   const [filterOptions, setFilterOptions] = useState<{ searchTerm: string }>({
     searchTerm: "",
   });
-  const [currentPage, setCurrentPage] = useState(1);
+  const [, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -78,7 +75,6 @@ const MOOERequestPage = () => {
   const [activeLiquidationData, setActiveLiquidationData] = useState<any>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [categoriesPerPage, setCategoriesPerPage] = useState(5);
   const [showRequirementsDialog, setShowRequirementsDialog] = useState(false);
   const [currentPriorityRequirements, setCurrentPriorityRequirements] =
     useState<string[]>([]);
@@ -86,9 +82,35 @@ const MOOERequestPage = () => {
   const [allocatedBudget, setAllocatedBudget] = useState<number>(0);
   const [expenseToRemove, setExpenseToRemove] = useState<string | null>(null);
   const [showClearAllDialog, setShowClearAllDialog] = useState(false);
-
-  // Add a state to store the last submitted request ID
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
+
+  // State for submit confirmation dialog
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+
+  // State for selecting all in a category
+  const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
+
+  // Function to select all items in a category
+  const doCategorySelectAll = (category: string) => {
+    if (!category) return;
+    const items = categories[category]?.filter(
+      (p) => selected[p.expenseTitle] === undefined
+    );
+    if (items && items.length > 0) {
+      setSelected((prev) => {
+        const updated = { ...prev };
+        items.forEach((p) => {
+          updated[p.expenseTitle] = "";
+        });
+        return updated;
+      });
+      setSelectedOrder((prevOrder) => [
+        ...items.map((p) => p.expenseTitle),
+        ...prevOrder,
+      ]);
+    }
+    setCategoryToSelect(null);
+  };
 
   // Handle pre-filling from a rejected request
   useEffect(() => {
@@ -101,6 +123,9 @@ const MOOERequestPage = () => {
         {}
       );
       setSelected(initialSelected);
+      setSelectedOrder(
+        location.state.priorities.map((p: any) => p.priority.expenseTitle)
+      );
       toast.info(
         <div>
           <p>You're editing a rejected request.</p>
@@ -164,14 +189,12 @@ const MOOERequestPage = () => {
   useEffect(() => {
     const fetchSchoolBudget = async () => {
       try {
-        // Fetch current user info
         const userRes = await api.get("/users/me/");
         const schoolId = userRes.data.school?.schoolId;
         if (!schoolId) {
           setAllocatedBudget(0);
           return;
         }
-        // Fetch school info by ID
         const schoolRes = await api.get(`/schools/${schoolId}/`);
         setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
       } catch (error) {
@@ -184,13 +207,17 @@ const MOOERequestPage = () => {
 
   const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
 
-  // Update handleCheck to show toast notifications
+  // Update handleCheck to track selection order
   const handleCheck = (expense: string) => {
     setSelected((prev) => {
       if (expense in prev) {
+        setSelectedOrder((prevOrder) =>
+          prevOrder.filter((item) => item !== expense)
+        );
         const { [expense]: _, ...rest } = prev;
         return rest;
       } else {
+        setSelectedOrder((prevOrder) => [expense, ...prevOrder]);
         return { ...prev, [expense]: "" };
       }
     });
@@ -204,18 +231,14 @@ const MOOERequestPage = () => {
   };
 
   const handleAmountChange = (expense: string, value: string) => {
-    // Remove all non-digit characters except decimal point
     const cleanValue = value.replace(/[^0-9.]/g, "");
 
-    // If empty string, allow it
     if (cleanValue === "") {
       setSelected((prev) => ({ ...prev, [expense]: "" }));
       return;
     }
 
-    // Check if it's a valid number
     if (!isNaN(Number(cleanValue)) && Number(cleanValue) >= 0) {
-      // Calculate new total if this value is set
       const newAmount = Number(cleanValue);
       const currentTotal = Object.entries(selected).reduce(
         (sum, [key, amt]) =>
@@ -233,7 +256,6 @@ const MOOERequestPage = () => {
         return;
       }
 
-      // Format with commas
       const formattedValue = formatNumberWithCommas(cleanValue);
       setSelected((prev) => ({ ...prev, [expense]: formattedValue }));
     }
@@ -247,13 +269,11 @@ const MOOERequestPage = () => {
     }
   };
 
-  // Calculate total amount without commas
   const totalAmount = Object.values(selected).reduce(
     (sum, amount) => sum + (amount ? Number(amount.replace(/,/g, "")) : 0),
     0
   );
 
-  // Map selected to [{ LOPID, amount }]
   const selectedPriorities = Object.entries(selected)
     .map(([expenseTitle, amount]) => {
       const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
@@ -263,7 +283,6 @@ const MOOERequestPage = () => {
     })
     .filter(Boolean) as { LOPID: string; amount: string }[];
 
-  // Submit handler with resubmission logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
@@ -293,13 +312,13 @@ const MOOERequestPage = () => {
       }
 
       setSelected({});
+      setSelectedOrder([]);
       setLastRequestId(requestId || null);
       setShowSuccessDialog(true);
 
-      // Add a longer delay (e.g., 4 seconds) before redirecting
       setTimeout(() => {
         setShowSuccessDialog(false);
-        navigate("/requests-history");
+        navigate("/"); // Redirect to dashboard instead of history
       }, 4000);
     } catch (error: any) {
       console.error("Error:", error);
@@ -313,7 +332,6 @@ const MOOERequestPage = () => {
     }
   };
 
-  // Debounced search handler
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (debounceTimeout.current) {
@@ -328,71 +346,42 @@ const MOOERequestPage = () => {
     }, 10);
   };
 
-  // Filter priorities based on searchTerm
   const filteredExpenses = priorities.filter((priority) =>
     priority.expenseTitle
       .toLowerCase()
       .includes(filterOptions.searchTerm.toLowerCase())
   );
 
-  // Group priorities by category
+  // Group and sort priorities by category
   const categories = React.useMemo(() => {
     const map: { [cat: string]: ListofPriorityData[] } = {};
     priorities.forEach((p) => {
       if (!map[p.category]) map[p.category] = [];
       map[p.category].push(p);
     });
+
+    // Sort each category's priorities alphabetically
+    Object.keys(map).forEach((cat) => {
+      map[cat].sort((a, b) => a.expenseTitle.localeCompare(b.expenseTitle));
+    });
+
     return map;
   }, [priorities]);
 
-  // For pagination: get all category keys with unchecked items
-  const allCategoryKeys = Object.keys(categories).filter((cat) =>
-    categories[cat].some((p) => selected[p.expenseTitle] === undefined)
+  // Get sorted category keys
+  const sortedCategoryKeys = Object.keys(categories).sort((a, b) =>
+    (CATEGORY_LABELS[a] || a).localeCompare(CATEGORY_LABELS[b] || b)
   );
+
+  // For pagination: get all category keys with unchecked items
 
   // Pagination logic
-  const totalPages = Math.ceil(allCategoryKeys.length / categoriesPerPage);
-  const paginatedCategoryKeys = allCategoryKeys.slice(
-    (currentPage - 1) * categoriesPerPage,
-    currentPage * categoriesPerPage
-  );
-
-  // For pagination: flatten all unchecked priorities (not categories)
-
-  // For rendering: group paginated items by category
-
-  // Confirmation dialog state for select all and submit
-  const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
-  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-
-  // Handle select all with confirmation
-  const handleCategorySelectAll = (cat: string) => {
-    const itemsToCheck = categories[cat].filter(
-      (p) => selected[p.expenseTitle] === undefined
-    );
-    if (itemsToCheck.length >= 3) {
-      setCategoryToSelect(cat);
-    } else {
-      doCategorySelectAll(cat);
-    }
-  };
-  const doCategorySelectAll = (cat: string) => {
-    setSelected((prev) => {
-      const newSel = { ...prev };
-      categories[cat].forEach((p) => {
-        if (!newSel[p.expenseTitle]) newSel[p.expenseTitle] = "";
-      });
-      return newSel;
-    });
-    setCategoryToSelect(null);
-  };
 
   // Show requirements for a priority
   const showRequirements = (expenseTitle: string) => {
     const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
 
     if (priority && priority.requirements) {
-      // Filter out only requirement objects (not ListofPriorityData)
       const requirementTitles = priority.requirements
         .filter(
           (
@@ -414,6 +403,14 @@ const MOOERequestPage = () => {
       setShowRequirementsDialog(true);
     }
   };
+
+  // Get selected items in the order they were selected
+  const orderedSelectedItems = selectedOrder
+    .filter((expense) => selected[expense] !== undefined)
+    .map((expense) => ({
+      expenseTitle: expense,
+      amount: selected[expense],
+    }));
 
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
@@ -984,156 +981,152 @@ const MOOERequestPage = () => {
                     {filteredExpenses.length} items
                   </span>
                 </div>
-
-                <div className="flex gap-4 w-full md:w-auto items-center">
-                  <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    Categories per page:
-                  </label>
-                  <select
-                    value={categoriesPerPage}
-                    onChange={(e) => {
-                      setCategoriesPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
-                  >
-                    {[3, 5, 10, 20].map((num) => (
-                      <option key={num} value={num}>
-                        Show {num}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
-              {/* Improved Expense List with inline editing */}
-              <div className="grid grid-cols-1 gap-3">
+              {/* Enhanced Dropdown List */}
+              <div className="space-y-3">
                 {loading && (
-                  <div className="col-span-2 text-gray-500 text-center py-8">
-                    Loading expenses...
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-500 mb-3"></div>
+                    <span className="text-gray-500">Loading expenses...</span>
                   </div>
                 )}
+
                 {fetchError && (
-                  <div className="col-span-2 text-red-500 text-center py-8">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-300 text-center">
+                    <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
                     {fetchError}
                   </div>
                 )}
 
-                {!loading &&
-                  !fetchError &&
-                  paginatedCategoryKeys.map((cat) => {
-                    const items = categories[cat].filter(
-                      (p) => selected[p.expenseTitle] === undefined
-                    );
-                    if (items.length === 0) return null;
-                    return (
-                      <div
-                        key={cat}
-                        className="mb-4 border border-gray-300 rounded-lg transition-colors"
-                      >
-                        {/* Category Header */}
-                        <div className="flex items-center mb-2 w-full bg-gray-50 dark:bg-gray-700/40 rounded-t-lg px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={items.every(
-                              (p) => selected[p.expenseTitle] !== undefined
-                            )}
-                            onChange={() => handleCategorySelectAll(cat)}
-                            disabled={isFormDisabled}
-                            className="mr-3 h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
-                            style={{ cursor: "pointer" }}
-                          />
-                          <span className="font-semibold text-brand-700 dark:text-brand-200 w-full">
-                            {CATEGORY_LABELS[cat] || cat}
-                          </span>
-                        </div>
-                        {/* Items under category, indented */}
-                        <div className="pl-8 space-y-2 pb-2">
-                          {items.map((priority) => (
-                            <div
-                              key={priority.LOPID}
-                              className="flex items-center py-2 pr-4 rounded-lg transition-colors hover:bg-brand-50/60 dark:hover:bg-brand-900/20"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={
-                                  selected[priority.expenseTitle] !== undefined
-                                }
-                                onChange={() =>
-                                  handleCheck(priority.expenseTitle)
-                                }
-                                disabled={isFormDisabled}
-                                className="h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
-                                style={{ cursor: "pointer" }}
-                              />
-                              <span className="ml-3 text-gray-700 dark:text-gray-300">
-                                {priority.expenseTitle}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
+                {!loading && !fetchError && (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    {sortedCategoryKeys.map((cat) => {
+                      // Filter by search term as well as selection
+                      const items = categories[cat].filter(
+                        (p) =>
+                          selected[p.expenseTitle] === undefined &&
+                          p.expenseTitle
+                            .toLowerCase()
+                            .includes(filterOptions.searchTerm.toLowerCase())
+                      );
+                      if (items.length === 0) return null;
 
-              {/* Pagination */}
-              <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {currentPage} of {totalPages} • {allCategoryKeys.length}{" "}
-                  total categories
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => (
-                      <Button
-                        type="button"
-                        key={i + 1}
-                        onClick={() => setCurrentPage(i + 1)}
-                        variant={currentPage === i + 1 ? "primary" : "outline"}
-                        size="sm"
-                      >
-                        {i + 1}
-                      </Button>
-                    ))}
+                      const allSelected = items.every(
+                        (p) => selected[p.expenseTitle] !== undefined
+                      );
+
+                      return (
+                        <Disclosure key={cat}>
+                          {({ open }) => (
+                            <div className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                              <Disclosure.Button className="flex items-center justify-between w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                <div className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    onChange={() => setCategoryToSelect(cat)}
+                                    disabled={isFormDisabled}
+                                    className={`h-5 w-5 rounded-full border-2 ${
+                                      allSelected
+                                        ? "border-brand-500 bg-brand-500"
+                                        : "border-gray-300 dark:border-gray-600"
+                                    } focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 ${
+                                      isFormDisabled
+                                        ? "cursor-not-allowed"
+                                        : "cursor-pointer hover:border-brand-500"
+                                    }`}
+                                    style={{ position: "relative" }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  {allSelected && (
+                                    <CheckCircle className="h-5 w-5 absolute left-0 top-0 text-white pointer-events-none" />
+                                  )}
+                                  <span className="ml-3 font-medium text-gray-800 dark:text-gray-200">
+                                    {CATEGORY_LABELS[cat] || cat}
+                                  </span>
+                                </div>
+                                <div className="flex items-center">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                                    {allSelected
+                                      ? "All selected"
+                                      : `${items.length} available`}
+                                  </span>
+                                  <ChevronDown
+                                    className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${
+                                      open ? "rotate-180 text-brand-500" : ""
+                                    }`}
+                                  />
+                                </div>
+                              </Disclosure.Button>
+                              <Transition
+                                enter="transition duration-100 ease-out"
+                                enterFrom="transform opacity-0 -translate-y-2"
+                                enterTo="transform opacity-100 translate-y-0"
+                                leave="transition duration-75 ease-out"
+                                leaveFrom="transform opacity-100 translate-y-0"
+                                leaveTo="transform opacity-0 -translate-y-2"
+                              >
+                                <Disclosure.Panel className="px-4 pb-3">
+                                  <div className="space-y-2 pl-8">
+                                    {items.map((priority) => (
+                                      <div
+                                        key={priority.LOPID}
+                                        className="flex items-center py-2 px-3 rounded-lg transition-colors hover:bg-brand-50/60 dark:hover:bg-brand-900/20 group"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            selected[priority.expenseTitle] !==
+                                            undefined
+                                          }
+                                          onChange={() =>
+                                            handleCheck(priority.expenseTitle)
+                                          }
+                                          disabled={isFormDisabled}
+                                          className={`h-5 w-5 rounded-full border-2 ${
+                                            selected[priority.expenseTitle] !==
+                                            undefined
+                                              ? "border-brand-500 bg-brand-500"
+                                              : "border-gray-300 dark:border-gray-600"
+                                          } focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 ${
+                                            isFormDisabled
+                                              ? "cursor-not-allowed"
+                                              : "cursor-pointer hover:border-brand-500"
+                                          }`}
+                                          style={{ position: "relative" }}
+                                        />
+                                        {selected[priority.expenseTitle] !==
+                                          undefined && (
+                                          <CheckCircle className="h-5 w-5 absolute left-0 top-0 text-white pointer-events-none" />
+                                        )}
+                                        <span className="ml-3 text-gray-700 dark:text-gray-300 flex-1">
+                                          {priority.expenseTitle}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            showRequirements(
+                                              priority.expenseTitle
+                                            )
+                                          }
+                                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-brand-500 transition-opacity"
+                                          disabled={isFormDisabled}
+                                        >
+                                          <FileText className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </Disclosure.Panel>
+                              </Transition>
+                            </div>
+                          )}
+                        </Disclosure>
+                      );
+                    })}
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </Button>
-                </div>
+                )}
               </div>
             </div>
 
@@ -1146,28 +1139,31 @@ const MOOERequestPage = () => {
                   </h3>
                 </div>
 
+                {/* Always show budget info at the top for consistent position/dimension */}
+                <div className="p-4 pb-0">
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Allocated Budget:
+                      </span>
+                      <span className="font-bold text-blue-800 dark:text-blue-200">
+                        ₱{allocatedBudget.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Remaining Budget:
+                      </span>
+                      <span className="font-bold text-blue-800 dark:text-blue-200">
+                        ₱{(allocatedBudget - totalAmount).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {Object.keys(selected).length > 0 ? (
                   <>
-                    <div className="p-4">
-                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                            Allocated Budget:
-                          </span>
-                          <span className="font-bold text-blue-800 dark:text-blue-200">
-                            ₱{allocatedBudget.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                            Remaining Budget:
-                          </span>
-                          <span className="font-bold text-blue-800 dark:text-blue-200">
-                            ₱{(allocatedBudget - totalAmount).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-
+                    <div className="p-4 pt-0">
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-gray-600 dark:text-gray-300">
                           {Object.keys(selected).length} item(s) selected
@@ -1176,10 +1172,9 @@ const MOOERequestPage = () => {
                           Total: ₱{totalAmount.toLocaleString()}
                         </span>
                       </div>
-
                       <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                        {Object.entries(selected).map(
-                          ([expenseTitle, amount]) => {
+                        {orderedSelectedItems.map(
+                          ({ expenseTitle, amount }) => {
                             const priority = priorities.find(
                               (p) => p.expenseTitle === expenseTitle
                             );
@@ -1331,7 +1326,7 @@ const MOOERequestPage = () => {
                     </div>
                   </>
                 ) : (
-                  <div className="p-8 text-center">
+                  <div className="p-8 text-center pt-0">
                     <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
                       <Plus className="h-8 w-8 text-gray-400" />
                     </div>
