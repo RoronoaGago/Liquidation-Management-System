@@ -497,12 +497,22 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class RequestManagementHistorySerializer(serializers.ModelSerializer):
     history_user = serializers.StringRelatedField()
+    priorities = serializers.SerializerMethodField()  # Add this
+
     class Meta:
         model = RequestManagement.history.model
         fields = '__all__'
 
+    def get_priorities(self, obj):
+        # Get priorities as they were at this historical point
+        from .models import RequestPriority
+        priorities = RequestPriority.objects.filter(request_id=obj.request_id)
+        return RequestPrioritySerializer(priorities, many=True).data
+
+
 class LiquidationManagementHistorySerializer(serializers.ModelSerializer):
     history_user = serializers.StringRelatedField()
+
     class Meta:
         model = LiquidationManagement.history.model
         fields = '__all__'
