@@ -220,6 +220,9 @@ export type Submission = {
   reviewed_by: User;
   reviewed_at?: string;
   is_resubmission?: boolean;
+  previous_version?: string; // ID of the original submission if this is a resubmission
+  notes?: string; // Optional notes field
+  previous_request?: Submission; // Optional field for previous request
 };
 
 export type Priority = {

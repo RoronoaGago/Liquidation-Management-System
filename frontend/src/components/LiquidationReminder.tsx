@@ -57,7 +57,7 @@ export default function LiquidationReminder() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-[90vw] lg:max-w-xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-red-600">
             Liquidation Reminder
@@ -77,19 +77,29 @@ export default function LiquidationReminder() {
                     <h3 className="font-medium">
                       Liquidation ID: {liquidation?.LiquidationID}
                     </h3>
-                    <p className="text-sm text-gray-500">
-                      Due in {liquidation.remaining_days} day
-                      {liquidation.remaining_days !== 1 ? "s" : ""}
-                    </p>
+                    {liquidation.remaining_days > 0 ? (
+                      <p className="text-sm text-gray-500">
+                        Due in {liquidation.remaining_days} day
+                        {liquidation.remaining_days !== 1 ? "s" : ""}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-red-600 font-semibold">
+                        Overdue! A demand letter has been sent to your email.
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`px-2 py-1 text-xs rounded-full ${
-                      liquidation.remaining_days <= 5
+                      liquidation.remaining_days <= 0
+                        ? "bg-red-700 text-white"
+                        : liquidation.remaining_days <= 5
                         ? "bg-red-100 text-red-800"
                         : "bg-yellow-100 text-yellow-800"
                     }`}
                   >
-                    {liquidation.status === "resubmit"
+                    {liquidation.remaining_days <= 0
+                      ? "Demand Letter Sent"
+                      : liquidation.status === "resubmit"
                       ? "Needs Revision"
                       : "Draft"}
                   </span>
