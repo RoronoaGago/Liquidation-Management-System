@@ -74,6 +74,15 @@ def change_password(request):
 
     # Update the token to prevent automatic logout
     refresh = RefreshToken.for_user(user)
+    # Add custom claims
+    refresh['first_name'] = user.first_name
+    refresh['last_name'] = user.last_name
+    refresh['email'] = user.email
+    refresh['role'] = user.role
+    refresh['profile_picture'] = user.profile_picture.url if user.profile_picture else None
+    refresh['school_district'] = user.school_district
+    refresh['password_change_required'] = user.password_change_required
+
     return Response({
         "access": str(refresh.access_token),
         "refresh": str(refresh),
@@ -193,7 +202,6 @@ def user_detail(request, pk):
             refresh = RefreshToken.for_user(user)
             refresh['first_name'] = user.first_name
             refresh['last_name'] = user.last_name
-            refresh['username'] = user.username
             refresh['email'] = user.email
             refresh['role'] = user.role
 

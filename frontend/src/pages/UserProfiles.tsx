@@ -392,7 +392,7 @@ export default function UserProfiles() {
                     )}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  @{displayUser?.username || "-"}
+                  {displayUser?.email || "-"}
                 </span>
               </div>
             </div>
@@ -625,24 +625,7 @@ export default function UserProfiles() {
                     <p className="text-red-500 text-sm">{formErrors.email}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="text-base">
-                    Username *
-                  </Label>
-                  <Input
-                    type="text"
-                    id="username"
-                    name="username"
-                    value={editUser.username}
-                    onChange={handleChange}
-                    className={formErrors.username ? "border-red-500" : ""}
-                  />
-                  {formErrors.username && (
-                    <p className="text-red-500 text-sm">
-                      {formErrors.username}
-                    </p>
-                  )}
-                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-base">
                     Password (leave blank to keep current)
