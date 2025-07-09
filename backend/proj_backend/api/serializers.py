@@ -11,6 +11,7 @@ import base64
 import uuid
 import string
 import logging
+from simple_history.utils import update_change_reason
 logger = logging.getLogger(__name__)
 
 DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
@@ -492,3 +493,16 @@ class NotificationSerializer(serializers.ModelSerializer):
             'notification_date',
             'is_read'
         ]
+
+
+class RequestManagementHistorySerializer(serializers.ModelSerializer):
+    history_user = serializers.StringRelatedField()
+    class Meta:
+        model = RequestManagement.history.model
+        fields = '__all__'
+
+class LiquidationManagementHistorySerializer(serializers.ModelSerializer):
+    history_user = serializers.StringRelatedField()
+    class Meta:
+        model = LiquidationManagement.history.model
+        fields = '__all__'

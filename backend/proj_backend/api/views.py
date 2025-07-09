@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer,RequestManagementHistorySerializer, LiquidationManagementHistorySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -1207,3 +1207,19 @@ def division_signatories(request):
         "superintendent": UserSerializer(superintendent).data if superintendent else None,
         "accountant": UserSerializer(accountant).data if accountant else None,
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def request_management_history(request, request_id):
+    req = RequestManagement.objects.get(request_id=request_id)
+    history = req.history.all().order_by('-history_date')
+    serializer = RequestManagementHistorySerializer(history, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def liquidation_management_history(request, LiquidationID):
+    liq = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
+    history = liq.history.all().order_by('-history_date')
+    serializer = LiquidationManagementHistorySerializer(history, many=True)
+    return Response(serializer.data)
