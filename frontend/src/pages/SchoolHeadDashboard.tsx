@@ -365,9 +365,8 @@ const SchoolHeadDashboard = () => {
                 : "Create New LOP"}
             </Button>
             {dashboardData.pendingRequests.length > 0 && (
-              <p className="text-xs text-yellow-600 mt-2">
-                Complete your current request before creating a new one. Only
-                one active request is allowed at a time.
+              <p className="text-xs text-red-600 mt-2">
+                Only one active request is allowed at a time.
               </p>
             )}
           </CardContent>
@@ -383,26 +382,29 @@ const SchoolHeadDashboard = () => {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-4">
-              Upload supporting documents for your MOOE expenditures
+              Upload supporting documents for your Liquidation Report
             </p>
             <Button
-              variant="outline"
               onClick={() => navigate("/liquidation")}
-              className="w-full"
               disabled={
                 !dashboardData.pendingRequests.some(
                   (req: any) => req.status === "downloaded"
                 )
               }
+              className="w-full"
             >
-              View Liquidations
+              {dashboardData.pendingRequests.some(
+                (req: any) => req.status === "downloaded"
+              )
+                ? "View Liquidations"
+                : "No Downloaded Requests"}
             </Button>
-            {!dashboardData.pendingRequests.some(
+            {dashboardData.pendingRequests.some(
               (req: any) => req.status === "downloaded"
-            ) && (
-              <p className="text-xs text-yellow-600 mt-2">
+            ) ? null : (
+              <p className="text-xs text-red-600 mt-2">
                 You can only submit a liquidation after your request has been
-                downloaded.
+                downloaded. Complete your current request first.
               </p>
             )}
           </CardContent>
