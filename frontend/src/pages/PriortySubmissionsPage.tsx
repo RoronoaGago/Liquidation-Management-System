@@ -28,7 +28,7 @@ import {
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import api from "@/api/axios";
-import { Submission, School } from "@/lib/types";
+import { Submission, School, Priority } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
@@ -76,10 +76,8 @@ const PriortySubmissionsPage = () => {
       const res = await api.get("requests/?status=pending");
       setSubmissionsState(res.data);
       // Fetch schools for filter dropdown
-      console.log(res.data);
       const schoolRes = await api.get("schools/");
       setSchools(schoolRes.data);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("Failed to fetch submissions:", err);
       setError("Failed to fetch submissions");
@@ -92,7 +90,6 @@ const PriortySubmissionsPage = () => {
     fetchSubmissions();
   }, []);
 
-  // Approve handler (should call backend in real app)
   // Approve handler
   const handleApprove = async (submission: Submission) => {
     setActionLoading("approve");
@@ -133,10 +130,10 @@ const PriortySubmissionsPage = () => {
     }
   };
 
-  // Reject handler (should call backend in real app)
+  // Reject handler
   const handleRejectClick = (submission: Submission) => {
     setSubmissionToReject(submission);
-    setRejectionReason(""); // Clear any previous reason
+    setRejectionReason("");
     setIsRejectDialogOpen(true);
   };
 
@@ -144,7 +141,7 @@ const PriortySubmissionsPage = () => {
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      setCurrentPage(1); // Reset to first page on search
+      setCurrentPage(1);
     }, 400);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -163,7 +160,7 @@ const PriortySubmissionsPage = () => {
         return (
           userName.includes(term) ||
           school.includes(term) ||
-          submission.priorities.some((p) =>
+          submission.priorities.some((p: Priority) =>
             p.priority.expenseTitle.toLowerCase().includes(term)
           ) ||
           submission.status.toLowerCase().includes(term) ||
@@ -297,32 +294,6 @@ const PriortySubmissionsPage = () => {
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           </div>
-          {/* <select
-            value={filterOptions.status}
-            onChange={(e) =>
-              setFilterOptions((prev) => ({ ...prev, status: e.target.value }))
-            }
-            className="min-w-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
-          >
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          <select
-            value={filterOptions.school}
-            onChange={(e) =>
-              setFilterOptions((prev) => ({ ...prev, school: e.target.value }))
-            }
-            className="min-w-[120px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
-          >
-            <option value="">All Schools</option>
-            {schools.map((school) => (
-              <option key={school.schoolId} value={school.schoolId}>
-                {school.schoolName}
-              </option>
-            ))}
-          </select> */}
         </div>
         <div className="flex gap-4 w-full md:w-auto items-center">
           <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
@@ -437,23 +408,15 @@ const PriortySubmissionsPage = () => {
 
           {viewedSubmission && (
             <div className="space-y-6">
-              {/* Sender Details Card - Improved for long IDs */}
+              {/* Sender Details Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {" "}
-                  {/* Changed to 3 columns */}
                   <div className="space-y-1 col-span-2">
-                    {" "}
-                    {/* Takes more space */}
                     <div className="flex items-start">
-                      {" "}
-                      {/* Changed to items-start */}
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
                         Request ID:
                       </span>
                       <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
-                        {" "}
-                        {/* Added min-w-0 */}
                         {viewedSubmission.request_id}
                       </span>
                     </div>
@@ -539,25 +502,27 @@ const PriortySubmissionsPage = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {viewedSubmission.priorities.map((priority, idx) => (
-                          <tr
-                            key={idx}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                          >
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                              {priority.priority.expenseTitle}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
-                              ₱
-                              {Number(priority.amount).toLocaleString(
-                                undefined,
-                                {
-                                  minimumFractionDigits: 2,
-                                }
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                        {viewedSubmission.priorities.map(
+                          (priority: Priority, idx: number) => (
+                            <tr
+                              key={idx}
+                              className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                            >
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                                {priority.priority.expenseTitle}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
+                                ₱
+                                {Number(priority.amount).toLocaleString(
+                                  undefined,
+                                  {
+                                    minimumFractionDigits: 2,
+                                  }
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        )}
                         <tr className="bg-gray-50/50 dark:bg-gray-700/30 font-semibold">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
                             TOTAL
@@ -565,7 +530,10 @@ const PriortySubmissionsPage = () => {
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
                             ₱
                             {viewedSubmission.priorities
-                              .reduce((sum, p) => sum + Number(p.amount), 0)
+                              .reduce(
+                                (sum, p: Priority) => sum + Number(p.amount),
+                                0
+                              )
                               .toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                               })}
@@ -576,7 +544,7 @@ const PriortySubmissionsPage = () => {
                   </div>
                 </div>
               </div>
-              {/* Add this block right here */}
+              {/* Rejection details */}
               {viewedSubmission?.status === "rejected" &&
                 viewedSubmission.rejection_comment && (
                   <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900/30">
@@ -673,7 +641,7 @@ const PriortySubmissionsPage = () => {
                       }
                       loading={actionLoading === "reject"}
                     >
-                      {loading ? "Processing..." : "Reject"}
+                      Reject
                     </Button>
                     <Button
                       type="button"
@@ -693,7 +661,7 @@ const PriortySubmissionsPage = () => {
           )}
         </DialogContent>
       </Dialog>
-      {/* Reject Confirmation Dialog */}
+
       {/* Reject Confirmation Dialog */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
@@ -734,6 +702,7 @@ const PriortySubmissionsPage = () => {
                     setIsRejectDialogOpen(false);
                     setRejectionReason("");
                   }}
+                  disabled={actionLoading === "reject"}
                 >
                   Cancel
                 </Button>
@@ -747,69 +716,12 @@ const PriortySubmissionsPage = () => {
                       toast.error("Please provide a rejection reason");
                     }
                   }}
-                  disabled={!rejectionReason.trim()}
+                  disabled={
+                    !rejectionReason.trim() || actionLoading === "reject"
+                  }
+                  loading={actionLoading === "reject"}
                 >
                   Confirm Rejection
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Reason Dialog */}
-      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
-          <DialogHeader className="mb-6">
-            <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
-              Reject Submission
-            </DialogTitle>
-          </DialogHeader>
-          {submissionToReject && (
-            <div className="space-y-4">
-              <p className="text-gray-600 dark:text-gray-400">
-                Are you sure you want to reject the submission from{" "}
-                <strong>
-                  {submissionToReject.user.first_name}{" "}
-                  {submissionToReject.user.last_name}
-                </strong>
-                ? This action cannot be undone.
-              </p>
-              <div className="flex flex-col">
-                <label
-                  htmlFor="rejection-reason"
-                  className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Reason for Rejection
-                </label>
-                <textarea
-                  id="rejection-reason"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-2"
-                  rows={4}
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsRejectDialogOpen(false);
-                    setSubmissionToReject(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => {
-                    handleReject(submissionToReject, rejectionReason);
-                    setIsRejectDialogOpen(false);
-                  }}
-                >
-                  Confirm Reject
                 </Button>
               </div>
             </div>
@@ -850,7 +762,9 @@ const PriortySubmissionsPage = () => {
                 ) : null
               }
             >
-              {actionLoading ? "Approving..." : "Confirm Approval"}
+              {actionLoading === "approve"
+                ? "Approving..."
+                : "Confirm Approval"}
             </Button>
           </div>
         </DialogContent>

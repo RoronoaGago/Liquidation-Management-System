@@ -8,6 +8,7 @@ import {
 import { login as authLogin, logout as authLogout } from "../api/auth";
 import { jwtDecode } from "jwt-decode";
 import api from "@/api/axios";
+import axios from "axios";
 import { useNavigate } from "react-router";
 
 interface UserData {
@@ -85,6 +86,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (response.data.access) {
         localStorage.setItem("accessToken", response.data.access);
+        if (response.data.refresh) {
+          localStorage.setItem("refreshToken", response.data.refresh);
+        }
         setPasswordChangeRequired(false);
       }
 
@@ -95,9 +99,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("accessToken");
-      if (token) {
+    const checkAuth = async () => {
+      let token = localStorage.getItem("accessToken");
+      const refreshToken = localStorage.getItem("refreshToken");
+
+      // Helper to decode and check expiry
+      const isTokenExpired = (token: string) => {
+        try {
+          const { exp } = jwtDecode<{ exp: number }>(token);
+          return exp * 1000 < Date.now();
+        } catch {
+          return true;
+        }
+      };
+
+      if (token && !isTokenExpired(token)) {
         try {
           const userData = decodeToken(token);
           setUser(userData);
@@ -108,7 +124,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthenticated(false);
           setUser(null);
         }
+        setIsLoading(false);
+        return;
       }
+
+      // If access token is missing or expired, try to refresh
+      if (refreshToken) {
+        try {
+          const response = await axios.post(
+            "http://127.0.0.1:8000/api/token/refresh/",
+            { refresh: refreshToken }
+          );
+          if (response.data?.access) {
+            localStorage.setItem("accessToken", response.data.access);
+            token = response.data.access;
+            if (token) {
+              const userData = decodeToken(token);
+              setUser(userData);
+              setIsAuthenticated(true);
+              setPasswordChangeRequired(
+                userData.password_change_required || false
+              );
+            }
+            setIsLoading(false);
+            return;
+          }
+        } catch {
+          // Refresh failed, clear tokens
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      }
+
       setIsLoading(false);
     };
     checkAuth();

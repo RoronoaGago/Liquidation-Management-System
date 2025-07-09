@@ -37,7 +37,6 @@ const App = () => {
   console.log("Password change required:", passwordChangeRequired);
   return (
     <>
-      <LiquidationReminder />
       {/* Main application routes */}
       <Routes>
         {/* Public routes */}
@@ -88,7 +87,6 @@ const App = () => {
                 path="/fund-request/request-list"
                 element={<RequestsList />}
               /> */}
-            <Route path="/liquidation" element={<LiquidationPage />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={["superintendent"]} />}>
@@ -137,6 +135,13 @@ const App = () => {
             />
           </Route>
           <Route
+            element={
+              <RequireAuth allowedRoles={["school_admin", "school_head"]} />
+            }
+          >
+            <Route path="/liquidation" element={<LiquidationPage />} />
+          </Route>
+          <Route
             element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
           >
             <Route path="/schools" element={<ManageSchools />} />
@@ -150,6 +155,7 @@ const App = () => {
         <Route path="*" element={<Navigate to="/" replace />} />-
       </Routes>
       {passwordChangeRequired && <PasswordChangeModal />}
+      <LiquidationReminder />
     </>
   );
 };

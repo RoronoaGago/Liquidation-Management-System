@@ -132,7 +132,7 @@ const LiquidationPage = () => {
           })),
           refund: Number(data.refund) || 0,
           uploadedDocuments: data.documents || [],
-          remaining_days: data.remaining_days || null,
+          remaining_days: data.remaining_days ?? null,
         });
         console.log(request);
       } catch (err) {
@@ -232,7 +232,6 @@ const LiquidationPage = () => {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      
 
       // Refresh data
       const res = await api.get("/liquidation/");
@@ -310,7 +309,6 @@ const LiquidationPage = () => {
       await api.delete(
         `/liquidations/${request.liquidationID}/documents/${docId}/`
       );
-      
 
       // Refresh data
       const res = await api.get("/liquidation/");
@@ -409,9 +407,8 @@ const LiquidationPage = () => {
     if (zeroAmountExpenses.length > 0) {
       const expenseNames = zeroAmountExpenses.map((e) => e.title).join(", ");
       toast.error(
-        `The following expenses have an actual amount of 0: ${expenseNames}!`
+        `Actual amount spent cannot be 0. Please update: ${expenseNames}`
       );
-      // toast.error("Please enter actual amount spent for all expenses");
       return;
     }
 
@@ -767,7 +764,7 @@ const LiquidationPage = () => {
                     {(request.status === "draft"
                       ? dynamicRefund
                       : request.refund) > 0
-                      ? "Refund Due to Requestee"
+                      ? "Refund Due to the Division Office"
                       : (request.status === "draft"
                           ? dynamicRefund
                           : request.refund) < 0
@@ -782,7 +779,7 @@ const LiquidationPage = () => {
                           request.status === "draft"
                             ? dynamicRefund
                             : request.refund
-                        )} to the requestee. This is the unspent portion of the requested funds.`
+                        )} to the Division Office. This is the unspent portion of the requested funds.`
                       : (request.status === "draft"
                           ? dynamicRefund
                           : request.refund) < 0
@@ -853,7 +850,13 @@ const LiquidationPage = () => {
                           days remaining
                         </>
                       ) : (
-                        "Liquidation period has ended"
+                        <>
+                          Liquidation period has ended
+                          <p className="text-sm mt-1 text-red-600 font-semibold">
+                            Overdue! A demand letter has been sent to your
+                            email.
+                          </p>
+                        </>
                       )}
                     </h4>
                     {request.remaining_days > 0 &&
@@ -874,20 +877,36 @@ const LiquidationPage = () => {
                 open={isConfirmDialogOpen}
                 onOpenChange={setIsConfirmDialogOpen}
               >
-                <DialogTrigger asChild>
-                  <Button
-                    variant="primary"
-                    disabled={
-                      isSubmitDisabled ||
-                      isSubmitting ||
-                      (request.status !== "draft" &&
-                        request.status !== "resubmit")
+                <Button
+                  variant="primary"
+                  disabled={
+                    isSubmitDisabled ||
+                    isSubmitting ||
+                    (request.status !== "draft" &&
+                      request.status !== "resubmit") ||
+                    user?.role === "school_admin"
+                  }
+                  size="md"
+                  onClick={() => {
+                    if (!request) return;
+                    // Check for expenses with actual amount = 0
+                    const zeroAmountExpenses = request.expenses.filter(
+                      (expense) => Number(expense.actualAmount) === 0
+                    );
+                    if (zeroAmountExpenses.length > 0) {
+                      const expenseNames = zeroAmountExpenses
+                        .map((e) => e.title)
+                        .join(", ");
+                      toast.error(
+                        `Actual amount spent cannot be 0. Please update: ${expenseNames}`
+                      );
+                      return;
                     }
-                    size="md"
-                  >
-                    Submit Liquidation
-                  </Button>
-                </DialogTrigger>
+                    setIsConfirmDialogOpen(true); // Only open if validation passes
+                  }}
+                >
+                  Submit Liquidation
+                </Button>
 
                 <DialogContent className="max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-xl border border-gray-200 dark:border-gray-700">
                   <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -927,7 +946,7 @@ const LiquidationPage = () => {
                             {(request.status === "draft"
                               ? dynamicRefund
                               : request.refund) > 0
-                              ? "Refund Due to Requestee"
+                              ? "Refund Due to the Division Office"
                               : (request.status === "draft"
                                   ? dynamicRefund
                                   : request.refund) < 0
@@ -942,7 +961,7 @@ const LiquidationPage = () => {
                                   request.status === "draft"
                                     ? dynamicRefund
                                     : request.refund
-                                )} to the Requestee. This is the unspent portion of the requested funds.`
+                                )} to the Division Office. This is the unspent portion of the requested funds.`
                               : (request.status === "draft"
                                   ? dynamicRefund
                                   : request.refund) < 0
@@ -1066,6 +1085,7 @@ const LiquidationPage = () => {
                             </div>
                             <input
                               type="number"
+                              min={0}
                               value={expense.actualAmount || ""}
                               disabled={request.status !== "draft"}
                               onChange={(event) => {
