@@ -77,6 +77,21 @@ class UserSerializer(serializers.ModelSerializer):
                 "School is required for this role")
         if data.get('profile_picture_base64') == "":
             data.pop('profile_picture_base64')
+
+        role = data.get("role")
+        school = data.get("school") or data.get(
+            "school_id")  # handle both create and update
+
+        if role in ["school_head", "school_admin"] and school:
+            # Exclude self in update
+            user_id = self.instance.pk if self.instance else None
+            qs = User.objects.filter(role=role, school=school)
+            if user_id:
+                qs = qs.exclude(pk=user_id)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"role": f"There is already a {role.replace('_', ' ')} assigned to this school."}
+                )
         return data
 
     def create(self, validated_data):

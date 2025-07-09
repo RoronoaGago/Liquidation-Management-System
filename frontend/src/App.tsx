@@ -88,7 +88,6 @@ const App = () => {
                 path="/fund-request/request-list"
                 element={<RequestsList />}
               /> */}
-            <Route path="/liquidation" element={<LiquidationPage />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={["superintendent"]} />}>
@@ -135,6 +134,13 @@ const App = () => {
               path="/prepare-list-of-priorities"
               element={<ListOfPrioritiesPage />}
             />
+          </Route>
+          <Route
+            element={
+              <RequireAuth allowedRoles={["school_admin", "school_head"]} />
+            }
+          >
+            <Route path="/liquidation" element={<LiquidationPage />} />
           </Route>
           <Route
             element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
