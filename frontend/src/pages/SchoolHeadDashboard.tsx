@@ -236,7 +236,7 @@ const SchoolHeadDashboard = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Active Requests
+              Active Request
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -273,7 +273,7 @@ const SchoolHeadDashboard = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Active Liquidations
+              Active Liquidation
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -362,7 +362,7 @@ const SchoolHeadDashboard = () => {
             >
               {dashboardData.pendingRequests.length > 0
                 ? "Pending Request Exists"
-                : "Create New LOP"}
+                : "Submit New Request"}
             </Button>
             {dashboardData.pendingRequests.length > 0 && (
               <p className="text-xs text-red-600 mt-2">
@@ -399,14 +399,23 @@ const SchoolHeadDashboard = () => {
                 ? "View Liquidations"
                 : "No Downloaded Requests"}
             </Button>
-            {dashboardData.pendingRequests.some(
+            {dashboardData.pendingRequests.length > 0 &&
+              !dashboardData.pendingRequests.some(
+                (req: any) => req.status === "downloaded"
+              ) && (
+                <p className="text-xs text-yellow-600 mt-2">
+                  You can only submit a liquidation after your request has been
+                  downloaded. Complete your current request first.
+                </p>
+              )}
+            {/* {dashboardData.pendingRequests.some(
               (req: any) => req.status === "downloaded"
             ) ? null : (
               <p className="text-xs text-red-600 mt-2">
                 You can only submit a liquidation after your request has been
-                downloaded. Complete your current request first.
+                downloaded.
               </p>
-            )}
+            )} */}
           </CardContent>
         </Card>
       </div>
