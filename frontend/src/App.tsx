@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
@@ -31,9 +32,10 @@ import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
 import PasswordChangeModal from "./components/common/PasswordChangeModal";
+import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
 
 const App = () => {
-  const { passwordChangeRequired } = useAuth();
+  const { passwordChangeRequired, user } = useAuth();
   console.log("Password change required:", passwordChangeRequired);
   return (
     <>
@@ -46,7 +48,16 @@ const App = () => {
         <Route element={<AppLayout />}>
           {/* Common routes accessible to all authenticated users */}
           <Route element={<RequireAuth />}>
-            <Route path="/" element={<Home />} />
+            <Route
+              path="/"
+              element={
+                user?.role === "school_head" ? (
+                  <SchoolHeadDashboard />
+                ) : (
+                  <Home />
+                )
+              }
+            />
             <Route path="/profile" element={<UserProfile />} />
           </Route>
 
