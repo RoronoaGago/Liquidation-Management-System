@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer,RequestManagementHistorySerializer, LiquidationManagementHistorySerializer
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -647,6 +647,22 @@ def check_pending_requests(request):
     return Response(response_data)
 
 
+def get_priorities_for_history(request_id, as_of_date):
+    # Get all priority history records that existed at or before as_of_date
+    from .models import RequestPriority
+    priorities = RequestPriority.history.as_of(
+        as_of_date).filter(request_id=request_id)
+
+    return [
+        {
+            "expenseTitle": rp.priority.expenseTitle,
+            "LOPID": rp.priority.LOPID,
+            "amount": rp.amount,
+        }
+        for rp in priorities
+    ]
+
+
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def resubmit_request(request, request_id):
@@ -1084,11 +1100,9 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
 
 
 @api_view(['PATCH'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def batch_update_school_budgets(request):
-    logger.debug(f"Incoming data: {request.data}")
     updates = request.data.get("updates", [])
-
     if not isinstance(updates, list):
         return Response({"error": "Invalid data format."}, status=400)
 
@@ -1097,24 +1111,12 @@ def batch_update_school_budgets(request):
 
     with transaction.atomic():
         for upd in updates:
-
             school_id = str(upd.get("schoolId")).strip()
             max_budget = upd.get("max_budget")
-
-            logger.debug(f"Processing school ID: {school_id}")
-
+            print("Updating:", school_id, "to", max_budget)
             try:
-                # Add debug logging before query
-                logger.debug(f"Looking for school with ID: {school_id}")
-                logger.debug(
-                    f"Existing school IDs: {list(School.objects.values_list('schoolId', flat=True)[:10])}")
-
                 school = School.objects.get(schoolId=school_id)
-
                 if max_budget is not None and float(max_budget) >= 0:
-                    # Debug log
-                    logger.debug(
-                        f"Updating school {school_id} budget from {school.max_budget} to {max_budget}")
                     school.max_budget = float(max_budget)
                     school.save()
                     updated_ids.append(school_id)
@@ -1122,11 +1124,9 @@ def batch_update_school_budgets(request):
                     errors.append(
                         {"schoolId": school_id, "error": "Invalid budget"})
             except School.DoesNotExist:
-                logger.warning(f"School not found: {school_id}")
                 errors.append(
                     {"schoolId": school_id, "error": "School not found"})
             except Exception as e:
-                logger.error(f"Error processing school {school_id}: {str(e)}")
                 errors.append({"schoolId": school_id, "error": str(e)})
 
     return Response({
@@ -1208,13 +1208,33 @@ def division_signatories(request):
         "accountant": UserSerializer(accountant).data if accountant else None,
     })
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def request_management_history(request, request_id):
+def request_history(request, request_id):
     req = RequestManagement.objects.get(request_id=request_id)
-    history = req.history.all().order_by('-history_date')
-    serializer = RequestManagementHistorySerializer(history, many=True)
-    return Response(serializer.data)
+    history = req.history.order_by('-history_date')
+    data = []
+    for h in history:
+        priorities = get_priorities_for_history(h.request_id, h.history_date)
+        data.append({
+            "priorities": priorities,
+            "status": h.status,
+            "rejection_comment": h.rejection_comment,
+            "rejection_date": h.rejection_date,
+            "created_at": h.created_at,
+            "user": {
+                "first_name": h.user.first_name if h.user else "",
+                "last_name": h.user.last_name if h.user else "",
+                "school": {
+                    "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
+                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "",
+                } if h.user and h.user.school else None,
+            } if h.user else None,
+            "request_id": h.request_id,
+        })
+    return Response(data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
