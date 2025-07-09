@@ -1045,9 +1045,14 @@ class UserLiquidationsAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return LiquidationManagement.objects.filter(
-            request__user=self.request.user
-        ).order_by('-created_at')
+        user = self.request.user
+        if user.role == "school_head":
+            return LiquidationManagement.objects.filter(request__user=user).order_by('-created_at')
+        elif user.role == "school_admin":
+            # Allow school admin to see liquidations for their school
+            return LiquidationManagement.objects.filter(request__user__school=user.school).order_by('-created_at')
+        else:
+            return LiquidationManagement.objects.none()
 
 
 class UserRequestListAPIView(generics.ListAPIView):
