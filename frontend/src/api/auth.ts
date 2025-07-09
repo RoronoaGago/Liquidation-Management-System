@@ -1,16 +1,16 @@
 import api from './axios';
 
-export const login = async (username: string, password: string) => {
+export const login = async (email: string, password: string) => {
     try {
         const response = await api.post('http://127.0.0.1:8000/api/token/', {
-            username,
+            email,
             password
         });
 
         if (response.data?.access) {
-            localStorage.setItem('access_token', response.data.access);
+            localStorage.setItem('accessToken', response.data.access);
             if (response.data.refresh) {
-                localStorage.setItem('refresh_token', response.data.refresh);
+                localStorage.setItem('refreshToken', response.data.refresh);
             }
             return response.data;
         }
@@ -21,7 +21,7 @@ export const login = async (username: string, password: string) => {
         if (error.response) {
             // Handle HTTP errors
             if (error.response.status === 401) {
-                throw new Error('Invalid username or password');
+                throw new Error('Invalid email or password');
             } else if (error.response.status >= 500) {
                 throw new Error('Server error. Please try again later.');
             }
@@ -32,8 +32,8 @@ export const login = async (username: string, password: string) => {
 };
 
 export const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
 };
 
 export const getProtectedData = async () => {

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Formal Demand for Liquidation</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: #f5f8fa; 
+            margin: 0; 
+            padding: 0; 
+            line-height: 1.6;
+            color: #333;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 30px auto; 
+            background: #fff; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+            overflow: hidden; 
+        }
+        .header { 
+            background: linear-gradient(135deg, #094684 0%, #DD1F2F 50%, #FBAF3D 100%); 
+            color: #fff; 
+            text-align: center; 
+            padding: 30px 0 20px 0;
+            position: relative;
+        }
+        .header:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(0,0,0,0.1);
+        }
+        .header img { 
+            max-height: 70px; 
+            margin-bottom: 15px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+        .company-name { 
+            font-size: 1.5em; 
+            font-weight: 600; 
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        .company-subtitle {
+            font-size: 0.9em;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        .content { 
+            padding: 35px 40px 25px 40px; 
+        }
+        .letter-head {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #003366;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        .date {
+            text-align: right;
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 0.95em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            font-size: 0.95em;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        th, td {
+            border: 1px solid #e0e0e0;
+            padding: 12px 15px;
+            text-align: left;
+        }
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #094684;
+        }
+        .signature {
+            margin-top: 40px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .urgent {
+            color: #DD1F2F;
+            font-weight: bold;
+        }
+        .legal-reference {
+            background: #f8fafc;
+            border-left: 4px solid #094684;
+            padding: 16px;
+            margin: 25px 0;
+            font-size: 0.95em;
+            border-radius: 0 4px 4px 0;
+        }
+        .action-items {
+            background: #fff8f0;
+            padding: 18px;
+            border-radius: 6px;
+            margin: 25px 0;
+            border-left: 4px solid #FBAF3D;
+        }
+        .recipient-info {
+            background: #f0f7ff;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+        .footer { 
+            background: #f0f3f7; 
+            color: #666; 
+            text-align: center; 
+            padding: 20px; 
+            font-size: 0.85em;
+            border-top: 1px solid #e0e4e8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="DepEd_logo-W.png" alt="DepEd Logo">
+            <div class="company-name">MOOE Liquidation Management System</div>
+            <div class="company-subtitle">Department of Education, La Union Schools Division</div>
+        </div>
+
+        <div class="content">
+            <div class="date">{{ now|date:"F j, Y" }}</div>
+
+            <div class="recipient-info">
+                <strong>To:</strong> {{ recipient_name }}<br>
+                <strong>From:</strong> {{ sender_name }}<br>
+                <strong>Subject:</strong> Formal Demand for Liquidation of Cash Advance
+            </div>
+
+            <p class="letter-head">Formal Demand for Liquidation</p>
+            <p><strong>Reference:</strong> Request {{ request_id }}</p>
+
+            <p>Dear {{ recipient_title }} {{ recipient_last_name }},</p>
+
+            <p>This official communication serves as formal notification that as of <strong>{{ now|date:"F j, Y" }}</strong>, our records indicate the following cash advances remain <span class="urgent">unliquidated and overdue</span> despite prior reminders:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Check/ADA No.</th>
+                        <th>Issue Date</th>
+                        <th>Particulars</th>
+                        <th>Balance Due</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.number }}</td>
+                        <td>{{ item.date }}</td>
+                        <td>{{ item.description }}</td>
+                        <td>{{ item.amount }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td colspan="3"><strong>TOTAL UNLIQUIDATED BALANCES</strong></td>
+                        <td><strong>{{ total_amount }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="action-items">
+                <p><strong>Required Immediate Actions:</strong></p>
+                <ol>
+                    <li>Submit complete liquidation documents to the Accounting Office <span class="urgent">no later than {{ deadline }}</span></li>
+                    <li>Refund any excess amounts to the Cashier immediately</li>
+                    <li>Submit written explanation for the delay</li>
+                </ol>
+            </div>
+
+            <div class="legal-reference">
+                <p><strong>Legal Reference:</strong> CSC Resolution No. 1900929 and COA Circular 97-002 stipulate that failure to liquidate within the prescribed period constitutes:</p>
+                <ul>
+                    <li>Gross Neglect of Duty (dismissal for first offense)</li>
+                    <li>Withholding of salaries and payments</li>
+                    <li>Administrative/criminal liability</li>
+                </ul>
+            </div>
+
+            <p class="urgent">This matter requires your immediate attention. Failure to comply by the deadline will result in automatic escalation to the Legal Office and Commission on Audit.</p>
+
+            <div class="signature">
+                <p>Sincerely,</p>
+                <p><strong>{{ sender_name }}</strong><br>
+                {{ sender_position }}<br>
+                {{ office_name }}<br>
+                {{ contact_information }}</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Cc: {{ legal_officer }}, Legal Office | {{ audit_leader }}, COA</p>
+            <p>This is an official communication from {{ organization_name }}. Unauthorized use is prohibited.</p>
+        </div>
+    </div>
+</body>
+</html>

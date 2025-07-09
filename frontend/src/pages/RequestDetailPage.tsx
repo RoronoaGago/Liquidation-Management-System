@@ -12,7 +12,7 @@ import {
   ArrowDownToLineIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import FundRequest from "./FundRequest";
+import FundRequest from "./MOOERequestPage";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
 
 const RequestDetailPage = () => {

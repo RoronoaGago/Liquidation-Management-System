@@ -13,7 +13,7 @@ export default function AuthLayout({
       <div className="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900 sm:p-0">
         {children}
         <div className="fixed z-50 hidden bottom-6 right-6 sm:block">
-          <ThemeTogglerTwo />
+          {/* <ThemeTogglerTwo /> */}
         </div>
       </div>
     </div>

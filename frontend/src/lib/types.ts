@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface BaseUser {
   id: number;
   first_name: string;
@@ -18,6 +19,7 @@ export interface School {
   municipality: string;
   legislativeDistrict: string;
   is_active?: boolean;
+  max_budget?: number; // Optional field for budget allocation
 }
 export type User = {
   id: number;
@@ -33,7 +35,8 @@ export type User = {
   is_active: boolean;
   password: string;
   confirm_password: string;
-  school: number | School | null;
+  school_district?: string;
+  school: School | null;
   profile_picture_base64?: string;
 };
 export type SortDirection = "asc" | "desc" | null;
@@ -59,9 +62,20 @@ export type DialogState = {
   bulkArchive: boolean;
 };
 
+
+export interface Assignment {
+  id: number;
+  district: string;
+  school: School | null;
+  assigned_at: string;
+}
 export interface FilterOptions {
   role: string;
   dateRange: { start: string; end: string };
+  searchTerm: string;
+}
+
+export interface AssignLiquidatorsFilterOptions {
   searchTerm: string;
 }
 export interface FormUser extends BaseUser {
@@ -113,6 +127,16 @@ export type UserFormData = {
 export type ListofPriorityData = {
   LOPID: number;
   expenseTitle: string;
+  category: string;
+  is_active?: boolean;
+  requirements?: (
+    | {
+      requirementID: number;
+      requirementTitle: string;
+      is_required: boolean;
+    }
+    | ListofPriorityData
+  )[];
 };
 
 export type NavItem = {
@@ -128,6 +152,7 @@ export type NavItem = {
 export type SubItem = {
   name: string;
   path: string;
+  icon: React.ReactNode;
   pro?: boolean;
   new?: boolean;
   roles?: string[];
@@ -147,8 +172,15 @@ export type Transaction = {
 };
 export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   children: React.ReactNode; // Button text or content
-  size?: "sm" | "md"; // Button size
-  variant?: "primary" | "outline" | "error" | "success" | "destructive" | "ghost"; // Button variant
+  size?: "sm" | "md" | "lg"; // Button size
+  variant?:
+  | "primary"
+  | "secondary" // Added secondary variant
+  | "outline"
+  | "error"
+  | "success"
+  | "destructive"
+  | "ghost"; // Button variant
   loading?: boolean;
   startIcon?: React.ReactNode; // Icon before the text
   endIcon?: React.ReactNode; // Icon after the text
@@ -171,19 +203,35 @@ export interface ListOfPriority {
 }
 
 export type Submission = {
+  date_approved: any;
   request_id: string;
   user: {
+    role: string;
     id: string;
     first_name: string;
     last_name: string;
     school: School | null; // Use School type for school details
   };
   priorities: Priority[];
-  status: "pending" | "approved" | "rejected" | "unliquidated";
+  status: "pending" | "approved" | "rejected" | "unliquidated" | "downloaded" | "liquidated" | "advanced";
   created_at: string;
+  rejection_comment: string; // Optional field for rejection reason
+  rejection_date: string; // Optional field for when the rejection occurred
+  reviewed_by: User;
+  reviewed_at?: string;
+  is_resubmission?: boolean;
+  previous_version?: string; // ID of the original submission if this is a resubmission
+  notes?: string; // Optional notes field
+  previous_request?: Submission; // Optional field for previous request
 };
 
-type Priority = {
+
+export type Prayoridad = {
+  expenseTitle: string;
+  amount: number;
+  LOPID: number;
+}
+export type Priority = {
   id: number;
   priority: {
     LOPID: number;

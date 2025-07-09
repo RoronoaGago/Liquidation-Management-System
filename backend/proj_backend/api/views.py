@@ -1,6 +1,8 @@
+from urllib import request
+from rest_framework.permissions import IsAuthenticated
 from .serializers import CustomTokenObtainPairSerializer
 from datetime import datetime, timedelta
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,16 +11,32 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import logging
 from django.db import transaction
-from django.core.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
+import string
+from django.contrib.auth import update_session_auth_hash
+from django.utils.crypto import get_random_string
+
 
 logger = logging.getLogger(__name__)
+
+
+class SchoolPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class UserPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class ProtectedView(APIView):
@@ -33,6 +51,45 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
+class CustomTokenRefreshView(TokenRefreshView):
+    serializer_class = CustomTokenRefreshSerializer
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    user = request.user
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not user.check_password(old_password):
+        return Response({"error": "Current password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password) < 8:
+        return Response({"error": "Password must be at least 8 characters"}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.password_change_required = False
+    user.save()
+
+    # Update the token to prevent automatic logout
+    refresh = RefreshToken.for_user(user)
+    # Add custom claims
+    refresh['first_name'] = user.first_name
+    refresh['last_name'] = user.last_name
+    refresh['email'] = user.email
+    refresh['role'] = user.role
+    refresh['profile_picture'] = user.profile_picture.url if user.profile_picture else None
+    refresh['school_district'] = user.school_district
+    refresh['password_change_required'] = user.password_change_required
+
+    return Response({
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "message": "Password updated successfully"
+    })
+
+
 @api_view(['GET', 'POST'])
 def user_list(request):
     """
@@ -45,6 +102,7 @@ def user_list(request):
         role_filter = request.query_params.get('role', None)
         school_filter = request.query_params.get('school', None)
         search_term = request.query_params.get('search', None)
+        ordering = request.query_params.get('ordering', '-date_joined')
 
         queryset = User.objects.exclude(id=request.user.id)
         # Archive filter
@@ -69,7 +127,6 @@ def user_list(request):
             queryset = queryset.filter(
                 Q(first_name__icontains=search_term) |
                 Q(last_name__icontains=search_term) |
-                Q(username__icontains=search_term) |
                 Q(email__icontains=search_term) |
                 Q(phone_number__icontains=search_term) |
                 Q(sex__icontains=search_term) |
@@ -79,9 +136,15 @@ def user_list(request):
                 Q(school__schoolId__icontains=search_term)
             )
 
-        queryset = queryset.order_by('-date_joined')
-        serializer = UserSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Add ordering support
+        if ordering:
+            queryset = queryset.order_by(ordering)
+
+        # Paginate
+        paginator = UserPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = UserSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     elif request.method == 'POST':
         # Only allow admins to create admin users
@@ -126,7 +189,7 @@ def user_detail(request, pk):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if sensitive fields were modified
-        sensitive_fields = ['email', 'password', 'username', 'role']
+        sensitive_fields = ['email',  'password', 'role']
         needs_new_token = any(
             field in request.data for field in sensitive_fields)
 
@@ -139,7 +202,6 @@ def user_detail(request, pk):
             refresh = RefreshToken.for_user(user)
             refresh['first_name'] = user.first_name
             refresh['last_name'] = user.last_name
-            refresh['username'] = user.username
             refresh['email'] = user.email
             refresh['role'] = user.role
 
@@ -187,18 +249,58 @@ def user_detail(request, pk):
 
 class SchoolListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = SchoolSerializer
+    pagination_class = SchoolPagination
 
     def get_queryset(self):
         queryset = School.objects.all()
         search_term = self.request.query_params.get('search', None)
+        legislative_district = self.request.query_params.get(
+            'legislative_district', None)
+        municipality = self.request.query_params.get('municipality', None)
+        district = self.request.query_params.get('district', None)
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
+
+        # Archive filter
+        if not archived:
+            queryset = queryset.filter(is_active=True)
+        else:
+            queryset = queryset.filter(is_active=False)
+
         if search_term:
             queryset = queryset.filter(
                 Q(schoolName__icontains=search_term) |
                 Q(district__icontains=search_term) |
                 Q(municipality__icontains=search_term)
             )
+        if legislative_district:
+            queryset = queryset.filter(
+                legislativeDistrict=legislative_district)
+        if municipality:
+            queryset = queryset.filter(municipality=municipality)
+        if district:
+            queryset = queryset.filter(district=district)
         return queryset.order_by('schoolName')
 
+    def create(self, request, *args, **kwargs):
+        # Support both batch and single creation
+        is_many = isinstance(request.data, list)
+        data = request.data if is_many else [request.data]
+
+        # Validate max_budget for each item
+        for item in data:
+            max_budget = item.get('max_budget')
+            if max_budget is not None and float(max_budget) < 0:
+                return Response(
+                    {"error": "Budget must be a positive number"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 # Add a new endpoint for school search
 
 
@@ -308,19 +410,40 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        # Automatically set the current user as the request creator
-        serializer.save(user=self.request.user)
+        try:
+            # Save with atomic transaction
+            with transaction.atomic():
+                instance = serializer.save(user=self.request.user)
+                # Force save to ensure signals fire
+                instance.save()
+                logger.info(
+                    f"Successfully created request {instance.request_id}")
+        except Exception as e:
+            logger.error(f"Failed to create request: {str(e)}")
+            raise
 
     def get_queryset(self):
         queryset = RequestManagement.objects.all()
 
-        # Filter by status if provided
+        # Filter by multiple statuses if provided (comma-separated)
         status_param = self.request.query_params.get('status')
         if status_param:
-            queryset = queryset.filter(status=status_param)
+            status_list = [s.strip()
+                           for s in status_param.split(',') if s.strip()]
+            if status_list:
+                queryset = queryset.filter(status__in=status_list)
+
+        # Filter by multiple school_ids if provided (comma-separated)
+        school_ids_param = self.request.query_params.get('school_ids')
+        if school_ids_param:
+            school_ids_list = [s.strip()
+                               for s in school_ids_param.split(',') if s.strip()]
+            if school_ids_list:
+                queryset = queryset.filter(
+                    user__school__schoolId__in=school_ids_list)
 
         # For non-admin users, only show their own requests
-        if not self.request.user.role in ['admin', 'superintendent', 'accountant']:
+        if self.request.user.role not in ['admin', 'superintendent', 'accountant']:
             queryset = queryset.filter(user=self.request.user)
 
         return queryset.order_by('-created_at')
@@ -332,10 +455,120 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
     permission_classes = [IsAuthenticated]
     lookup_field = 'request_id'
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        # Set the sender for notification
+        instance._status_changed_by = self.request.user
+        serializer.save()
+
+
+class ApproveRequestView(generics.UpdateAPIView):
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def update(self, request, *args, **kwargs):
+        with transaction.atomic():  # Ensure atomic transaction
+            # Lock the row to prevent race conditions
+            instance = RequestManagement.objects.select_for_update().get(
+                pk=kwargs['pk'])
+
+            print(f"Current status: {instance.status}")  # Debug log
+
+            # Permission check
+            if request.user.role not in ['admin', 'superintendent']:
+                return Response(
+                    {"detail": "Only administrators can approve requests"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # State validation
+            if instance.status != 'pending':
+                return Response(
+                    {"detail": f"Current status is '{instance.status}', must be 'pending'"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Prepare for notification
+            instance._old_status = instance.status
+            instance._status_changed_by = request.user
+            instance._skip_auto_status = True  # Add this line
+            instance.status = 'approved'
+            instance.date_approved = timezone.now().date()
+            instance.reviewed_by = request.user
+            instance.reviewed_at = timezone.now()
+
+            print(f"New status before save: {instance.status}")  # Debug log
+
+            try:
+                instance.save(update_fields=[
+                    'status',
+                    'date_approved',
+                    'reviewed_by',
+                    'reviewed_at'
+                ])
+                print(f"Status after save: {instance.status}")  # Debug log
+            except Exception as e:
+                print(f"Save failed: {str(e)}")  # Debug log
+                raise
+
+            # Verify in database
+            refreshed = RequestManagement.objects.get(pk=instance.pk)
+            print(f"Database status: {refreshed.status}")  # Debug log
+
+            return Response(self.get_serializer(instance).data)
+
+
+class RejectRequestView(generics.UpdateAPIView):
+    queryset = RequestManagement.objects.all()
+    serializer_class = RequestManagementSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance._old_status = instance.status  # CRITICAL: Track previous state
+        instance._status_changed_by = request.user
+        instance._skip_auto_status = True  # Add this line
+
+        # Permission check
+        if request.user.role not in ['admin', 'superintendent']:
+            return Response(
+                {"detail": "Only administrators can reject requests"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # State validation
+        if instance.status != 'pending':
+            return Response(
+                {"detail": "Only pending requests can be rejected"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Comment validation
+        rejection_comment = request.data.get('rejection_comment', '').strip()
+        if not rejection_comment:
+            return Response(
+                {"detail": "Please provide a rejection comment"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Save will trigger signals
+        instance.status = 'rejected'
+        instance.rejection_comment = request.data.get('rejection_comment')
+        instance.rejection_date = timezone.now().date()
+
+        # Explicit save
+        instance.save(
+            update_fields=['status', 'rejection_comment', 'rejection_date'])
+
+        return Response(self.get_serializer(instance).data)
+
 
 class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    View for retrieving, updating or deleting a specific request
+    View for retrieving, updating, or deleting a specific request.
     """
     queryset = RequestManagement.objects.all()
     serializer_class = RequestManagementSerializer
@@ -345,17 +578,22 @@ class RequestManagementDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         instance = self.get_object()
 
+        # Prevent editing if request is already approved
+        if instance.status == 'approved':
+            raise ValidationError("Cannot edit an already approved request")
+
         # Check if user has permission to edit this request
         if instance.user != self.request.user and self.request.user.role not in ['admin', 'superintendent']:
             raise PermissionDenied(
                 "You don't have permission to edit this request")
 
-        # Prevent editing if request is already approved/rejected
-        if instance.status in ['approved', 'rejected']:
-            raise ValidationError(
-                "Cannot edit an already approved/rejected request")
-
-        serializer.save()
+        # Allow updates for rejected requests and reset status to pending
+        if instance.status == 'rejected':
+            # Assuming status_changed_by is a model field
+            serializer.save(status='pending',
+                            status_changed_by=self.request.user)
+        else:
+            serializer.save()
 
 
 class RequestPriorityCreateView(generics.CreateAPIView):
@@ -382,85 +620,114 @@ class RequestPriorityCreateView(generics.CreateAPIView):
         serializer.save(request=request_obj)
 
 
-class ApproveRequestView(generics.UpdateAPIView):
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_pending_requests(request):
     """
-    View for approving a request (admin/superintendent only)
+    Check if user has any pending requests or liquidations that aren't completed
     """
-    queryset = RequestManagement.objects.all()
-    serializer_class = RequestManagementSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
+    # Check for pending/rejected requests
+    user_requests = RequestManagement.objects.filter(
+        user=request.user,
+        status__in=['pending', 'approved']  # Include rejected
+    ).order_by('-created_at')
 
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
+    # Check for liquidations that aren't completed
+    active_liquidations = LiquidationManagement.objects.filter(
+        request__user=request.user
+    ).exclude(status='completed').order_by('-created_at')
 
-        # Check if user has permission to approve
-        if request.user.role not in ['admin', 'superintendent']:
-            return Response(
-                {"detail": "Only administrators can approve requests"},
-                status=status.HTTP_403_FORBIDDEN
+    response_data = {
+        'has_pending_request': user_requests.exists(),
+        'has_active_liquidation': active_liquidations.exists(),
+        'pending_request': RequestManagementSerializer(user_requests.first()).data if user_requests.exists() else None,
+        'active_liquidation': LiquidationManagementSerializer(active_liquidations.first(), context={'request': request}).data if active_liquidations.exists() else None
+    }
+
+    return Response(response_data)
+
+
+def get_priorities_for_history(request_id, as_of_date):
+    # Get all priority history records that existed at or before as_of_date
+    from .models import RequestPriority
+    priorities = RequestPriority.history.as_of(
+        as_of_date).filter(request_id=request_id)
+
+    return [
+        {
+            "expenseTitle": rp.priority.expenseTitle,
+            "LOPID": rp.priority.LOPID,
+            "amount": rp.amount,
+        }
+        for rp in priorities
+    ]
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def resubmit_request(request, request_id):
+    try:
+        req = RequestManagement.objects.get(
+            request_id=request_id, user=request.user)
+
+        if req.status != 'rejected':
+            return Response({"error": "Only rejected requests can be resubmitted"}, status=400)
+
+        # Update priorities
+        RequestPriority.objects.filter(request=req).delete()
+        for pa in request.data.get('priority_amounts', []):
+            priority = ListOfPriority.objects.get(LOPID=pa['LOPID'])
+            RequestPriority.objects.create(
+                request=req,
+                priority=priority,
+                amount=pa['amount']
             )
 
-        # Check if request is in pending state
-        if instance.status != 'pending':
-            return Response(
-                {"detail": "Only pending requests can be approved"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Reset status and clear rejection fields
+        req.status = 'pending'
+        # req.rejection_comment = None
+        # req.rejection_date = None
+        req.save()
 
-        instance.status = 'approved'
-        instance.save()
+        # --- Notification logic ---
+        from .models import Notification
+        Notification.objects.create(
+            notification_title="Request Resubmitted",
+            details="Your request has been resubmitted and is pending review.",
+            receiver=req.user,
+            sender=request.user,
+        )
+        # --- End notification logic ---
 
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return Response(RequestManagementSerializer(req).data)
 
-
-class RejectRequestView(generics.UpdateAPIView):
-    """
-    View for rejecting a request (admin/superintendent only)
-    """
-    queryset = RequestManagement.objects.all()
-    serializer_class = RequestManagementSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
-
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-
-        # Check if user has permission to reject
-        if request.user.role not in ['admin', 'superintendent']:
-            return Response(
-                {"detail": "Only administrators can reject requests"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        # Check if request is in pending state
-        if instance.status != 'pending':
-            return Response(
-                {"detail": "Only pending requests can be rejected"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Require a rejection reason
-        rejection_reason = request.data.get('rejection_reason')
-        if not rejection_reason:
-            return Response(
-                {"detail": "Please provide a rejection reason"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        instance.status = 'rejected'
-        instance.rejection_reason = rejection_reason
-        instance.save()
-
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+    except RequestManagement.DoesNotExist:
+        return Response({"error": "Request not found"}, status=404)
 
 
 class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
     queryset = LiquidationManagement.objects.all()
     serializer_class = LiquidationManagementSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'liquidator':
+            # Show both approved_district and under_review_division for liquidators
+            return LiquidationManagement.objects.filter(
+                status__in=['approved_district', 'under_review_division']
+            )
+        elif user.role == 'school_head':
+            # Only return the latest liquidation for the school_head's requests
+            qs = LiquidationManagement.objects.filter(
+                request__user=user).order_by('-created_at')
+            latest = qs.first()
+            return LiquidationManagement.objects.filter(pk=latest.pk) if latest else LiquidationManagement.objects.none()
+        # All other users see all liquidations
+        return LiquidationManagement.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -468,6 +735,82 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
     serializer_class = LiquidationManagementSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'LiquidationID'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Prefetch related data for better performance
+        return queryset.select_related(
+            'request',
+            'request__user',
+            'request__user__school',
+            'reviewed_by_district',
+            'reviewed_by_division'
+        ).prefetch_related(
+            'documents',
+            'documents__requirement',
+            'documents__request_priority',
+            'documents__request_priority__priority',
+            'liquidation_priorities',
+            'liquidation_priorities__priority'
+        )
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance._old_status = instance.status  # Track previous status for signals
+        partial = kwargs.pop('partial', False)
+        data = request.data.copy()
+
+        # If approving at district level, set reviewed_by_district
+        if data.get("status") == "approved_district":
+            data["reviewed_by_district"] = request.user.id
+            data["reviewed_at_district"] = timezone.now()
+
+        # If rejecting (resubmit), capture rejection_comment
+        if data.get("status") == "resubmit":
+            rejection_comment = data.get('rejection_comment', '').strip()
+            if not rejection_comment:
+                return Response(
+                    {"detail": "Please provide a rejection comment for resubmission."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            instance.rejection_comment = rejection_comment
+
+        # Set the user who changed the status for notification
+        instance._status_changed_by = request.user  # <-- CRUCIAL for notifications!
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        instance._status_changed_by = self.request.user  # <-- CRUCIAL for notifications!
+        serializer.save()
+
+
+@api_view(['POST'])
+def approve_liquidation(request, LiquidationID):
+    try:
+        liquidation = LiquidationManagement.objects.get(
+            LiquidationID=LiquidationID)
+        if liquidation.status not in ['submitted', 'under_review_district', 'under_review_division']:
+            return Response(
+                {'error': 'Liquidation is not in a reviewable state'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # ... (other checks as needed) ...
+        liquidation._status_changed_by = request.user
+        liquidation.status = 'liquidated'
+        liquidation.reviewed_by = request.user
+        liquidation.reviewed_at = timezone.now()
+        liquidation.save()
+        serializer = LiquidationManagementSerializer(liquidation)
+        return Response(serializer.data)
+    except LiquidationManagement.DoesNotExist:
+        return Response(
+            {'error': 'Liquidation not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 
 class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
@@ -514,18 +857,49 @@ class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDes
 
 
 @api_view(['POST'])
-@transaction.atomic
 def submit_for_liquidation(request, request_id):
     try:
         with transaction.atomic():
             request_obj = RequestManagement.objects.select_for_update().get(request_id=request_id)
 
-            # Validate status transition
             if request_obj.status != 'approved':
                 return Response(
                     {'error': 'Request must be approved before liquidation'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            # Get download date from request data or use current date
+            download_date = request.data.get('download_date')
+            if download_date:
+                try:
+                    download_date = timezone.datetime.strptime(
+                        download_date, '%Y-%m-%d').date()
+                except (ValueError, TypeError):
+                    return Response(
+                        {'error': 'Invalid download date format. Use YYYY-MM-DD'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Validate download date is not in the future and not before approval date
+                if download_date > timezone.now().date():
+                    return Response(
+                        {'error': 'Download date cannot be in the future'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if request_obj.date_approved and download_date < request_obj.date_approved:
+                    return Response(
+                        {'error': 'Download date cannot be before approval date'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                download_date = timezone.now().date()
+
+            # First update the request status to 'downloaded' and set date_downloaded
+            request_obj._status_changed_by = request.user
+            request_obj.status = 'downloaded'
+            request_obj.downloaded_at = download_date  # Use the selected date
+            request_obj.save(update_fields=['status', 'downloaded_at'])
 
             # Create liquidation record
             liquidation, created = LiquidationManagement.objects.get_or_create(
@@ -539,7 +913,7 @@ def submit_for_liquidation(request, request_id):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Update request status
+            # Update request status to 'unliquidated' as final state
             request_obj.status = 'unliquidated'
             request_obj.save(update_fields=['status'])
 
@@ -556,60 +930,96 @@ def submit_for_liquidation(request, request_id):
             {'error': str(e)},
             status=status.HTTP_400_BAD_REQUEST
         )
-    except Exception as e:
-        return Response(
-            {'error': 'An unexpected error occurred'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def submit_liquidation(request, LiquidationID):
     try:
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=LiquidationID)
+        with transaction.atomic():
+            liquidation = LiquidationManagement.objects.select_for_update().get(
+                LiquidationID=LiquidationID
+            )
 
-        # Check if all required documents are uploaded
-        required_docs_missing = False
-        for rp in liquidation.request.requestpriority_set.all():
-            for req in rp.priority.requirements.filter(is_required=True):
-                if not LiquidationDocument.objects.filter(
-                    liquidation=liquidation,
-                    request_priority=rp,
-                    requirement=req
-                ).exists():
-                    required_docs_missing = True
+            # Check if all required documents are uploaded
+            required_docs_missing = False
+            for rp in liquidation.request.requestpriority_set.all():
+                for req in rp.priority.requirements.filter(is_required=True):
+                    if not LiquidationDocument.objects.filter(
+                        liquidation=liquidation,
+                        request_priority=rp,
+                        requirement=req
+                    ).exists():
+                        required_docs_missing = True
+                        break
+                if required_docs_missing:
                     break
+
+            # Allow submission if status is 'draft' or 'resubmit'
+            if liquidation.status not in ['draft', 'resubmit']:
+                return Response(
+                    {'error': 'Liquidation must be in draft or resubmit status to be submitted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             if required_docs_missing:
-                break
-        if liquidation.status != 'draft':
-            return Response(
-                {'error': 'Liquidation has already been submitted'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if required_docs_missing:
-            return Response(
-                {'error': 'All required documents must be uploaded before submission'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                return Response(
+                    {'error': 'All required documents must be uploaded before submission'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        # Update status to submitted
-        liquidation.status = 'submitted'
-        liquidation.save()
+            # Get the actual amounts from the request data
+            actual_amounts = request.data.get('actual_amounts', [])
 
-        serializer = LiquidationManagementSerializer(
-            liquidation,
-            context={'request': request}  # <-- Add this line
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            # Update liquidation priorities with actual amounts
+            for amount_data in actual_amounts:
+                try:
+                    priority = ListOfPriority.objects.get(
+                        LOPID=amount_data['expense_id'])
+                    liquidation_priority, created = LiquidationPriority.objects.get_or_create(
+                        liquidation=liquidation,
+                        priority=priority,
+                        defaults={'amount': amount_data['actual_amount']}
+                    )
+                    if not created:
+                        liquidation_priority.amount = amount_data['actual_amount']
+                        liquidation_priority.save()
+                except (ListOfPriority.DoesNotExist, KeyError):
+                    continue
+
+            # Recalculate refund
+            liquidation.refund = liquidation.calculate_refund()
+
+            # Update status to submitted and track who changed it
+            liquidation._status_changed_by = request.user
+            liquidation.status = 'submitted'
+            liquidation.save()
+
+            # Create notification for the reviewer
+            # Notification.objects.create(
+            #     notification_title="New Liquidation Submitted",
+            #     details=f"Liquidation {liquidation.LiquidationID} has been submitted for review.",
+            #     receiver=liquidation.request.user,  # Or the appropriate reviewer
+            #     sender=request.user,
+            # )
+
+            serializer = LiquidationManagementSerializer(
+                liquidation,
+                context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
     except LiquidationManagement.DoesNotExist:
         return Response(
             {'error': 'Liquidation not found'},
             status=status.HTTP_404_NOT_FOUND
         )
-
-# views.py
+    except Exception as e:
+        logger.error(f"Error submitting liquidation: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'An unexpected error occurred during submission'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])
@@ -620,35 +1030,38 @@ def view_liquidation(request, LiquidationID):
     return Response(serializer.data)
 
 
-def approve_liquidation(request, LiquidationID):
-    try:
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=LiquidationID)
-        if liquidation.status not in ['submitted', 'under_review']:
-            return Response(
-                {'error': 'Liquidation is not in a reviewable state'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+# @api_view(['POST'])
+# def approve_liquidation(request, LiquidationID):
+#     try:
+#         liquidation = LiquidationManagement.objects.get(
+#             LiquidationID=LiquidationID)
+#         if liquidation.status not in ['submitted', 'under_review']:
+#             return Response(
+#                 {'error': 'Liquidation is not in a reviewable state'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-        if liquidation.documents.filter(is_approved=False).exists():
-            return Response(
-                {'error': 'All documents must be approved first'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if liquidation.documents.filter(is_approved=False).exists():
+#             return Response(
+#                 {'error': 'All documents must be approved first'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
 
-        liquidation.status = 'completed'
-        liquidation.reviewed_by = request.user
-        liquidation.reviewed_at = timezone.now()
-        liquidation.save()
+#         # Set the user who changed the status for notification
+#         liquidation._status_changed_by = request.user
+#         liquidation.status = 'liquidated'
+#         liquidation.reviewed_by = request.user
+#         liquidation.reviewed_at = timezone.now()
+#         liquidation.save()
 
-        serializer = LiquidationManagementSerializer(liquidation)
-        return Response(serializer.data)
+#         serializer = LiquidationManagementSerializer(liquidation)
+#         return Response(serializer.data)
 
-    except LiquidationManagement.DoesNotExist:
-        return Response(
-            {'error': 'Liquidation not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+#     except LiquidationManagement.DoesNotExist:
+#         return Response(
+#             {'error': 'Liquidation not found'},
+#             status=status.HTTP_404_NOT_FOUND
+#         )
 
 
 class UserLiquidationsAPIView(generics.ListAPIView):
@@ -656,9 +1069,14 @@ class UserLiquidationsAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return LiquidationManagement.objects.filter(
-            request__user=self.request.user
-        ).order_by('-created_at')
+        user = self.request.user
+        if user.role == "school_head":
+            return LiquidationManagement.objects.filter(request__user=user).order_by('-created_at')
+        elif user.role == "school_admin":
+            # Allow school admin to see liquidations for their school
+            return LiquidationManagement.objects.filter(request__user__school=user.school).order_by('-created_at')
+        else:
+            return LiquidationManagement.objects.none()
 
 
 class UserRequestListAPIView(generics.ListAPIView):
@@ -666,7 +1084,7 @@ class UserRequestListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return RequestManagement.objects.filter(user=self.request.user)
+        return RequestManagement.objects.filter(user=self.request.user).order_by('-created_at')
 
 
 class PendingLiquidationListAPIView(generics.ListAPIView):
@@ -679,3 +1097,149 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
             status='draft',
             request__user=self.request.user
         )
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def batch_update_school_budgets(request):
+    updates = request.data.get("updates", [])
+    if not isinstance(updates, list):
+        return Response({"error": "Invalid data format."}, status=400)
+
+    updated_ids = []
+    errors = []
+
+    with transaction.atomic():
+        for upd in updates:
+            school_id = str(upd.get("schoolId")).strip()
+            max_budget = upd.get("max_budget")
+            print("Updating:", school_id, "to", max_budget)
+            try:
+                school = School.objects.get(schoolId=school_id)
+                if max_budget is not None and float(max_budget) >= 0:
+                    school.max_budget = float(max_budget)
+                    school.save()
+                    updated_ids.append(school_id)
+                else:
+                    errors.append(
+                        {"schoolId": school_id, "error": "Invalid budget"})
+            except School.DoesNotExist:
+                errors.append(
+                    {"schoolId": school_id, "error": "School not found"})
+            except Exception as e:
+                errors.append({"schoolId": school_id, "error": str(e)})
+
+    return Response({
+        "updated": updated_ids,
+        "errors": errors
+    }, status=200 if not errors else 207)
+
+
+@api_view(['GET'])
+def legislative_districts(request):
+    """
+    Returns mapping of legislative districts to their municipalities.
+    """
+    data = {
+        "1st District": [
+            "BANGAR", "LUNA", "SUDIPEN", "BALAOAN", "SANTOL", "BACNOTAN",
+            "SAN GABRIEL", "SAN JUAN", "SAN FERNANDO CITY"
+        ],
+        "2nd District": [
+            "AGOO", "ARINGAY", "BAGULIN", "BAUANG", "BURGOS", "CABA",
+            "NAGUILIAN", "PUGO", "ROSARIO", "SANTO TOMAS", "TUBAO"
+        ]
+    }
+    return Response(data)
+
+
+def generate_request_id():
+    prefix = "REQ-"
+    random_part = get_random_string(
+        length=6,
+        allowed_chars=string.ascii_uppercase + string.digits
+    )
+    return f"{prefix}{random_part}"
+
+
+class NotificationListAPIView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(receiver=self.request.user).order_by('-notification_date')
+
+
+class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
+    queryset = Notification.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        notification = self.get_object()
+        if notification.receiver != request.user:
+            return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Here you might want to add an 'is_read' field to your Notification model
+        notification.is_read = True
+        notification.save()
+        return Response({"status": "marked as read"})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_me(request):
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def division_signatories(request):
+    """
+    Returns the first superintendent and division accountant.
+    """
+    from .models import User
+    superintendent = User.objects.filter(
+        role='superintendent').order_by('date_joined').first()
+    accountant = User.objects.filter(
+        role='accountant').order_by('date_joined').first()
+    return Response({
+        "superintendent": UserSerializer(superintendent).data if superintendent else None,
+        "accountant": UserSerializer(accountant).data if accountant else None,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def request_history(request, request_id):
+    req = RequestManagement.objects.get(request_id=request_id)
+    history = req.history.order_by('-history_date')
+    data = []
+    for h in history:
+        priorities = get_priorities_for_history(h.request_id, h.history_date)
+        data.append({
+            "priorities": priorities,
+            "status": h.status,
+            "rejection_comment": h.rejection_comment,
+            "rejection_date": h.rejection_date,
+            "created_at": h.created_at,
+            "user": {
+                "first_name": h.user.first_name if h.user else "",
+                "last_name": h.user.last_name if h.user else "",
+                "school": {
+                    "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
+                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "",
+                } if h.user and h.user.school else None,
+            } if h.user else None,
+            "request_id": h.request_id,
+        })
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def liquidation_management_history(request, LiquidationID):
+    liq = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
+    history = liq.history.all().order_by('-history_date')
+    serializer = LiquidationManagementHistorySerializer(history, many=True)
+    return Response(serializer.data)

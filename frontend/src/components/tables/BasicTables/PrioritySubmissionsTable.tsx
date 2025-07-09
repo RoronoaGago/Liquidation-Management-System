@@ -7,16 +7,25 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import Badge from "@/components/ui/badge/Badge";
 import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
 import { Submission } from "@/lib/types";
 import { formatDateTime } from "@/lib/helpers";
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCw,
+  AlertCircle,
+  ArrowDownCircle,
+} from "lucide-react";
+import { useAuth } from "@/context/AuthContext"; // Add this import
 
 interface PrioritySubmissionsTableProps {
   submissions: Submission[];
   onView: (submission: Submission) => void;
   loading?: boolean;
   error?: string | null;
+  currentUserRole?: string;
 }
 
 const PrioritySubmissionsTable: React.FC<
@@ -24,7 +33,58 @@ const PrioritySubmissionsTable: React.FC<
     sortConfig?: { key: string; direction: "asc" | "desc" } | null;
     requestSort?: (key: string) => void;
   }
-> = ({ submissions, onView, loading, error, sortConfig, requestSort }) => {
+> = ({
+  submissions = [],
+  onView,
+  loading,
+  error,
+  sortConfig,
+  requestSort,
+  currentUserRole,
+}) => {
+  const { user: authUser } = useAuth(); // Get the authenticated user
+  const safeSubmissions = Array.isArray(submissions) ? submissions : [];
+
+  // Determine if we should hide the columns
+  const isSchoolHead =
+    currentUserRole === "school_head" || authUser?.role === "school_head";
+
+  const statusLabels: Record<string, string> = {
+    approved: "Approved",
+    rejected: "Rejected",
+    pending: "Pending",
+    downloaded: "Downloaded",
+    unliquidated: "Unliquidated",
+    liquidated: "Liquidated",
+    advanced: "Advanced",
+  };
+
+  const statusColors: Record<string, string> = {
+    approved:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    pending:
+      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    downloaded:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    unliquidated:
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    liquidated:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    advanced:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  };
+
+  const statusIcons: Record<string, React.ReactNode> = {
+    approved: <CheckCircle className="h-4 w-4" />,
+    rejected: <XCircle className="h-4 w-4" />,
+    pending: <Clock className="h-4 w-4" />,
+    downloaded: <ArrowDownCircle className="h-4 w-4" />,
+    unliquidated: <AlertCircle className="h-4 w-4" />,
+    liquidated: <CheckCircle className="h-4 w-4" />,
+    advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
@@ -60,64 +120,68 @@ const PrioritySubmissionsTable: React.FC<
                   </span>
                 </div>
               </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-              >
-                <div
-                  className="flex items-center gap-1 cursor-pointer"
-                  onClick={() => requestSort && requestSort("submitted_by")}
-                >
-                  Submitted By
-                  <span className="inline-flex flex-col ml-1">
-                    <ChevronUp
-                      className={`h-3 w-3 transition-colors ${
-                        sortConfig?.key === "submitted_by" &&
-                        sortConfig.direction === "asc"
-                          ? "text-primary-500 dark:text-primary-400"
-                          : "text-gray-400 dark:text-gray-500"
-                      }`}
-                    />
-                    <ChevronDown
-                      className={`h-3 w-3 -mt-1 transition-colors ${
-                        sortConfig?.key === "submitted_by" &&
-                        sortConfig.direction === "desc"
-                          ? "text-primary-500 dark:text-primary-400"
-                          : "text-gray-400 dark:text-gray-500"
-                      }`}
-                    />
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-              >
-                <div
-                  className="flex items-center gap-1 cursor-pointer"
-                  onClick={() => requestSort && requestSort("school")}
-                >
-                  School
-                  <span className="inline-flex flex-col ml-1">
-                    <ChevronUp
-                      className={`h-3 w-3 transition-colors ${
-                        sortConfig?.key === "school" &&
-                        sortConfig.direction === "asc"
-                          ? "text-primary-500 dark:text-primary-400"
-                          : "text-gray-400 dark:text-gray-500"
-                      }`}
-                    />
-                    <ChevronDown
-                      className={`h-3 w-3 -mt-1 transition-colors ${
-                        sortConfig?.key === "school" &&
-                        sortConfig.direction === "desc"
-                          ? "text-primary-500 dark:text-primary-400"
-                          : "text-gray-400 dark:text-gray-500"
-                      }`}
-                    />
-                  </span>
-                </div>
-              </TableCell>
+              {!isSchoolHead && (
+                <>
+                  <TableCell
+                    isHeader
+                    className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+                  >
+                    <div
+                      className="flex items-center gap-1 cursor-pointer"
+                      onClick={() => requestSort && requestSort("submitted_by")}
+                    >
+                      Submitted By
+                      <span className="inline-flex flex-col ml-1">
+                        <ChevronUp
+                          className={`h-3 w-3 transition-colors ${
+                            sortConfig?.key === "submitted_by" &&
+                            sortConfig.direction === "asc"
+                              ? "text-primary-500 dark:text-primary-400"
+                              : "text-gray-400 dark:text-gray-500"
+                          }`}
+                        />
+                        <ChevronDown
+                          className={`h-3 w-3 -mt-1 transition-colors ${
+                            sortConfig?.key === "submitted_by" &&
+                            sortConfig.direction === "desc"
+                              ? "text-primary-500 dark:text-primary-400"
+                              : "text-gray-400 dark:text-gray-500"
+                          }`}
+                        />
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell
+                    isHeader
+                    className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+                  >
+                    <div
+                      className="flex items-center gap-1 cursor-pointer"
+                      onClick={() => requestSort && requestSort("school")}
+                    >
+                      School
+                      <span className="inline-flex flex-col ml-1">
+                        <ChevronUp
+                          className={`h-3 w-3 transition-colors ${
+                            sortConfig?.key === "school" &&
+                            sortConfig.direction === "asc"
+                              ? "text-primary-500 dark:text-primary-400"
+                              : "text-gray-400 dark:text-gray-500"
+                          }`}
+                        />
+                        <ChevronDown
+                          className={`h-3 w-3 -mt-1 transition-colors ${
+                            sortConfig?.key === "school" &&
+                            sortConfig.direction === "desc"
+                              ? "text-primary-500 dark:text-primary-400"
+                              : "text-gray-400 dark:text-gray-500"
+                          }`}
+                        />
+                      </span>
+                    </div>
+                  </TableCell>
+                </>
+              )}
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -188,7 +252,7 @@ const PrioritySubmissionsTable: React.FC<
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={isSchoolHead ? 4 : 6}
                   className="py-8 text-center text-gray-500"
                 >
                   Loading submissions...
@@ -197,23 +261,23 @@ const PrioritySubmissionsTable: React.FC<
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={isSchoolHead ? 4 : 6}
                   className="py-8 text-center text-red-500"
                 >
                   {error}
                 </TableCell>
               </TableRow>
-            ) : submissions.length === 0 ? (
+            ) : safeSubmissions.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={isSchoolHead ? 4 : 6}
                   className="py-8 text-center text-gray-500"
                 >
                   No submissions found.
                 </TableCell>
               </TableRow>
             ) : (
-              submissions.map((submission) => (
+              safeSubmissions.map((submission) => (
                 <TableRow
                   key={submission.request_id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-900/20"
@@ -221,25 +285,34 @@ const PrioritySubmissionsTable: React.FC<
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                     {submission.request_id}
                   </TableCell>
+                  {!isSchoolHead && (
+                    <>
+                      <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                        {submission.user.first_name} {submission.user.last_name}
+                      </TableCell>
+                      <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                        {submission.user.school?.schoolName}
+                      </TableCell>
+                    </>
+                  )}
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    {submission.user.first_name} {submission.user.last_name}
-                  </TableCell>
-                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    {submission.user.school?.schoolName}
-                  </TableCell>
-                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    <Badge
-                      color={
-                        submission.status === "pending"
-                          ? "warning"
-                          : submission.status === "approved"
-                          ? "success"
-                          : "error"
-                      }
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium w-fit min-w-[90px] justify-center ${
+                        statusColors[submission.status?.toLowerCase?.()] ||
+                        "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
+                      style={{
+                        maxWidth: "140px",
+                        whiteSpace: "nowrap",
+                        textOverflow: "ellipsis",
+                        overflow: "hidden",
+                      }}
                     >
-                      {submission.status.charAt(0).toUpperCase() +
-                        submission.status.slice(1)}
-                    </Badge>
+                      {statusIcons[submission.status?.toLowerCase?.()]}
+                      {statusLabels[submission.status?.toLowerCase?.()] ||
+                        submission.status.charAt(0).toUpperCase() +
+                          submission.status.slice(1)}
+                    </span>
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                     {formatDateTime(submission.created_at)}

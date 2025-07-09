@@ -27,7 +27,7 @@ export interface Requirement {
 
 const requiredFields = ["requirementTitle"];
 
-const ManageRequirement = () => {
+const ManageRequirementsPage = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,7 +167,7 @@ const ManageRequirement = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 w-full block">
+                  <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 w-full">
                     <input
                       type="checkbox"
                       name="is_required"
@@ -223,4 +223,4 @@ const ManageRequirement = () => {
   );
 };
 
-export default ManageRequirement;
+export default ManageRequirementsPage;

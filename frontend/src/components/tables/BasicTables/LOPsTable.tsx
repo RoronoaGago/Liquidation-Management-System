@@ -366,52 +366,12 @@ export default function LOPsTable({
     }
   };
 
-  // Filter LOPs based on search term (example implementation)
-  const filteredLOPs = useMemo(() => {
-    return sortedLOPs.filter((lop) =>
-      lop.expenseTitle?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [sortedLOPs, searchTerm]);
-
-  // Example local sorting logic (if needed)
-  // If you don't need this, you can remove locallySortedLOPs and use filteredLOPs directly
-  // If you want to use locallySortedLOPs, make sure to define sortConfig and update onRequestSort accordingly
-  // const locallySortedLOPs = useMemo(() => {
-  //   let sorted = [...filteredLOPs];
-  //   if (sortConfig) {
-  //     sorted.sort((a, b) => {
-  //       let aValue: any = a[sortConfig.key];
-  //       let bValue: any = b[sortConfig.key];
-  //       if (typeof aValue === "string") aValue = aValue.toLowerCase();
-  //       if (typeof bValue === "string") bValue = bValue.toLowerCase();
-  //       if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-  //       if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-  //       return 0;
-  //     });
-  //   }
-  //   return sorted;
-  // }, [filteredLOPs, sortConfig]);
-
-  //   const handleFilterChange = (name: string, value: string) => {
-  //     setFilterOptions((prev) => ({
-  //       ...prev,
-  //       [name]: value,
-  //     }));
-  //   };
-
-  //   const resetFilters = () => {
-  //     setFilterOptions({
-  //       searchTerm: "",
-  //     });
-  //     setSearchTerm("");
-  //   };
-
   return (
     <div className="space-y-4">
       {/* Filters and Search */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full md:w-64">
+          <div className="relative w-full md:w-1/2">
             <Input
               type="text"
               placeholder="Search LOPs..."
@@ -504,7 +464,7 @@ export default function LOPsTable({
                     onClick={() => onRequestSort("LOPID")}
                     style={{ cursor: "pointer", userSelect: "none" }}
                   >
-                    List of Priority ID
+                    LOPID
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 ${

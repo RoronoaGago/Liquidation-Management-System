@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'api',
     'django_celery_results',  # For storing Celery task results
     'django_celery_beat',     # For scheduled tasks
+    'simple_history',  # For tracking model history
 ]
 # JWT Configuration
 REST_FRAMEWORK = {
@@ -61,9 +62,9 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'api.middleware.AllowIframeForMediaMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
 
 
 ROOT_URLCONF = 'backend.urls'
@@ -74,10 +75,21 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
+
+FRONTEND_LOGIN_URL = 'http://localhost:5173/login'
+
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True  # If using HTTPS
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True  # If using HTTPS
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [
+            os.path.join(BASE_DIR, 'proj_backend',
+                         'api', 'templates', 'emails'),
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -85,6 +97,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.request',
             ],
         },
     },
@@ -187,17 +200,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # settings.py
 MEDIA_URL = '/media/'
-# Changed to 'media' as the base folder
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'  # Or your SMTP server
+EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your-email@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'your-email-password-or-app-password'  # Your email password or app password
-DEFAULT_FROM_EMAIL = 'your-email@gmail.com'  # Sender email address
+EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
+
+EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
+# Default sender email
+DEFAULT_FROM_EMAIL = 'DepEd LUSDO <riverajanlester.st.maria@gmail.com>'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
@@ -205,3 +219,30 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',  # Show all logs, including debug
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',  # You can set this to 'DEBUG' if you want more Django internals
+            'propagate': False,
+        },
+        # Your app logger
+        'api': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False
+        },
+    },
+}
