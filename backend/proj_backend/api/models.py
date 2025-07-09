@@ -384,6 +384,7 @@ class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
     priority = models.ForeignKey(ListOfPriority, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    history = HistoricalRecords()
 
     class Meta:
         unique_together = ('request', 'priority')

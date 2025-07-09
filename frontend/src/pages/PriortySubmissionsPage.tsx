@@ -37,13 +37,13 @@ import {
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import api from "@/api/axios";
-import { Submission, School, Priority } from "@/lib/types";
+import { Submission, School, Priority, Prayoridad } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 
 type HistoryItem = {
-  priorities: Priority[];
+  priorities: Prayoridad[];
   status: string;
   rejection_comment?: string;
   rejection_date?: string;
@@ -54,6 +54,7 @@ type HistoryItem = {
 };
 
 type PriorityDiff = {
+  LOPID: number; // Unique identifier for the priority
   expenseTitle: string;
   prevAmount?: number;
   currAmount?: number;
@@ -61,39 +62,56 @@ type PriorityDiff = {
 };
 
 const getPriorityDiffs = (
-  prev: Priority[] = [],
-  curr: Priority[] = []
+  prev: Prayoridad[] = [],
+  curr: Prayoridad[] = []
 ): PriorityDiff[] => {
-  const prevMap = new Map<string, number>();
-  prev.forEach((p) =>
-    prevMap.set(
-      p.priority.expenseTitle,
-      Number(p.amount != null ? p.amount : 0)
-    )
-  );
-  const currMap = new Map<string, number>();
-  curr.forEach((p) =>
-    currMap.set(
-      p.priority.expenseTitle,
-      Number(p.amount != null ? p.amount : 0)
-    )
-  );
-  const allKeys = Array.from(
+  // Create maps using LOPID as key
+  const prevMap = new Map<number, number>();
+  prev.forEach((p) => {
+    const LOPID = p.LOPID || 0;
+    const amount = Number(p.amount != null ? p.amount : 0);
+    prevMap.set(LOPID, amount);
+  });
+
+  const currMap = new Map<number, number>();
+  curr.forEach((p) => {
+    const LOPID = p.LOPID || 0;
+    const amount = Number(p.amount != null ? p.amount : 0);
+    currMap.set(LOPID, amount);
+  });
+
+  // Get all unique LOPIDs from both versions
+  const allLOPIDs = Array.from(
     new Set([...Array.from(prevMap.keys()), ...Array.from(currMap.keys())])
   );
-  return allKeys.map((expenseTitle) => {
-    const prevAmount = prevMap.get(expenseTitle);
-    const currAmount = currMap.get(expenseTitle);
+
+  return allLOPIDs.map((LOPID) => {
+    const prevAmount = prevMap.get(LOPID);
+    const currAmount = currMap.get(LOPID);
+
+    // Find the priority to get the title
+    const priority = [...prev, ...curr].find((p) => p.LOPID === LOPID);
+    const expenseTitle = priority?.expenseTitle || "Unknown";
+
     let change: PriorityDiff["change"] = "unchanged";
-    if (prevAmount == null && currAmount != null) change = "added";
-    else if (prevAmount != null && currAmount == null) change = "removed";
-    else if (prevAmount != null && currAmount != null) {
-      if (prevAmount < currAmount) change = "increased";
-      else if (prevAmount > currAmount) change = "decreased";
-      else change = "unchanged";
+
+    if (prevAmount == null && currAmount != null) {
+      change = "added";
+    } else if (prevAmount != null && currAmount == null) {
+      change = "removed";
+    } else if (prevAmount != null && currAmount != null) {
+      if (prevAmount < currAmount) {
+        change = "increased";
+      } else if (prevAmount > currAmount) {
+        change = "decreased";
+      } else {
+        change = "unchanged";
+      }
     }
+
     return {
       expenseTitle,
+      LOPID,
       prevAmount,
       currAmount,
       change,
@@ -357,6 +375,7 @@ const PriortySubmissionsPage = () => {
         const res = await api.get(
           `/requests/${viewedSubmission.request_id}/history/`
         );
+        console.log(res.data);
         setSubmissionHistory(res.data as HistoryItem[]);
       } catch (err) {
         setSubmissionHistory(null);
@@ -395,8 +414,8 @@ const PriortySubmissionsPage = () => {
     curr,
     showAll = false,
   }: {
-    prev: Priority[] | undefined;
-    curr: Priority[] | undefined;
+    prev: Prayoridad[] | undefined;
+    curr: Prayoridad[] | undefined;
     showAll?: boolean;
   }) {
     const diffs = getPriorityDiffs(prev, curr);
@@ -440,7 +459,7 @@ const PriortySubmissionsPage = () => {
             {showAll ? "Show Only Changes" : "Show All"}
           </Button>
         </div>
-        <div className="overflow-x-auto border rounded-lg">
+        <div className="overflow-x-auto border rounded-lg custom-scrollbar">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
@@ -459,10 +478,7 @@ const PriortySubmissionsPage = () => {
                 </tr>
               )}
               {shownDiffs.map((diff) => (
-                <tr
-                  key={diff.expenseTitle}
-                  className="border-b last:border-b-0"
-                >
+                <tr key={diff.LOPID} className="border-b last:border-b-0">
                   <td className="px-4 py-3 font-medium">{diff.expenseTitle}</td>
                   <td className="px-4 py-3 text-right">
                     {diff.prevAmount != null ? (
@@ -671,7 +687,7 @@ const PriortySubmissionsPage = () => {
         open={!!viewedSubmission}
         onOpenChange={() => setViewedSubmission(null)}
       >
-        <DialogContent className="w-full max-w-[90vw] lg:max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <DialogContent className="w-full max-w-[95vw] xl:max-w-6xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
               Priority Submission Details
@@ -681,7 +697,7 @@ const PriortySubmissionsPage = () => {
             </DialogDescription>
           </DialogHeader>
           {viewedSubmission && (
-            <div className="space-y-6">
+            <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
               {/* Sender Details Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -812,20 +828,22 @@ const PriortySubmissionsPage = () => {
                 )
               )}
 
-              {/* Priorities Table */}
+              {/* Enhanced: Resubmission comparison - unchanged */}
+
+              {/* Priorities Table - updated */}
               <div className="space-y-2">
                 <h3 className="font-semibold text-lg text-gray-800 dark:text-white">
                   List of Priorities
                 </h3>
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto custom-scrollbar">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                       <thead className="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[200px] w-2/3">
                             Expense
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[120px]">
                             Amount
                           </th>
                         </tr>
@@ -837,8 +855,10 @@ const PriortySubmissionsPage = () => {
                               key={idx}
                               className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                             >
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                                {priority.priority.expenseTitle}
+                              <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200 max-w-[400px]">
+                                <div className="line-clamp-2">
+                                  {priority.priority.expenseTitle}
+                                </div>
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
                                 ₱
@@ -853,7 +873,7 @@ const PriortySubmissionsPage = () => {
                           )
                         )}
                         <tr className="bg-gray-50/50 dark:bg-gray-700/30 font-semibold">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
                             TOTAL
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
@@ -914,29 +934,6 @@ const PriortySubmissionsPage = () => {
                   </div>
                 )}
 
-              {viewedSubmission?.status === "pending" &&
-                viewedSubmission.rejection_comment && (
-                  <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-900/30">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 pt-0.5">
-                        <AlertTriangleIcon className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
-                          Previously Rejected
-                        </h4>
-                        <div className="mt-2">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Previous rejection reason
-                          </p>
-                          <p className="text-yellow-700 dark:text-yellow-300 mt-1 bg-yellow-100/50 dark:bg-yellow-900/30 p-3 rounded-md">
-                            {viewedSubmission.rejection_comment}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button
