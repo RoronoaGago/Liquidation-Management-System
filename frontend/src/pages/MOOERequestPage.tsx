@@ -63,6 +63,7 @@ const MOOERequestPage = () => {
   const navigate = useNavigate();
   const [priorities, setPriorities] = useState<ListofPriorityData[]>([]);
   const [selected, setSelected] = useState<{ [key: string]: string }>({});
+  const [selectedOrder, setSelectedOrder] = useState<string[]>([]); // Track selection order
   const [filterOptions, setFilterOptions] = useState<{ searchTerm: string }>({
     searchTerm: "",
   });
@@ -86,9 +87,35 @@ const MOOERequestPage = () => {
   const [allocatedBudget, setAllocatedBudget] = useState<number>(0);
   const [expenseToRemove, setExpenseToRemove] = useState<string | null>(null);
   const [showClearAllDialog, setShowClearAllDialog] = useState(false);
-
-  // Add a state to store the last submitted request ID
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
+
+  // State for submit confirmation dialog
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+
+  // State for selecting all in a category
+  const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
+
+  // Function to select all items in a category
+  const doCategorySelectAll = (category: string) => {
+    if (!category) return;
+    const items = categories[category]?.filter(
+      (p) => selected[p.expenseTitle] === undefined
+    );
+    if (items && items.length > 0) {
+      setSelected((prev) => {
+        const updated = { ...prev };
+        items.forEach((p) => {
+          updated[p.expenseTitle] = "";
+        });
+        return updated;
+      });
+      setSelectedOrder((prevOrder) => [
+        ...items.map((p) => p.expenseTitle),
+        ...prevOrder,
+      ]);
+    }
+    setCategoryToSelect(null);
+  };
 
   // Handle pre-filling from a rejected request
   useEffect(() => {
@@ -101,6 +128,9 @@ const MOOERequestPage = () => {
         {}
       );
       setSelected(initialSelected);
+      setSelectedOrder(
+        location.state.priorities.map((p: any) => p.priority.expenseTitle)
+      );
       toast.info(
         <div>
           <p>You're editing a rejected request.</p>
@@ -164,14 +194,12 @@ const MOOERequestPage = () => {
   useEffect(() => {
     const fetchSchoolBudget = async () => {
       try {
-        // Fetch current user info
         const userRes = await api.get("/users/me/");
         const schoolId = userRes.data.school?.schoolId;
         if (!schoolId) {
           setAllocatedBudget(0);
           return;
         }
-        // Fetch school info by ID
         const schoolRes = await api.get(`/schools/${schoolId}/`);
         setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
       } catch (error) {
@@ -184,13 +212,17 @@ const MOOERequestPage = () => {
 
   const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
 
-  // Update handleCheck to show toast notifications
+  // Update handleCheck to track selection order
   const handleCheck = (expense: string) => {
     setSelected((prev) => {
       if (expense in prev) {
+        setSelectedOrder((prevOrder) =>
+          prevOrder.filter((item) => item !== expense)
+        );
         const { [expense]: _, ...rest } = prev;
         return rest;
       } else {
+        setSelectedOrder((prevOrder) => [expense, ...prevOrder]);
         return { ...prev, [expense]: "" };
       }
     });
@@ -204,18 +236,14 @@ const MOOERequestPage = () => {
   };
 
   const handleAmountChange = (expense: string, value: string) => {
-    // Remove all non-digit characters except decimal point
     const cleanValue = value.replace(/[^0-9.]/g, "");
 
-    // If empty string, allow it
     if (cleanValue === "") {
       setSelected((prev) => ({ ...prev, [expense]: "" }));
       return;
     }
 
-    // Check if it's a valid number
     if (!isNaN(Number(cleanValue)) && Number(cleanValue) >= 0) {
-      // Calculate new total if this value is set
       const newAmount = Number(cleanValue);
       const currentTotal = Object.entries(selected).reduce(
         (sum, [key, amt]) =>
@@ -233,7 +261,6 @@ const MOOERequestPage = () => {
         return;
       }
 
-      // Format with commas
       const formattedValue = formatNumberWithCommas(cleanValue);
       setSelected((prev) => ({ ...prev, [expense]: formattedValue }));
     }
@@ -247,13 +274,11 @@ const MOOERequestPage = () => {
     }
   };
 
-  // Calculate total amount without commas
   const totalAmount = Object.values(selected).reduce(
     (sum, amount) => sum + (amount ? Number(amount.replace(/,/g, "")) : 0),
     0
   );
 
-  // Map selected to [{ LOPID, amount }]
   const selectedPriorities = Object.entries(selected)
     .map(([expenseTitle, amount]) => {
       const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
@@ -263,7 +288,6 @@ const MOOERequestPage = () => {
     })
     .filter(Boolean) as { LOPID: string; amount: string }[];
 
-  // Submit handler with resubmission logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
@@ -293,13 +317,13 @@ const MOOERequestPage = () => {
       }
 
       setSelected({});
+      setSelectedOrder([]);
       setLastRequestId(requestId || null);
       setShowSuccessDialog(true);
 
-      // Add a longer delay (e.g., 4 seconds) before redirecting
       setTimeout(() => {
         setShowSuccessDialog(false);
-        navigate("/requests-history");
+        navigate("/"); // Redirect to dashboard instead of history
       }, 4000);
     } catch (error: any) {
       console.error("Error:", error);
@@ -313,7 +337,6 @@ const MOOERequestPage = () => {
     }
   };
 
-  // Debounced search handler
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (debounceTimeout.current) {
@@ -328,25 +351,35 @@ const MOOERequestPage = () => {
     }, 10);
   };
 
-  // Filter priorities based on searchTerm
   const filteredExpenses = priorities.filter((priority) =>
     priority.expenseTitle
       .toLowerCase()
       .includes(filterOptions.searchTerm.toLowerCase())
   );
 
-  // Group priorities by category
+  // Group and sort priorities by category
   const categories = React.useMemo(() => {
     const map: { [cat: string]: ListofPriorityData[] } = {};
     priorities.forEach((p) => {
       if (!map[p.category]) map[p.category] = [];
       map[p.category].push(p);
     });
+
+    // Sort each category's priorities alphabetically
+    Object.keys(map).forEach((cat) => {
+      map[cat].sort((a, b) => a.expenseTitle.localeCompare(b.expenseTitle));
+    });
+
     return map;
   }, [priorities]);
 
+  // Get sorted category keys
+  const sortedCategoryKeys = Object.keys(categories).sort((a, b) =>
+    (CATEGORY_LABELS[a] || a).localeCompare(CATEGORY_LABELS[b] || b)
+  );
+
   // For pagination: get all category keys with unchecked items
-  const allCategoryKeys = Object.keys(categories).filter((cat) =>
+  const allCategoryKeys = sortedCategoryKeys.filter((cat) =>
     categories[cat].some((p) => selected[p.expenseTitle] === undefined)
   );
 
@@ -357,42 +390,11 @@ const MOOERequestPage = () => {
     currentPage * categoriesPerPage
   );
 
-  // For pagination: flatten all unchecked priorities (not categories)
-
-  // For rendering: group paginated items by category
-
-  // Confirmation dialog state for select all and submit
-  const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
-  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-
-  // Handle select all with confirmation
-  const handleCategorySelectAll = (cat: string) => {
-    const itemsToCheck = categories[cat].filter(
-      (p) => selected[p.expenseTitle] === undefined
-    );
-    if (itemsToCheck.length >= 3) {
-      setCategoryToSelect(cat);
-    } else {
-      doCategorySelectAll(cat);
-    }
-  };
-  const doCategorySelectAll = (cat: string) => {
-    setSelected((prev) => {
-      const newSel = { ...prev };
-      categories[cat].forEach((p) => {
-        if (!newSel[p.expenseTitle]) newSel[p.expenseTitle] = "";
-      });
-      return newSel;
-    });
-    setCategoryToSelect(null);
-  };
-
   // Show requirements for a priority
   const showRequirements = (expenseTitle: string) => {
     const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
 
     if (priority && priority.requirements) {
-      // Filter out only requirement objects (not ListofPriorityData)
       const requirementTitles = priority.requirements
         .filter(
           (
@@ -414,6 +416,14 @@ const MOOERequestPage = () => {
       setShowRequirementsDialog(true);
     }
   };
+
+  // Get selected items in the order they were selected
+  const orderedSelectedItems = selectedOrder
+    .filter((expense) => selected[expense] !== undefined)
+    .map((expense) => ({
+      expenseTitle: expense,
+      amount: selected[expense],
+    }));
 
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
@@ -1038,7 +1048,7 @@ const MOOERequestPage = () => {
                             checked={items.every(
                               (p) => selected[p.expenseTitle] !== undefined
                             )}
-                            onChange={() => handleCategorySelectAll(cat)}
+                            onChange={() => doCategorySelectAll(cat)}
                             disabled={isFormDisabled}
                             className="mr-3 h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
                             style={{ cursor: "pointer" }}
@@ -1178,8 +1188,8 @@ const MOOERequestPage = () => {
                       </div>
 
                       <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                        {Object.entries(selected).map(
-                          ([expenseTitle, amount]) => {
+                        {orderedSelectedItems.map(
+                          ({ expenseTitle, amount }) => {
                             const priority = priorities.find(
                               (p) => p.expenseTitle === expenseTitle
                             );
