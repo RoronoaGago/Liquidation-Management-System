@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Welcome to MOOE Liquidation Management System</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #f5f8fa;
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 30px auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+      }
+      .header {
+        background: linear-gradient(
+          135deg,
+          #094684 0%,
+          #dd1f2f 50%,
+          #fbaf3d 100%
+        );
+        color: #fff;
+        text-align: center;
+        padding: 30px 0 20px 0;
+        position: relative;
+      }
+      .header:after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: rgba(0, 0, 0, 0.1);
+      }
+      .header img {
+        max-height: 70px;
+        margin-bottom: 15px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+      }
+      .company-name {
+        font-size: 1.5em;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 5px;
+      }
+      .company-subtitle {
+        font-size: 0.9em;
+        opacity: 0.9;
+        font-weight: 300;
+      }
+      .content {
+        padding: 35px 40px 25px 40px;
+      }
+      .greeting {
+        font-size: 1.2em;
+        margin-bottom: 25px;
+        color: #003366;
+        font-weight: 600;
+      }
+      .credentials {
+        background: #f8fafc;
+        border-radius: 6px;
+        padding: 20px;
+        margin: 25px 0;
+        border-left: 4px solid #dd1f2f;
+      }
+      .credentials strong {
+        color: #094684;
+      }
+      .button-container {
+        text-align: center;
+        margin: 30px 0;
+      }
+      .button {
+        display: inline-block;
+        padding: 12px 30px;
+        background: linear-gradient(to right, #094684, #003366);
+        color: #fff !important;
+        border-radius: 30px;
+        text-decoration: none;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 10px rgba(9, 70, 132, 0.2);
+        transition: all 0.3s ease;
+      }
+      .button:hover {
+        background: linear-gradient(to right, #003366, #094684);
+        box-shadow: 0 4px 12px rgba(9, 70, 132, 0.3);
+        transform: translateY(-1px);
+      }
+      .security-note {
+        font-size: 0.85em;
+        color: #666;
+        margin-top: 30px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+      }
+      .signature {
+        margin-top: 25px;
+        color: #444;
+      }
+      .signature strong {
+        color: #003366;
+      }
+      .footer {
+        background: #f0f3f7;
+        color: #666;
+        text-align: center;
+        padding: 20px;
+        font-size: 0.85em;
+        border-top: 1px solid #e0e4e8;
+      }
+      .footer a {
+        color: #094684;
+        text-decoration: none;
+      }
+      .social-links {
+        margin: 15px 0;
+      }
+      .social-links a {
+        display: inline-block;
+        margin: 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <img src="DepEd_logo-W.png" alt="DepEd Logo" />
+        <div class="company-name">MOOE Liquidation Management System</div>
+        <div class="company-subtitle">
+          Department of Education, La Union Schools Division
+        </div>
+      </div>
+      <div class="content">
+        <div class="greeting">
+          Hello {{ user.first_name|default:user.username }},
+        </div>
+        <p>
+          Welcome to the <strong>Liquidation Management System</strong>. Your
+          account has been successfully created.
+        </p>
+
+        <div class="credentials">
+          <strong>Email:</strong> {{ user.email }}<br />
+          <strong>Temporary Password:</strong> {{ temp_password }}
+        </div>
+
+        <p>
+          For security purposes, please change your password immediately after
+          your first login.
+        </p>
+
+        <div class="button-container">
+          <a href="{{ login_url }}" class="button">Login to Your Account</a>
+        </div>
+
+        <div class="security-note">
+          <strong>Security Tip:</strong> Never share your login credentials with
+          anyone. Our support team will never ask for your password.
+        </div>
+
+        <div class="signature">
+          <p>
+            Best regards,<br />
+            <strong>Liquidation Management System Team</strong><br />
+            Department of Education
+          </p>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="social-links">
+          <a href="#">Website</a> • <a href="#">Help Center</a> •
+          <a href="#">Contact Us</a>
+        </div>
+        &copy; {{ now|date:"Y" }} Department of Education. All rights
+        reserved.<br />
+        <small
+          >This is an automated message. Please do not reply to this
+          email.</small
+        >
+      </div>
+    </div>
+  </body>
+</html>

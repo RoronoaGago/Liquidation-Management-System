@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import Button from "../components/ui/button/Button";
-import FundRequest from "./FundRequest";
+import FundRequest from "./MOOERequestPage";
 import StatusBadge from "@/components/ui/badge/StatusBadge";
 // Import the type from your existing page
 

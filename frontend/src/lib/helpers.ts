@@ -1,3 +1,4 @@
+import { isValidPhoneNumber } from "libphonenumber-js";
 export const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
@@ -9,6 +10,17 @@ export const validateEmail = (email: string) => {
   const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
   return re.test(email);
 };
+export function getDistrictLogoFilename(district: string) {
+  // Convert to lowercase, replace spaces and roman numerals, remove special chars, etc.
+  return (
+    district
+      .toLowerCase()
+      .replace(/\s+/g, "-") // spaces to dashes
+      .replace(/i{2,}/g, (match) => match.replace(/i/g, "i")) // handle roman numerals if needed
+      .replace(/[^a-z0-9\-]/g, "") // remove non-alphanumeric except dash
+    + "-district.png"
+  );
+}
 
 export const validatePassword = (password: string) => {
   const re =
@@ -16,9 +28,9 @@ export const validatePassword = (password: string) => {
   return re.test(password);
 };
 
-export const validatePhoneNumber = (phone: string) => {
-  const re = /^[+\d][\d\s-()]*\d$/;
-  return re.test(phone);
+
+export const validatePhoneNumber = (phone: string): boolean => {
+  return phone ? isValidPhoneNumber(phone) : true; // Optional field
 };
 
 export const validateDateOfBirth = (dateString: string) => {

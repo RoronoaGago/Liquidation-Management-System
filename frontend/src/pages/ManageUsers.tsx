@@ -8,6 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Bounce, toast } from "react-toastify";
+import { CheckCircleIcon, XCircleIcon } from "lucide-react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import UsersTable from "../components/tables/BasicTables/UsersTable";
 import Button from "../components/ui/button/Button";
@@ -33,18 +34,18 @@ import {
 } from "@/lib/types";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
+import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
+import { schoolDistrictOptions } from "@/lib/constants";
 
 interface UserFormData {
   first_name: string;
   last_name: string;
-  username: string;
-  password: string;
-  confirm_password: string;
   date_of_birth: string;
   email: string;
   phone_number: string;
   role: string;
   school_id: string; // was: school: string;
+  school_district?: string; // Optional for district admin
   profile_picture_base64: string;
 }
 //TODO - make the school search
@@ -59,15 +60,7 @@ export const roleOptions = [
   { value: "accountant", label: "Division Accountant" },
 ];
 
-const requiredFields = [
-  "first_name",
-  "last_name",
-  "username",
-  "password",
-  "confirm_password",
-  "email",
-  "role",
-];
+const requiredFields = ["first_name", "last_name", "email", "role"];
 const ManageUsers = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -76,8 +69,11 @@ const ManageUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
-
+  const [isValid, setIsValid] = useState<boolean | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -96,13 +92,11 @@ const ManageUsers = () => {
   const [formData, setFormData] = useState<UserFormData>({
     first_name: "",
     last_name: "",
-    username: "",
-    password: "",
-    confirm_password: "",
     date_of_birth: "",
     email: "",
     phone_number: "",
-    role: "school_admin",
+    role: "admin",
+    school_district: "", // Optional for district admin
     school_id: "",
     profile_picture_base64: "",
   });
@@ -121,17 +115,26 @@ const ManageUsers = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("users/", {
-        params: {
-          archived: showArchived, // This is now the single source of truth for archive status
-          role: filterOptions.role || undefined,
-          search: filterOptions.searchTerm || undefined,
-          date_joined_after: filterOptions.dateRange.start || undefined,
-          date_joined_before: filterOptions.dateRange.end || undefined,
-        },
-      });
-      setAllUsers(response.data);
-      console.log(response);
+      const params: any = {
+        page: currentPage,
+        page_size: itemsPerPage,
+        archived: showArchived,
+      };
+      if (filterOptions.role) params.role = filterOptions.role;
+      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+      if (filterOptions.dateRange?.start)
+        params.date_joined_after = filterOptions.dateRange.start;
+      if (filterOptions.dateRange?.end)
+        params.date_joined_before = filterOptions.dateRange.end;
+      if (sortConfig) {
+        params.ordering =
+          sortConfig.direction === "asc"
+            ? sortConfig.key
+            : `-${sortConfig.key}`;
+      }
+      const response = await api.get("users/", { params });
+      setAllUsers(response.data.results || response.data);
+      setTotalUsers(response.data.count ?? response.data.length);
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error("Failed to fetch users");
@@ -142,12 +145,12 @@ const ManageUsers = () => {
   };
   useEffect(() => {
     fetchUsers();
-    const response = api.get("schools/");
+    const response = api.get("schools/", { params: { page_size: 10000 } });
     response.then((res) => {
-      setSchools(res.data);
+      setSchools(res.data.results || []); // Only the array of schools
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showArchived, filterOptions]);
+  }, [showArchived, filterOptions, sortConfig, currentPage, itemsPerPage]);
 
   // Add filtering and sorting logic
   const filteredUsers = useMemo(() => {
@@ -262,32 +265,10 @@ const ManageUsers = () => {
             delete newErrors.email;
           }
           break;
-        case "password":
-          if (!validatePassword(value)) {
-            newErrors.password =
-              "Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character.";
-          } else {
-            delete newErrors.password;
-            if (
-              formData.confirm_password &&
-              value !== formData.confirm_password
-            ) {
-              newErrors.confirm_password = "Passwords do not match.";
-            } else {
-              delete newErrors.confirm_password;
-            }
-          }
-          break;
-        case "confirm_password":
-          if (value !== formData.password) {
-            newErrors.confirm_password = "Passwords do not match.";
-          } else {
-            delete newErrors.confirm_password;
-          }
-          break;
         case "phone_number":
           if (value && !validatePhoneNumber(value)) {
-            newErrors.phone_number = "Please enter a valid phone number.";
+            newErrors.phone_number =
+              "Please enter a valid phone number (e.g., +1 (555) 123-4567).";
           } else {
             delete newErrors.phone_number;
           }
@@ -397,26 +378,12 @@ const ManageUsers = () => {
       console.log(formData);
       await fetchUsers(); // Explicitly refetch the latest list
 
-      toast.success("User Added Successfully!", {
-        position: "top-center",
-        autoClose: 2000,
-        style: { fontFamily: "Outfit, sans-serif" },
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "light",
-        transition: Bounce,
-      });
+      toast.success("User Added Successfully!");
 
       // Reset form
       setFormData({
         first_name: "",
         last_name: "",
-        username: "",
-        password: "",
-        confirm_password: "",
         date_of_birth: "",
         email: "",
         phone_number: "",
@@ -429,8 +396,8 @@ const ManageUsers = () => {
       setIsDialogOpen(false);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      let errorMessage = "Failed to add user. Please try again.";
-      console.error(error);
+      let errorMessage = "An error occurred. Please try again.";
+      console.error(error.response.data.role);
 
       if (axios.isAxiosError(error) && error.response) {
         if (error.response.data.username) {
@@ -439,8 +406,13 @@ const ManageUsers = () => {
           errorMessage = "Email already exists.";
         } else if (error.response.data.password) {
           errorMessage = "Password doesn't meet requirements.";
+        } else if (error.response.data.role) {
+          // Handles backend validation for duplicate school head/admin per school
+          errorMessage = error.response.data.role[0];
         } else if (error.response.data.detail) {
           errorMessage = error.response.data.detail;
+        } else if (typeof error.response.data === "string") {
+          errorMessage = error.response.data;
         }
       }
 
@@ -586,42 +558,16 @@ const ManageUsers = () => {
                     <p className="text-red-500 text-sm">{errors.email}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number" className="text-base">
-                    Phone Number
-                  </Label>
-                  <Input
-                    type="tel"
-                    id="phone_number"
-                    name="phone_number"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="+1 (555) 123-4567"
-                    value={formData.phone_number}
-                    onChange={handleChange}
-                    onInput={handlePhoneNumberInput}
-                  />
-                  {errors.phone_number && (
-                    <p className="text-red-500 text-sm">
-                      {errors.phone_number}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="text-base">
-                    Username *
-                  </Label>
-                  <Input
-                    type="text"
-                    id="username"
-                    name="username"
-                    placeholder="johndoe123"
-                    value={formData.username}
-                    onChange={handleChange}
-                  />
-                  {errors.username && (
-                    <p className="text-red-500 text-sm">{errors.username}</p>
-                  )}
-                </div>
+                <PhoneNumberInput
+                  value={formData.phone_number}
+                  onChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      phone_number: value || "",
+                    }))
+                  }
+                  error={errors.phone_number}
+                />
                 <div className="space-y-2">
                   <Label htmlFor="role" className="text-base">
                     Role *
@@ -652,6 +598,29 @@ const ManageUsers = () => {
                   )}
                 </div>
 
+                {/* School District Dropdown for District Admin */}
+                {formData.role === "district_admin" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="school_district" className="text-base">
+                      School District
+                    </Label>
+                    <select
+                      id="school_district"
+                      name="school_district"
+                      value={formData.school_district || ""}
+                      onChange={handleChange}
+                      className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                    >
+                      <option value="">Select a district</option>
+                      {schoolDistrictOptions.map((district) => (
+                        <option key={district} value={district}>
+                          {district}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {(formData.role === "school_head" ||
                   formData.role === "school_admin") && (
                   <SchoolSelect
@@ -670,81 +639,6 @@ const ManageUsers = () => {
                     error={errors.school_id}
                   />
                 )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-base">
-                      Password *
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        id="password"
-                        name="password"
-                        className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                        placeholder="••••••••"
-                        value={formData.password}
-                        onChange={handleChange}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                        aria-label={
-                          showPassword ? "Hide password" : "Show password"
-                        }
-                      >
-                        {showPassword ? (
-                          <EyeClosedIcon className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <EyeIcon className="h-5 w-5 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                    {errors.password && (
-                      <p className="text-red-500 text-sm">{errors.password}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm_password" className="text-base">
-                      Confirm Password *
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        type={showConfirmPassword ? "text" : "password"}
-                        id="confirm_password"
-                        name="confirm_password"
-                        className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                        placeholder="••••••••"
-                        value={formData.confirm_password}
-                        onChange={handleChange}
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                        aria-label={
-                          showConfirmPassword
-                            ? "Hide password"
-                            : "Show password"
-                        }
-                      >
-                        {showConfirmPassword ? (
-                          <EyeClosedIcon className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <EyeIcon className="h-5 w-5 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                    {errors.confirm_password && (
-                      <p className="text-red-500 text-sm">
-                        {errors.confirm_password}
-                      </p>
-                    )}
-                  </div>
-                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="date_of_birth" className="text-base">
@@ -782,9 +676,6 @@ const ManageUsers = () => {
                       setFormData({
                         first_name: "",
                         last_name: "",
-                        username: "",
-                        password: "",
-                        confirm_password: "",
                         date_of_birth: "",
                         email: "",
                         phone_number: "",
@@ -824,14 +715,18 @@ const ManageUsers = () => {
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           fetchUsers={fetchUsers}
-          sortedUsers={sortedUsers}
           filterOptions={filterOptions}
           setFilterOptions={setFilterOptions}
           onRequestSort={requestSort}
           currentSort={sortConfig}
           loading={loading}
           error={error}
-          schools={schools} // <-- Add this line
+          schools={schools}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+          totalUsers={totalUsers}
         />
       </div>
     </div>

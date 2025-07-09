@@ -1,0 +1,96 @@
+Status change:
+
+Hello {{ user.first_name }},
+
+Your {{ object_type }} (ID: {{ object.request_id|default:object.LiquidationID }}) status has changed to: {{ status|title }}.
+
+{% if object.rejection_comment %}
+Reason: {{ object.rejection_comment }}
+{% endif %}
+
+If you have questions, please contact the office.
+
+Thank you,
+La Union Schools Division Office
+Department of Education 
+
+
+Reminder:
+
+Dear {{ request.user.get_full_name }},
+
+This is a reminder that your request (ID: {{ request.request_id }}) 
+needs to be liquidated within the next 30 days.
+
+Request Details:
+- Created: {{ request.created_at|date:"Y-m-d" }}
+- Month: {{ request.request_month }}
+- Priorities: 
+{% for priority in request.priorities.all %}
+  - {{ priority.expenseTitle }}
+{% endfor %}
+Dear {{ request.user.get_full_name }},
+
+Failure to liquidate by the deadline will result in:
+1. Automatic expiration of the request
+2. A formal demand letter from our legal department
+3. Possible suspension of future fund requests
+
+
+Please complete the liquidation process before the deadline to avoid expiration and legal action.
+
+Regards,
+La Union Schools Division Office
+Department of Education 
+
+15days reminder:
+
+Dear {{ request.user.get_full_name }},
+
+This is a reminder that your request (ID: {{ request.request_id }}) 
+needs to be liquidated within the next 15 days.
+
+Request Details:
+- Created: {{ request.created_at|date:"Y-m-d" }}
+- Month: {{ request.request_month }}
+- Priorities: 
+{% for priority in request.priorities.all %}
+  - {{ priority.expenseTitle }}
+{% endfor %}
+
+Please complete the liquidation process before the deadline to avoid expiration.
+
+Regards,
+La Union Schools Division Office
+Department of Education 
+
+Formal notice:
+
+OFFICIAL DEMAND LETTER
+{{ today|date:"F j, Y" }}
+
+To: {{ user.get_full_name }}
+From: Legal Department
+
+Subject: Formal Demand for Liquidation of Request {{ request.request_id }}
+
+This letter serves as formal notice that you have failed to liquidate the above-referenced request within the required 30-day period.
+
+Required Actions:
+1. Immediate full liquidation submission
+2. Written explanation for the delay
+3. Meeting with finance team within 3 business days
+
+Consequences of Non-Compliance:
+- Deduction from your next salary payment
+- Suspension of fund request privileges
+- Possible disciplinary action
+
+You must respond to this notice within 48 hours. Failure to respond will result in escalation to senior management.
+
+Attachments:
+1. Copy of original request
+2. Policy violation notice
+
+Sincerely,
+[Legal Department Signature]

@@ -1,18 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 // import mobileLogo from "../images/bubble-magic/bubble-magic-mobile-logo.svg";
-import desktopLogo from "../images/bubble-magic/company-logo.png";
+import desktopLogo from "../images/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
-  BoxCubeIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
-  PieChartIcon,
-  // PlugInIcon,
-  // ReceiptIcon,
-  ReportIcon,
   // StatusIcon,
   UserCircleIcon,
 } from "../icons";
@@ -24,7 +18,14 @@ import {
   PhilippinePeso,
   ReceiptText,
   SchoolIcon,
-  FileText, // <-- Add this import for the requirements icon
+  FileText,
+  ListOrdered, // <-- Add this
+  History,
+  FileSearch,
+  UserRoundPenIcon,
+  HandCoinsIcon,
+  FileUserIcon,
+  StampIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -40,13 +41,26 @@ const allNavItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "Manage Users",
     path: "/users",
-    roles: ["admin", "school_admin", "school_head"], // Only admin
+    roles: ["admin"], // Only admin
   },
   {
     icon: <SchoolIcon />,
     name: "Manage Schools",
     path: "/schools",
-    roles: ["admin", "school_admin", "school_head"], // Only admin
+    roles: ["admin"], // Only admin
+  },
+  {
+    icon: <FileCheck2Icon />,
+    name: "Approved Requests",
+    path: "/approved-requests",
+    roles: ["accountant"], // Only for division superintendent
+  },
+
+  {
+    icon: <HandCoinsIcon />,
+    name: "Resource Allocation",
+    path: "/resource-allocation",
+    roles: ["accountant"], // Only admin and accountant
   },
   {
     icon: <BanknoteIcon />,
@@ -61,35 +75,48 @@ const allNavItems: NavItem[] = [
     roles: ["admin"], // Only admin
   },
   {
-    icon: <BanknoteIcon />,
-    name: "Fund Request Approval",
-    path: "/fund-request-approval",
-    roles: ["liquidator"], // Only admin
+    icon: <StampIcon />,
+    name: "Finalize Liquidation Report",
+    path: "/liquidation-finalize",
+    roles: ["liquidator"], // Only liquidator
   },
-
+  {
+    icon: <FileSearch />, // <-- Use FileSearch or any icon you prefer
+    name: "Pre Audit",
+    path: "/pre-auditing",
+    roles: ["district_admin"], // Only for district_admin
+  },
   {
     icon: <PhilippinePeso />,
-    name: "List of Priorities",
-    roles: ["school_head"], // Admin and school heads
-    path: "/prepare-list-of-priorities",
+    name: "MOOE",
+    roles: ["school_head"], // Only for school_head
+    // No direct path, use subItems for dropdown
+    subItems: [
+      {
+        icon: <ListOrdered />, // <-- Add icon here
+        name: "List of Priority",
+        path: "/prepare-list-of-priorities",
+        roles: ["school_head"],
+      },
+      {
+        icon: <History />, // <-- Add icon here
+        name: "Requests History",
+        path: "/requests-history", // Make sure this route exists in your App.tsx
+        roles: ["school_head"],
+      },
+    ],
   },
   {
     icon: <ReceiptText />,
     name: "Liquidation",
     path: "/liquidation",
-    roles: ["school_head"], // Only admin
+    roles: ["school_head", "school_admin"], // Only admin
   },
   {
     icon: <PhilippinePeso />,
     name: "Schools Priorities Submissions",
     path: "/schools-priorities-submissions",
     roles: ["superintendent"], // Only for division superintendent
-  },
-  {
-    icon: <FileCheck2Icon />,
-    name: "Approved Requests",
-    path: "/approved-requests",
-    roles: ["accountant"], // Only for division superintendent
   },
 
   // {
@@ -118,10 +145,18 @@ const allNavItems: NavItem[] = [
   //   ],
   // },
   {
-    icon: <UserCircleIcon />,
+    icon: <UserRoundPenIcon />,
     name: "User Profile",
     path: "/profile",
-    roles: ["school_admin", "school_head", "teacher"], // All roles
+    roles: [
+      "school_admin",
+      "school_head",
+      "district_admin",
+      "superintendent",
+      "admin",
+      "liquidator",
+      "accountant",
+    ], // All roles
   },
   {
     icon: <UserCircleIcon />,
@@ -210,7 +245,7 @@ const AppSidebar: React.FC = () => {
   };
 
   const [navItems, setNavItems] = useState<NavItem[]>([]);
-  const [filteredOthersItems, setFilteredOthersItems] = useState<NavItem[]>([]);
+  const [filteredOthersItems] = useState<NavItem[]>([]);
 
   useEffect(() => {
     // Filter items whenever userRole changes
@@ -255,13 +290,15 @@ const AppSidebar: React.FC = () => {
       const subMenuElement = subMenuRefs.current[key];
 
       if (subMenuElement) {
-        // Calculate the height including any padding/margins
-        const height = subMenuElement.scrollHeight + 8;
+        const height = subMenuElement.scrollHeight; // Remove the +8
         setSubMenuHeight((prev) => ({
           ...prev,
           [key]: height,
         }));
       }
+    } else {
+      // Reset all submenu heights to 0 when no submenu is open
+      setSubMenuHeight({});
     }
   }, [openSubmenu, navItems, filteredOthersItems]);
 
@@ -338,61 +375,68 @@ const AppSidebar: React.FC = () => {
               </Link>
             )
           )}
-          {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
-            <div
-              ref={(el) => {
-                subMenuRefs.current[`${menuType}-${index}`] = el;
-              }}
-              className="overflow-hidden transition-all duration-300"
-              style={{
-                height:
-                  openSubmenu?.type === menuType && openSubmenu?.index === index
-                    ? `${subMenuHeight[`${menuType}-${index}`]}px`
-                    : "0px",
-              }}
-            >
-              <ul className="mt-2 space-y-1 ml-9">
-                {nav.subItems.map((subItem) => (
-                  <li key={subItem.name}>
-                    <Link
-                      to={subItem.path}
-                      className={`menu-dropdown-item ${
-                        isActive(subItem.path)
-                          ? "menu-dropdown-item-active"
-                          : "menu-dropdown-item-inactive"
-                      }`}
-                    >
-                      {subItem.name}
-                      <span className="flex items-center gap-1 ml-auto">
-                        {subItem.new && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge`}
-                          >
-                            new
+          {nav.subItems &&
+            (isExpanded || isHovered || isMobileOpen) &&
+            openSubmenu?.type === menuType &&
+            openSubmenu?.index === index && (
+              <div
+                ref={(el) => {
+                  subMenuRefs.current[`${menuType}-${index}`] = el;
+                }}
+                className="overflow-hidden transition-all duration-300"
+                style={{
+                  height: `${
+                    subMenuHeight[`${menuType}-${index}`] || "auto"
+                  }px`,
+                }}
+              >
+                <ul className="mt-2 space-y-1 ml-9">
+                  {nav.subItems.map((subItem) => (
+                    <li key={subItem.name}>
+                      <Link
+                        to={subItem.path}
+                        className={`menu-dropdown-item ${
+                          isActive(subItem.path)
+                            ? "menu-dropdown-item-active"
+                            : "menu-dropdown-item-inactive"
+                        } flex items-center gap-2`}
+                      >
+                        {subItem.icon && (
+                          <span className="menu-item-icon-size">
+                            {subItem.icon}
                           </span>
                         )}
-                        {subItem.pro && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge`}
-                          >
-                            pro
-                          </span>
-                        )}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                        <span>{subItem.name}</span>
+                        <span className="flex items-center gap-1 ml-auto">
+                          {subItem.new && (
+                            <span
+                              className={`ml-auto ${
+                                isActive(subItem.path)
+                                  ? "menu-dropdown-badge-active"
+                                  : "menu-dropdown-badge-inactive"
+                              } menu-dropdown-badge`}
+                            >
+                              new
+                            </span>
+                          )}
+                          {subItem.pro && (
+                            <span
+                              className={`ml-auto ${
+                                isActive(subItem.path)
+                                  ? "menu-dropdown-badge-active"
+                                  : "menu-dropdown-badge-inactive"
+                              } menu-dropdown-badge`}
+                            >
+                              pro
+                            </span>
+                          )}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
         </li>
       ))}
     </ul>
