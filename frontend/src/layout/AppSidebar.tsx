@@ -110,7 +110,7 @@ const allNavItems: NavItem[] = [
     icon: <ReceiptText />,
     name: "Liquidation",
     path: "/liquidation",
-    roles: ["school_head"], // Only admin
+    roles: ["school_head", "school_admin"], // Only admin
   },
   {
     icon: <PhilippinePeso />,

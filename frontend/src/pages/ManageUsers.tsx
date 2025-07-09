@@ -396,8 +396,8 @@ const ManageUsers = () => {
       setIsDialogOpen(false);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      let errorMessage = "Failed to add user. Please try again.";
-      console.error(error);
+      let errorMessage = "An error occurred. Please try again.";
+      console.error(error.response.data.role);
 
       if (axios.isAxiosError(error) && error.response) {
         if (error.response.data.username) {
@@ -406,8 +406,13 @@ const ManageUsers = () => {
           errorMessage = "Email already exists.";
         } else if (error.response.data.password) {
           errorMessage = "Password doesn't meet requirements.";
+        } else if (error.response.data.role) {
+          // Handles backend validation for duplicate school head/admin per school
+          errorMessage = error.response.data.role[0];
         } else if (error.response.data.detail) {
           errorMessage = error.response.data.detail;
+        } else if (typeof error.response.data === "string") {
+          errorMessage = error.response.data;
         }
       }
 
