@@ -5,10 +5,6 @@ import { Disclosure, Transition } from "@headlessui/react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import {
   Search,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   ChevronDown,
   Info,
   X,
@@ -67,7 +63,7 @@ const MOOERequestPage = () => {
   const [filterOptions, setFilterOptions] = useState<{ searchTerm: string }>({
     searchTerm: "",
   });
-  const [currentPage, setCurrentPage] = useState(1);
+  const [, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -79,7 +75,6 @@ const MOOERequestPage = () => {
   const [activeLiquidationData, setActiveLiquidationData] = useState<any>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [categoriesPerPage, setCategoriesPerPage] = useState(5);
   const [showRequirementsDialog, setShowRequirementsDialog] = useState(false);
   const [currentPriorityRequirements, setCurrentPriorityRequirements] =
     useState<string[]>([]);
@@ -379,16 +374,8 @@ const MOOERequestPage = () => {
   );
 
   // For pagination: get all category keys with unchecked items
-  const allCategoryKeys = sortedCategoryKeys.filter((cat) =>
-    categories[cat].some((p) => selected[p.expenseTitle] === undefined)
-  );
 
   // Pagination logic
-  const totalPages = Math.ceil(allCategoryKeys.length / categoriesPerPage);
-  const paginatedCategoryKeys = allCategoryKeys.slice(
-    (currentPage - 1) * categoriesPerPage,
-    currentPage * categoriesPerPage
-  );
 
   // Show requirements for a priority
   const showRequirements = (expenseTitle: string) => {
@@ -1152,28 +1139,31 @@ const MOOERequestPage = () => {
                   </h3>
                 </div>
 
+                {/* Always show budget info at the top for consistent position/dimension */}
+                <div className="p-4 pb-0">
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Allocated Budget:
+                      </span>
+                      <span className="font-bold text-blue-800 dark:text-blue-200">
+                        ₱{allocatedBudget.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Remaining Budget:
+                      </span>
+                      <span className="font-bold text-blue-800 dark:text-blue-200">
+                        ₱{(allocatedBudget - totalAmount).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {Object.keys(selected).length > 0 ? (
                   <>
-                    <div className="p-4">
-                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                            Allocated Budget:
-                          </span>
-                          <span className="font-bold text-blue-800 dark:text-blue-200">
-                            ₱{allocatedBudget.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                            Remaining Budget:
-                          </span>
-                          <span className="font-bold text-blue-800 dark:text-blue-200">
-                            ₱{(allocatedBudget - totalAmount).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-
+                    <div className="p-4 pt-0">
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-gray-600 dark:text-gray-300">
                           {Object.keys(selected).length} item(s) selected
@@ -1182,7 +1172,6 @@ const MOOERequestPage = () => {
                           Total: ₱{totalAmount.toLocaleString()}
                         </span>
                       </div>
-
                       <div className="space-y-3 max-h-[400px] overflow-y-auto">
                         {orderedSelectedItems.map(
                           ({ expenseTitle, amount }) => {
@@ -1337,7 +1326,7 @@ const MOOERequestPage = () => {
                     </div>
                   </>
                 ) : (
-                  <div className="p-8 text-center">
+                  <div className="p-8 text-center pt-0">
                     <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
                       <Plus className="h-8 w-8 text-gray-400" />
                     </div>
