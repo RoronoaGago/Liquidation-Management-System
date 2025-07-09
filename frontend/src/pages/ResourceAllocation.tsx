@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import api from "@/api/axios";
 import { toast } from "react-toastify";
 import Button from "../components/ui/button/Button";
@@ -15,31 +21,26 @@ import {
   ChevronsRight,
   Info,
   AlertCircle,
-  AlertTriangle,
   ArrowRight,
   CheckCircle,
   Filter,
   CalendarCheck,
   CalendarX,
+  ChevronDownIcon,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Skeleton } from "antd";
 import { municipalityDistricts } from "@/lib/constants";
 import Label from "@/components/form/Label";
 import Toggle from "@/components/form/Toggle";
+import { Disclosure, DisclosureButton, Transition } from "@headlessui/react";
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const QUICK_ADD_AMOUNTS = [1000, 5000, 10000];
 const MIN_SEARCH_LENGTH = 3;
 const SEARCH_DEBOUNCE_MS = 500;
 
-// Month names for display
 const monthNames = [
   "January",
   "February",
@@ -63,7 +64,7 @@ type School = {
   district?: string;
   legislativeDistrict?: string;
   is_active?: boolean;
-  hasUnliquidated?: boolean; // Critical for eligibility
+  hasUnliquidated?: boolean;
   last_liquidated_month?: number;
   last_liquidated_year?: number;
 };
@@ -80,6 +81,7 @@ const ResourceAllocation = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalSchools, setTotalSchools] = useState(0);
+  const [bulkAmount, setBulkAmount] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -100,11 +102,9 @@ const ResourceAllocation = () => {
       return false;
     }
   );
-
   const [filterCanRequest, setFilterCanRequest] = useState<boolean | null>(
     null
   );
-
   const [legislativeDistricts, setLegislativeDistricts] = useState<{
     [key: string]: string[];
   }>({});
@@ -117,21 +117,19 @@ const ResourceAllocation = () => {
   const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
     []
   );
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+  const [bulkActionType, setBulkActionType] = useState<
+    "set" | "increase" | "decrease" | null
+  >(null);
+  const [undoStack, setUndoStack] = useState<Record<string, number>[]>([]);
+  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Helper function to check if school can request next month
-  // Helper function to check if school can request next month
   const canRequestNextMonth = useCallback((school: School) => {
-    // Block if school is inactive
     if (!school.is_active) return false;
-
-    // Block if there are any unliquidated requests
     if (school.hasUnliquidated) return false;
-
     return true;
   }, []);
 
-  // Fetch backlog data for schools
-  // Fetch backlog data for schools
   const fetchBacklogData = async (schoolIds: string[]) => {
     try {
       const res = await api.get("requests/", {
@@ -142,21 +140,78 @@ const ResourceAllocation = () => {
           school_ids: schoolIds.join(","),
         },
       });
-
       const requests = res.data.results || res.data;
-      console.log("Fetched unliquidated requests:", requests);
-
-      // Create a set of school IDs with unliquidated requests
       const schoolsWithUnliquidated = new Set<string>();
       requests.forEach((request: any) => {
         const schoolId = request.user.school.schoolId;
         schoolsWithUnliquidated.add(schoolId);
       });
-
       return schoolsWithUnliquidated;
     } catch (error) {
       console.error("Error fetching backlog data:", error);
       return new Set<string>();
+    }
+  };
+
+  // Bulk handlers
+  const handleBulkSet = (amount: number) => {
+    setEditingBudgets((prev) => {
+      const updated = { ...prev };
+      selectedSchools.forEach((id) => {
+        updated[id] = Math.max(0, amount);
+      });
+      return updated;
+    });
+  };
+
+  const handleBulkAdjust = (amount: number) => {
+    setEditingBudgets((prev) => {
+      const updated = { ...prev };
+      selectedSchools.forEach((id) => {
+        updated[id] = Math.max(0, (prev[id] || 0) + amount);
+      });
+      return updated;
+    });
+  };
+
+  // Bulk confirmation and undo
+  // Replace the existing handleBulkConfirm with this version
+  const handleBulkConfirm = (type: "set" | "increase" | "decrease") => {
+    if (bulkAmount <= 0) {
+      toast.error("Please enter a valid amount greater than 0.");
+      return;
+    }
+
+    setUndoStack((prev) => [{ ...editingBudgets }, ...prev]);
+
+    const updated = { ...editingBudgets };
+    selectedSchools.forEach((id) => {
+      const current = Number(
+        updated[id] || schools.find((s) => s.schoolId === id)?.max_budget || 0
+      );
+      if (type === "set") {
+        updated[id] = Math.max(0, bulkAmount);
+      } else if (type === "increase") {
+        updated[id] = Math.max(0, current + bulkAmount);
+      } else if (type === "decrease") {
+        updated[id] = Math.max(0, current - bulkAmount);
+      }
+    });
+
+    setEditingBudgets(updated);
+    toast.success(
+      `Bulk ${type} applied locally. Review changes before saving.`
+    );
+
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    undoTimeoutRef.current = setTimeout(() => setUndoStack([]), 10000);
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length > 0) {
+      setEditingBudgets(undoStack[0]);
+      setUndoStack((prev) => prev.slice(1));
+      toast.info("Bulk action undone.");
     }
   };
 
@@ -176,11 +231,9 @@ const ResourceAllocation = () => {
       if (filterMunicipality) params.municipality = filterMunicipality;
       if (filterDistrict) params.district = filterDistrict;
 
-      // Fetch schools
       const schoolsRes = await api.get("schools/", { params });
       let schoolsData = schoolsRes.data.results || schoolsRes.data;
 
-      // Apply canRequest filter if set
       if (filterCanRequest !== null) {
         schoolsData = schoolsData.filter((school: School) =>
           filterCanRequest
@@ -189,18 +242,14 @@ const ResourceAllocation = () => {
         );
       }
 
-      // Fetch backlog data for the fetched schools
       const schoolIds = schoolsData.map((school: School) => school.schoolId);
       const backlogData = await fetchBacklogData(schoolIds);
 
-      // Map backlog data to schools
-      // Map backlog data to schools
       const schoolsWithBacklog = schoolsData.map((school: School) => {
         const hasUnliquidated = backlogData.has(school.schoolId);
-
         return {
           ...school,
-          hasUnliquidated, // Critical for eligibility
+          hasUnliquidated,
         };
       });
       const initialBudgets = schoolsWithBacklog.reduce(
@@ -213,7 +262,6 @@ const ResourceAllocation = () => {
 
       setEditingBudgets(initialBudgets);
       setSchools(schoolsWithBacklog);
-      console.log(schoolsWithBacklog);
       setTotalSchools(schoolsRes.data.count ?? schoolsData.length);
     } catch (error) {
       console.error("Error fetching schools data:", error);
@@ -250,26 +298,12 @@ const ResourceAllocation = () => {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  const getBorderColor = (
-    difference: number,
-    isSelected: boolean,
-    isExpanded: boolean
-  ) => {
-    if (!isSelected || !isExpanded)
-      return "border-gray-200 dark:border-gray-700";
-    if (difference > 0) return "border-green-500";
-    if (difference < 0) return "border-red-500";
-    return "border-gray-200 dark:border-gray-700";
-  };
-  // Toggle selection
   const toggleSchoolSelection = (schoolId: string) => {
     setSelectedSchools((prev) =>
       prev.includes(schoolId)
         ? prev.filter((id) => id !== schoolId)
         : [...prev, schoolId]
     );
-
-    // Toggle expanded state
     setExpandedCards((prev) =>
       prev.includes(schoolId)
         ? prev.filter((id) => id !== schoolId)
@@ -277,13 +311,17 @@ const ResourceAllocation = () => {
     );
   };
 
-  // Handle budget changes
   const handleBudgetChange = (schoolId: string, amount: number) => {
+    if (isNaN(amount) || amount < 0) {
+      toast.error("Budget must be a non-negative number.");
+      return;
+    }
     setEditingBudgets((prev) => ({
       ...prev,
       [schoolId]: Math.max(0, amount),
     }));
   };
+
   const sortedSchools = useMemo(() => {
     return [...schools].sort((a, b) => {
       const aSelected = selectedSchools.includes(a.schoolId);
@@ -292,7 +330,6 @@ const ResourceAllocation = () => {
     });
   }, [schools, selectedSchools]);
 
-  // Adjust budget by the selected amount
   const adjustBudget = (schoolId: string, isIncrease: boolean) => {
     const current = Number(editingBudgets[schoolId]) || 0;
     const adjustment = isIncrease ? adjustmentAmount : -adjustmentAmount;
@@ -304,7 +341,6 @@ const ResourceAllocation = () => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
-  // Format currency
   const formatCurrency = (value: number) => {
     if (isNaN(value)) return "₱0.00";
     return value.toLocaleString("en-PH", {
@@ -314,15 +350,7 @@ const ResourceAllocation = () => {
       maximumFractionDigits: 2,
     });
   };
-  // Get badge color based on difference
-  const getBadgeColor = (difference: number) => {
-    if (difference > 0)
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    if (difference < 0)
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
-  };
-  // Calculate total difference
+
   const totalDifference = useMemo(
     () =>
       selectedSchools.reduce((sum, id) => {
@@ -332,7 +360,7 @@ const ResourceAllocation = () => {
       }, 0),
     [selectedSchools, schools, editingBudgets]
   );
-  // Reset all changes for selected
+
   const resetBudgets = () => {
     const initialBudgets = schools.reduce(
       (acc: Record<string, number>, school) => {
@@ -349,7 +377,7 @@ const ResourceAllocation = () => {
     setShowResetConfirm(false);
     toast.info("Selected budgets reset to original values");
   };
-  // Total of selected
+
   const totalSelected = useMemo(
     () =>
       selectedSchools.reduce(
@@ -358,57 +386,247 @@ const ResourceAllocation = () => {
       ),
     [selectedSchools, editingBudgets]
   );
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
+
   const handleLiquidationToggle = (checked: boolean) => {
     setShowLiquidationDetails(checked);
     if (typeof window !== "undefined") {
       localStorage.setItem("showLiquidationDetails", String(checked));
     }
   };
-  // Save budgets for selected
+  // 3. Add recommendation logic
+  const getBulkRecommendation = () => {
+    if (selectedSchools.length === 0)
+      return "Select schools to get recommendations";
+
+    const eligibleCount = selectedSchools.filter((id) => {
+      const school = schools.find((s) => s.schoolId === id);
+      return school && canRequestNextMonth(school);
+    }).length;
+
+    const avgBudget =
+      selectedSchools.reduce((sum, id) => {
+        const school = schools.find((s) => s.schoolId === id);
+        return sum + (school?.max_budget || 0);
+      }, 0) / selectedSchools.length;
+
+    if (eligibleCount / selectedSchools.length > 0.7) {
+      return `Consider increasing by ${formatCurrency(
+        1000
+      )} as most schools are eligible for next month`;
+    } else if (eligibleCount / selectedSchools.length < 0.3) {
+      return `Consider decreasing by ${formatCurrency(
+        500
+      )} as few schools are eligible`;
+    } else {
+      return `Average budget is ${formatCurrency(
+        avgBudget
+      )}. Adjust proportionally based on needs`;
+    }
+  };
+  const resetAllChanges = () => {
+    const initialBudgets = schools.reduce(
+      (acc, school) => ({
+        ...acc,
+        [school.schoolId]: school.max_budget || 0,
+      }),
+      {}
+    );
+    setEditingBudgets(initialBudgets);
+    toast.info("All budget changes reset");
+  };
+
+  const clearSelection = () => {
+    setSelectedSchools([]);
+    setExpandedCards([]);
+  };
+  // 4. Enhance saveBudgets with validation
   const saveBudgets = async () => {
+    if (selectedSchools.length === 0) {
+      toast.error("Please select at least one school to save");
+      return;
+    }
+
     setIsSaving(true);
     try {
       const updates = selectedSchools.map((schoolId) => {
         const budget = Number(editingBudgets[schoolId]) || 0;
+        const original =
+          schools.find((s) => s.schoolId === schoolId)?.max_budget || 0;
+
         return {
           schoolId: String(schoolId),
           max_budget: parseFloat(budget.toFixed(2)),
+          original_budget: original,
+          difference: parseFloat((budget - original).toFixed(2)),
         };
       });
 
-      await api.patch("schools/batch_update/", { updates });
+      // Validate large changes
+
+      await api.patch("/schools/batch_update/", { updates });
       setShowSuccessDialog(true);
-      setTimeout(() => {
-        setShowSuccessDialog(false);
-      }, 2500);
+      setTimeout(() => setShowSuccessDialog(false), 2500);
 
-      // Refresh data after save with current params
-      const params: any = {
-        page: currentPage,
-        page_size: itemsPerPage,
-      };
-      if (searchTerm.length >= MIN_SEARCH_LENGTH) {
-        params.search = searchTerm;
-      }
-      const schoolsRes = await api.get("schools/", { params });
-      setSchools(schoolsRes.data.results || schoolsRes.data);
-      setTotalSchools(schoolsRes.data.count ?? schoolsRes.data.length);
-
-      // Clear selected schools after successful save
+      // Refresh data
+      await fetchData();
       setSelectedSchools([]);
       setExpandedCards([]);
+      setUndoStack([]);
     } catch (error: any) {
       console.error("Error updating budgets:", error);
-      toast.error("Failed to update budgets");
+      toast.error(
+        `Failed to update budgets: ${
+          error.response?.data?.message || error.message
+        }`
+      );
     } finally {
       setIsSaving(false);
       setShowSaveConfirm(false);
     }
   };
 
+  // 2. Modify the BulkConfirmationDialog to just show the action preview
+  const BulkConfirmationDialog = () => (
+    <Dialog open={showBulkConfirm} onOpenChange={setShowBulkConfirm}>
+      <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col items-center py-8">
+          <Info className="h-16 w-16 text-blue-500 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Bulk Action Preview
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 text-center mb-2">
+            This will {bulkActionType} the budget of {selectedSchools.length}{" "}
+            school(s)
+            {bulkActionType !== "set" && (
+              <> by {formatCurrency(bulkAmount)} each</>
+            )}
+            {bulkActionType === "set" && (
+              <> to {formatCurrency(bulkAmount)} each</>
+            )}
+            .
+          </p>
+          <div className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700">
+            <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+              <strong>Recommendation:</strong> {getBulkRecommendation()}
+            </div>
+          </div>
+          <div className="flex gap-4 mt-4">
+            <Button variant="outline" onClick={() => setShowBulkConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                handleBulkConfirm(bulkActionType!);
+                setShowBulkConfirm(false);
+              }}
+              className="px-4 py-2"
+            >
+              Apply Locally
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Undo bar
+  const UndoBar = () =>
+    undoStack.length > 0 ? (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-blue-100 dark:bg-blue-900/80 border border-blue-300 dark:border-blue-700 rounded-lg px-6 py-3 flex items-center gap-4 shadow-lg">
+        <span className="text-blue-900 dark:text-blue-100 font-medium">
+          Bulk action applied.
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleUndo}
+          startIcon={<Undo2 className="h-4 w-4" />}
+        >
+          Undo
+        </Button>
+      </div>
+    ) : null;
+
+  // Save confirmation dialog
+  const SaveConfirmationDialog = () => (
+    <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+      <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700">
+        <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 rounded-lg bg-brand-100/80 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Confirm Budget Changes
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                You're about to update budgets for {selectedSchools.length}{" "}
+                schools
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4 px-6 py-5">
+          <div className="text-gray-600 dark:text-gray-300">
+            The total change will be {formatCurrency(totalDifference)}.
+          </div>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+          <Button
+            variant="outline"
+            onClick={() => setShowSaveConfirm(false)}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={saveBudgets}
+            disabled={isSaving || totalDifference === 0}
+            className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 dark:from-brand-700 dark:to-brand-600 dark:hover:from-brand-800 dark:hover:to-brand-700 text-white shadow-sm"
+          >
+            {isSaving ? "Saving..." : "Confirm Changes"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  useEffect(() => {
+    if (
+      filterLegislativeDistrict &&
+      legislativeDistricts[filterLegislativeDistrict]
+    ) {
+      setFilterMunicipalityOptions(
+        legislativeDistricts[filterLegislativeDistrict]
+      );
+    } else {
+      setFilterMunicipalityOptions([]);
+    }
+    setFilterMunicipality("");
+    setFilterDistrict("");
+    setFilterDistrictOptions([]);
+  }, [filterLegislativeDistrict, legislativeDistricts]);
+
+  useEffect(() => {
+    if (filterMunicipality && municipalityDistricts[filterMunicipality]) {
+      setFilterDistrictOptions(municipalityDistricts[filterMunicipality]);
+    } else {
+      setFilterDistrictOptions([]);
+    }
+    setFilterDistrict("");
+  }, [filterMunicipality]);
+
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line
+  }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
   // Modify the filters panel to include the new toggle and filter
   const renderFiltersPanel = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
@@ -523,279 +741,6 @@ const ResourceAllocation = () => {
       </div>
     </div>
   );
-
-  // Modify the school card rendering to include liquidation status
-  const renderSchoolCards = () => {
-    if (loading) {
-      return Array.from({ length: itemsPerPage }).map((_, idx) => (
-        <div
-          key={idx}
-          className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 flex flex-col gap-3"
-        >
-          <Skeleton className="h-6 w-2/3 mb-2" />
-          <Skeleton className="h-4 w-1/3 mb-4" />
-          <Skeleton className="h-4 w-1/2 mb-2" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ));
-    }
-
-    if (schools.length === 0) {
-      return (
-        <div className="col-span-full text-gray-500 text-center py-8">
-          No schools found matching your search.
-        </div>
-      );
-    }
-
-    return schools.map((school) => {
-      const isSelected = selectedSchools.includes(school.schoolId);
-      const isExpanded = expandedCards.includes(school.schoolId);
-      const prevBudget = Number(school.max_budget || 0);
-      const currentBudget = editingBudgets[school.schoolId] ?? 0;
-      const difference = currentBudget - prevBudget;
-      const canRequest = canRequestNextMonth(school);
-
-      return (
-        <div
-          key={school.schoolId}
-          className={`rounded-lg border transition-all overflow-hidden cursor-pointer flex flex-col 
-            ${isExpanded ? "h-auto" : "h-[120px]"} ${
-            isSelected
-              ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
-              : "border-gray-200 dark:border-gray-700"
-          } hover:border-brand-400 dark:hover:border-brand-500`}
-          onClick={(e) => {
-            if (
-              e.target instanceof HTMLButtonElement ||
-              e.target instanceof HTMLInputElement
-            ) {
-              return;
-            }
-            toggleSchoolSelection(school.schoolId);
-          }}
-        >
-          <div className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="font-medium text-gray-800 dark:text-gray-200">
-                  {school.schoolName}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  ID: {school.schoolId}
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                {difference !== 0 && (
-                  <div
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      difference > 0
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                    }`}
-                  >
-                    {difference > 0 ? "+" : ""}
-                    {formatCurrency(difference)}
-                    {difference > 0 ? (
-                      <ArrowRight className="h-3 w-3 inline ml-1 rotate-45" />
-                    ) : difference < 0 ? (
-                      <ArrowRight className="h-3 w-3 inline ml-1 -rotate-45" />
-                    ) : null}
-                  </div>
-                )}
-
-                {/* Liquidation status badge */}
-                {/* Liquidation status badge - Only show when toggle is on */}
-                {showLiquidationDetails && (
-                  <div
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      canRequestNextMonth(school)
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
-                        : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200"
-                    }`}
-                  >
-                    {canRequestNextMonth(school) ? (
-                      <>
-                        <CalendarCheck className="h-3 w-3 inline mr-1" />
-                        Eligible
-                      </>
-                    ) : (
-                      <>
-                        <CalendarX className="h-3 w-3 inline mr-1" />
-                        Cannot Request Yet
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {isExpanded && (
-              <>
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    Current Budget
-                  </div>
-                  <div className="font-medium">
-                    {formatCurrency(currentBudget)}
-                  </div>
-                </div>
-                <div className="mt-1 flex items-center justify-between">
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    Previous Budget
-                  </div>
-                  <div className="text-sm">{formatCurrency(prevBudget)}</div>
-                </div>
-
-                {/* Show liquidation details if toggled on */}
-                {showLiquidationDetails && school.last_liquidated_month && (
-                  <div className="mt-1 flex items-center justify-between">
-                    <div className="text-sm text-green-800 dark:text-green-200 ">
-                      Last Liquidation
-                    </div>
-                    <div className="text-sm text-green-800 dark:text-green-200">
-                      {monthNames[school.last_liquidated_month - 1]}{" "}
-                      {school.last_liquidated_year}
-                    </div>
-                  </div>
-                )}
-
-                {/* Rest of your existing card content (budget adjustment controls) */}
-
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center justify-center gap-4">
-                    <Button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        adjustBudget(school.schoolId, false);
-                      }}
-                      variant="outline"
-                      size="sm"
-                      disabled={currentBudget <= 0}
-                      className="px-4 py-2 h-10 w-full"
-                    >
-                      <Minus className="h-4 w-4" />
-                      <span className="ml-2">Decrease</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        adjustBudget(school.schoolId, true);
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="px-4 py-2 h-10 w-full"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span className="ml-2">Increase</span>
-                    </Button>
-                  </div>
-
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                      <span className="text-gray-500">₱</span>
-                    </div>
-                    <Input
-                      type="text"
-                      value={editingBudgets[school.schoolId] || 0}
-                      onChange={(e) =>
-                        handleBudgetChange(
-                          school.schoolId,
-                          parseFloat(e.target.value) || 0
-                        )
-                      }
-                      className="pl-8 h-10 text-center"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      );
-    });
-  };
-
-  // Update save confirmation dialog to show backlog warning
-  const SaveConfirmationDialog = () => (
-    <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
-      <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700">
-        <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-5 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-4">
-            <div className="p-2.5 rounded-lg bg-brand-100/80 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
-              <AlertCircle className="h-6 w-6" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Confirm Budget Changes
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                You're about to update budgets for {selectedSchools.length}{" "}
-                schools
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4 px-6 py-5">
-          <div className="text-gray-600 dark:text-gray-300">
-            The total change will be {formatCurrency(totalDifference)}.
-          </div>
-        </div>
-
-        <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
-          <Button
-            variant="outline"
-            onClick={() => setShowSaveConfirm(false)}
-            disabled={isSaving}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={saveBudgets}
-            disabled={isSaving || totalDifference === 0}
-            className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 dark:from-brand-700 dark:to-brand-600 dark:hover:from-brand-800 dark:hover:to-brand-700 text-white shadow-sm"
-          >
-            {isSaving ? "Saving..." : "Confirm Changes"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
-  useEffect(() => {
-    if (
-      filterLegislativeDistrict &&
-      legislativeDistricts[filterLegislativeDistrict]
-    ) {
-      setFilterMunicipalityOptions(
-        legislativeDistricts[filterLegislativeDistrict]
-      );
-    } else {
-      setFilterMunicipalityOptions([]);
-    }
-    setFilterMunicipality("");
-    setFilterDistrict("");
-    setFilterDistrictOptions([]);
-  }, [filterLegislativeDistrict, legislativeDistricts]);
-
-  useEffect(() => {
-    if (filterMunicipality && municipalityDistricts[filterMunicipality]) {
-      setFilterDistrictOptions(municipalityDistricts[filterMunicipality]);
-    } else {
-      setFilterDistrictOptions([]);
-    }
-    setFilterDistrict("");
-  }, [filterMunicipality]);
-
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line
-  }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
-
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="Resource Allocation" />
@@ -816,24 +761,57 @@ const ResourceAllocation = () => {
       </Dialog>
 
       <SaveConfirmationDialog />
+      <BulkConfirmationDialog />
+      <UndoBar />
 
       <div className="mt-8">
         <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
-          <h3 className="text-lg font-medium text-brand-800 dark:text-brand-200 flex items-center gap-2 mb-2">
-            <Info className="h-5 w-5" /> How to allocate resource
-          </h3>
-          <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
-            <li>Click on school cards to select them</li>
-            <li>Select an adjustment amount from the top controls</li>
-            <li>
-              Use the + and - buttons in each selected school to adjust the
-              budget
-            </li>
-            <li>Click "Save Selected" when ready</li>
-            <li>Use filters to find schools that can request next month</li>
-          </ol>
+          <Disclosure>
+            {({ open }) => (
+              <>
+                <DisclosureButton
+                  className="flex w-full items-center justify-between p-3 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                  aria-label="Resource allocation guide"
+                >
+                  <div className="flex items-center gap-2">
+                    <Info className="h-5 w-5 flex-shrink-0 text-brand-600 dark:text-brand-400" />
+                    <span className="font-medium text-brand-800 dark:text-brand-200">
+                      How to allocate resources
+                    </span>
+                  </div>
+                  <ChevronDownIcon
+                    className={`h-4 w-4 text-brand-600 dark:text-brand-400 transition-transform duration-200 ${
+                      open ? "rotate-180" : ""
+                    }`}
+                  />
+                </DisclosureButton>
+                <Transition
+                  enter="transition duration-100 ease-out"
+                  enterFrom="transform opacity-0 -translate-y-2"
+                  enterTo="transform opacity-100 translate-y-0"
+                  leave="transition duration-75 ease-out"
+                  leaveFrom="transform opacity-100 translate-y-0"
+                  leaveTo="transform opacity-0 -translate-y-2"
+                >
+                  <Disclosure.Panel className="px-4 pb-3 pt-1 text-sm text-brand-700 dark:text-brand-300 border-t border-brand-100 dark:border-brand-900/20">
+                    <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
+                      <li>Click on school cards to select them</li>
+                      <li>Select an adjustment amount from the top controls</li>
+                      <li>
+                        Use the + and - buttons in each selected school to
+                        adjust the budget
+                      </li>
+                      <li>Click "Save Selected" when ready</li>
+                      <li>
+                        Use filters to find schools that can request next month
+                      </li>
+                    </ol>
+                  </Disclosure.Panel>
+                </Transition>
+              </>
+            )}
+          </Disclosure>
         </div>
-
         {/* Search and Controls */}
         <div className="flex flex-col gap-4">
           {/* Top controls row */}
@@ -888,12 +866,12 @@ const ResourceAllocation = () => {
                   ))}
                 </select>
               </div>
+              {/* Add this new Reset All Changes button */}
             </div>
           </div>
           {/* Filters panel */}
           {showFilters && renderFiltersPanel()}
         </div>
-
         {/* Adjustment Controls */}
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mt-4">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -913,6 +891,55 @@ const ResourceAllocation = () => {
           </div>
         </div>
 
+        {selectedSchools.length > 0 && (
+          <div className="flex flex-col md:flex-row gap-4 items-center mb-4 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20">
+            <span className="font-medium text-blue-800 dark:text-blue-200">
+              Bulk Adjust {selectedSchools.length} selected school(s):
+            </span>
+            <input
+              type="number"
+              min={0}
+              placeholder="Enter amount"
+              value={bulkAmount === 0 ? "" : bulkAmount}
+              onChange={(e) => setBulkAmount(Number(e.target.value))}
+              className="w-64 pl-8 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:focus:ring-blue-500"
+            />
+            <Button
+              onClick={() => handleBulkConfirm("set")}
+              variant="outline"
+              size="sm"
+              disabled={bulkAmount <= 0}
+            >
+              Set All
+            </Button>
+            <Button
+              onClick={() => handleBulkConfirm("increase")}
+              variant="outline"
+              size="sm"
+              disabled={bulkAmount <= 0}
+            >
+              Increase All
+            </Button>
+            <Button
+              onClick={() => handleBulkConfirm("decrease")}
+              variant="outline"
+              size="sm"
+              disabled={bulkAmount <= 0}
+            >
+              Decrease All
+            </Button>
+            {undoStack.length > 0 && (
+              <Button
+                onClick={handleUndo}
+                variant="outline"
+                size="sm"
+                startIcon={<Undo2 className="h-4 w-4" />}
+              >
+                Undo
+              </Button>
+            )}
+          </div>
+        )}
         {/* Summary Bar */}
         {selectedSchools.length > 0 && (
           <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 mb-6 py-3 px-4 shadow-sm">
@@ -936,19 +963,19 @@ const ResourceAllocation = () => {
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  onClick={() => setSelectedSchools([])}
+                  onClick={clearSelection}
                   variant="outline"
                   size="sm"
+                  startIcon={<X className="size-4" />}
                 >
-                  Clear All
+                  Clear Selection
                 </Button>
                 <Button
-                  type="button"
-                  onClick={() => setShowResetConfirm(true)}
                   variant="outline"
-                  size="sm"
+                  onClick={resetAllChanges}
+                  startIcon={<Undo2 className="size-4" />}
                 >
-                  Reset
+                  Reset All
                 </Button>
                 <Button
                   type="button"
@@ -963,12 +990,196 @@ const ResourceAllocation = () => {
             </div>
           </div>
         )}
-
         {/* School Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {renderSchoolCards()}
-        </div>
+          {loading ? (
+            Array.from({ length: itemsPerPage }).map((_, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 flex flex-col gap-3"
+              >
+                <Skeleton className="h-6 w-2/3 mb-2" />
+                <Skeleton className="h-4 w-1/3 mb-4" />
+                <Skeleton className="h-4 w-1/2 mb-2" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ))
+          ) : schools.length === 0 ? (
+            <div className="col-span-full text-gray-500 text-center py-8">
+              No schools found matching your search.
+            </div>
+          ) : (
+            sortedSchools.map((school) => {
+              const isSelected = selectedSchools.includes(school.schoolId);
+              const isExpanded = expandedCards.includes(school.schoolId);
+              const prevBudget = Number(school.max_budget || 0);
+              const currentBudget = editingBudgets[school.schoolId] ?? 0;
+              const difference = currentBudget - prevBudget;
+              const canRequest = canRequestNextMonth(school);
 
+              return (
+                <div
+                  key={school.schoolId}
+                  className={`rounded-lg border transition-all overflow-hidden cursor-pointer flex flex-col 
+                      ${isExpanded ? "h-auto" : "h-[120px]"} ${
+                    isSelected
+                      ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
+                      : "border-gray-200 dark:border-gray-700"
+                  } hover:border-brand-400 dark:hover:border-brand-500`}
+                  onClick={(e) => {
+                    if (
+                      e.target instanceof HTMLButtonElement ||
+                      e.target instanceof HTMLInputElement
+                    ) {
+                      return;
+                    }
+                    toggleSchoolSelection(school.schoolId);
+                  }}
+                >
+                  <div className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-medium text-gray-800 dark:text-gray-200">
+                          {school.schoolName}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                          ID: {school.schoolId}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {difference !== 0 && (
+                          <div
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              difference > 0
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                            }`}
+                          >
+                            {difference > 0 ? "+" : ""}
+                            {formatCurrency(difference)}
+                            {difference > 0 ? (
+                              <ArrowRight className="h-3 w-3 inline ml-1 rotate-45" />
+                            ) : difference < 0 ? (
+                              <ArrowRight className="h-3 w-3 inline ml-1 -rotate-45" />
+                            ) : null}
+                          </div>
+                        )}
+
+                        {/* Liquidation status badge */}
+                        {/* Liquidation status badge - Only show when toggle is on */}
+                        {showLiquidationDetails && (
+                          <div
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              canRequestNextMonth(school)
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
+                                : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200"
+                            }`}
+                          >
+                            {canRequestNextMonth(school) ? (
+                              <>
+                                <CalendarCheck className="h-3 w-3 inline mr-1" />
+                                Eligible
+                              </>
+                            ) : (
+                              <>
+                                <CalendarX className="h-3 w-3 inline mr-1" />
+                                Cannot Request Yet
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <>
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
+                            Current Budget
+                          </div>
+                          <div className="font-medium">
+                            {formatCurrency(currentBudget)}
+                          </div>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between">
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
+                            Previous Budget
+                          </div>
+                          <div className="text-sm">
+                            {formatCurrency(prevBudget)}
+                          </div>
+                        </div>
+
+                        {/* Show liquidation details if toggled on */}
+                        {showLiquidationDetails &&
+                          school.last_liquidated_month && (
+                            <div className="mt-1 flex items-center justify-between">
+                              <div className="text-sm text-green-800 dark:text-green-200 ">
+                                Last Liquidation
+                              </div>
+                              <div className="text-sm text-green-800 dark:text-green-200">
+                                {monthNames[school.last_liquidated_month - 1]}{" "}
+                                {school.last_liquidated_year}
+                              </div>
+                            </div>
+                          )}
+
+                        <div className="mt-4 space-y-3">
+                          <div className="flex items-center justify-center gap-4">
+                            <Button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                adjustBudget(school.schoolId, false);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              disabled={currentBudget <= 0}
+                              className="px-4 py-2 h-10 w-full"
+                            >
+                              <Minus className="h-4 w-4" />
+                              <span className="ml-2">Decrease</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                adjustBudget(school.schoolId, true);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="px-4 py-2 h-10 w-full"
+                            >
+                              <Plus className="h-4 w-4" />
+                              <span className="ml-2">Increase</span>
+                            </Button>
+                          </div>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                              <span className="text-gray-500">₱</span>
+                            </div>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={editingBudgets[school.schoolId] || 0}
+                              onChange={(e) =>
+                                handleBudgetChange(
+                                  school.schoolId,
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                              className="pl-8 h-10 text-center"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
         {/* Pagination */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -1023,26 +1234,6 @@ const ResourceAllocation = () => {
                 }
               )}
             </div>
-            <Button
-              type="button"
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages || totalPages === 0}
-              variant="outline"
-              size="sm"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              onClick={() => goToPage(totalPages)}
-              disabled={currentPage === totalPages || totalPages === 0}
-              variant="outline"
-              size="sm"
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
             <Button
               type="button"
               onClick={() => goToPage(currentPage + 1)}

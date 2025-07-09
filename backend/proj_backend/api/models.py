@@ -1,22 +1,47 @@
 from django.db import models
 from django.utils import timezone
 from django.utils.crypto import get_random_string
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import datetime, timedelta, date
+from simple_history.models import HistoricalRecords
 import string
 import logging
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('The Email must be set')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save()
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        return self.create_user(email, password, **extra_fields)
+
+
 class User(AbstractUser):
     # Custom ID field - primary key
     id = models.CharField(primary_key=True, max_length=10, editable=False)
+    password_change_required = models.BooleanField(default=True)
+    username = None  # Remove username field
+
+    email = models.EmailField(
+        unique=True,
+        verbose_name='email address',
+        help_text='Required. Must be a valid email address.'
+    )
 
     # Role choices
     ROLE_CHOICES = [
@@ -56,8 +81,17 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
-    school_district = models.CharField(max_length=100, blank=True, null=True,
-                                       help_text="District assignment (only for district administrative assistants)")
+    school_district = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="District assignment (only for district administrative assistants)"
+    )
+
+    USERNAME_FIELD = 'email'  # Use email as the login identifier
+    REQUIRED_FIELDS = ['first_name', 'last_name']  # Add basic required fields
+    # Add these at the bottom of your User model class
+    objects = UserManager()
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -78,10 +112,22 @@ class User(AbstractUser):
 
             self.id = f"{date_part}{seq_part}"
 
+        # Normalize email address
+        if self.email:
+            self.email = self.email.lower()
+
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name} ({self.username})"
+        return f"{self.get_full_name()} ({self.email})"
+
+    def clean(self):
+        super().clean()
+        # Add any additional validation here
+        if self.phone_number:
+            # Example: Remove all non-digit characters
+            self.phone_number = ''.join(
+                c for c in self.phone_number if c.isdigit())
 
 
 class School(models.Model):
@@ -238,6 +284,7 @@ class RequestManagement(models.Model):
         related_name='reviewed_requests'
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    history = HistoricalRecords()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -291,8 +338,8 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-                and not self._skip_auto_status
-                and self.request_monthyear
+            and not self._skip_auto_status
+            and self.request_monthyear
             ):
             today = date.today()
             try:
@@ -337,6 +384,7 @@ class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
     priority = models.ForeignKey(ListOfPriority, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    history = HistoricalRecords()
 
     class Meta:
         unique_together = ('request', 'priority')
@@ -397,6 +445,7 @@ class LiquidationManagement(models.Model):
     date_districtApproved = models.DateField(null=True, blank=True)
     date_liquidated = models.DateField(null=True, blank=True)
     remaining_days = models.IntegerField(null=True, blank=True)
+    history = HistoricalRecords()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

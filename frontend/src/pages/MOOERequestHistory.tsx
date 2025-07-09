@@ -29,6 +29,7 @@ import { handleExport } from "@/lib/pdfHelpers";
 import { Download } from "lucide-react";
 import { format } from "date-fns";
 import Button from "@/components/ui/button/Button";
+import MOOERequestTable from "@/components/tables/BasicTables/MOOEREquestTable";
 
 type SubmissionStatus =
   | "pending"
@@ -133,7 +134,7 @@ const MOOERequestHistory = () => {
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Requests History" />
-      <PrioritySubmissionsTable
+      <MOOERequestTable
         submissions={submissions}
         onView={setViewedSubmission}
         loading={loading}
@@ -170,25 +171,8 @@ const MOOERequestHistory = () => {
                         {viewedSubmission.request_id}
                       </span>
                     </div>
-                    <div className="flex items-center">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
-                        Submitted by:
-                      </span>
-                      <span className="text-gray-900 dark:text-white">
-                        {viewedSubmission.user.first_name}{" "}
-                        {viewedSubmission.user.last_name}
-                      </span>
-                    </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="flex items-center">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
-                        School:
-                      </span>
-                      <span className="text-gray-900 dark:text-white">
-                        {viewedSubmission.user.school?.schoolName || "N/A"}
-                      </span>
-                    </div>
                     <div className="flex items-center">
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
                         Status:

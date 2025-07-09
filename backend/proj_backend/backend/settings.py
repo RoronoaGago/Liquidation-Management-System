@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'api',
     'django_celery_results',  # For storing Celery task results
     'django_celery_beat',     # For scheduled tasks
+    'simple_history',  # For tracking model history
 ]
 # JWT Configuration
 REST_FRAMEWORK = {
@@ -75,6 +76,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
+
+FRONTEND_LOGIN_URL = 'http://localhost:5173/login'
 
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True  # If using HTTPS

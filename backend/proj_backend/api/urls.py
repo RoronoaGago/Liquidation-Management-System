@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -15,7 +15,9 @@ urlpatterns = [
     path("users/<int:pk>/", views.user_detail, name="user-detail"),
     path('token/', CustomTokenObtainPairView.as_view(),
          name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/refresh/', CustomTokenRefreshView.as_view(),
+         name='token_refresh'),  # Updated
+    path('change-password/', views.change_password, name='change-password'),
     path('protected/', ProtectedView.as_view(), name='protected'),
 
     path('schools/', views.SchoolListCreateAPIView.as_view(),
@@ -46,6 +48,7 @@ urlpatterns = [
          name='check-pending-requests'),
     path('requests/<str:request_id>/resubmit/',
          views.resubmit_request, name='resubmit-request'),
+    # In urls.py
     path('requests/<str:pk>/approve/',
          views.ApproveRequestView.as_view(), name='approve-request'),
     path('requests/<str:pk>/reject/',
@@ -76,4 +79,10 @@ urlpatterns = [
     path("users/me/", views.user_me, name="user-me"),
     path('division-signatories/', views.division_signatories,
          name='division-signatories'),
+
+    # Path for recording the history cchanges of hte request and liquidation management
+    path('requests/<str:request_id>/history/',
+         views.request_history, name='request-history'),
+    path('liquidations/<str:LiquidationID>/history/',
+         views.liquidation_management_history, name='liquidation-history'),
 ]
