@@ -336,8 +336,8 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-                and not self._skip_auto_status
-                and self.request_monthyear
+            and not self._skip_auto_status
+            and self.request_monthyear
             ):
             today = date.today()
             try:

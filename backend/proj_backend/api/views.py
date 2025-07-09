@@ -74,6 +74,15 @@ def change_password(request):
 
     # Update the token to prevent automatic logout
     refresh = RefreshToken.for_user(user)
+    # Add custom claims
+    refresh['first_name'] = user.first_name
+    refresh['last_name'] = user.last_name
+    refresh['email'] = user.email
+    refresh['role'] = user.role
+    refresh['profile_picture'] = user.profile_picture.url if user.profile_picture else None
+    refresh['school_district'] = user.school_district
+    refresh['password_change_required'] = user.password_change_required
+
     return Response({
         "access": str(refresh.access_token),
         "refresh": str(refresh),
@@ -193,7 +202,6 @@ def user_detail(request, pk):
             refresh = RefreshToken.for_user(user)
             refresh['first_name'] = user.first_name
             refresh['last_name'] = user.last_name
-            refresh['username'] = user.username
             refresh['email'] = user.email
             refresh['role'] = user.role
 
@@ -452,15 +460,6 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
         # Set the sender for notification
         instance._status_changed_by = self.request.user
         serializer.save()
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_request_versions(request, request_id):
-    request_versions = RequestManagement.objects.filter(
-        request_id=request_id).order_by('-created_at')
-    serializer = RequestManagementSerializer(request_versions, many=True)
-    return Response(serializer.data)
 
 
 class ApproveRequestView(generics.UpdateAPIView):
@@ -1054,9 +1053,14 @@ class UserLiquidationsAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return LiquidationManagement.objects.filter(
-            request__user=self.request.user
-        ).order_by('-created_at')
+        user = self.request.user
+        if user.role == "school_head":
+            return LiquidationManagement.objects.filter(request__user=user).order_by('-created_at')
+        elif user.role == "school_admin":
+            # Allow school admin to see liquidations for their school
+            return LiquidationManagement.objects.filter(request__user__school=user.school).order_by('-created_at')
+        else:
+            return LiquidationManagement.objects.none()
 
 
 class UserRequestListAPIView(generics.ListAPIView):

@@ -219,9 +219,13 @@ export type Submission = {
   rejection_date: string; // Optional field for when the rejection occurred
   reviewed_by: User;
   reviewed_at?: string;
+  is_resubmission?: boolean;
+  previous_version?: string; // ID of the original submission if this is a resubmission
+  notes?: string; // Optional notes field
+  previous_request?: Submission; // Optional field for previous request
 };
 
-type Priority = {
+export type Priority = {
   id: number;
   priority: {
     LOPID: number;
