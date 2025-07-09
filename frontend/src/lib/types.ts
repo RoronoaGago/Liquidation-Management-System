@@ -225,6 +225,12 @@ export type Submission = {
   previous_request?: Submission; // Optional field for previous request
 };
 
+
+export type Prayoridad = {
+  expenseTitle: string;
+  amount: number;
+  LOPID: number;
+}
 export type Priority = {
   id: number;
   priority: {
