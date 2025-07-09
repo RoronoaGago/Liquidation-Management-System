@@ -647,6 +647,22 @@ def check_pending_requests(request):
     return Response(response_data)
 
 
+def get_priorities_for_history(request_id, as_of_date):
+    # Get all priority history records that existed at or before as_of_date
+    from .models import RequestPriority
+    priorities = RequestPriority.history.as_of(
+        as_of_date).filter(request_id=request_id)
+
+    return [
+        {
+            "expenseTitle": rp.priority.expenseTitle,
+            "LOPID": rp.priority.LOPID,
+            "amount": rp.amount,
+        }
+        for rp in priorities
+    ]
+
+
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def resubmit_request(request, request_id):
@@ -1195,11 +1211,29 @@ def division_signatories(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def request_management_history(request, request_id):
+def request_history(request, request_id):
     req = RequestManagement.objects.get(request_id=request_id)
-    history = req.history.all().order_by('-history_date')
-    serializer = RequestManagementHistorySerializer(history, many=True)
-    return Response(serializer.data)
+    history = req.history.order_by('-history_date')
+    data = []
+    for h in history:
+        priorities = get_priorities_for_history(h.request_id, h.history_date)
+        data.append({
+            "priorities": priorities,
+            "status": h.status,
+            "rejection_comment": h.rejection_comment,
+            "rejection_date": h.rejection_date,
+            "created_at": h.created_at,
+            "user": {
+                "first_name": h.user.first_name if h.user else "",
+                "last_name": h.user.last_name if h.user else "",
+                "school": {
+                    "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
+                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "",
+                } if h.user and h.user.school else None,
+            } if h.user else None,
+            "request_id": h.request_id,
+        })
+    return Response(data)
 
 
 @api_view(['GET'])

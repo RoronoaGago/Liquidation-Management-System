@@ -80,7 +80,9 @@ urlpatterns = [
     path('division-signatories/', views.division_signatories,
          name='division-signatories'),
 
-     # Path for recording the history cchanges of hte request and liquidation management      
-    path('requests/<str:request_id>/history/', views.request_management_history, name='request-history'),
-    path('liquidations/<str:LiquidationID>/history/', views.liquidation_management_history, name='liquidation-history'),
+    # Path for recording the history cchanges of hte request and liquidation management
+    path('requests/<str:request_id>/history/',
+         views.request_history, name='request-history'),
+    path('liquidations/<str:LiquidationID>/history/',
+         views.liquidation_management_history, name='liquidation-history'),
 ]

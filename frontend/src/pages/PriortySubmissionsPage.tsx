@@ -37,13 +37,13 @@ import {
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import api from "@/api/axios";
-import { Submission, School, Priority } from "@/lib/types";
+import { Submission, School, Priority, Prayoridad } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 
 type HistoryItem = {
-  priorities: Priority[];
+  priorities: Prayoridad[];
   status: string;
   rejection_comment?: string;
   rejection_date?: string;
@@ -54,6 +54,7 @@ type HistoryItem = {
 };
 
 type PriorityDiff = {
+  LOPID: number; // Unique identifier for the priority
   expenseTitle: string;
   prevAmount?: number;
   currAmount?: number;
@@ -61,39 +62,56 @@ type PriorityDiff = {
 };
 
 const getPriorityDiffs = (
-  prev: Priority[] = [],
-  curr: Priority[] = []
+  prev: Prayoridad[] = [],
+  curr: Prayoridad[] = []
 ): PriorityDiff[] => {
-  const prevMap = new Map<string, number>();
-  prev.forEach((p) =>
-    prevMap.set(
-      p.priority.expenseTitle,
-      Number(p.amount != null ? p.amount : 0)
-    )
-  );
-  const currMap = new Map<string, number>();
-  curr.forEach((p) =>
-    currMap.set(
-      p.priority.expenseTitle,
-      Number(p.amount != null ? p.amount : 0)
-    )
-  );
-  const allKeys = Array.from(
+  // Create maps using LOPID as key
+  const prevMap = new Map<number, number>();
+  prev.forEach((p) => {
+    const LOPID = p.LOPID || 0;
+    const amount = Number(p.amount != null ? p.amount : 0);
+    prevMap.set(LOPID, amount);
+  });
+
+  const currMap = new Map<number, number>();
+  curr.forEach((p) => {
+    const LOPID = p.LOPID || 0;
+    const amount = Number(p.amount != null ? p.amount : 0);
+    currMap.set(LOPID, amount);
+  });
+
+  // Get all unique LOPIDs from both versions
+  const allLOPIDs = Array.from(
     new Set([...Array.from(prevMap.keys()), ...Array.from(currMap.keys())])
   );
-  return allKeys.map((expenseTitle) => {
-    const prevAmount = prevMap.get(expenseTitle);
-    const currAmount = currMap.get(expenseTitle);
+
+  return allLOPIDs.map((LOPID) => {
+    const prevAmount = prevMap.get(LOPID);
+    const currAmount = currMap.get(LOPID);
+
+    // Find the priority to get the title
+    const priority = [...prev, ...curr].find((p) => p.LOPID === LOPID);
+    const expenseTitle = priority?.expenseTitle || "Unknown";
+
     let change: PriorityDiff["change"] = "unchanged";
-    if (prevAmount == null && currAmount != null) change = "added";
-    else if (prevAmount != null && currAmount == null) change = "removed";
-    else if (prevAmount != null && currAmount != null) {
-      if (prevAmount < currAmount) change = "increased";
-      else if (prevAmount > currAmount) change = "decreased";
-      else change = "unchanged";
+
+    if (prevAmount == null && currAmount != null) {
+      change = "added";
+    } else if (prevAmount != null && currAmount == null) {
+      change = "removed";
+    } else if (prevAmount != null && currAmount != null) {
+      if (prevAmount < currAmount) {
+        change = "increased";
+      } else if (prevAmount > currAmount) {
+        change = "decreased";
+      } else {
+        change = "unchanged";
+      }
     }
+
     return {
       expenseTitle,
+      LOPID,
       prevAmount,
       currAmount,
       change,
@@ -357,6 +375,7 @@ const PriortySubmissionsPage = () => {
         const res = await api.get(
           `/requests/${viewedSubmission.request_id}/history/`
         );
+        console.log(res.data);
         setSubmissionHistory(res.data as HistoryItem[]);
       } catch (err) {
         setSubmissionHistory(null);
@@ -395,8 +414,8 @@ const PriortySubmissionsPage = () => {
     curr,
     showAll = false,
   }: {
-    prev: Priority[] | undefined;
-    curr: Priority[] | undefined;
+    prev: Prayoridad[] | undefined;
+    curr: Prayoridad[] | undefined;
     showAll?: boolean;
   }) {
     const diffs = getPriorityDiffs(prev, curr);
@@ -459,10 +478,7 @@ const PriortySubmissionsPage = () => {
                 </tr>
               )}
               {shownDiffs.map((diff) => (
-                <tr
-                  key={diff.expenseTitle}
-                  className="border-b last:border-b-0"
-                >
+                <tr key={diff.LOPID} className="border-b last:border-b-0">
                   <td className="px-4 py-3 font-medium">{diff.expenseTitle}</td>
                   <td className="px-4 py-3 text-right">
                     {diff.prevAmount != null ? (
@@ -914,29 +930,6 @@ const PriortySubmissionsPage = () => {
                   </div>
                 )}
 
-              {viewedSubmission?.status === "pending" &&
-                viewedSubmission.rejection_comment && (
-                  <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-900/30">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 pt-0.5">
-                        <AlertTriangleIcon className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
-                          Previously Rejected
-                        </h4>
-                        <div className="mt-2">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Previous rejection reason
-                          </p>
-                          <p className="text-yellow-700 dark:text-yellow-300 mt-1 bg-yellow-100/50 dark:bg-yellow-900/30 p-3 rounded-md">
-                            {viewedSubmission.rejection_comment}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button
