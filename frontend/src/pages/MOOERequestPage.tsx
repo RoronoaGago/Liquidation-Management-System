@@ -994,156 +994,152 @@ const MOOERequestPage = () => {
                     {filteredExpenses.length} items
                   </span>
                 </div>
-
-                <div className="flex gap-4 w-full md:w-auto items-center">
-                  <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    Categories per page:
-                  </label>
-                  <select
-                    value={categoriesPerPage}
-                    onChange={(e) => {
-                      setCategoriesPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 h-11"
-                  >
-                    {[3, 5, 10, 20].map((num) => (
-                      <option key={num} value={num}>
-                        Show {num}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
-              {/* Improved Expense List with inline editing */}
-              <div className="grid grid-cols-1 gap-3">
+              {/* Enhanced Dropdown List */}
+              <div className="space-y-3">
                 {loading && (
-                  <div className="col-span-2 text-gray-500 text-center py-8">
-                    Loading expenses...
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-500 mb-3"></div>
+                    <span className="text-gray-500">Loading expenses...</span>
                   </div>
                 )}
+
                 {fetchError && (
-                  <div className="col-span-2 text-red-500 text-center py-8">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-300 text-center">
+                    <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
                     {fetchError}
                   </div>
                 )}
 
-                {!loading &&
-                  !fetchError &&
-                  paginatedCategoryKeys.map((cat) => {
-                    const items = categories[cat].filter(
-                      (p) => selected[p.expenseTitle] === undefined
-                    );
-                    if (items.length === 0) return null;
-                    return (
-                      <div
-                        key={cat}
-                        className="mb-4 border border-gray-300 rounded-lg transition-colors"
-                      >
-                        {/* Category Header */}
-                        <div className="flex items-center mb-2 w-full bg-gray-50 dark:bg-gray-700/40 rounded-t-lg px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={items.every(
-                              (p) => selected[p.expenseTitle] !== undefined
-                            )}
-                            onChange={() => doCategorySelectAll(cat)}
-                            disabled={isFormDisabled}
-                            className="mr-3 h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
-                            style={{ cursor: "pointer" }}
-                          />
-                          <span className="font-semibold text-brand-700 dark:text-brand-200 w-full">
-                            {CATEGORY_LABELS[cat] || cat}
-                          </span>
-                        </div>
-                        {/* Items under category, indented */}
-                        <div className="pl-8 space-y-2 pb-2">
-                          {items.map((priority) => (
-                            <div
-                              key={priority.LOPID}
-                              className="flex items-center py-2 pr-4 rounded-lg transition-colors hover:bg-brand-50/60 dark:hover:bg-brand-900/20"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={
-                                  selected[priority.expenseTitle] !== undefined
-                                }
-                                onChange={() =>
-                                  handleCheck(priority.expenseTitle)
-                                }
-                                disabled={isFormDisabled}
-                                className="h-5 w-5 rounded-full border-2 border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 hover:border-brand-500"
-                                style={{ cursor: "pointer" }}
-                              />
-                              <span className="ml-3 text-gray-700 dark:text-gray-300">
-                                {priority.expenseTitle}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
+                {!loading && !fetchError && (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    {sortedCategoryKeys.map((cat) => {
+                      // Filter by search term as well as selection
+                      const items = categories[cat].filter(
+                        (p) =>
+                          selected[p.expenseTitle] === undefined &&
+                          p.expenseTitle
+                            .toLowerCase()
+                            .includes(filterOptions.searchTerm.toLowerCase())
+                      );
+                      if (items.length === 0) return null;
 
-              {/* Pagination */}
-              <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {currentPage} of {totalPages} • {allCategoryKeys.length}{" "}
-                  total categories
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => (
-                      <Button
-                        type="button"
-                        key={i + 1}
-                        onClick={() => setCurrentPage(i + 1)}
-                        variant={currentPage === i + 1 ? "primary" : "outline"}
-                        size="sm"
-                      >
-                        {i + 1}
-                      </Button>
-                    ))}
+                      const allSelected = items.every(
+                        (p) => selected[p.expenseTitle] !== undefined
+                      );
+
+                      return (
+                        <Disclosure key={cat}>
+                          {({ open }) => (
+                            <div className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                              <Disclosure.Button className="flex items-center justify-between w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                <div className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    onChange={() => setCategoryToSelect(cat)}
+                                    disabled={isFormDisabled}
+                                    className={`h-5 w-5 rounded-full border-2 ${
+                                      allSelected
+                                        ? "border-brand-500 bg-brand-500"
+                                        : "border-gray-300 dark:border-gray-600"
+                                    } focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 ${
+                                      isFormDisabled
+                                        ? "cursor-not-allowed"
+                                        : "cursor-pointer hover:border-brand-500"
+                                    }`}
+                                    style={{ position: "relative" }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  {allSelected && (
+                                    <CheckCircle className="h-5 w-5 absolute left-0 top-0 text-white pointer-events-none" />
+                                  )}
+                                  <span className="ml-3 font-medium text-gray-800 dark:text-gray-200">
+                                    {CATEGORY_LABELS[cat] || cat}
+                                  </span>
+                                </div>
+                                <div className="flex items-center">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                                    {allSelected
+                                      ? "All selected"
+                                      : `${items.length} available`}
+                                  </span>
+                                  <ChevronDown
+                                    className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${
+                                      open ? "rotate-180 text-brand-500" : ""
+                                    }`}
+                                  />
+                                </div>
+                              </Disclosure.Button>
+                              <Transition
+                                enter="transition duration-100 ease-out"
+                                enterFrom="transform opacity-0 -translate-y-2"
+                                enterTo="transform opacity-100 translate-y-0"
+                                leave="transition duration-75 ease-out"
+                                leaveFrom="transform opacity-100 translate-y-0"
+                                leaveTo="transform opacity-0 -translate-y-2"
+                              >
+                                <Disclosure.Panel className="px-4 pb-3">
+                                  <div className="space-y-2 pl-8">
+                                    {items.map((priority) => (
+                                      <div
+                                        key={priority.LOPID}
+                                        className="flex items-center py-2 px-3 rounded-lg transition-colors hover:bg-brand-50/60 dark:hover:bg-brand-900/20 group"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            selected[priority.expenseTitle] !==
+                                            undefined
+                                          }
+                                          onChange={() =>
+                                            handleCheck(priority.expenseTitle)
+                                          }
+                                          disabled={isFormDisabled}
+                                          className={`h-5 w-5 rounded-full border-2 ${
+                                            selected[priority.expenseTitle] !==
+                                            undefined
+                                              ? "border-brand-500 bg-brand-500"
+                                              : "border-gray-300 dark:border-gray-600"
+                                          } focus:ring-2 focus:ring-brand-500 outline-none transition-colors duration-150 ${
+                                            isFormDisabled
+                                              ? "cursor-not-allowed"
+                                              : "cursor-pointer hover:border-brand-500"
+                                          }`}
+                                          style={{ position: "relative" }}
+                                        />
+                                        {selected[priority.expenseTitle] !==
+                                          undefined && (
+                                          <CheckCircle className="h-5 w-5 absolute left-0 top-0 text-white pointer-events-none" />
+                                        )}
+                                        <span className="ml-3 text-gray-700 dark:text-gray-300 flex-1">
+                                          {priority.expenseTitle}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            showRequirements(
+                                              priority.expenseTitle
+                                            )
+                                          }
+                                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-brand-500 transition-opacity"
+                                          disabled={isFormDisabled}
+                                        >
+                                          <FileText className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </Disclosure.Panel>
+                              </Transition>
+                            </div>
+                          )}
+                        </Disclosure>
+                      );
+                    })}
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </Button>
-                </div>
+                )}
               </div>
             </div>
 
