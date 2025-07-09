@@ -512,7 +512,7 @@ const MOOERequestPage = () => {
               </div>
             )}
             <p className="text-gray-600 dark:text-gray-300 text-center">
-              Redirecting to request history...
+              Redirecting to dashboard...
             </p>
           </div>
         </DialogContent>
@@ -755,7 +755,7 @@ const MOOERequestPage = () => {
                 <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/10 rounded border border-green-100 dark:border-green-900/20">
                   <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
                   <p className="text-sm text-green-700 dark:text-green-300">
-                    Full budget allocated (complies with policy).
+                    The budget allocated was fully utilized.
                   </p>
                 </div>
               )}
@@ -769,8 +769,8 @@ const MOOERequestPage = () => {
                     <strong>
                       ₱{(allocatedBudget - totalAmount).toLocaleString()}
                     </strong>{" "}
-                    remaining. Ensure the full budget is utilized before
-                    submission.
+                    remaining. Ensure that the full allocated budget is utilized
+                    before submission.
                   </p>
                 </div>
               )}
