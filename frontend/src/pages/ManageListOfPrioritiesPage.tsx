@@ -32,6 +32,41 @@ const requiredFields = ["expenseTitle"];
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
+const LOP_CATEGORIES = [
+  { value: "travel", label: "Travel Expenses" },
+  { value: "training", label: "Training Expenses" },
+  { value: "scholarship", label: "Scholarship Grants/Expenses" },
+  { value: "supplies", label: "Office Supplies & Materials Expenses" },
+  { value: "utilities", label: "Utilities Expenses" },
+  { value: "communication", label: "Communication Expenses" },
+  { value: "awards", label: "Awards/Rewards/Prizes Expenses" },
+  {
+    value: "survey",
+    label: "Survey, Research, Exploration and Development Expenses",
+  },
+  { value: "confidential", label: "Confidential & Intelligence Expenses" },
+  {
+    value: "extraordinary",
+    label: "Extraordinary and Miscellaneous Expenses",
+  },
+  { value: "professional", label: "Professional Service Expenses" },
+  { value: "services", label: "General Services" },
+  { value: "maintenance", label: "Repairs and Maintenance Expenses" },
+  {
+    value: "financial_assistance",
+    label: "Financial Assistance/Subsidy Expenses",
+  },
+  { value: "taxes", label: "Taxes, Duties and Licenses Expenses" },
+  { value: "labor", label: "Labor and Wages Expenses" },
+  {
+    value: "other_maintenance",
+    label: "Other Maintenance and Operating Expenses",
+  },
+  { value: "financial", label: "Financial Expenses" },
+  { value: "non_cash", label: "Non-cash Expenses" },
+  { value: "losses", label: "Losses" },
+];
+
 const ManageListOfPrioritiesPage = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -48,11 +83,14 @@ const ManageListOfPrioritiesPage = () => {
     key: LOPSortableField;
     direction: SortDirection;
   } | null>({ key: "LOPID", direction: "asc" }); // Default to ascending
-  const [formData, setFormData] = useState<LOPFormData>({
-    expenseTitle: "",
-    requirement_ids: [],
-    is_active: true,
-  });
+  const [formData, setFormData] = useState<LOPFormData & { category?: string }>(
+    {
+      expenseTitle: "",
+      requirement_ids: [],
+      is_active: true,
+      category: "other_maintenance", // Default value
+    }
+  );
 
   // NEW: Requirement search state for dialog
   const [requirementSearch, setRequirementSearch] = useState("");
@@ -199,7 +237,10 @@ const ManageListOfPrioritiesPage = () => {
     }
     setIsSubmitting(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/priorities/`, formData);
+      await axios.post(`${API_BASE_URL}/api/priorities/`, {
+        ...formData,
+        category: formData.category || "other_maintenance",
+      });
       // Toasts
       toast.success("List of Priority added successfully!", {
         position: "top-center",
@@ -210,6 +251,7 @@ const ManageListOfPrioritiesPage = () => {
         expenseTitle: "",
         requirement_ids: [],
         is_active: true,
+        category: "other_maintenance",
       });
       setErrors({});
       setIsDialogOpen(false);
@@ -267,6 +309,31 @@ const ManageListOfPrioritiesPage = () => {
                       {errors.expenseTitle}
                     </p>
                   )}
+                </div>
+                {/* Category Dropdown */}
+                <div className="space-y-2">
+                  <Label htmlFor="category" className="text-base">
+                    Category *
+                  </Label>
+                  <select
+                    id="category"
+                    name="category"
+                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
+                    value={formData.category}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        category: e.target.value,
+                      }))
+                    }
+                    required
+                  >
+                    {LOP_CATEGORIES.map((cat) => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between mb-2 sticky top-0 bg-white dark:bg-gray-800 z-10 py-2">
@@ -347,6 +414,7 @@ const ManageListOfPrioritiesPage = () => {
                         expenseTitle: "",
                         requirement_ids: [],
                         is_active: true,
+                        category: "other_maintenance",
                       });
                       setRequirementSearch("");
                     }}
