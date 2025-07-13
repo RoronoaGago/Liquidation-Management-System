@@ -32,23 +32,64 @@ const PasswordChangeModal = () => {
       general: "",
     };
 
+    // Current password validation
     if (!currentPassword) {
       newErrors.currentPassword = "Current password is required";
       valid = false;
     }
 
+    // New password validation
     if (!newPassword) {
       newErrors.newPassword = "New password is required";
       valid = false;
-    } else if (newPassword.length < 8) {
-      newErrors.newPassword = "Password must be at least 8 characters";
-      valid = false;
-    } else if (currentPassword && newPassword === currentPassword) {
-      newErrors.newPassword =
-        "New password must be different from current password";
-      valid = false;
+    } else {
+      // Minimum length
+      if (newPassword.length < 8) {
+        newErrors.newPassword = "Password must be at least 8 characters";
+        valid = false;
+      }
+      // Different from current password
+      else if (currentPassword && newPassword === currentPassword) {
+        newErrors.newPassword =
+          "New password must be different from current password";
+        valid = false;
+      }
+      // Contains at least one uppercase letter
+      else if (!/[A-Z]/.test(newPassword)) {
+        newErrors.newPassword =
+          "Password must contain at least one uppercase letter";
+        valid = false;
+      }
+      // Contains at least one lowercase letter
+      else if (!/[a-z]/.test(newPassword)) {
+        newErrors.newPassword =
+          "Password must contain at least one lowercase letter";
+        valid = false;
+      }
+      // Contains at least one number
+      else if (!/[0-9]/.test(newPassword)) {
+        newErrors.newPassword = "Password must contain at least one number";
+        valid = false;
+      }
+      // Contains at least one special character
+      else if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) {
+        newErrors.newPassword =
+          "Password must contain at least one special character";
+        valid = false;
+      }
+      // No whitespace allowed
+      else if (/\s/.test(newPassword)) {
+        newErrors.newPassword = "Password cannot contain whitespace";
+        valid = false;
+      }
+      // Maximum length (optional)
+      else if (newPassword.length > 64) {
+        newErrors.newPassword = "Password must be less than 64 characters";
+        valid = false;
+      }
     }
 
+    // Confirm password validation
     if (!confirmPassword) {
       newErrors.confirmPassword = "Please confirm your new password";
       valid = false;

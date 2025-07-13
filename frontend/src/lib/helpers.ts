@@ -1,4 +1,5 @@
 import { isValidPhoneNumber } from "libphonenumber-js";
+import dayjs from "dayjs";
 export const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
@@ -33,27 +34,35 @@ export const validatePhoneNumber = (phone: string): boolean => {
   return phone ? isValidPhoneNumber(phone) : true; // Optional field
 };
 
-export const validateDateOfBirth = (dateString: string) => {
-  if (!dateString) return "";
-  const birthDate = new Date(dateString);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+export const validateDateOfBirth = (dateString: string): string | undefined => {
+  if (!dateString) return undefined; // Return undefined instead of null
 
-  if (birthDate > today) {
-    return "Birthdate cannot be in the future.";
+  const date = dayjs(dateString);
+  const now = dayjs();
+
+  // Check if date is valid
+  if (!date.isValid()) {
+    return "Please enter a valid date";
   }
 
-  const minAgeDate = new Date(
-    today.getFullYear() - 18,
-    today.getMonth(),
-    today.getDate()
-  );
-
-  if (birthDate > minAgeDate) {
-    return "You must be at least 18 years old.";
+  // Check if date is in the future
+  if (date.isAfter(now)) {
+    return "Birthdate cannot be in the future";
   }
 
-  return "";
+  // Check if age is at least 18 years
+  const minAgeDate = now.subtract(18, 'year');
+  if (date.isAfter(minAgeDate)) {
+    return "Must be at least 18 years old";
+  }
+
+  // Check if age is reasonable (not older than 120 years)
+  const maxAgeDate = now.subtract(120, 'year');
+  if (date.isBefore(maxAgeDate)) {
+    return "Please enter a valid birthdate";
+  }
+
+  return undefined;
 };
 
 export const getAvatarColor = (

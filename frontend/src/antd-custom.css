@@ -1,0 +1,50 @@
+/* Override Ant Design DatePicker styles */
+.ant-picker {
+  height: 44px !important; /* h-11 */
+  width: 100% !important;
+  border-radius: 0.5rem !important; /* rounded-lg */
+  border-width: 2px !important; /* border-2 */
+  border-color: rgb(209 213 219) !important; /* border-gray-300 */
+  background-color: transparent !important; /* bg-transparent */
+  padding: 0.625rem 1rem 0.625rem 1rem !important; /* px-4 py-2.5 pr-11 */
+  font-size: 0.875rem !important; /* text-sm */
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
+    var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important; /* shadow-theme-xs */
+}
+
+.ant-picker-focused {
+  border-color: rgb(147 197 253) !important; /* focus:border-brand-300 */
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.1) !important; /* focus:ring-3 focus:ring-brand-500/10 */
+  outline: none !important; /* focus:outline-hidden */
+}
+
+/* Dark mode styles */
+.dark .ant-picker {
+  border-color: rgb(55 65 81) !important; /* dark:border-gray-700 */
+  background-color: rgb(17 24 39) !important; /* dark:bg-gray-900 */
+  color: rgba(255, 255, 255, 0.9) !important; /* dark:text-white/90 */
+}
+
+.dark .ant-picker-input > input::placeholder {
+  color: rgba(
+    255,
+    255,
+    255,
+    0.3
+  ) !important; /* dark:placeholder:text-white/30 */
+}
+
+.dark .ant-picker-focused {
+  border-color: rgb(30 58 138) !important; /* dark:focus:border-brand-800 */
+}
+
+/* Calendar dropdown styles */
+.ant-picker-dropdown {
+  border-radius: 0.5rem !important; /* rounded-lg */
+  border-width: 2px !important; /* border-2 */
+}
+
+/* Icon alignment */
+.ant-picker-suffix {
+  margin-left: 0.5rem !important;
+}

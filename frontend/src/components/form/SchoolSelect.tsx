@@ -16,7 +16,7 @@ interface SchoolSelectProps {
   value: number | School | null;
   onChange: (value: number | null) => void;
   required?: boolean;
-  error?: string;
+  error?: string | undefined;
 }
 
 export default function SchoolSelect({
