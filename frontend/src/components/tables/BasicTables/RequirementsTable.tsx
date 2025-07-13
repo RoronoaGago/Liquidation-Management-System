@@ -531,22 +531,22 @@ export default function RequirementsTable({
                       <div className="flex justify-start space-x-2">
                         <button
                           onClick={() => handleEdit(req)}
-                          className="text-gray-600 hover:text-gray-900"
+                          className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
                           title="Edit"
                         >
-                          <SquarePenIcon />
+                          Edit
                         </button>
                         <button
                           onClick={() => handleArchive(req)}
-                          className="text-gray-600 hover:text-gray-900"
+                          className={`px-4 py-2 rounded-md transition-colors ${
+                            req.is_active
+                              ? "bg-error-500 text-white hover:bg-error-600"
+                              : "bg-success-500 text-white hover:bg-success-600"
+                          }`}
                           title={req.is_active ? "Archive" : "Restore"}
                           disabled={isSubmitting}
                         >
-                          {req.is_active ? (
-                            <ArchiveIcon />
-                          ) : (
-                            <ArchiveRestoreIcon />
-                          )}
+                          {req.is_active ? "Archive" : "Restore"}
                         </button>
                       </div>
                     </TableCell>

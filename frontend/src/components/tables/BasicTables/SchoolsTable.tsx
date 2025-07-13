@@ -858,35 +858,35 @@ export default function SchoolsTable({
                         {school.is_active !== false ? "Active" : "Archived"}
                       </span>
                     </TableCell>
-                    <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start text-theme-sm">
                       <div className="flex justify-start space-x-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEditSchool(school);
                           }}
-                          className="text-gray-600 hover:text-gray-900"
+                          className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
                           title="Edit School"
                         >
-                          <SquarePenIcon />
+                          Edit
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleArchiveClick(school);
                           }}
-                          className="text-gray-600 hover:text-gray-900"
+                          className={`px-4 py-2 rounded-md transition-colors ${
+                            school.is_active
+                              ? "bg-error-500 text-white hover:bg-error-600"
+                              : "bg-success-500 text-white hover:bg-success-600"
+                          }`}
                           title={
                             school.is_active !== false
                               ? "Archive School"
                               : "Restore School"
                           }
                         >
-                          {school.is_active !== false ? (
-                            <ArchiveIcon />
-                          ) : (
-                            <ArchiveRestoreIcon />
-                          )}
+                          {school.is_active ? "Archive" : "Restore"}
                         </button>
                       </div>
                     </TableCell>
