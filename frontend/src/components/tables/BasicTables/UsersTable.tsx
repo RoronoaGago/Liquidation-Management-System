@@ -918,34 +918,28 @@ export default function UsersTable({
                       </Badge>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400 space-x-2">
-                      <div className="flex justify-start space-x-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditUser(user);
-                          }}
-                          className="text-gray-600 hover:text-gray-900"
-                          title="Edit User"
-                        >
-                          <SquarePenIcon />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleArchiveClick(user);
-                          }}
-                          className="text-gray-600 hover:text-gray-900"
-                          title={
-                            user.is_active ? "Archive User" : "Restore User"
-                          }
-                        >
-                          {user.is_active ? (
-                            <ArchiveIcon />
-                          ) : (
-                            <ArchiveRestoreIcon />
-                          )}
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditUser(user);
+                        }}
+                        className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleArchiveClick(user);
+                        }}
+                        className={`px-4 py-2 rounded-md transition-colors ${
+                          user.is_active
+                            ? "bg-error-500 text-white hover:bg-error-600"
+                            : "bg-success-500 text-white hover:bg-success-600"
+                        }`}
+                      >
+                        {user.is_active ? "Archive" : "Restore"}
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))
