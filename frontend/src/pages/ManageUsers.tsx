@@ -7,6 +7,7 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import "../antd-custom.css";
 import { Bounce, toast } from "react-toastify";
 import { CheckCircleIcon, XCircleIcon } from "lucide-react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
@@ -22,7 +23,6 @@ import { EyeClosedIcon, EyeIcon, Loader2Icon, XIcon } from "lucide-react";
 import {
   validateDateOfBirth,
   validateEmail,
-  validatePassword,
   validatePhoneNumber,
 } from "@/lib/helpers";
 import {
@@ -36,7 +36,12 @@ import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
 import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 import { schoolDistrictOptions } from "@/lib/constants";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 
+// Extend dayjs with custom parse format
+dayjs.extend(customParseFormat);
 interface UserFormData {
   first_name: string;
   last_name: string;
@@ -60,22 +65,26 @@ export const roleOptions = [
   { value: "accountant", label: "Division Accountant" },
 ];
 
-const requiredFields = ["first_name", "last_name", "email", "role"];
+type FormErrors = Partial<Record<keyof UserFormData, string | null>>;
+const requiredFields = [
+  "first_name",
+  "last_name",
+  "email",
+  "role",
+  "date_of_birth",
+];
 const ManageUsers = () => {
   const [showArchived, setShowArchived] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [schools, setSchools] = useState<School[]>([]); // Assuming you have a list of schools
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
-  const [isValid, setIsValid] = useState<boolean | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalUsers, setTotalUsers] = useState(0);
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -108,8 +117,11 @@ const ManageUsers = () => {
     (formData.role !== "school_head" && formData.role !== "school_admin"
       ? true
       : formData.school_id.trim() !== "") &&
-    Object.keys(errors).length === 0;
-
+    Object.keys(errors).filter(
+      (key) =>
+        errors[key as keyof UserFormData] !== undefined &&
+        errors[key as keyof UserFormData] !== null
+    ).length === 0;
   // Modify the fetchUsers function to handle archived status
   const fetchUsers = async () => {
     setLoading(true);
@@ -237,16 +249,41 @@ const ManageUsers = () => {
     setSortConfig(direction ? { key, direction } : null);
   };
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e:
+      | React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+      | dayjs.Dayjs
+      | null,
+    name?: keyof UserFormData
   ) => {
-    const { name, value } = e.target;
+    // Handle DatePicker case
+    if (name === "date_of_birth") {
+      const dateString = e ? (e as dayjs.Dayjs).format("YYYY-MM-DD") : "";
+      setFormData((prev) => ({ ...prev, date_of_birth: dateString }));
 
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
+      const dateError = dateString
+        ? validateDateOfBirth(dateString)
+        : undefined;
+      setErrors((prev) => ({
+        ...prev,
+        date_of_birth: dateError, // Now properly typed as string | undefined
+      }));
+      return;
+    }
 
-    if (name === "role" && !["school_head", "school_admin"].includes(value)) {
+    // Handle normal input/select changes
+    if (!e || !("target" in e)) return;
+
+    const { name: inputName, value } = e.target as {
+      name: keyof UserFormData;
+      value: string;
+    };
+
+    setFormData((prev) => ({ ...prev, [inputName]: value }));
+
+    if (
+      inputName === "role" &&
+      !["school_head", "school_admin"].includes(value)
+    ) {
       setFormData((prev) => ({ ...prev, school_id: "" }));
     }
 
@@ -255,67 +292,46 @@ const ManageUsers = () => {
     }
 
     debounceTimeout.current = setTimeout(() => {
-      const newErrors = { ...errors };
+      setErrors((prev) => {
+        const newErrors = { ...prev };
 
-      switch (name) {
-        case "email":
-          if (!validateEmail(value)) {
-            newErrors.email = "Please enter a valid email address.";
-          } else {
-            delete newErrors.email;
-          }
-          break;
-        case "phone_number":
-          if (value && !validatePhoneNumber(value)) {
+        switch (inputName) {
+          case "email":
+            newErrors.email = !validateEmail(value)
+              ? "Please enter a valid email address"
+              : undefined;
+            break;
+          case "phone_number":
             newErrors.phone_number =
-              "Please enter a valid phone number (e.g., +1 (555) 123-4567).";
-          } else {
-            delete newErrors.phone_number;
-          }
-          break;
-        case "date_of_birth":
-          // eslint-disable-next-line no-case-declarations
-          const dateError = validateDateOfBirth(value);
-          if (dateError) {
-            newErrors.date_of_birth = dateError;
-          } else {
-            delete newErrors.date_of_birth;
-          }
-          break;
-        case "role":
-          if (value === "admin" && currentUser?.role !== "admin") {
-            newErrors.role = "Only administrators can create admin users.";
-          } else {
-            delete newErrors.role;
-          }
-          break;
-        case "school_id":
-          if (
-            (formData.role === "school_head" ||
-              formData.role === "school_admin") &&
-            !value.trim()
-          ) {
-            newErrors.school_id = "Please select a school from the list.";
-          } else {
-            delete newErrors.school_id;
-          }
-          break;
-        default:
-          if (requiredFields.includes(name) && !value.trim()) {
-            newErrors[name as keyof typeof newErrors] =
-              "This field is required.";
-          } else {
-            delete newErrors[name as keyof typeof newErrors];
-          }
-      }
+              value && !validatePhoneNumber(value)
+                ? "Please enter a valid phone number"
+                : undefined;
+            break;
+          case "role":
+            newErrors.role =
+              value === "admin" && currentUser?.role !== "admin"
+                ? "Only administrators can create admin users"
+                : undefined;
+            break;
+          case "school_id":
+            newErrors.school_id =
+              (formData.role === "school_head" ||
+                formData.role === "school_admin") &&
+              !value.trim()
+                ? "Please select a school from the list"
+                : undefined;
+            break;
+          default:
+            if (requiredFields.includes(inputName)) {
+              newErrors[inputName] = !value.trim()
+                ? "This field is required"
+                : undefined;
+            }
+        }
 
-      setErrors(newErrors);
+        return newErrors;
+      });
     }, 500);
-  };
-
-  const handlePhoneNumberInput = (e: React.FormEvent<HTMLInputElement>) => {
-    const input = e.target as HTMLInputElement;
-    input.value = input.value.replace(/[^0-9+\-() ]/g, "");
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,9 +349,13 @@ const ManageUsers = () => {
       reader.readAsDataURL(file);
     }
   };
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    setShowConfirmation(false);
 
     // Final validation check
     const finalErrors: Record<string, string> = {};
@@ -404,8 +424,6 @@ const ManageUsers = () => {
           errorMessage = "Username already exists.";
         } else if (error.response.data.email) {
           errorMessage = "Email already exists.";
-        } else if (error.response.data.password) {
-          errorMessage = "Password doesn't meet requirements.";
         } else if (error.response.data.role) {
           // Handles backend validation for duplicate school head/admin per school
           errorMessage = error.response.data.role[0];
@@ -566,7 +584,7 @@ const ManageUsers = () => {
                       phone_number: value || "",
                     }))
                   }
-                  error={errors.phone_number}
+                  error={errors.phone_number || undefined} // Ensure it's undefined when empty
                 />
                 <div className="space-y-2">
                   <Label htmlFor="role" className="text-base">
@@ -636,7 +654,7 @@ const ManageUsers = () => {
                         setErrors((prev) => ({ ...prev, school_id: "" }));
                     }}
                     required
-                    error={errors.school_id}
+                    error={errors.school_id || undefined} // Ensure it's undefined when empty
                   />
                 )}
 
@@ -644,20 +662,28 @@ const ManageUsers = () => {
                   <Label htmlFor="date_of_birth" className="text-base">
                     Birthdate
                   </Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      id="date_of_birth"
-                      name="date_of_birth"
-                      className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                      value={formData.date_of_birth}
-                      onChange={handleChange}
-                      max={new Date().toISOString().split("T")[0]}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                      <CalenderIcon className="size-5" />
-                    </span>
-                  </div>
+                  <DatePicker
+                    id="date_of_birth"
+                    name="date_of_birth"
+                    className="custom-date-picker"
+                    placeholder="Select birthdate"
+                    format="YYYY-MM-DD"
+                    value={
+                      formData.date_of_birth
+                        ? dayjs(formData.date_of_birth)
+                        : null
+                    }
+                    onChange={(date) => {
+                      handleChange(date, "date_of_birth");
+                      // Force a state update to re-check form validity
+                      setFormData((prev) => ({ ...prev }));
+                    }}
+                    disabledDate={(current) =>
+                      current && current > dayjs().endOf("day")
+                    }
+                    showNow={false}
+                    allowClear={true}
+                  />
                   {errors.date_of_birth && (
                     <p className="text-red-500 text-sm">
                       {errors.date_of_birth}
@@ -707,6 +733,33 @@ const ManageUsers = () => {
               </form>
             </DialogContent>
           </Dialog>
+          {showConfirmation && (
+            <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Confirm User Creation</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to create this user?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowConfirmation(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleConfirmSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Creating..." : "Confirm"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <UsersTable
