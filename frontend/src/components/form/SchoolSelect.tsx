@@ -9,8 +9,8 @@ import {
   Label,
 } from "@headlessui/react";
 import { searchSchools } from "@/services/SchoolApi";
-import { School } from "@/lib/types";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
+import { School } from "@/lib/types";
 
 interface SchoolSelectProps {
   value: number | School | null;
@@ -118,7 +118,7 @@ export default function SchoolSelect({
                       <div
                         className={`text-xs ${"text-gray-500 dark:text-gray-400"}`}
                       >
-                        {school.district}, {school.municipality}
+                        {school.district.districtName}, {school.municipality}
                       </div>
                     </>
                   )}

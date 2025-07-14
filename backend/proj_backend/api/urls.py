@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -85,4 +85,7 @@ urlpatterns = [
          views.request_history, name='request-history'),
     path('liquidations/<str:LiquidationID>/history/',
          views.liquidation_management_history, name='liquidation-history'),
+     path('school-districts/', SchoolDistrictListCreateAPIView.as_view(), name='school-district-list-create'),
+    path('school-districts/<str:districtId>/', SchoolDistrictRetrieveUpdateDestroyAPIView.as_view(), name='school-district-detail'),
+    path('school-districts/<str:districtId>/archive/', archive_school_district, name='school-district-archive'),
 ]

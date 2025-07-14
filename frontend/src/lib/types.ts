@@ -12,14 +12,22 @@ export interface BaseUser {
 }
 
 // src/lib/types.ts
+
+export interface District {
+  districtId: string; // Unique identifier for the district
+  districtName: string; // Name of the district
+  is_active?: boolean; // Optional field to indicate if the district is active
+  legislativeDistrict?: string; // Optional field for legislative district
+  municipality?: string; // Optional field for municipality
+}
 export interface School {
-  district: string;
   schoolId: string;
   schoolName: string;
+  districtId: string; // New field for form handling
+  district: District; // Existing field for display
   municipality: string;
   legislativeDistrict: string;
   is_active?: boolean;
-  max_budget?: number; // Optional field for budget allocation
 }
 export type User = {
   id: number;
