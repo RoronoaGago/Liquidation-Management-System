@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
@@ -18,10 +18,15 @@ DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
 
 
 class SchoolSerializer(serializers.ModelSerializer):
+    district = serializers.PrimaryKeyRelatedField(
+        queryset=SchoolDistrict.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    
     class Meta:
         model = School
-        fields = '__all__'  # is_active will be included automatically
-
+        fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture_base64 = serializers.CharField(
@@ -515,4 +520,10 @@ class LiquidationManagementHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LiquidationManagement.history.model
+        fields = '__all__'
+        
+        
+class SchoolDistrictSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SchoolDistrict
         fields = '__all__'
