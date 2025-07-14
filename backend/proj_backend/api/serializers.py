@@ -44,6 +44,14 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    school_district = SchoolDistrictSerializer(read_only=True)
+    school_district_id = serializers.PrimaryKeyRelatedField(
+        queryset=SchoolDistrict.objects.all(),
+        source='school_district',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = User
@@ -75,21 +83,20 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
-        # Remove any username validation
         if 'email' not in data:
             raise serializers.ValidationError("Email is required")
         if data.get('role') in ['school_head', 'school_admin'] and not data.get('school'):
+            raise serializers.ValidationError("School is required for this role")
+        if data.get('role') == 'district_admin' and not data.get('school_district'):
             raise serializers.ValidationError(
-                "School is required for this role")
+                {"school_district": "School district is required for district administrators"}
+            )
         if data.get('profile_picture_base64') == "":
             data.pop('profile_picture_base64')
 
         role = data.get("role")
-        school = data.get("school") or data.get(
-            "school_id")  # handle both create and update
-
+        school = data.get("school") or data.get("school_id")
         if role in ["school_head", "school_admin"] and school:
-            # Exclude self in update
             user_id = self.instance.pk if self.instance else None
             qs = User.objects.filter(role=role, school=school)
             if user_id:
