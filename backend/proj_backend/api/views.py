@@ -278,6 +278,17 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
             queryset = queryset.filter(district_id=district_id)
         return queryset.order_by('schoolName')
 
+    def create(self, request, *args, **kwargs):
+        # Check if the input data is a list (for bulk creation)
+        is_many = isinstance(request.data, list)
+        
+        # Use many=True for lists, otherwise use default behavior
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 @api_view(['GET'])
 def search_schools(request):
     search_term = request.query_params.get('search', '')
