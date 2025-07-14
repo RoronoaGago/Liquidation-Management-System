@@ -53,6 +53,7 @@
     "react-input-mask": "^2.0.4",
     "react-phone-number-input": "^3.4.12",
     "react-qr-code": "^2.0.15",
+    "react-responsive": "^10.0.1",
     "react-router": "^7.1.5",
     "react-router-dom": "^7.6.3",
     "react-stately": "^3.36.1",
