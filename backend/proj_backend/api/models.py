@@ -81,10 +81,12 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
-    school_district = models.CharField(
-        max_length=100,
+    school_district = models.ForeignKey(
+        'SchoolDistrict',
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
+        related_name='district_users',
         help_text="District assignment (only for district administrative assistants)"
     )
 

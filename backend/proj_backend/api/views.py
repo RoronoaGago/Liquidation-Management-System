@@ -154,13 +154,11 @@ def user_list(request):
         #         status=status.HTTP_403_FORBIDDEN
         #     )
 
-        serializer = UserSerializer(
-            data=request.data, context={'request': request})
+        serializer = UserSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def user_detail(request, pk):
