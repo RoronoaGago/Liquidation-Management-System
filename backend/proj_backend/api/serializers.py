@@ -16,7 +16,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
 
-
+class SchoolDistrictSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SchoolDistrict
+        fields = '__all__'
+        
 class SchoolSerializer(serializers.ModelSerializer):
     district = serializers.PrimaryKeyRelatedField(
         queryset=SchoolDistrict.objects.all(),
@@ -530,7 +534,4 @@ class LiquidationManagementHistorySerializer(serializers.ModelSerializer):
         fields = '__all__'
         
         
-class SchoolDistrictSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SchoolDistrict
-        fields = '__all__'
+
