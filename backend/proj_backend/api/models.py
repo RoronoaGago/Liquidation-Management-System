@@ -87,6 +87,8 @@ class User(AbstractUser):
         null=True,
         help_text="District assignment (only for district administrative assistants)"
     )
+    otp_code = models.CharField(max_length=6, blank=True, null=True)
+    otp_generated_at = models.DateTimeField(blank=True, null=True)
 
     USERNAME_FIELD = 'email'  # Use email as the login identifier
     REQUIRED_FIELDS = ['first_name', 'last_name']  # Add basic required fields

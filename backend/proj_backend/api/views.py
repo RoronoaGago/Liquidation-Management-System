@@ -22,6 +22,7 @@ from rest_framework.pagination import PageNumberPagination
 import string
 from django.contrib.auth import update_session_auth_hash
 from django.utils.crypto import get_random_string
+from .utils import generate_otp, send_otp_email
 
 
 logger = logging.getLogger(__name__)
@@ -1219,3 +1220,34 @@ def liquidation_management_history(request, LiquidationID):
     history = liq.history.all().order_by('-history_date')
     serializer = LiquidationManagementHistorySerializer(history, many=True)
     return Response(serializer.data)
+
+@api_view(['POST'])
+def request_otp(request):
+    email = request.data.get('email')
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({'error': 'User not found'}, status=404)
+    otp = generate_otp()
+    user.otp_code = otp
+    user.otp_generated_at = timezone.now()
+    user.save(update_fields=['otp_code', 'otp_generated_at'])
+    send_otp_email(user, otp)
+    return Response({'message': 'OTP sent to your email.'})
+
+@api_view(['POST'])
+def verify_otp(request):
+    email = request.data.get('email')
+    otp = request.data.get('otp')
+    user = User.objects.filter(email=email).first()
+    if not user or not user.otp_code:
+        return Response({'error': 'OTP not found'}, status=404)
+    # Optional: Check OTP expiry (e.g., valid for 5 minutes)
+    if timezone.now() - user.otp_generated_at > timezone.timedelta(minutes=5):
+        return Response({'error': 'OTP expired'}, status=400)
+    if user.otp_code != otp:
+        return Response({'error': 'Invalid OTP'}, status=400)
+    # OTP is valid, clear it
+    user.otp_code = None
+    user.otp_generated_at = None
+    user.save(update_fields=['otp_code', 'otp_generated_at'])
+    return Response({'message': 'OTP verified. You may now log in.'})

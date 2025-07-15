@@ -19,6 +19,8 @@ urlpatterns = [
          name='token_refresh'),  # Updated
     path('change-password/', views.change_password, name='change-password'),
     path('protected/', ProtectedView.as_view(), name='protected'),
+    path('auth/request-otp/', views.request_otp, name='request-otp'),
+    path('auth/verify-otp/', views.verify_otp, name='verify-otp'),
 
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
