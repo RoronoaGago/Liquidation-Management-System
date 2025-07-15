@@ -43,7 +43,8 @@ export type User = {
   is_active: boolean;
   password: string;
   confirm_password: string;
-  school_district?: string;
+  school_district?: District;
+  school_district_id?: string;
   school: School | null;
   profile_picture_base64?: string;
 };
