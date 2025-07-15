@@ -16,21 +16,24 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
 
+
 class SchoolDistrictSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolDistrict
         fields = '__all__'
-        
+
+
 class SchoolSerializer(serializers.ModelSerializer):
     district = serializers.PrimaryKeyRelatedField(
         queryset=SchoolDistrict.objects.all(),
         required=False,
         allow_null=True
     )
-    
+
     class Meta:
         model = School
         fields = '__all__'
+
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture_base64 = serializers.CharField(
@@ -68,6 +71,7 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "school",
             "school_id",
+            "school_district_id",
             "date_of_birth",
             "sex",
             "phone_number",
@@ -90,7 +94,8 @@ class UserSerializer(serializers.ModelSerializer):
         if 'email' not in data:
             raise serializers.ValidationError("Email is required")
         if data.get('role') in ['school_head', 'school_admin'] and not data.get('school'):
-            raise serializers.ValidationError("School is required for this role")
+            raise serializers.ValidationError(
+                "School is required for this role")
         if data.get('role') == 'district_admin' and not data.get('school_district'):
             raise serializers.ValidationError(
                 {"school_district": "School district is required for district administrators"}
@@ -532,6 +537,3 @@ class LiquidationManagementHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = LiquidationManagement.history.model
         fields = '__all__'
-        
-        
-

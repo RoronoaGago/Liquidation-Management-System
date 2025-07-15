@@ -343,17 +343,16 @@ const ManageSchools = () => {
   useEffect(() => {
     const mun = formData.municipality;
     if (mun && Array.isArray(districts)) {
-      // Add Array.isArray check
       const filteredDistricts = districts
         .filter(
           (district) => district.municipality === mun && district.is_active
         )
         .map((d) => d.districtId);
-
       setDistrictOptions(filteredDistricts);
+      // Auto-select if only one district is available
       setFormData((prev) => ({
         ...prev,
-        districtId: "",
+        districtId: filteredDistricts.length === 1 ? filteredDistricts[0] : "",
       }));
     } else {
       setDistrictOptions([]);
@@ -484,7 +483,7 @@ const ManageSchools = () => {
                     value={formData.districtId}
                     onChange={handleChange}
                     disabled={
-                      !formData.municipality || !Array.isArray(districts)
+                      !formData.municipality || districtOptions.length <= 1
                     }
                   >
                     <option value="">Select District</option>
