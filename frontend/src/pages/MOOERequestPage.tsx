@@ -14,6 +14,7 @@ import {
   ArrowRight,
   CheckCircle,
   FileText,
+  Copy,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
@@ -80,6 +81,7 @@ const MOOERequestPage = () => {
     useState<string[]>([]);
   const [currentPriorityTitle, setCurrentPriorityTitle] = useState("");
   const [allocatedBudget, setAllocatedBudget] = useState<number>(0);
+  const [hasPastLiquidation, setHasPastLiquidation] = useState(false);
   const [expenseToRemove, setExpenseToRemove] = useState<string | null>(null);
   const [showClearAllDialog, setShowClearAllDialog] = useState(false);
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
@@ -303,9 +305,11 @@ const MOOERequestPage = () => {
             (p: { expenseTitle: string; amount: string }) => p.expenseTitle
           )
         );
+        setHasPastLiquidation(true); // Set to true since we found a past liquidation
         toast.success("Previous liquidated request copied!");
       }
     } catch (err) {
+      setHasPastLiquidation(false); // Set to false if no past liquidation found
       toast.error("No previous liquidated request found!");
     } finally {
       setCopyLoading(false);
@@ -359,7 +363,19 @@ const MOOERequestPage = () => {
       setActionLoading(false);
     }
   };
-
+  useEffect(() => {
+    const checkPastLiquidation = async () => {
+      try {
+        const res = await api.get("last-liquidated-request/");
+        if (res.data && res.data.priorities) {
+          setHasPastLiquidation(true);
+        }
+      } catch (err) {
+        setHasPastLiquidation(false);
+      }
+    };
+    checkPastLiquidation();
+  }, []);
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (debounceTimeout.current) {
@@ -993,7 +1009,7 @@ const MOOERequestPage = () => {
             {/* Left Column - Expense List */}
             <div>
               <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-                <div className="relative w-full">
+                <div className="relative w-full flex-5/8">
                   <Input
                     type="text"
                     placeholder="Search expenses..."
@@ -1009,6 +1025,18 @@ const MOOERequestPage = () => {
                     {filteredExpenses.length} items
                   </span>
                 </div>
+                {!isFormDisabled && hasPastLiquidation && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleCopyPrevious}
+                    className="w-full flex-3/8"
+                    startIcon={<Copy className="h-4 w-4" />}
+                    disabled={isFormDisabled || copyLoading}
+                  >
+                    {copyLoading ? "Loading..." : "Copy Previous Request"}
+                  </Button>
+                )}
               </div>
 
               {/* Enhanced Dropdown List */}
