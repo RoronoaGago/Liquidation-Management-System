@@ -80,11 +80,11 @@ const ManageSchools = () => {
   const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
     string[]
   >([]);
-
   const isFormValid =
-    requiredFields.every(
-      (field) => formData[field as keyof SchoolFormData]?.trim() !== ""
-    ) && Object.keys(errors).length === 0;
+    requiredFields.every((field) => {
+      const value = formData[field as keyof SchoolFormData];
+      return typeof value === "string" ? value.trim() !== "" : value !== "";
+    }) && Object.keys(errors).length === 0;
 
   // Fetch schools from backend with pagination, filtering, sorting
   const fetchSchools = async () => {
@@ -202,6 +202,15 @@ const ManageSchools = () => {
 
     fetchLegislativeDistricts();
   }, []);
+  useEffect(() => {
+    // Re-validate form when districtOptions changes
+    const newErrors = { ...errors };
+    if (formData.municipality && districtOptions.length === 1) {
+      // Clear district error if auto-selected
+      delete newErrors.districtId;
+    }
+    setErrors(newErrors);
+  }, [districtOptions, formData.municipality]);
 
   useEffect(() => {
     fetchSchools();
@@ -248,7 +257,8 @@ const ManageSchools = () => {
 
     const finalErrors: Record<string, string> = {};
     requiredFields.forEach((field) => {
-      if (!formData[field as keyof SchoolFormData]?.trim()) {
+      const value = formData[field as keyof SchoolFormData];
+      if (typeof value === "string" ? !value.trim() : !value) {
         finalErrors[field] = "This field is required.";
       }
     });
