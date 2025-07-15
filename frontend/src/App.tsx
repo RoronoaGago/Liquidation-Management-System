@@ -33,6 +33,7 @@ import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
 import PasswordChangeModal from "./components/common/PasswordChangeModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
+import ManageDistricts from "./pages/ManageDistricts";
 
 const App = () => {
   const { passwordChangeRequired, user } = useAuth();
@@ -70,6 +71,7 @@ const App = () => {
               element={<ManageListOfPrioritiesPage />}
             />
             <Route path="/requirements" element={<ManageRequirementsPage />} />
+            <Route path="/school-districts" element={<ManageDistricts />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>

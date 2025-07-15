@@ -25,7 +25,8 @@ import {
   UserRoundPenIcon,
   HandCoinsIcon,
   FileUserIcon,
-  StampIcon, // <-- Add this
+  StampIcon,
+  LandPlotIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -72,6 +73,12 @@ const allNavItems: NavItem[] = [
     icon: <FileText />, // <-- Add this block for requirements
     name: "Manage Requirements",
     path: "/requirements",
+    roles: ["admin"], // Only admin
+  },
+  {
+    icon: <LandPlotIcon />, // <-- Add this block for requirements
+    name: "Manage Districts",
+    path: "/school-districts",
     roles: ["admin"], // Only admin
   },
   {

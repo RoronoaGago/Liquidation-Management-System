@@ -16,7 +16,7 @@ export const handleExport = async (submission: Submission, first_name: string, l
     const superintendent = signatories.superintendent;
     const accountant = signatories.accountant;
 
-    const logoFilename = getDistrictLogoFilename(submission.user.school?.district ?? ""); // e.g. "agoo-east-district.png"
+    const logoFilename = getDistrictLogoFilename(submission.user.school?.district.districtName ?? ""); // e.g. "agoo-east-district.png"
 
     const logoPath = `/src/images/district-logos/${logoFilename}`;
     const districtLogoBase64 = await getLogoBase64(logoPath);

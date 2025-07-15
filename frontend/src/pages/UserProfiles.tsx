@@ -380,7 +380,7 @@ export default function UserProfiles() {
                   {displayUser?.role === "district_admin" &&
                     displayUser?.school_district && (
                       <span className="ml-2 text-sm text-gray-600 dark:text-gray-300 font-normal">
-                        | {displayUser.school_district}
+                        | {displayUser.school_district.districtName}
                       </span>
                     )}
                   {(displayUser?.role === "school_head" ||

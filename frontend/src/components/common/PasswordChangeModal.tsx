@@ -113,6 +113,7 @@ const PasswordChangeModal = () => {
       toast.success("Password changed successfully!");
       navigate("/");
     } catch (err) {
+      console.error("Password change error:", err);
       setErrors((prev) => ({
         ...prev,
         general: "Password change failed. Please check your current password.",
