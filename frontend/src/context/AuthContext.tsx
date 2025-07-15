@@ -10,6 +10,7 @@ import { jwtDecode } from "jwt-decode";
 import api from "@/api/axios";
 import axios from "axios";
 import { useNavigate } from "react-router";
+import { District } from "@/lib/types";
 
 interface UserData {
   user_id: string | number;
@@ -18,7 +19,7 @@ interface UserData {
   last_name: string;
   password_change_required?: boolean;
   phone_number?: string;
-  school_district?: string;
+  school_district?: District;
   email: string;
   profile_picture?: string;
 }
@@ -51,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const decoded = jwtDecode<{
         user_id: string;
         email: string;
-        school_district?: string;
+        school_district?: District;
         first_name: string;
         last_name: string;
         role: string;
@@ -64,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         first_name: decoded.first_name,
         last_name: decoded.last_name,
         email: decoded.email,
-        school_district: decoded.school_district || "",
+        school_district: decoded.school_district || undefined,
         role: decoded.role,
         profile_picture: decoded.profile_picture,
         password_change_required: decoded.password_change_required,
