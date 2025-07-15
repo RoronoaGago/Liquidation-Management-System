@@ -283,6 +283,34 @@ const MOOERequestPage = () => {
     })
     .filter(Boolean) as { LOPID: string; amount: string }[];
 
+  const [copyLoading, setCopyLoading] = useState(false);
+
+  const handleCopyPrevious = async () => {
+    setCopyLoading(true);
+    try {
+      const res = await api.get("last-liquidated-request/");
+      if (res.data && res.data.priorities) {
+        // Pre-fill selected expenses
+        const initialSelected = {} as { [key: string]: string };
+        res.data.priorities.forEach(
+          (p: { expenseTitle: string; amount: string }) => {
+            initialSelected[p.expenseTitle] = p.amount;
+          }
+        );
+        setSelected(initialSelected);
+        setSelectedOrder(
+          res.data.priorities.map(
+            (p: { expenseTitle: string; amount: string }) => p.expenseTitle
+          )
+        );
+        toast.success("Previous liquidated request copied!");
+      }
+    } catch (err) {
+      toast.error("No previous liquidated request found!");
+    } finally {
+      setCopyLoading(false);
+    }
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
@@ -982,7 +1010,36 @@ const MOOERequestPage = () => {
                   </span>
                 </div>
               </div>
-
+              {!isFormDisabled && (
+                <Button
+                  variant="primary"
+                  className="mb-4"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get("last-liquidated-request/");
+                      if (res.data && res.data.priorities) {
+                        const initialSelected: { [key: string]: string } = {};
+                        res.data.priorities.forEach((item: any) => {
+                          initialSelected[item.expenseTitle] = item.amount;
+                        });
+                        setSelected(initialSelected);
+                        setSelectedOrder(
+                          res.data.priorities.map(
+                            (item: any) => item.expenseTitle
+                          )
+                        );
+                        toast.success("Previous liquidated request copied!");
+                      } else {
+                        toast.error("No previous liquidated request found.");
+                      }
+                    } catch (err) {
+                      toast.error("No previous liquidated request found.");
+                    }
+                  }}
+                >
+                  Copy Previous Liquidated Request
+                </Button>
+              )}
               {/* Enhanced Dropdown List */}
               <div className="space-y-3">
                 {loading && (

@@ -1,5 +1,6 @@
 from urllib import request
 from rest_framework.permissions import IsAuthenticated
+from django.http import JsonResponse
 from .serializers import CustomTokenObtainPairSerializer
 from datetime import datetime, timedelta
 from rest_framework.decorators import api_view, permission_classes
@@ -12,7 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -74,13 +75,11 @@ def change_password(request):
 
     # Update the token to prevent automatic logout
     refresh = RefreshToken.for_user(user)
-    # Add custom claims
+    # Add minimal custom claims
     refresh['first_name'] = user.first_name
     refresh['last_name'] = user.last_name
     refresh['email'] = user.email
     refresh['role'] = user.role
-    refresh['profile_picture'] = user.profile_picture.url if user.profile_picture else None
-    refresh['school_district'] = user.school_district
     refresh['password_change_required'] = user.password_change_required
 
     return Response({
@@ -154,11 +153,13 @@ def user_list(request):
         #         status=status.HTTP_403_FORBIDDEN
         #     )
 
-        serializer = UserSerializer(data=request.data, context={'request': request})
+        serializer = UserSerializer(
+            data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def user_detail(request, pk):
@@ -252,10 +253,12 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = School.objects.select_related('district').all()
         search_term = self.request.query_params.get('search', None)
-        legislative_district = self.request.query_params.get('legislative_district', None)
+        legislative_district = self.request.query_params.get(
+            'legislative_district', None)
         municipality = self.request.query_params.get('municipality', None)
         district_id = self.request.query_params.get('district', None)
-        archived = self.request.query_params.get('archived', 'false').lower() == 'true'
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
 
         if not archived:
             queryset = queryset.filter(is_active=True)
@@ -269,7 +272,8 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
                 Q(municipality__icontains=search_term)
             )
         if legislative_district:
-            queryset = queryset.filter(legislativeDistrict=legislative_district)
+            queryset = queryset.filter(
+                legislativeDistrict=legislative_district)
         if municipality:
             queryset = queryset.filter(municipality=municipality)
         if district_id:
@@ -279,7 +283,7 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         # Check if the input data is a list (for bulk creation)
         is_many = isinstance(request.data, list)
-        
+
         # Use many=True for lists, otherwise use default behavior
         serializer = self.get_serializer(data=request.data, many=is_many)
         serializer.is_valid(raise_exception=True)
@@ -287,12 +291,14 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+
 @api_view(['GET'])
 def search_schools(request):
     search_term = request.query_params.get('search', '')
     schools = School.objects.filter(
         Q(schoolName__icontains=search_term) |
-        Q(district__icontains=search_term) |
+        Q(district__districtName__icontains=search_term) |
+        Q(district__districtId__icontains=search_term) |  # Add district ID search
         Q(municipality__icontains=search_term)
     ).order_by('schoolName')[:10]  # Limit to 10 results
     serializer = SchoolSerializer(schools, many=True)
@@ -1227,10 +1233,12 @@ def liquidation_management_history(request, LiquidationID):
     serializer = LiquidationManagementHistorySerializer(history, many=True)
     return Response(serializer.data)
 
+
 class SchoolDistrictPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
+
 
 class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = SchoolDistrictSerializer
@@ -1239,9 +1247,11 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = SchoolDistrict.objects.all()
         search_term = self.request.query_params.get('search', None)
-        legislative_district = self.request.query_params.get('legislative_district', None)
+        legislative_district = self.request.query_params.get(
+            'legislative_district', None)
         municipality = self.request.query_params.get('municipality', None)
-        archived = self.request.query_params.get('archived', 'false').lower() == 'true'
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
 
         # Archive filter
         if not archived:
@@ -1256,7 +1266,8 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
                 Q(municipality__icontains=search_term)
             )
         if legislative_district:
-            queryset = queryset.filter(legislativeDistrict=legislative_district)
+            queryset = queryset.filter(
+                legislativeDistrict=legislative_district)
         if municipality:
             queryset = queryset.filter(municipality=municipality)
         ordering = self.request.query_params.get('ordering', 'districtName')
@@ -1264,10 +1275,12 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
             queryset = queryset.order_by(ordering)
         return queryset
 
+
 class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = SchoolDistrict.objects.all()
     serializer_class = SchoolDistrictSerializer
     lookup_field = 'districtId'
+
 
 @api_view(['PATCH'])
 def archive_school_district(request, districtId):
@@ -1284,3 +1297,17 @@ def archive_school_district(request, districtId):
         return Response({"error": "Missing is_active field"}, status=400)
     except SchoolDistrict.DoesNotExist:
         return Response({"error": "School district not found"}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def last_liquidated_request(request):
+    last_req = (
+        RequestManagement.objects.filter(
+            user=request.user, status="liquidated")
+        .order_by('-created_at')
+        .first()
+    )
+    if not last_req:
+        return Response({"detail": "No liquidated request found"}, status=404)
+    return Response(PreviousRequestSerializer(last_req).data)
