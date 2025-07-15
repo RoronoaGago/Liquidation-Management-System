@@ -1,0 +1,22 @@
+Dear {{ user.first_name|default:user.username }},
+
+Your One-Time Password (OTP) for account verification is:
+
+Verification Code: {{ otp }}
+
+This code will expire in 10 minutes.
+
+Security Notice:
+- Never share this code with anyone
+- This code will expire after 10 minutes
+- If you didn't request this code, please secure your account immediately
+
+Account Security Settings: {{ account_settings_url }}
+
+Best regards,
+System Security Team
+Liquidation Management System
+Department of Education - La Union Schools Division
+
+© {{ now|date:"Y" }} La Union Schools Division Office. All rights reserved.
+This is an automated message. Please do not reply to this email.
