@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
@@ -17,10 +17,22 @@ logger = logging.getLogger(__name__)
 DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
 
 
+class SchoolDistrictSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SchoolDistrict
+        fields = '__all__'
+
+
 class SchoolSerializer(serializers.ModelSerializer):
+    district = serializers.PrimaryKeyRelatedField(
+        queryset=SchoolDistrict.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
     class Meta:
         model = School
-        fields = '__all__'  # is_active will be included automatically
+        fields = '__all__'
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -39,6 +51,14 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    school_district = SchoolDistrictSerializer(read_only=True)
+    school_district_id = serializers.PrimaryKeyRelatedField(
+        queryset=SchoolDistrict.objects.all(),
+        source='school_district',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = User
@@ -51,6 +71,7 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "school",
             "school_id",
+            "school_district_id",
             "date_of_birth",
             "sex",
             "phone_number",
@@ -70,21 +91,21 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
-        # Remove any username validation
         if 'email' not in data:
             raise serializers.ValidationError("Email is required")
         if data.get('role') in ['school_head', 'school_admin'] and not data.get('school'):
             raise serializers.ValidationError(
                 "School is required for this role")
+        if data.get('role') == 'district_admin' and not data.get('school_district'):
+            raise serializers.ValidationError(
+                {"school_district": "School district is required for district administrators"}
+            )
         if data.get('profile_picture_base64') == "":
             data.pop('profile_picture_base64')
 
         role = data.get("role")
-        school = data.get("school") or data.get(
-            "school_id")  # handle both create and update
-
+        school = data.get("school") or data.get("school_id")
         if role in ["school_head", "school_admin"] and school:
-            # Exclude self in update
             user_id = self.instance.pk if self.instance else None
             qs = User.objects.filter(role=role, school=school)
             if user_id:
@@ -213,8 +234,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['last_name'] = user.last_name
         token['email'] = user.email  # Now the primary identifier
         token['role'] = user.role
-        token['school_district'] = user.school_district
         token['password_change_required'] = user.password_change_required
+        if user.school_district:
+            token['school_district'] = {
+                'id': user.school_district.districtId,
+                'name': user.school_district.districtName,
+                'municipality': user.school_district.municipality,
+                'legislative_district': user.school_district.legislativeDistrict
+            }
+        else:
+            token['school_district'] = None
 
         # Add profile picture URL if available
         if user.profile_picture:
@@ -516,3 +545,26 @@ class LiquidationManagementHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = LiquidationManagement.history.model
         fields = '__all__'
+
+
+class PreviousRequestSerializer(serializers.ModelSerializer):
+    priorities = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RequestManagement
+        fields = [
+            'request_id',
+            'request_monthyear',
+            'priorities',
+        ]
+
+    def get_priorities(self, obj):
+        # Return priorities in {expenseTitle, amount} format for frontend
+        return [
+            {
+                'expenseTitle': rp.priority.expenseTitle,
+                'amount': str(rp.amount),
+                'LOPID': str(rp.priority.LOPID),
+            }
+            for rp in obj.requestpriority_set.all()
+        ]
