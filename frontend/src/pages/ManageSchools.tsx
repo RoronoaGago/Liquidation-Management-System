@@ -303,8 +303,9 @@ const ManageSchools = () => {
     } catch (error: any) {
       let errorMessage = "Failed to add school. Please try again.";
       if (axios.isAxiosError(error) && error.response) {
+        console.error("Error response data:", error.response.data);
         if (error.response.data.schoolId) {
-          errorMessage = "School ID already exists.";
+          errorMessage = error.response.data.schoolId[0];
         }
       }
       toast.error(errorMessage, {

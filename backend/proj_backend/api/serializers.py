@@ -234,8 +234,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['last_name'] = user.last_name
         token['email'] = user.email  # Now the primary identifier
         token['role'] = user.role
-        token['school_district'] = user.school_district
         token['password_change_required'] = user.password_change_required
+        if user.school_district:
+            token['school_district'] = {
+                'id': user.school_district.districtId,
+                'name': user.school_district.districtName,
+                'municipality': user.school_district.municipality,
+                'legislative_district': user.school_district.legislativeDistrict
+            }
+        else:
+            token['school_district'] = None
 
         # Add profile picture URL if available
         if user.profile_picture:
@@ -537,3 +545,26 @@ class LiquidationManagementHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = LiquidationManagement.history.model
         fields = '__all__'
+
+
+class PreviousRequestSerializer(serializers.ModelSerializer):
+    priorities = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RequestManagement
+        fields = [
+            'request_id',
+            'request_monthyear',
+            'priorities',
+        ]
+
+    def get_priorities(self, obj):
+        # Return priorities in {expenseTitle, amount} format for frontend
+        return [
+            {
+                'expenseTitle': rp.priority.expenseTitle,
+                'amount': str(rp.amount),
+                'LOPID': str(rp.priority.LOPID),
+            }
+            for rp in obj.requestpriority_set.all()
+        ]
