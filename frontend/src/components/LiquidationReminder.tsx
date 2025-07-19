@@ -12,21 +12,25 @@ import api from "@/api/axios";
 import Button from "./ui/button/Button";
 
 export default function LiquidationReminder() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [open, setOpen] = useState(false);
   const [liquidations, setLiquidations] = useState<any[]>([]);
 
   useEffect(() => {
+    if (isLoading) return; // Wait for auth to finish
     if (user?.role !== "school_head") return;
 
     const checkLiquidations = async () => {
       try {
         // Check localStorage for last shown time
         const lastShown = localStorage.getItem("liquidationReminderLastShown");
+
         const today = new Date().toISOString().split("T")[0];
+        console.log(today);
 
         // Only check if we haven't shown it today
         if (lastShown !== today) {
+          console.log("hi");
           const response = await api.get("liquidations/");
           const data = response.data;
 
@@ -51,7 +55,7 @@ export default function LiquidationReminder() {
     };
 
     checkLiquidations();
-  }, [user]);
+  }, [user, isLoading]);
 
   if (liquidations.length === 0) return null;
 

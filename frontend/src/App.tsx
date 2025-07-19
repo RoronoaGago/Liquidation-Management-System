@@ -37,7 +37,6 @@ const App = () => {
   console.log("Password change required:", passwordChangeRequired);
   return (
     <>
-      <LiquidationReminder />
       {/* Main application routes */}
       <Routes>
         {/* Public routes */}
@@ -156,6 +155,7 @@ const App = () => {
         <Route path="*" element={<Navigate to="/" replace />} />-
       </Routes>
       {passwordChangeRequired && <PasswordChangeModal />}
+      <LiquidationReminder />
     </>
   );
 };
