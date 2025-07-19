@@ -132,7 +132,7 @@ const LiquidationPage = () => {
           })),
           refund: Number(data.refund) || 0,
           uploadedDocuments: data.documents || [],
-          remaining_days: data.remaining_days || null,
+          remaining_days: data.remaining_days ?? null,
         });
         console.log(request);
       } catch (err) {
@@ -866,11 +866,6 @@ const LiquidationPage = () => {
                           to avoid penalties.
                         </p>
                       )}
-                    {request.remaining_days <= 0 && (
-                      <p className="text-sm mt-1 text-red-600 font-semibold">
-                        Overdue! A demand letter has been sent to your email.
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
