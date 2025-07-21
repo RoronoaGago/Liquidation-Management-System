@@ -315,7 +315,7 @@ layer(base);
   @apply gap-1 rounded-lg! border-gray-200! p-3 shadow-theme-sm! dark:border-gray-800! dark:bg-gray-900!;
 }
 .dark {
-  background-color: #101828;
+  background-color: var(--color-gray-950);
 }
 /* input[type="date"] {
   

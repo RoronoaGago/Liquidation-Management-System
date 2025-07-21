@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useCallback, ChangeEvent } from "react";
 import { useNavigate } from "react-router";
 import { EyeIcon, EyeClosedIcon } from "lucide-react";
@@ -13,6 +14,10 @@ export default function SignInForm() {
     email: "",
     password: "",
   });
+  const [isFocused, setIsFocused] = useState({
+    email: false,
+    password: false,
+  });
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -23,6 +28,20 @@ export default function SignInForm() {
       [name]: value.trim(),
     }));
   }, []);
+
+  const handleFocus = (field: string) => {
+    setIsFocused((prev) => ({
+      ...prev,
+      [field]: true,
+    }));
+  };
+
+  const handleBlur = (field: string) => {
+    setIsFocused((prev) => ({
+      ...prev,
+      [field]: credentials[field as keyof typeof credentials].length > 0,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,8 +65,8 @@ export default function SignInForm() {
   }, []);
 
   return (
-    <div className="flex items-center justify-center min-h-screen  dark:bg-gray-900 p-4">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+    <div className="flex items-center justify-center min-h-screen p-4">
+      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-xl dark:shadow-gray-900/30 p-8">
         {/* Logo and Title */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-18 h-18 p-1 bg-white rounded-full shadow-md dark:bg-gray-700 mb-4">
@@ -73,41 +92,57 @@ export default function SignInForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label
-              htmlFor="email"
-              className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Email
-            </Label>
-            <Input
-              id="email"
-              placeholder="Enter email"
-              onChange={handleChange}
-              name="email"
-              value={credentials.email}
-              className="w-full px-3 py-2"
-            />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="relative">
+            <div className="relative border border-gray-300 dark:border-gray-600 rounded-lg focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 bg-white dark:bg-gray-800">
+              <Input
+                id="email"
+                placeholder=" "
+                onChange={handleChange}
+                name="email"
+                value={credentials.email}
+                className="w-full px-3 py-3 bg-transparent border-none focus:ring-0 autofill:bg-transparent"
+                onFocus={() => handleFocus("email")}
+                onBlur={() => handleBlur("email")}
+              />
+              <Label
+                htmlFor="email"
+                className={`absolute left-3 transition-all duration-200 ease-in-out pointer-events-none bg-white dark:bg-gray-800 px-1
+                  ${
+                    isFocused.email || credentials.email
+                      ? "top-0 -translate-y-1/2 text-xs text-brand-600 dark:text-brand-400"
+                      : "top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400"
+                  }`}
+              >
+                Enter Email
+              </Label>
+            </div>
           </div>
 
-          <div>
-            <Label
-              htmlFor="password"
-              className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Password
-            </Label>
-            <div className="relative">
+          <div className="relative">
+            <div className="relative border border-gray-300 dark:border-gray-600 rounded-lg focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 bg-white dark:bg-gray-800">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter password"
+                placeholder=" "
                 onChange={handleChange}
                 name="password"
                 value={credentials.password}
-                className="w-full px-3 py-2"
+                className="w-full px-3 py-3 bg-transparent border-none focus:ring-0 autofill:bg-transparent"
+                onFocus={() => handleFocus("password")}
+                onBlur={() => handleBlur("password")}
               />
+              <Label
+                htmlFor="password"
+                className={`absolute left-3 transition-all duration-200 ease-in-out pointer-events-none bg-white dark:bg-gray-800 px-1
+                  ${
+                    isFocused.password || credentials.password
+                      ? "top-0 -translate-y-1/2 text-xs text-brand-600 dark:text-brand-400"
+                      : "top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400"
+                  }`}
+              >
+                Password
+              </Label>
               <button
                 type="button"
                 onClick={togglePasswordVisibility}
