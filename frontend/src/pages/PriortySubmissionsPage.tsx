@@ -54,7 +54,7 @@ type HistoryItem = {
 };
 
 type PriorityDiff = {
-  LOPID: number; // Unique identifier for the priority
+  LOPID: number;
   expenseTitle: string;
   prevAmount?: number;
   currAmount?: number;
@@ -65,7 +65,6 @@ const getPriorityDiffs = (
   prev: Prayoridad[] = [],
   curr: Prayoridad[] = []
 ): PriorityDiff[] => {
-  // Create maps using LOPID as key
   const prevMap = new Map<number, number>();
   prev.forEach((p) => {
     const LOPID = p.LOPID || 0;
@@ -80,7 +79,6 @@ const getPriorityDiffs = (
     currMap.set(LOPID, amount);
   });
 
-  // Get all unique LOPIDs from both versions
   const allLOPIDs = Array.from(
     new Set([...Array.from(prevMap.keys()), ...Array.from(currMap.keys())])
   );
@@ -89,7 +87,6 @@ const getPriorityDiffs = (
     const prevAmount = prevMap.get(LOPID);
     const currAmount = currMap.get(LOPID);
 
-    // Find the priority to get the title
     const priority = [...prev, ...curr].find((p) => p.LOPID === LOPID);
     const expenseTitle = priority?.expenseTitle || "Unknown";
 
@@ -120,15 +117,15 @@ const getPriorityDiffs = (
 };
 
 const PriortySubmissionsPage = () => {
+  const [activeTab, setActiveTab] = useState<"pending" | "approved">("pending");
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
   const [submissionHistory, setSubmissionHistory] = useState<
     HistoryItem[] | null
   >(null);
-  const [showAllDiffs, setShowAllDiffs] = useState(false); // Toggle show all/only changed
+  const [showAllDiffs, setShowAllDiffs] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
   const [rejectionReason, setRejectionReason] = useState("");
   const [submissionsState, setSubmissionsState] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,14 +189,14 @@ const PriortySubmissionsPage = () => {
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
 
-  // Fetch submissions and schools from backend
+  // Fetch submissions based on active tab
   const fetchSubmissions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("requests/?status=pending");
+      const status = activeTab === "pending" ? "pending" : "approved";
+      const res = await api.get(`requests/?status=${status}`);
       setSubmissionsState(res.data);
-      // Fetch schools for filter dropdown
       const schoolRes = await api.get("schools/");
       setSchools(schoolRes.data);
     } catch (err: any) {
@@ -212,7 +209,7 @@ const PriortySubmissionsPage = () => {
 
   useEffect(() => {
     fetchSubmissions();
-  }, []);
+  }, [activeTab]);
 
   // Approve handler
   const handleApprove = async (submission: Submission) => {
@@ -375,7 +372,6 @@ const PriortySubmissionsPage = () => {
         const res = await api.get(
           `/requests/${viewedSubmission.request_id}/history/`
         );
-        console.log(res.data);
         setSubmissionHistory(res.data as HistoryItem[]);
       } catch (err) {
         setSubmissionHistory(null);
@@ -391,7 +387,6 @@ const PriortySubmissionsPage = () => {
     history: HistoryItem[] | null
   ): HistoryItem | null => {
     if (!history || history.length < 2) return null;
-    // Find most recent version with status "rejected"
     return (
       history.find((item, idx) => idx !== 0 && item.status === "rejected") ||
       null
@@ -567,6 +562,31 @@ const PriortySubmissionsPage = () => {
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="School Heads' Priority Submissions" />
+
+      {/* Tab Navigation */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "pending"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("pending")}
+        >
+          Pending Requests
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "approved"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("approved")}
+        >
+          Approved Requests
+        </button>
+      </div>
+
       {/* Search, Filters, and Items Per Page */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <div className="flex flex-col md:flex-row gap-2 w-full">
@@ -606,6 +626,7 @@ const PriortySubmissionsPage = () => {
           </select>
         </div>
       </div>
+
       {/* Table */}
       <PrioritySubmissionsTable
         submissions={currentItems}
@@ -614,7 +635,9 @@ const PriortySubmissionsPage = () => {
         error={error}
         sortConfig={sortConfig}
         requestSort={requestSort}
+        currentUserRole={user?.role}
       />
+
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
         <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -682,6 +705,7 @@ const PriortySubmissionsPage = () => {
           </Button>
         </div>
       </div>
+
       {/* Modal for viewing priorities and actions */}
       <Dialog
         open={!!viewedSubmission}
@@ -827,8 +851,6 @@ const PriortySubmissionsPage = () => {
                   </div>
                 )
               )}
-
-              {/* Enhanced: Resubmission comparison - unchanged */}
 
               {/* Priorities Table - updated */}
               <div className="space-y-2">
