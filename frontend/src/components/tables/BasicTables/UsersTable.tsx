@@ -30,9 +30,6 @@ import {
   Loader2,
   Archive,
   ArchiveRestore,
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  SquarePenIcon,
   EyeClosedIcon,
   User as UserIcon,
   Filter,
@@ -43,6 +40,7 @@ import {
 } from "lucide-react";
 import { CalenderIcon } from "@/icons";
 import {
+  District,
   FilterOptions,
   School,
   SortableField,
@@ -64,7 +62,7 @@ import {
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { roleOptions } from "@/pages/ManageUsers";
-import { roleMap, schoolDistrictOptions } from "@/lib/constants";
+import { roleMap } from "@/lib/constants";
 import SkeletonRow from "@/components/ui/skeleton";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
@@ -104,6 +102,7 @@ interface FormErrors {
   date_of_birth?: string;
   role?: string;
   school?: string;
+  school_district_id?: string; // Added for district validation
 }
 
 export default function UsersTable({
@@ -131,6 +130,7 @@ export default function UsersTable({
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [districts, setDistricts] = useState<District[]>([]); // Added for districts
 
   // Form state
   const [profilePictureFile, setProfilePictureFile] = useState<File | null>(
@@ -164,11 +164,37 @@ export default function UsersTable({
       selectedUser.role === "school_admin"
         ? selectedUser.school !== null
         : true;
+    const districtValid =
+      selectedUser.role === "district_admin"
+        ? selectedUser.school_district !== null
+        : true;
     const noErrors = Object.keys(formErrors).length === 0;
-    return requiredValid && roleValid && noErrors;
+    return requiredValid && roleValid && districtValid && noErrors;
   }, [selectedUser, formErrors]);
 
-  // Helper to get school name
+  useEffect(() => {
+    const fetchDistricts = async () => {
+      try {
+        const response = await api.get("school-districts/", {
+          params: { page_size: 10000 },
+        });
+        const apiDistricts = response.data.results || response.data;
+        // Convert API response (districtId: number) to District (districtId: string)
+        const convertedDistricts: District[] = apiDistricts.map((d: any) => ({
+          districtId: String(d.districtId), // Convert number to string
+          districtName: d.districtName,
+          is_active: d.is_active,
+          legislativeDistrict: d.legislativeDistrict,
+          municipality: d.municipality,
+        }));
+        setDistricts(convertedDistricts);
+      } catch (error) {
+        console.error("Failed to fetch districts:", error);
+      }
+    };
+    fetchDistricts();
+  }, []);
+
   const getSchoolName = (school: any) => {
     if (!school) return "";
     if (typeof school === "object" && school.schoolName)
@@ -182,7 +208,11 @@ export default function UsersTable({
     }
     return "";
   };
-  console.log(schools);
+
+  const getDistrictName = (district: District | null) => {
+    return district ? district.districtName : "";
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -191,7 +221,8 @@ export default function UsersTable({
 
     setSelectedUser((prev) => ({
       ...prev!,
-      [name]: value,
+      [name]:
+        name === "school_district_id" ? (value ? Number(value) : null) : value,
     }));
 
     if (debounceTimeout.current) {
@@ -237,11 +268,29 @@ export default function UsersTable({
           } else {
             delete newErrors.role;
           }
+          if (value === "school_head" || value === "school_admin") {
+            if (!selectedUser.school) {
+              newErrors.school = "School is required for this role";
+            }
+          } else {
+            delete newErrors.school;
+          }
+          if (value === "district_admin" && !selectedUser.school_district) {
+            newErrors.school_district_id =
+              "School district is required for this role";
+          } else {
+            delete newErrors.school_district_id;
+          }
+          break;
+        case "school_district_id":
           if (
-            (value === "school_head" || value === "school_admin") &&
-            !selectedUser.school
+            selectedUser.role === "district_admin" &&
+            (!value || Number(value) <= 0)
           ) {
-            newErrors.school = "School is required for this role";
+            newErrors.school_district_id =
+              "School district is required for this role";
+          } else {
+            delete newErrors.school_district_id;
           }
           break;
         default:
@@ -269,14 +318,10 @@ export default function UsersTable({
     setSelectAll(false);
   }, [showArchived, users]);
 
-  // Debounce searchTerm -> filterOptions.searchTerm
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      setFilterOptions((prev) => ({
-        ...prev,
-        searchTerm,
-      }));
+      setFilterOptions((prev) => ({ ...prev, searchTerm }));
     }, 400);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -285,7 +330,6 @@ export default function UsersTable({
 
   const totalPages = Math.ceil(totalUsers / itemsPerPage);
 
-  // Bulk selection handlers
   const toggleSelectAll = () => {
     if (selectAll) {
       setSelectedUsers([]);
@@ -305,7 +349,6 @@ export default function UsersTable({
 
   const isSelected = (userId: number) => selectedUsers.includes(userId);
 
-  // Bulk actions
   const handleBulkArchive = async (archive: boolean) => {
     if (selectedUsers.length === 0) return;
     setIsSubmitting(true);
@@ -364,10 +407,9 @@ export default function UsersTable({
     setUserToArchive(user);
     setIsArchiveDialogOpen(true);
   };
+
   const handleSchoolChange = (schoolId: number | null) => {
     if (!selectedUser) return;
-    if (!Array.isArray(schools)) return; // Defensive: only proceed if schools is an array
-    console.log(schoolId);
     setSelectedUser((prev) => ({
       ...prev!,
       school:
@@ -376,10 +418,20 @@ export default function UsersTable({
           : schools.find((s) => Number(s.schoolId) === Number(schoolId)) ||
             null,
     }));
-    console.log("Selected User School:", selectedUser.school);
-
-    // ...rest of your validation logic...
   };
+
+  const handleDistrictChange = (districtId: number | null) => {
+    if (!selectedUser) return;
+    setSelectedUser((prev) => ({
+      ...prev!,
+      school_district:
+        districtId === null
+          ? undefined
+          : districts.find((d) => d.districtId === String(districtId)),
+      school_district_id: districtId === null ? undefined : String(districtId),
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -398,56 +450,42 @@ export default function UsersTable({
 
     try {
       const formData = new FormData();
-      // Basic info
       formData.append("first_name", selectedUser.first_name);
       formData.append("last_name", selectedUser.last_name);
       formData.append("email", selectedUser.email);
-      formData.append("date_of_birth", selectedUser.date_of_birth || ""); // Handle null case
-      formData.append("school_district", selectedUser.school_district || "");
-
-      // Contact info
+      formData.append("date_of_birth", selectedUser.date_of_birth || "");
+      formData.append(
+        "school_district_id",
+        selectedUser.school_district?.districtId?.toString() || ""
+      );
       if (selectedUser.phone_number) {
         formData.append("phone_number", selectedUser.phone_number);
       } else {
-        formData.append("phone_number", ""); // Clear if removed
+        formData.append("phone_number", "");
       }
-
-      // Account info
       formData.append("role", selectedUser.role);
       formData.append(
         "school_id",
         selectedUser.school && "schoolId" in selectedUser.school
-          ? selectedUser.school.schoolId
+          ? selectedUser.school.schoolId.toString()
           : ""
       );
-      console.log("Selected User School ID:", selectedUser.school?.schoolId);
-      console.log("Selected school district:", selectedUser.school_district);
-
-      // Password (only if changed)
       if (selectedUser.password) {
         formData.append("password", selectedUser.password);
       }
-
-      // Profile picture handling
       if (profilePictureFile) {
         formData.append("profile_picture", profilePictureFile);
       } else if (!selectedUser.profile_picture) {
-        formData.append("profile_picture", ""); // Clear existing picture
+        formData.append("profile_picture", "");
       }
-      // Log all FormData entries before sending
-      for (const pair of formData.entries()) {
-        console.log(pair[0], pair[1]);
-      }
+
       await api.put(
         `http://127.0.0.1:8000/api/users/${selectedUser.id}/`,
         formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
 
       toast.success("User updated successfully!");
-
       await fetchUsers();
       setIsDialogOpen(false);
       setIsConfirmDialogOpen(false);
@@ -458,6 +496,8 @@ export default function UsersTable({
           errorMessage = "Email already exists.";
         } else if (error.response.data.password) {
           errorMessage = "Password doesn't meet requirements.";
+        } else if (error.response.data.school_district) {
+          errorMessage = error.response.data.school_district[0];
         }
       }
       console.error(error);
@@ -474,7 +514,6 @@ export default function UsersTable({
     try {
       await api.delete(`http://127.0.0.1:8000/api/users/${userToDelete.id}/`);
       toast.success("User deleted successfully!");
-
       await fetchUsers();
     } catch (error) {
       toast.error("Failed to delete user");
@@ -492,14 +531,10 @@ export default function UsersTable({
 
     try {
       const newStatus = !userToArchive.is_active;
-      await api.patch(`users/${userToArchive.id}/`, {
-        is_active: newStatus,
-      });
-
+      await api.patch(`users/${userToArchive.id}/`, { is_active: newStatus });
       toast.success(
         `User ${newStatus ? "restored" : "archived"} successfully!`
       );
-
       await fetchUsers();
     } catch (error) {
       toast.error(
@@ -510,23 +545,6 @@ export default function UsersTable({
       setIsArchiveDialogOpen(false);
       setUserToArchive(null);
     }
-  };
-
-  const handleFilterChange = (name: string, value: string) => {
-    setFilterOptions((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleDateRangeChange = (name: string, value: string) => {
-    setFilterOptions((prev) => ({
-      ...prev,
-      dateRange: {
-        ...prev.dateRange,
-        [name]: value,
-      },
-    }));
   };
 
   const resetFilters = () => {
@@ -540,7 +558,6 @@ export default function UsersTable({
 
   return (
     <div className="space-y-4">
-      {/* Filters and Search */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full md:w-1/2">
@@ -548,9 +565,9 @@ export default function UsersTable({
               type="text"
               placeholder="Search users..."
               value={searchTerm}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setSearchTerm(e.target.value);
-              }}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setSearchTerm(e.target.value)
+              }
               className="pl-10"
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -564,7 +581,6 @@ export default function UsersTable({
             >
               Filters
             </Button>
-
             <Button
               variant={showArchived ? "primary" : "outline"}
               onClick={() => setShowArchived(!showArchived)}
@@ -578,7 +594,6 @@ export default function UsersTable({
             >
               {showArchived ? "View Active" : "View Archived"}
             </Button>
-
             {selectedUsers.length > 0 && (
               <div className="flex gap-2">
                 <Button
@@ -601,7 +616,6 @@ export default function UsersTable({
                 </Button>
               </div>
             )}
-
             <select
               value={itemsPerPage.toString()}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
@@ -617,7 +631,6 @@ export default function UsersTable({
           </div>
         </div>
 
-        {/* Filter section - visible when showFilters is true */}
         {showFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
             <div className="space-y-2">
@@ -686,14 +699,7 @@ export default function UsersTable({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setFilterOptions({
-                    role: "",
-                    dateRange: { start: "", end: "" },
-                    searchTerm: "",
-                  });
-                  setSearchTerm("");
-                }}
+                onClick={resetFilters}
                 startIcon={<X className="size-4" />}
               >
                 Clear Filters
@@ -703,7 +709,6 @@ export default function UsersTable({
         )}
       </div>
 
-      {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
           <Table className="divide-y divide-gray-200">
@@ -749,7 +754,6 @@ export default function UsersTable({
                     </span>
                   </div>
                 </TableCell>
-
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -779,7 +783,6 @@ export default function UsersTable({
                     </span>
                   </div>
                 </TableCell>
-
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -809,14 +812,12 @@ export default function UsersTable({
                     </span>
                   </div>
                 </TableCell>
-
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
                   Status
                 </TableCell>
-
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -880,7 +881,6 @@ export default function UsersTable({
                         </span>
                       </div>
                     </TableCell>
-
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 overflow-hidden rounded-full">
@@ -896,7 +896,6 @@ export default function UsersTable({
                             </div>
                           )}
                         </div>
-
                         <div>
                           <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
                             {user.first_name} {user.last_name}
@@ -904,11 +903,12 @@ export default function UsersTable({
                           <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
                             {roleMap[user.role] || user.role}
                             {user.school && ` | ${getSchoolName(user.school)}`}
+                            {user.school_district &&
+                              ` | ${getDistrictName(user.school_district)}`}
                           </span>
                         </div>
                       </div>
                     </TableCell>
-
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {user.email}
                     </TableCell>
@@ -918,34 +918,28 @@ export default function UsersTable({
                       </Badge>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400 space-x-2">
-                      <div className="flex justify-start space-x-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditUser(user);
-                          }}
-                          className="text-gray-600 hover:text-gray-900"
-                          title="Edit User"
-                        >
-                          <SquarePenIcon />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleArchiveClick(user);
-                          }}
-                          className="text-gray-600 hover:text-gray-900"
-                          title={
-                            user.is_active ? "Archive User" : "Restore User"
-                          }
-                        >
-                          {user.is_active ? (
-                            <ArchiveIcon />
-                          ) : (
-                            <ArchiveRestoreIcon />
-                          )}
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditUser(user);
+                        }}
+                        className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleArchiveClick(user);
+                        }}
+                        className={`px-4 py-2 rounded-md transition-colors ${
+                          user.is_active
+                            ? "bg-error-500 text-white hover:bg-error-600"
+                            : "bg-success-500 text-white hover:bg-success-600"
+                        }`}
+                      >
+                        {user.is_active ? "Archive" : "Restore"}
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -965,7 +959,6 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="text-sm text-gray-600 dark:text-gray-400">
           Showing {users.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}{" "}
@@ -1035,7 +1028,6 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* Edit User Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar [&>button]:hidden">
           <DialogHeader className="mb-8">
@@ -1049,7 +1041,6 @@ export default function UsersTable({
 
           {selectedUser && (
             <form className="space-y-4" onSubmit={handleSubmit}>
-              {/* Profile Picture Upload */}
               <div className="space-y-2">
                 <Label htmlFor="profile_picture" className="text-base">
                   Profile Picture
@@ -1060,8 +1051,8 @@ export default function UsersTable({
                     <div className="relative">
                       <img
                         src={
-                          selectedUser.profile_picture_base64 || // Show new upload preview first
-                          `http://127.0.0.1:8000${selectedUser.profile_picture}` // Fallback to existing image
+                          selectedUser.profile_picture_base64 ||
+                          `http://127.0.0.1:8000${selectedUser.profile_picture}`
                         }
                         className="w-16 h-16 rounded-full object-cover"
                         alt="Preview"
@@ -1075,7 +1066,6 @@ export default function UsersTable({
                             profile_picture_base64: "",
                           }));
                           setProfilePictureFile(null);
-                          // Clear the file input value too
                           const fileInput = document.getElementById(
                             "profile_picture"
                           ) as HTMLInputElement;
@@ -1227,44 +1217,49 @@ export default function UsersTable({
                 )}
               </div>
 
-              {/* School District Dropdown for District Admin */}
               {selectedUser.role === "district_admin" && (
                 <div className="space-y-2">
-                  <Label htmlFor="school_district" className="text-base">
-                    School District
+                  <Label htmlFor="school_district_id" className="text-base">
+                    School District *
                   </Label>
                   <select
-                    id="school_district"
-                    name="school_district"
-                    value={selectedUser.school_district || ""}
-                    onChange={handleChange}
+                    id="school_district_id"
+                    name="school_district_id"
+                    value={selectedUser.school_district?.districtId || ""}
+                    onChange={(e) =>
+                      handleDistrictChange(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
                     className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                   >
                     <option value="">Select a district</option>
-                    {schoolDistrictOptions.map((district) => (
-                      <option key={district} value={district}>
-                        {district}
+                    {districts.map((district) => (
+                      <option
+                        key={district.districtId}
+                        value={district.districtId}
+                      >
+                        {district.districtName}
                       </option>
                     ))}
                   </select>
+                  {formErrors.school_district_id && (
+                    <p className="text-red-500 text-sm">
+                      {formErrors.school_district_id}
+                    </p>
+                  )}
                 </div>
               )}
 
               {(selectedUser.role === "school_head" ||
                 selectedUser.role === "school_admin") && (
                 <SchoolSelect
-                  value={selectedUser.school}
-                  onChange={(schoolId: number | null) => {
-                    setSelectedUser((prev) => ({
-                      ...prev!,
-                      school:
-                        schoolId === null
-                          ? null
-                          : schools.find(
-                              (s) => Number(s.schoolId) === Number(schoolId)
-                            ) || null,
-                    }));
-                  }}
+                  value={
+                    selectedUser.school
+                      ? Number(selectedUser.school.schoolId)
+                      : null
+                  }
+                  onChange={handleSchoolChange}
                   required
                   error={formErrors.school}
                 />
@@ -1398,7 +1393,6 @@ export default function UsersTable({
         </DialogContent>
       </Dialog>
 
-      {/* Edit Confirmation Dialog */}
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
           <DialogHeader className="mb-8">
@@ -1441,7 +1435,6 @@ export default function UsersTable({
         </DialogContent>
       </Dialog>
 
-      {/* View User Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-w-2xl">
           <DialogHeader className="mb-6">
@@ -1471,9 +1464,11 @@ export default function UsersTable({
                   {userToView?.first_name} {userToView?.last_name}
                 </DialogTitle>
                 <DialogDescription className="text-gray-600 dark:text-gray-400">
-                  {roleMap[userToView?.role || ""]}{" "}
+                  {roleMap[userToView?.role || ""]}
                   {userToView?.school &&
-                    `• ${getSchoolName(userToView.school)}`}
+                    ` • ${getSchoolName(userToView.school)}`}
+                  {userToView?.school_district &&
+                    ` • ${getDistrictName(userToView.school_district)}`}
                 </DialogDescription>
               </div>
             </div>
@@ -1482,7 +1477,6 @@ export default function UsersTable({
           {userToView && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Basic Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
                     Basic Information
@@ -1507,7 +1501,6 @@ export default function UsersTable({
                   </div>
                 </div>
 
-                {/* Additional Details */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
                     Additional Details
@@ -1528,6 +1521,16 @@ export default function UsersTable({
                         </Label>
                         <p className="text-gray-800 dark:text-gray-200 mt-1">
                           {getSchoolName(userToView.school)}
+                        </p>
+                      </div>
+                    )}
+                    {userToView.school_district && (
+                      <div>
+                        <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                          School District
+                        </Label>
+                        <p className="text-gray-800 dark:text-gray-200 mt-1">
+                          {getDistrictName(userToView.school_district)}
                         </p>
                       </div>
                     )}
@@ -1560,7 +1563,6 @@ export default function UsersTable({
                 </div>
               </div>
 
-              {/* Account Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
                   Account Information
@@ -1574,16 +1576,6 @@ export default function UsersTable({
                       {new Date(userToView.date_joined).toLocaleString()}
                     </p>
                   </div>
-                  {/* <div>
-                    <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Last Login
-                    </Label>
-                    <p className="text-gray-800 dark:text-gray-200 mt-1">
-                      {userToView.last_login
-                        ? new Date(userToView.last_login).toLocaleString()
-                        : "Never logged in"}
-                    </p>
-                  </div> */}
                 </div>
               </div>
 
@@ -1595,23 +1587,12 @@ export default function UsersTable({
                 >
                   Close
                 </Button>
-                {/* <Button
-                  type="button"
-                  variant="primary"
-                  onClick={() => {
-                    setIsViewDialogOpen(false);
-                    handleEditUser(userToView);
-                  }}
-                >
-                  Edit User
-                </Button> */}
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
           <DialogHeader className="mb-8">
@@ -1663,7 +1644,6 @@ export default function UsersTable({
         </DialogContent>
       </Dialog>
 
-      {/* Archive Confirmation Dialog */}
       <Dialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
           <DialogHeader className="mb-8">
@@ -1723,7 +1703,6 @@ export default function UsersTable({
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Archive Confirmation Dialog */}
       <Dialog
         open={isBulkArchiveDialogOpen}
         onOpenChange={setIsBulkArchiveDialogOpen}

@@ -12,14 +12,22 @@ export interface BaseUser {
 }
 
 // src/lib/types.ts
+
+export interface District {
+  districtId: string; // Unique identifier for the district
+  districtName: string; // Name of the district
+  is_active?: boolean; // Optional field to indicate if the district is active
+  legislativeDistrict?: string; // Optional field for legislative district
+  municipality?: string; // Optional field for municipality
+}
 export interface School {
-  district: string;
   schoolId: string;
   schoolName: string;
+  districtId: string; // New field for form handling
+  district: District; // Existing field for display
   municipality: string;
   legislativeDistrict: string;
   is_active?: boolean;
-  max_budget?: number; // Optional field for budget allocation
 }
 export type User = {
   id: number;
@@ -35,7 +43,8 @@ export type User = {
   is_active: boolean;
   password: string;
   confirm_password: string;
-  school_district?: string;
+  school_district?: District;
+  school_district_id?: string;
   school: School | null;
   profile_picture_base64?: string;
 };
@@ -219,9 +228,19 @@ export type Submission = {
   rejection_date: string; // Optional field for when the rejection occurred
   reviewed_by: User;
   reviewed_at?: string;
+  is_resubmission?: boolean;
+  previous_version?: string; // ID of the original submission if this is a resubmission
+  notes?: string; // Optional notes field
+  previous_request?: Submission; // Optional field for previous request
 };
 
-type Priority = {
+
+export type Prayoridad = {
+  expenseTitle: string;
+  amount: number;
+  LOPID: number;
+}
+export type Priority = {
   id: number;
   priority: {
     LOPID: number;

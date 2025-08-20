@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
@@ -31,13 +32,14 @@ import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
 import PasswordChangeModal from "./components/common/PasswordChangeModal";
+import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
+import ManageDistricts from "./pages/ManageDistricts";
 
 const App = () => {
-  const { passwordChangeRequired } = useAuth();
+  const { passwordChangeRequired, user } = useAuth();
   console.log("Password change required:", passwordChangeRequired);
   return (
     <>
-      <LiquidationReminder />
       {/* Main application routes */}
       <Routes>
         {/* Public routes */}
@@ -47,7 +49,16 @@ const App = () => {
         <Route element={<AppLayout />}>
           {/* Common routes accessible to all authenticated users */}
           <Route element={<RequireAuth />}>
-            <Route path="/" element={<Home />} />
+            <Route
+              path="/"
+              element={
+                user?.role === "school_head" ? (
+                  <SchoolHeadDashboard />
+                ) : (
+                  <Home />
+                )
+              }
+            />
             <Route path="/profile" element={<UserProfile />} />
           </Route>
 
@@ -60,6 +71,7 @@ const App = () => {
               element={<ManageListOfPrioritiesPage />}
             />
             <Route path="/requirements" element={<ManageRequirementsPage />} />
+            <Route path="/school-districts" element={<ManageDistricts />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
@@ -88,7 +100,6 @@ const App = () => {
                 path="/fund-request/request-list"
                 element={<RequestsList />}
               /> */}
-            <Route path="/liquidation" element={<LiquidationPage />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={["superintendent"]} />}>
@@ -137,6 +148,13 @@ const App = () => {
             />
           </Route>
           <Route
+            element={
+              <RequireAuth allowedRoles={["school_admin", "school_head"]} />
+            }
+          >
+            <Route path="/liquidation" element={<LiquidationPage />} />
+          </Route>
+          <Route
             element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
           >
             <Route path="/schools" element={<ManageSchools />} />
@@ -150,6 +168,7 @@ const App = () => {
         <Route path="*" element={<Navigate to="/" replace />} />-
       </Routes>
       {passwordChangeRequired && <PasswordChangeModal />}
+      <LiquidationReminder />
     </>
   );
 };

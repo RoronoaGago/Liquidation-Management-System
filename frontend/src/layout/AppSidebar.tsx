@@ -25,7 +25,8 @@ import {
   UserRoundPenIcon,
   HandCoinsIcon,
   FileUserIcon,
-  StampIcon, // <-- Add this
+  StampIcon,
+  LandPlotIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -75,6 +76,12 @@ const allNavItems: NavItem[] = [
     roles: ["admin"], // Only admin
   },
   {
+    icon: <LandPlotIcon />, // <-- Add this block for requirements
+    name: "Manage Districts",
+    path: "/school-districts",
+    roles: ["admin"], // Only admin
+  },
+  {
     icon: <StampIcon />,
     name: "Finalize Liquidation Report",
     path: "/liquidation-finalize",
@@ -110,7 +117,7 @@ const allNavItems: NavItem[] = [
     icon: <ReceiptText />,
     name: "Liquidation",
     path: "/liquidation",
-    roles: ["school_head"], // Only admin
+    roles: ["school_head", "school_admin"], // Only admin
   },
   {
     icon: <PhilippinePeso />,
