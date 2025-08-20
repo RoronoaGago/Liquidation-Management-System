@@ -7,25 +7,25 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import "../antd-custom.css";
 import { Bounce, toast } from "react-toastify";
-import { CheckCircleIcon, XCircleIcon } from "lucide-react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import UsersTable from "../components/tables/BasicTables/UsersTable";
 import Button from "../components/ui/button/Button";
-import { CalenderIcon, PlusIcon, UserIcon } from "../icons";
+import { PlusIcon, UserIcon } from "../icons";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
-import { EyeClosedIcon, EyeIcon, Loader2Icon, XIcon } from "lucide-react";
+import { Loader2Icon, XIcon } from "lucide-react";
 import {
   validateDateOfBirth,
   validateEmail,
-  validatePassword,
   validatePhoneNumber,
 } from "@/lib/helpers";
 import {
+  District,
   FilterOptions,
   School,
   SortableField,
@@ -35,7 +35,12 @@ import {
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
 import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
-import { schoolDistrictOptions } from "@/lib/constants";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+// Extend dayjs with custom parse format
+dayjs.extend(customParseFormat);
 
 interface UserFormData {
   first_name: string;
@@ -44,12 +49,11 @@ interface UserFormData {
   email: string;
   phone_number: string;
   role: string;
-  school_id: string; // was: school: string;
-  school_district?: string; // Optional for district admin
+  school_id: string;
+  school_district_id?: number; // Changed from school_district: string
   profile_picture_base64: string;
 }
-//TODO - make the school search
-// eslint-disable-next-line react-refresh/only-export-components
+
 export const roleOptions = [
   { value: "admin", label: "Administrator" },
   { value: "school_head", label: "School Head" },
@@ -60,26 +64,31 @@ export const roleOptions = [
   { value: "accountant", label: "Division Accountant" },
 ];
 
-const requiredFields = ["first_name", "last_name", "email", "role"];
+type FormErrors = Partial<Record<keyof UserFormData, string | null>>;
+const requiredFields = [
+  "first_name",
+  "last_name",
+  "email",
+  "role",
+  "date_of_birth",
+];
+
 const ManageUsers = () => {
   const [showArchived, setShowArchived] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [schools, setSchools] = useState<School[]>([]); // Assuming you have a list of schools
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]); // Added for districts
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user: currentUser } = useAuth();
-  const [isValid, setIsValid] = useState<boolean | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalUsers, setTotalUsers] = useState(0);
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  // Update the filterOptions state to include role and school
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     role: "",
     dateRange: { start: "", end: "" },
@@ -95,22 +104,27 @@ const ManageUsers = () => {
     date_of_birth: "",
     email: "",
     phone_number: "",
-    role: "admin",
-    school_district: "", // Optional for district admin
+    role: "school_admin",
     school_id: "",
+    school_district_id: undefined, // Changed from school_district
     profile_picture_base64: "",
   });
 
   const isFormValid =
     requiredFields.every(
-      (field) => formData[field as keyof UserFormData]?.trim() !== ""
+      (field) => formData[field as keyof UserFormData]?.toString().trim() !== ""
     ) &&
     (formData.role !== "school_head" && formData.role !== "school_admin"
       ? true
       : formData.school_id.trim() !== "") &&
-    Object.keys(errors).length === 0;
+    (formData.role !== "district_admin" ||
+      (formData.school_district_id && formData.school_district_id > 0)) &&
+    Object.keys(errors).filter(
+      (key) =>
+        errors[key as keyof UserFormData] !== undefined &&
+        errors[key as keyof UserFormData] !== null
+    ).length === 0;
 
-  // Modify the fetchUsers function to handle archived status
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
@@ -143,111 +157,61 @@ const ManageUsers = () => {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchUsers();
-    const response = api.get("schools/", { params: { page_size: 10000 } });
-    response.then((res) => {
-      setSchools(res.data.results || []); // Only the array of schools
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const fetchSchoolsAndDistricts = async () => {
+      try {
+        const [schoolsResponse, districtsResponse] = await Promise.all([
+          api.get("schools/", { params: { page_size: 10000 } }),
+          api.get("school-districts/", { params: { page_size: 10000 } }),
+        ]);
+        setSchools(schoolsResponse.data.results || schoolsResponse.data);
+        setDistricts(districtsResponse.data.results || districtsResponse.data);
+      } catch (error) {
+        console.error("Failed to fetch schools or districts:", error);
+      }
+    };
+    fetchSchoolsAndDistricts();
   }, [showArchived, filterOptions, sortConfig, currentPage, itemsPerPage]);
 
-  // Add filtering and sorting logic
-  const filteredUsers = useMemo(() => {
-    return allUsers.filter((user) => {
-      // Apply all filters here
-      if (user.id === currentUser?.user_id) return false;
-      // Apply status filter
-      // if (filterOptions.status === "active" && !user.is_active) return false;
-      // if (filterOptions.status === "archived" && user.is_active) return false;
-
-      // Apply date range filter
-      if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
-        const userDate = new Date(user.date_joined);
-        const startDate = filterOptions.dateRange.start
-          ? new Date(filterOptions.dateRange.start)
-          : null;
-        const endDate = filterOptions.dateRange.end
-          ? new Date(filterOptions.dateRange.end)
-          : null;
-
-        if (startDate && userDate < startDate) return false;
-        if (endDate && userDate > endDate) return false;
-      }
-
-      // Apply search term filter
-      if (filterOptions.searchTerm) {
-        const term = filterOptions.searchTerm.toLowerCase();
-        return (
-          user.first_name.toLowerCase().includes(term) ||
-          user.last_name.toLowerCase().includes(term) ||
-          user.username.toLowerCase().includes(term) ||
-          user.email.toLowerCase().includes(term) ||
-          (user.phone_number && user.phone_number.includes(term))
-        );
-      }
-      return true;
-      // ... rest of filtering logic
-    });
-  }, [allUsers, filterOptions, currentUser?.user_id]);
-  // Update useEffect to include showArchived as dependency
-
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-  const sortedUsers = useMemo(() => {
-    // If no sort config, return with original order (or default sort)
-    if (!sortConfig) return filteredUsers;
-
-    return [...filteredUsers].sort((a, b) => {
-      // Handle date sorting
-      if (sortConfig.key === "date_joined") {
-        const aDate = new Date(a.date_joined).getTime();
-        const bDate = new Date(b.date_joined).getTime();
-
-        // Handle potential invalid dates
-        if (isNaN(aDate) || isNaN(bDate)) return 0;
-
-        return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
-      }
-
-      // Get values to compare
-      const aValue = a[sortConfig.key] ?? "";
-      const bValue = b[sortConfig.key] ?? "";
-
-      // Case-insensitive string comparison
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        const comparison = aValue.localeCompare(bValue, undefined, {
-          sensitivity: "base",
-        });
-        return sortConfig.direction === "asc" ? comparison : -comparison;
-      }
-
-      // Numeric comparison
-      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-
-      return 0;
-    });
-  }, [filteredUsers, sortConfig]);
-
-  const requestSort = (key: SortableField) => {
-    let direction: SortDirection = "asc";
-    if (sortConfig && sortConfig.key === key) {
-      direction = sortConfig.direction === "asc" ? "desc" : null;
-    }
-    setSortConfig(direction ? { key, direction } : null);
-  };
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e:
+      | React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+      | dayjs.Dayjs
+      | null,
+    name?: keyof UserFormData
   ) => {
-    const { name, value } = e.target;
+    if (name === "date_of_birth") {
+      const dateString = e ? (e as dayjs.Dayjs).format("YYYY-MM-DD") : "";
+      setFormData((prev) => ({ ...prev, date_of_birth: dateString }));
+      const dateError = dateString
+        ? validateDateOfBirth(dateString)
+        : undefined;
+      setErrors((prev) => ({ ...prev, date_of_birth: dateError }));
+      return;
+    }
 
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
+    if (!e || !("target" in e)) return;
+    const { name: inputName, value } = e.target as {
+      name: keyof UserFormData;
+      value: string;
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      [inputName]: inputName === "school_district_id" ? Number(value) : value,
     }));
 
-    if (name === "role" && !["school_head", "school_admin"].includes(value)) {
+    if (
+      inputName === "role" &&
+      !["school_head", "school_admin"].includes(value)
+    ) {
       setFormData((prev) => ({ ...prev, school_id: "" }));
+    }
+    if (inputName === "role" && value !== "district_admin") {
+      setFormData((prev) => ({ ...prev, school_district_id: undefined }));
     }
 
     if (debounceTimeout.current) {
@@ -255,67 +219,51 @@ const ManageUsers = () => {
     }
 
     debounceTimeout.current = setTimeout(() => {
-      const newErrors = { ...errors };
-
-      switch (name) {
-        case "email":
-          if (!validateEmail(value)) {
-            newErrors.email = "Please enter a valid email address.";
-          } else {
-            delete newErrors.email;
-          }
-          break;
-        case "phone_number":
-          if (value && !validatePhoneNumber(value)) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        switch (inputName) {
+          case "email":
+            newErrors.email = !validateEmail(value)
+              ? "Please enter a valid email address"
+              : undefined;
+            break;
+          case "phone_number":
             newErrors.phone_number =
-              "Please enter a valid phone number (e.g., +1 (555) 123-4567).";
-          } else {
-            delete newErrors.phone_number;
-          }
-          break;
-        case "date_of_birth":
-          // eslint-disable-next-line no-case-declarations
-          const dateError = validateDateOfBirth(value);
-          if (dateError) {
-            newErrors.date_of_birth = dateError;
-          } else {
-            delete newErrors.date_of_birth;
-          }
-          break;
-        case "role":
-          if (value === "admin" && currentUser?.role !== "admin") {
-            newErrors.role = "Only administrators can create admin users.";
-          } else {
-            delete newErrors.role;
-          }
-          break;
-        case "school_id":
-          if (
-            (formData.role === "school_head" ||
-              formData.role === "school_admin") &&
-            !value.trim()
-          ) {
-            newErrors.school_id = "Please select a school from the list.";
-          } else {
-            delete newErrors.school_id;
-          }
-          break;
-        default:
-          if (requiredFields.includes(name) && !value.trim()) {
-            newErrors[name as keyof typeof newErrors] =
-              "This field is required.";
-          } else {
-            delete newErrors[name as keyof typeof newErrors];
-          }
-      }
-
-      setErrors(newErrors);
+              value && !validatePhoneNumber(value)
+                ? "Please enter a valid phone number"
+                : undefined;
+            break;
+          case "role":
+            newErrors.role =
+              value === "admin" && currentUser?.role !== "admin"
+                ? "Only administrators can create admin users"
+                : undefined;
+            break;
+          case "school_id":
+            newErrors.school_id =
+              (formData.role === "school_head" ||
+                formData.role === "school_admin") &&
+              !value.trim()
+                ? "Please select a school from the list"
+                : undefined;
+            break;
+          case "school_district_id":
+            newErrors.school_district_id =
+              formData.role === "district_admin" &&
+              (!value || Number(value) <= 0)
+                ? "Please select a school district"
+                : undefined;
+            break;
+          default:
+            if (requiredFields.includes(inputName)) {
+              newErrors[inputName] = !value.trim()
+                ? "This field is required"
+                : undefined;
+            }
+        }
+        return newErrors;
+      });
     }, 500);
-  };
-
-  const handlePhoneNumberInput = (e: React.FormEvent<HTMLInputElement>) => {
-    const input = e.target as HTMLInputElement;
-    input.value = input.value.replace(/[^0-9+\-() ]/g, "");
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -336,12 +284,15 @@ const ManageUsers = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setShowConfirmation(true);
+  };
 
-    // Final validation check
+  const handleConfirmSubmit = async () => {
+    setShowConfirmation(false);
+
     const finalErrors: Record<string, string> = {};
     requiredFields.forEach((field) => {
-      if (field === "profile_picture_base64") return;
-      if (!formData[field as keyof UserFormData]?.trim()) {
+      if (!formData[field as keyof UserFormData]?.toString().trim()) {
         finalErrors[field] = "This field is required.";
       }
     });
@@ -357,6 +308,11 @@ const ManageUsers = () => {
       finalErrors.school_id = "School is required for this role.";
     }
 
+    if (formData.role === "district_admin" && !formData.school_district_id) {
+      finalErrors.school_district_id =
+        "School district is required for district administrators.";
+    }
+
     setErrors(finalErrors);
 
     if (Object.keys(finalErrors).length > 0) {
@@ -367,20 +323,12 @@ const ManageUsers = () => {
     setIsSubmitting(true);
 
     try {
-      console.log(formData);
       const response = await api.post("http://127.0.0.1:8000/api/users/", {
         ...formData,
-        // profile_picture_base64 is already set in formData
-
-        headers: { "Content-Type": "application/json" }, // Correct headers placement
+        headers: { "Content-Type": "application/json" },
       });
-      console.log(response.data);
-      console.log(formData);
-      await fetchUsers(); // Explicitly refetch the latest list
-
+      await fetchUsers();
       toast.success("User Added Successfully!");
-
-      // Reset form
       setFormData({
         first_name: "",
         last_name: "",
@@ -389,28 +337,25 @@ const ManageUsers = () => {
         phone_number: "",
         role: "school_admin",
         school_id: "",
+        school_district_id: undefined,
         profile_picture_base64: "",
       });
       setPreviewImage(null);
       setErrors({});
       setIsDialogOpen(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      let errorMessage = "Failed to add user. Please try again.";
-      console.error(error);
-
+      let errorMessage = "An error occurred. Please try again.";
       if (axios.isAxiosError(error) && error.response) {
-        if (error.response.data.username) {
-          errorMessage = "Username already exists.";
-        } else if (error.response.data.email) {
+        if (error.response.data.email) {
           errorMessage = "Email already exists.";
-        } else if (error.response.data.password) {
-          errorMessage = "Password doesn't meet requirements.";
+        } else if (error.response.data.role) {
+          errorMessage = error.response.data.role[0];
+        } else if (error.response.data.school_district) {
+          errorMessage = error.response.data.school_district[0];
         } else if (error.response.data.detail) {
           errorMessage = error.response.data.detail;
         }
       }
-
       toast.error(errorMessage, {
         position: "top-center",
         autoClose: 2000,
@@ -454,7 +399,6 @@ const ManageUsers = () => {
               </DialogHeader>
 
               <form className="space-y-4" onSubmit={handleSubmit}>
-                {/* Profile Picture Upload */}
                 <div className="space-y-2">
                   <Label htmlFor="profile_picture" className="text-base">
                     Profile Picture
@@ -469,7 +413,7 @@ const ManageUsers = () => {
                         />
                         <button
                           type="button"
-                          onClick={() => setPreviewImage(null)} // Clear the preview
+                          onClick={() => setPreviewImage(null)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
                           aria-label="Remove profile picture"
                         >
@@ -561,7 +505,7 @@ const ManageUsers = () => {
                       phone_number: value || "",
                     }))
                   }
-                  error={errors.phone_number}
+                  error={errors.phone_number || undefined}
                 />
                 <div className="space-y-2">
                   <Label htmlFor="role" className="text-base">
@@ -593,26 +537,33 @@ const ManageUsers = () => {
                   )}
                 </div>
 
-                {/* School District Dropdown for District Admin */}
                 {formData.role === "district_admin" && (
                   <div className="space-y-2">
-                    <Label htmlFor="school_district" className="text-base">
-                      School District
+                    <Label htmlFor="school_district_id" className="text-base">
+                      School District *
                     </Label>
                     <select
-                      id="school_district"
-                      name="school_district"
-                      value={formData.school_district || ""}
+                      id="school_district_id"
+                      name="school_district_id"
+                      value={formData.school_district_id || ""}
                       onChange={handleChange}
                       className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                     >
                       <option value="">Select a district</option>
-                      {schoolDistrictOptions.map((district) => (
-                        <option key={district} value={district}>
-                          {district}
+                      {districts.map((district) => (
+                        <option
+                          key={district.districtId}
+                          value={district.districtId}
+                        >
+                          {district.districtName}
                         </option>
                       ))}
                     </select>
+                    {errors.school_district_id && (
+                      <p className="text-red-500 text-sm">
+                        {errors.school_district_id}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -631,7 +582,7 @@ const ManageUsers = () => {
                         setErrors((prev) => ({ ...prev, school_id: "" }));
                     }}
                     required
-                    error={errors.school_id}
+                    error={errors.school_id || undefined}
                   />
                 )}
 
@@ -639,20 +590,27 @@ const ManageUsers = () => {
                   <Label htmlFor="date_of_birth" className="text-base">
                     Birthdate
                   </Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      id="date_of_birth"
-                      name="date_of_birth"
-                      className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                      value={formData.date_of_birth}
-                      onChange={handleChange}
-                      max={new Date().toISOString().split("T")[0]}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                      <CalenderIcon className="size-5" />
-                    </span>
-                  </div>
+                  <DatePicker
+                    id="date_of_birth"
+                    name="date_of_birth"
+                    className="custom-date-picker"
+                    placeholder="Select birthdate"
+                    format="YYYY-MM-DD"
+                    value={
+                      formData.date_of_birth
+                        ? dayjs(formData.date_of_birth)
+                        : null
+                    }
+                    onChange={(date) => {
+                      handleChange(date, "date_of_birth");
+                      setFormData((prev) => ({ ...prev }));
+                    }}
+                    disabledDate={(current) =>
+                      current && current > dayjs().endOf("day")
+                    }
+                    showNow={false}
+                    allowClear={true}
+                  />
                   {errors.date_of_birth && (
                     <p className="text-red-500 text-sm">
                       {errors.date_of_birth}
@@ -676,6 +634,7 @@ const ManageUsers = () => {
                         phone_number: "",
                         role: "school_admin",
                         school_id: "",
+                        school_district_id: undefined,
                         profile_picture_base64: "",
                       });
                       setPreviewImage(null);
@@ -702,6 +661,33 @@ const ManageUsers = () => {
               </form>
             </DialogContent>
           </Dialog>
+          {showConfirmation && (
+            <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Confirm User Creation</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to create this user?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowConfirmation(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleConfirmSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Creating..." : "Confirm"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <UsersTable
@@ -712,7 +698,13 @@ const ManageUsers = () => {
           fetchUsers={fetchUsers}
           filterOptions={filterOptions}
           setFilterOptions={setFilterOptions}
-          onRequestSort={requestSort}
+          onRequestSort={(key) => {
+            let direction: SortDirection = "asc";
+            if (sortConfig && sortConfig.key === key) {
+              direction = sortConfig.direction === "asc" ? "desc" : null;
+            }
+            setSortConfig(direction ? { key, direction } : null);
+          }}
           currentSort={sortConfig}
           loading={loading}
           error={error}

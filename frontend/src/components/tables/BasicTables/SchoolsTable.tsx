@@ -44,7 +44,7 @@ import {
   municipalityDistricts,
   firstDistrictMunicipalities,
 } from "@/lib/constants";
-import { School } from "@/lib/types";
+import { District, School } from "@/lib/types";
 
 interface SchoolsTableProps {
   schools: School[];
@@ -57,6 +57,7 @@ interface SchoolsTableProps {
   currentSort: { key: string; direction: "asc" | "desc" } | null;
   fetchSchools: () => Promise<void>;
   loading?: boolean;
+  districts: District[]; // Add this line
   error?: Error | null;
   currentPage: number;
   setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
@@ -81,6 +82,7 @@ export default function SchoolsTable({
   currentPage,
   setCurrentPage,
   itemsPerPage,
+  districts,
   setItemsPerPage,
   totalSchools,
   ITEMS_PER_PAGE_OPTIONS,
@@ -128,10 +130,39 @@ export default function SchoolsTable({
   }, [selectedSchool, formErrors]);
 
   useEffect(() => {
-    api.get("/legislative-districts/").then((res) => {
-      setLegislativeDistricts(res.data);
-      setLegislativeDistrictOptions(Object.keys(res.data));
-    });
+    const fetchLegislativeDistricts = async () => {
+      try {
+        const response = await api.get("/school-districts/");
+        const districts = response.data.results || response.data;
+
+        const legislativeDistrictsMap: { [key: string]: string[] } = {};
+
+        districts.forEach((district: District) => {
+          if (district.legislativeDistrict) {
+            if (!legislativeDistrictsMap[district.legislativeDistrict]) {
+              legislativeDistrictsMap[district.legislativeDistrict] = [];
+            }
+            if (
+              district.municipality &&
+              !legislativeDistrictsMap[district.legislativeDistrict].includes(
+                district.municipality
+              )
+            ) {
+              legislativeDistrictsMap[district.legislativeDistrict].push(
+                district.municipality
+              );
+            }
+          }
+        });
+
+        setLegislativeDistricts(legislativeDistrictsMap);
+        setLegislativeDistrictOptions(Object.keys(legislativeDistrictsMap));
+      } catch (error) {
+        console.error("Failed to fetch legislative districts:", error);
+      }
+    };
+
+    fetchLegislativeDistricts();
   }, []);
 
   useEffect(() => {
@@ -210,7 +241,10 @@ export default function SchoolsTable({
   };
 
   const handleEditSchool = (school: School) => {
-    setSelectedSchool({ ...school });
+    setSelectedSchool({
+      ...school,
+      districtId: school.district.districtId, // Ensure districtId is set
+    });
     setFormErrors({});
     setIsDialogOpen(true);
   };
@@ -225,10 +259,17 @@ export default function SchoolsTable({
   ) => {
     if (!selectedSchool) return;
     const { name, value } = e.target;
-
-    setSelectedSchool((prev) => ({
+    setSelectedSchool((prev: School | null) => ({
       ...prev!,
       [name]: value,
+      // Update district object when districtId changes
+      ...(name === "districtId" && {
+        district: {
+          districtId: value,
+          districtName:
+            districts.find((d) => d.districtId === value)?.districtName || "",
+        },
+      }),
     }));
 
     if (debounceTimeout.current) {
@@ -263,10 +304,12 @@ export default function SchoolsTable({
     setIsSubmitting(true);
 
     try {
-      console.log("Updating school:", selectedSchool);
       await api.put(
         `http://127.0.0.1:8000/api/schools/${selectedSchool.schoolId}/`,
-        selectedSchool,
+        {
+          ...selectedSchool,
+          district: selectedSchool.districtId, // Send districtId as district
+        },
         {
           headers: { "Content-Type": "application/json" },
         }
@@ -324,36 +367,48 @@ export default function SchoolsTable({
     // Set district options based on municipality
     const mun = selectedSchool.municipality;
     if (mun) {
-      setDistrictOptions(municipalityDistricts[mun] || []);
-      // Auto-set legislative district if municipality is selected
-      if (legislativeDistricts["1st District"]?.includes(mun)) {
-        setAutoLegislativeDistrict("1st District");
-        setSelectedSchool((prev) =>
-          prev ? { ...prev, legislativeDistrict: "1st District" } : prev
-        );
-      } else if (legislativeDistricts["2nd District"]?.includes(mun)) {
-        setAutoLegislativeDistrict("2nd District");
-        setSelectedSchool((prev) =>
-          prev ? { ...prev, legislativeDistrict: "2nd District" } : prev
-        );
-      }
-      // Reset district if not in options
-      if (!municipalityDistricts[mun]?.includes(selectedSchool.district)) {
-        setSelectedSchool((prev) => prev && { ...prev, district: "" });
-      }
+      const filteredDistricts = districts
+        .filter(
+          (district) => district.municipality === mun && district.is_active
+        )
+        .map((d) => d.districtId);
+      setDistrictOptions(filteredDistricts);
+      // Auto-select if only one district is available
+      setSelectedSchool((prev) => ({
+        ...prev!,
+        districtId:
+          filteredDistricts.length === 1
+            ? filteredDistricts[0]
+            : prev!.districtId,
+        district: {
+          districtId:
+            filteredDistricts.length === 1
+              ? filteredDistricts[0]
+              : prev!.districtId,
+          districtName:
+            districts.find(
+              (d) =>
+                d.districtId ===
+                (filteredDistricts.length === 1
+                  ? filteredDistricts[0]
+                  : prev!.districtId)
+            )?.districtName || "",
+        },
+      }));
     } else {
       setDistrictOptions([]);
-      setAutoLegislativeDistrict("");
-      setSelectedSchool((prev) =>
-        prev ? { ...prev, district: "", legislativeDistrict: "" } : prev
-      );
+      setSelectedSchool((prev) => ({
+        ...prev!,
+        districtId: "",
+        district: { districtId: "", districtName: "" },
+      }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     selectedSchool?.municipality,
     selectedSchool?.legislativeDistrict,
     isDialogOpen,
     legislativeDistricts,
+    districts,
   ]);
 
   const [isBulkArchiveDialogOpen, setIsBulkArchiveDialogOpen] = useState(false);
@@ -569,25 +624,7 @@ export default function SchoolsTable({
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="filter-district" className="text-sm font-medium">
-                District
-              </Label>
-              <select
-                id="filter-district"
-                value={filterDistrict}
-                onChange={(e) => setFilterDistrict(e.target.value)}
-                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                disabled={!filterMunicipality}
-              >
-                <option value="">All</option>
-                {filterDistrictOptions.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
+
             <div className="md:col-span-3 flex justify-end gap-2">
               <Button
                 variant="outline"
@@ -839,7 +876,7 @@ export default function SchoolsTable({
                       {school.schoolName}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {school.district}
+                      {school.district?.districtName}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {school.municipality}
@@ -858,35 +895,35 @@ export default function SchoolsTable({
                         {school.is_active !== false ? "Active" : "Archived"}
                       </span>
                     </TableCell>
-                    <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start text-theme-sm">
                       <div className="flex justify-start space-x-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEditSchool(school);
                           }}
-                          className="text-gray-600 hover:text-gray-900"
+                          className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
                           title="Edit School"
                         >
-                          <SquarePenIcon />
+                          Edit
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleArchiveClick(school);
                           }}
-                          className="text-gray-600 hover:text-gray-900"
+                          className={`px-4 py-2 rounded-md transition-colors ${
+                            school.is_active
+                              ? "bg-error-500 text-white hover:bg-error-600"
+                              : "bg-success-500 text-white hover:bg-success-600"
+                          }`}
                           title={
                             school.is_active !== false
                               ? "Archive School"
                               : "Restore School"
                           }
                         >
-                          {school.is_active !== false ? (
-                            <ArchiveIcon />
-                          ) : (
-                            <ArchiveRestoreIcon />
-                          )}
+                          {school.is_active ? "Archive" : "Restore"}
                         </button>
                       </div>
                     </TableCell>
@@ -1073,6 +1110,43 @@ export default function SchoolsTable({
                   </p>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="districtId" className="text-base">
+                  District *
+                </Label>
+                <select
+                  id="districtId"
+                  name="districtId"
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  value={selectedSchool?.districtId || ""}
+                  onChange={handleChange}
+                  disabled={
+                    !selectedSchool?.municipality || districtOptions.length <= 1
+                  }
+                >
+                  <option value="">Select District</option>
+                  {districts
+                    .filter(
+                      (district) =>
+                        district.municipality ===
+                          selectedSchool?.municipality && district.is_active
+                    )
+                    .map((district) => (
+                      <option
+                        key={district.districtId}
+                        value={district.districtId}
+                      >
+                        {district.districtName}
+                      </option>
+                    ))}
+                </select>
+                {formErrors.districtId && (
+                  <p className="text-red-500 text-sm">
+                    {formErrors.districtId}
+                  </p>
+                )}
+              </div>
               <div className="flex justify-end gap-3 pt-4">
                 <Button
                   type="button"
@@ -1164,7 +1238,7 @@ export default function SchoolsTable({
                     District
                   </Label>
                   <p className="text-gray-800 dark:text-gray-200 mt-1">
-                    {schoolToView.district}
+                    {schoolToView.district.districtName}
                   </p>
                 </div>
                 <div>

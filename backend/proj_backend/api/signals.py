@@ -26,6 +26,7 @@ User = get_user_model()
 def generate_otp():
     return str(random.randint(100000, 999999))
 
+
 def send_otp_email(user, otp):
     context = {
         'user': user,
@@ -305,58 +306,58 @@ def handle_liquidation_status_change(instance):
             )
 
 
-@receiver(user_logged_in)
-def send_login_email(sender, user, request, **kwargs):
-    # Get IP address
-    ip_address = request.META.get('REMOTE_ADDR')
+# @receiver(user_logged_in)
+# def send_login_email(sender, user, request, **kwargs):
+#     # Get IP address
+#     ip_address = request.META.get('REMOTE_ADDR')
 
-    # Get approximate location (requires GeoIP2 database)
-    location = None
-    try:
-        with geoip2.database.Reader('path/to/GeoLite2-City.mmdb') as reader:
-            response = reader.city(ip_address)
-            location_parts = []
-            if response.city.name:
-                location_parts.append(response.city.name)
-            if response.subdivisions.most_specific.name:
-                location_parts.append(response.subdivisions.most_specific.name)
-            if response.country.name:
-                location_parts.append(response.country.name)
-            location = ', '.join(location_parts)
-    except Exception:
-        pass
+#     # Get approximate location (requires GeoIP2 database)
+#     location = None
+#     try:
+#         with geoip2.database.Reader('path/to/GeoLite2-City.mmdb') as reader:
+#             response = reader.city(ip_address)
+#             location_parts = []
+#             if response.city.name:
+#                 location_parts.append(response.city.name)
+#             if response.subdivisions.most_specific.name:
+#                 location_parts.append(response.subdivisions.most_specific.name)
+#             if response.country.name:
+#                 location_parts.append(response.country.name)
+#             location = ', '.join(location_parts)
+#     except Exception:
+#         pass
 
-    # Parse user agent
-    user_agent = request.META.get('HTTP_USER_AGENT', '')
-    agent = user_agents.parse(user_agent)
-    device_info = f"{agent.get_device()} ({agent.get_browser()} {agent.browser.version_string})"
+#     # Parse user agent
+#     user_agent = request.META.get('HTTP_USER_AGENT', '')
+#     agent = user_agents.parse(user_agent)
+#     device_info = f"{agent.get_device()} ({agent.get_browser()} {agent.browser.version_string})"
 
-    # Prepare context
-    context = {
-        'user': user,
-        'ip': ip_address,
-        'login_time': timezone.now(),
-        'location': location,
-        'device_info': device_info,
-        'account_settings_url': request.build_absolute_uri('/account/settings/'),
-        'now': timezone.now(),
-    }
+#     # Prepare context
+#     context = {
+#         'user': user,
+#         'ip': ip_address,
+#         'login_time': timezone.now(),
+#         'location': location,
+#         'device_info': device_info,
+#         'account_settings_url': request.build_absolute_uri('/account/settings/'),
+#         'now': timezone.now(),
+#     }
 
     # Render both text and HTML versions
-    
+
     html_message = render_to_string('emails/login_notification.html', context)
     text_message = render_to_string('emails/login_notification.txt', context)
 
-    subject = "Login Notification"
+#     subject = "Login Notification"
 
-    send_mail(
-        subject,
-        text_message,
-        None,  # Uses DEFAULT_FROM_EMAIL
-        [user.email],
-        html_message=html_message,  # Add HTML version
-        fail_silently=True,
-    )
+#     send_mail(
+#         subject,
+#         text_message,
+#         None,  # Uses DEFAULT_FROM_EMAIL
+#         [user.email],
+#         html_message=html_message,  # Add HTML version
+#         fail_silently=True,
+#     )
 
 
 @receiver(post_save, sender=User)

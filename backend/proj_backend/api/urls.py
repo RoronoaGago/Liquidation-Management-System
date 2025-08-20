@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -50,6 +50,7 @@ urlpatterns = [
          name='check-pending-requests'),
     path('requests/<str:request_id>/resubmit/',
          views.resubmit_request, name='resubmit-request'),
+    # In urls.py
     path('requests/<str:pk>/approve/',
          views.ApproveRequestView.as_view(), name='approve-request'),
     path('requests/<str:pk>/reject/',
@@ -81,7 +82,17 @@ urlpatterns = [
     path('division-signatories/', views.division_signatories,
          name='division-signatories'),
 
-     # Path for recording the history cchanges of hte request and liquidation management      
-    path('requests/<str:request_id>/history/', views.request_management_history, name='request-history'),
-    path('liquidations/<str:LiquidationID>/history/', views.liquidation_management_history, name='liquidation-history'),
+    # Path for recording the history cchanges of hte request and liquidation management
+    path('requests/<str:request_id>/history/',
+         views.request_history, name='request-history'),
+    path('liquidations/<str:LiquidationID>/history/',
+         views.liquidation_management_history, name='liquidation-history'),
+    path('school-districts/', SchoolDistrictListCreateAPIView.as_view(),
+         name='school-district-list-create'),
+    path('school-districts/<str:districtId>/',
+         SchoolDistrictRetrieveUpdateDestroyAPIView.as_view(), name='school-district-detail'),
+    path('school-districts/<str:districtId>/archive/',
+         archive_school_district, name='school-district-archive'),
+    path('last-liquidated-request/',
+         views.last_liquidated_request, name='last_liquidated_request'),
 ]

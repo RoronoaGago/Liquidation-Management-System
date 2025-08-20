@@ -81,10 +81,12 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
-    school_district = models.CharField(
-        max_length=100,
+    school_district = models.ForeignKey(
+        'SchoolDistrict',
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
+        related_name='district_users',
         help_text="District assignment (only for district administrative assistants)"
     )
     otp_code = models.CharField(max_length=6, blank=True, null=True)
@@ -133,33 +135,32 @@ class User(AbstractUser):
 
 
 class School(models.Model):
-    schoolId = models.CharField(
-        max_length=10, primary_key=True, editable=True)
+    schoolId = models.CharField(max_length=10, primary_key=True, editable=True)
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
-    district = models.CharField(max_length=100)
+    district = models.ForeignKey(
+        'SchoolDistrict',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='schools'
+    )
     legislativeDistrict = models.CharField(
         max_length=100,
-        # Must match LiquidatorAssignment
-        choices=[("1st District", "1st District"),
-                 ("2nd District", "2nd District")]
+        choices=[("1st District", "1st District"), ("2nd District", "2nd District")]
     )
-    is_active = models.BooleanField(default=True)  # Added for archiving
+    is_active = models.BooleanField(default=True)
     max_budget = models.DecimalField(
         max_digits=15,
         decimal_places=2,
         default=0.00,
         verbose_name="Maximum Budget"
     )
-    is_active = models.BooleanField(default=True)
-    last_liquidated_month = models.PositiveSmallIntegerField(
-        null=True, blank=True)  # 1-12
-    last_liquidated_year = models.PositiveSmallIntegerField(
-        null=True, blank=True)
+    last_liquidated_month = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_liquidated_year = models.PositiveSmallIntegerField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
-
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
@@ -340,8 +341,8 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-                and not self._skip_auto_status
-                and self.request_monthyear
+            and not self._skip_auto_status
+            and self.request_monthyear
             ):
             today = date.today()
             try:
@@ -386,6 +387,7 @@ class RequestPriority(models.Model):
     request = models.ForeignKey(RequestManagement, on_delete=models.CASCADE)
     priority = models.ForeignKey(ListOfPriority, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    history = HistoricalRecords()
 
     class Meta:
         unique_together = ('request', 'priority')
@@ -600,3 +602,16 @@ class LiquidationPriority(models.Model):
 
     def __str__(self):
         return f"{self.liquidation} - {self.priority} (${self.amount})"
+
+class SchoolDistrict(models.Model):
+    districtId = models.AutoField(primary_key=True)
+    districtName = models.CharField(max_length=255)
+    municipality = models.CharField(max_length=100)
+    legislativeDistrict = models.CharField(
+        max_length=100,
+        choices=[("1st District", "1st District"), ("2nd District", "2nd District")]
+    )
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.districtName} ({self.districtId})"

@@ -626,24 +626,24 @@ export default function LOPsTable({
                             e.stopPropagation();
                             handleEditLOP(lop);
                           }}
-                          className="text-gray-600 hover:text-gray-900"
+                          className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
                           title="Edit LOP"
                         >
-                          <SquarePenIcon />
+                          Edit
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleArchiveClick(lop);
                           }}
-                          className="text-gray-600 hover:text-gray-900"
+                          className={`px-4 py-2 rounded-md transition-colors ${
+                            lop.is_active
+                              ? "bg-error-500 text-white hover:bg-error-600"
+                              : "bg-success-500 text-white hover:bg-success-600"
+                          }`}
                           title={lop.is_active ? "Archive LOP" : "Restore LOP"}
                         >
-                          {lop.is_active ? (
-                            <ArchiveIcon />
-                          ) : (
-                            <ArchiveRestoreIcon />
-                          )}
+                          {lop.is_active ? "Archive" : "Restore"}
                         </button>
                       </div>
                     </TableCell>

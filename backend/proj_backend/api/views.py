@@ -1,5 +1,6 @@
 from urllib import request
 from rest_framework.permissions import IsAuthenticated
+from django.http import JsonResponse
 from .serializers import CustomTokenObtainPairSerializer
 from datetime import datetime, timedelta
 from rest_framework.decorators import api_view, permission_classes
@@ -11,8 +12,8 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer,RequestManagementHistorySerializer, LiquidationManagementHistorySerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -75,6 +76,13 @@ def change_password(request):
 
     # Update the token to prevent automatic logout
     refresh = RefreshToken.for_user(user)
+    # Add minimal custom claims
+    refresh['first_name'] = user.first_name
+    refresh['last_name'] = user.last_name
+    refresh['email'] = user.email
+    refresh['role'] = user.role
+    refresh['password_change_required'] = user.password_change_required
+
     return Response({
         "access": str(refresh.access_token),
         "refresh": str(refresh),
@@ -194,7 +202,6 @@ def user_detail(request, pk):
             refresh = RefreshToken.for_user(user)
             refresh['first_name'] = user.first_name
             refresh['last_name'] = user.last_name
-            refresh['username'] = user.username
             refresh['email'] = user.email
             refresh['role'] = user.role
 
@@ -245,16 +252,15 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
     pagination_class = SchoolPagination
 
     def get_queryset(self):
-        queryset = School.objects.all()
+        queryset = School.objects.select_related('district').all()
         search_term = self.request.query_params.get('search', None)
         legislative_district = self.request.query_params.get(
             'legislative_district', None)
         municipality = self.request.query_params.get('municipality', None)
-        district = self.request.query_params.get('district', None)
+        district_id = self.request.query_params.get('district', None)
         archived = self.request.query_params.get(
             'archived', 'false').lower() == 'true'
 
-        # Archive filter
         if not archived:
             queryset = queryset.filter(is_active=True)
         else:
@@ -263,7 +269,7 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
         if search_term:
             queryset = queryset.filter(
                 Q(schoolName__icontains=search_term) |
-                Q(district__icontains=search_term) |
+                Q(district__districtName__icontains=search_term) |
                 Q(municipality__icontains=search_term)
             )
         if legislative_district:
@@ -271,30 +277,20 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
                 legislativeDistrict=legislative_district)
         if municipality:
             queryset = queryset.filter(municipality=municipality)
-        if district:
-            queryset = queryset.filter(district=district)
+        if district_id:
+            queryset = queryset.filter(district_id=district_id)
         return queryset.order_by('schoolName')
 
     def create(self, request, *args, **kwargs):
-        # Support both batch and single creation
+        # Check if the input data is a list (for bulk creation)
         is_many = isinstance(request.data, list)
-        data = request.data if is_many else [request.data]
 
-        # Validate max_budget for each item
-        for item in data:
-            max_budget = item.get('max_budget')
-            if max_budget is not None and float(max_budget) < 0:
-                return Response(
-                    {"error": "Budget must be a positive number"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
+        # Use many=True for lists, otherwise use default behavior
         serializer = self.get_serializer(data=request.data, many=is_many)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-# Add a new endpoint for school search
 
 
 @api_view(['GET'])
@@ -302,7 +298,8 @@ def search_schools(request):
     search_term = request.query_params.get('search', '')
     schools = School.objects.filter(
         Q(schoolName__icontains=search_term) |
-        Q(district__icontains=search_term) |
+        Q(district__districtName__icontains=search_term) |
+        Q(district__districtId__icontains=search_term) |  # Add district ID search
         Q(municipality__icontains=search_term)
     ).order_by('schoolName')[:10]  # Limit to 10 results
     serializer = SchoolSerializer(schools, many=True)
@@ -453,15 +450,6 @@ class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
         # Set the sender for notification
         instance._status_changed_by = self.request.user
         serializer.save()
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_request_versions(request, request_id):
-    request_versions = RequestManagement.objects.filter(
-        request_id=request_id).order_by('-created_at')
-    serializer = RequestManagementSerializer(request_versions, many=True)
-    return Response(serializer.data)
 
 
 class ApproveRequestView(generics.UpdateAPIView):
@@ -647,6 +635,22 @@ def check_pending_requests(request):
     }
 
     return Response(response_data)
+
+
+def get_priorities_for_history(request_id, as_of_date):
+    # Get all priority history records that existed at or before as_of_date
+    from .models import RequestPriority
+    priorities = RequestPriority.history.as_of(
+        as_of_date).filter(request_id=request_id)
+
+    return [
+        {
+            "expenseTitle": rp.priority.expenseTitle,
+            "LOPID": rp.priority.LOPID,
+            "amount": rp.amount,
+        }
+        for rp in priorities
+    ]
 
 
 @api_view(['PUT'])
@@ -1055,9 +1059,14 @@ class UserLiquidationsAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return LiquidationManagement.objects.filter(
-            request__user=self.request.user
-        ).order_by('-created_at')
+        user = self.request.user
+        if user.role == "school_head":
+            return LiquidationManagement.objects.filter(request__user=user).order_by('-created_at')
+        elif user.role == "school_admin":
+            # Allow school admin to see liquidations for their school
+            return LiquidationManagement.objects.filter(request__user__school=user.school).order_by('-created_at')
+        else:
+            return LiquidationManagement.objects.none()
 
 
 class UserRequestListAPIView(generics.ListAPIView):
@@ -1081,11 +1090,9 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
 
 
 @api_view(['PATCH'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def batch_update_school_budgets(request):
-    logger.debug(f"Incoming data: {request.data}")
     updates = request.data.get("updates", [])
-
     if not isinstance(updates, list):
         return Response({"error": "Invalid data format."}, status=400)
 
@@ -1094,24 +1101,12 @@ def batch_update_school_budgets(request):
 
     with transaction.atomic():
         for upd in updates:
-
             school_id = str(upd.get("schoolId")).strip()
             max_budget = upd.get("max_budget")
-
-            logger.debug(f"Processing school ID: {school_id}")
-
+            print("Updating:", school_id, "to", max_budget)
             try:
-                # Add debug logging before query
-                logger.debug(f"Looking for school with ID: {school_id}")
-                logger.debug(
-                    f"Existing school IDs: {list(School.objects.values_list('schoolId', flat=True)[:10])}")
-
                 school = School.objects.get(schoolId=school_id)
-
                 if max_budget is not None and float(max_budget) >= 0:
-                    # Debug log
-                    logger.debug(
-                        f"Updating school {school_id} budget from {school.max_budget} to {max_budget}")
                     school.max_budget = float(max_budget)
                     school.save()
                     updated_ids.append(school_id)
@@ -1119,11 +1114,9 @@ def batch_update_school_budgets(request):
                     errors.append(
                         {"schoolId": school_id, "error": "Invalid budget"})
             except School.DoesNotExist:
-                logger.warning(f"School not found: {school_id}")
                 errors.append(
                     {"schoolId": school_id, "error": "School not found"})
             except Exception as e:
-                logger.error(f"Error processing school {school_id}: {str(e)}")
                 errors.append({"schoolId": school_id, "error": str(e)})
 
     return Response({
@@ -1205,13 +1198,33 @@ def division_signatories(request):
         "accountant": UserSerializer(accountant).data if accountant else None,
     })
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def request_management_history(request, request_id):
+def request_history(request, request_id):
     req = RequestManagement.objects.get(request_id=request_id)
-    history = req.history.all().order_by('-history_date')
-    serializer = RequestManagementHistorySerializer(history, many=True)
-    return Response(serializer.data)
+    history = req.history.order_by('-history_date')
+    data = []
+    for h in history:
+        priorities = get_priorities_for_history(h.request_id, h.history_date)
+        data.append({
+            "priorities": priorities,
+            "status": h.status,
+            "rejection_comment": h.rejection_comment,
+            "rejection_date": h.rejection_date,
+            "created_at": h.created_at,
+            "user": {
+                "first_name": h.user.first_name if h.user else "",
+                "last_name": h.user.last_name if h.user else "",
+                "school": {
+                    "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
+                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "",
+                } if h.user and h.user.school else None,
+            } if h.user else None,
+            "request_id": h.request_id,
+        })
+    return Response(data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1220,6 +1233,7 @@ def liquidation_management_history(request, LiquidationID):
     history = liq.history.all().order_by('-history_date')
     serializer = LiquidationManagementHistorySerializer(history, many=True)
     return Response(serializer.data)
+
 
 @api_view(['POST'])
 def request_otp(request):
@@ -1233,6 +1247,7 @@ def request_otp(request):
     user.save(update_fields=['otp_code', 'otp_generated_at'])
     send_otp_email(user, otp)
     return Response({'message': 'OTP sent to your email.'})
+
 
 @api_view(['POST'])
 def verify_otp(request):
@@ -1251,3 +1266,82 @@ def verify_otp(request):
     user.otp_generated_at = None
     user.save(update_fields=['otp_code', 'otp_generated_at'])
     return Response({'message': 'OTP verified. You may now log in.'})
+
+
+class SchoolDistrictPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = SchoolDistrictSerializer
+    pagination_class = SchoolDistrictPagination
+
+    def get_queryset(self):
+        queryset = SchoolDistrict.objects.all()
+        search_term = self.request.query_params.get('search', None)
+        legislative_district = self.request.query_params.get(
+            'legislative_district', None)
+        municipality = self.request.query_params.get('municipality', None)
+        archived = self.request.query_params.get(
+            'archived', 'false').lower() == 'true'
+
+        # Archive filter
+        if not archived:
+            queryset = queryset.filter(is_active=True)
+        else:
+            queryset = queryset.filter(is_active=False)
+
+        if search_term:
+            queryset = queryset.filter(
+                Q(districtName__icontains=search_term) |
+                Q(districtId__icontains=search_term) |
+                Q(municipality__icontains=search_term)
+            )
+        if legislative_district:
+            queryset = queryset.filter(
+                legislativeDistrict=legislative_district)
+        if municipality:
+            queryset = queryset.filter(municipality=municipality)
+        ordering = self.request.query_params.get('ordering', 'districtName')
+        if ordering:
+            queryset = queryset.order_by(ordering)
+        return queryset
+
+
+class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = SchoolDistrict.objects.all()
+    serializer_class = SchoolDistrictSerializer
+    lookup_field = 'districtId'
+
+
+@api_view(['PATCH'])
+def archive_school_district(request, districtId):
+    """
+    Archive or restore a school district.
+    """
+    try:
+        school_district = SchoolDistrict.objects.get(districtId=districtId)
+        is_active = request.data.get("is_active", None)
+        if is_active is not None:
+            school_district.is_active = is_active
+            school_district.save()
+            return Response({"status": "updated", "is_active": school_district.is_active})
+        return Response({"error": "Missing is_active field"}, status=400)
+    except SchoolDistrict.DoesNotExist:
+        return Response({"error": "School district not found"}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def last_liquidated_request(request):
+    last_req = (
+        RequestManagement.objects.filter(
+            user=request.user, status="liquidated")
+        .order_by('-created_at')
+        .first()
+    )
+    if not last_req:
+        return Response({"detail": "No liquidated request found"}, status=404)
+    return Response(PreviousRequestSerializer(last_req).data)
