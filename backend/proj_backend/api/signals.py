@@ -21,28 +21,6 @@ DEFAULT_PASSWORD = "password123"
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-
-
-def generate_otp(length=6):
-    return str(random.randint(10**(length-1), 10**length - 1))
-
-
-def send_otp_email(user, otp):
-    context = {
-        'user': user,
-        'otp': otp,
-        'now': timezone.now(),
-    }
-    html_message = render_to_string('emails/otp_notification.html', context)
-    send_mail(
-        subject="Your Login OTP Code",
-        message=f"Your OTP code is: {otp}",
-        from_email="DepEd LUSDO OTP <noreply@deped.gov.ph>",
-        recipient_list=[user.email],
-        fail_silently=True,
-        html_message=html_message,
-    )
-
 # Existing request management signals
 
 
