@@ -23,7 +23,7 @@ from rest_framework.pagination import PageNumberPagination
 import string
 from django.contrib.auth import update_session_auth_hash
 from django.utils.crypto import get_random_string
-from django.utils import generate_otp, send_otp_email
+from .utils import generate_otp, send_otp_email
 
 
 logger = logging.getLogger(__name__)
