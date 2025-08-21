@@ -1,3 +1,4 @@
+// components/SignInForm.tsx (updated)
 import { useState, useCallback, ChangeEvent } from "react";
 import { useNavigate } from "react-router";
 import { EyeIcon, EyeClosedIcon } from "lucide-react";
@@ -5,6 +6,7 @@ import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import companyLogo from "../../images/company-logo.png";
 import { useAuth } from "@/context/AuthContext";
+import OTPVerification from "../OTPVerification";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -13,6 +15,7 @@ export default function SignInForm() {
     email: "",
     password: "",
   });
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -34,10 +37,27 @@ export default function SignInForm() {
     }
 
     try {
+      // TODO: Replace with actual API call that sends OTP
+      // const response = await api.post("/request-otp/", {
+      //   email: credentials.email,
+      //   password: credentials.password
+      // });
+
+      // For now, simulate OTP request success
+      setShowOTPVerification(true);
+    } catch (err) {
+      setError("Invalid email or password");
+    }
+  };
+
+  const handleOTPSuccess = async () => {
+    try {
+      // After OTP verification, complete the login
       await login(credentials.email, credentials.password);
       navigate("/");
     } catch (err) {
-      setError("Invalid email or password");
+      setError("Login failed after OTP verification");
+      setShowOTPVerification(false);
     }
   };
 
@@ -45,8 +65,20 @@ export default function SignInForm() {
     setShowPassword((prev) => !prev);
   }, []);
 
+  if (showOTPVerification) {
+    return (
+      <div className="flex items-center justify-center min-h-screen dark:bg-gray-900 p-4">
+        <OTPVerification
+          email={credentials.email}
+          onBack={() => setShowOTPVerification(false)}
+          onSuccess={handleOTPSuccess}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-center min-h-screen  dark:bg-gray-900 p-4">
+    <div className="flex items-center justify-center min-h-screen dark:bg-gray-900 p-4">
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
         {/* Logo and Title */}
         <div className="flex flex-col items-center mb-8">
@@ -127,7 +159,7 @@ export default function SignInForm() {
             type="submit"
             disabled={isLoading || !credentials.email || !credentials.password}
           >
-            {isLoading ? "Logging in..." : "Login"}
+            {isLoading ? "Sending OTP..." : "Send Verification Code"}
           </button>
         </form>
       </div>

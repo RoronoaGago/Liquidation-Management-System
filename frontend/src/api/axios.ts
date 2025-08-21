@@ -80,4 +80,31 @@ api.interceptors.response.use(
     }
 );
 
+// api/axios.ts (add these functions)
+export const requestOTP = async (email: string, password: string) => {
+    try {
+        const response = await api.post("/request-otp/", { email, password });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.message || "Failed to send OTP");
+    }
+};
+
+export const verifyOTP = async (email: string, otp: string) => {
+    try {
+        const response = await api.post("/verify-otp/", { email, otp });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.message || "Invalid OTP");
+    }
+};
+
+export const resendOTP = async (email: string) => {
+    try {
+        const response = await api.post("/resend-otp/", { email });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.message || "Failed to resend OTP");
+    }
+};
 export default api;
