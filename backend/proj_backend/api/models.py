@@ -89,7 +89,7 @@ class User(AbstractUser):
         related_name='district_users',
         help_text="District assignment (only for district administrative assistants)"
     )
-    otp_code = models.CharField(max_length=6, blank=True, null=True)
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
     otp_generated_at = models.DateTimeField(blank=True, null=True)
 
     USERNAME_FIELD = 'email'  # Use email as the login identifier
@@ -147,7 +147,8 @@ class School(models.Model):
     )
     legislativeDistrict = models.CharField(
         max_length=100,
-        choices=[("1st District", "1st District"), ("2nd District", "2nd District")]
+        choices=[("1st District", "1st District"),
+                 ("2nd District", "2nd District")]
     )
     is_active = models.BooleanField(default=True)
     max_budget = models.DecimalField(
@@ -156,11 +157,14 @@ class School(models.Model):
         default=0.00,
         verbose_name="Maximum Budget"
     )
-    last_liquidated_month = models.PositiveSmallIntegerField(null=True, blank=True)
-    last_liquidated_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_liquidated_month = models.PositiveSmallIntegerField(
+        null=True, blank=True)
+    last_liquidated_year = models.PositiveSmallIntegerField(
+        null=True, blank=True)
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
+
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
@@ -341,8 +345,8 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-            and not self._skip_auto_status
-            and self.request_monthyear
+                and not self._skip_auto_status
+                and self.request_monthyear
             ):
             today = date.today()
             try:
@@ -603,13 +607,15 @@ class LiquidationPriority(models.Model):
     def __str__(self):
         return f"{self.liquidation} - {self.priority} (${self.amount})"
 
+
 class SchoolDistrict(models.Model):
     districtId = models.AutoField(primary_key=True)
     districtName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(
         max_length=100,
-        choices=[("1st District", "1st District"), ("2nd District", "2nd District")]
+        choices=[("1st District", "1st District"),
+                 ("2nd District", "2nd District")]
     )
     is_active = models.BooleanField(default=True)
 
