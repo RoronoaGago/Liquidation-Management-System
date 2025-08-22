@@ -211,7 +211,7 @@ EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
 
 EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
 # Default sender email
-DEFAULT_FROM_EMAIL = 'DepEd LUSDO <riverajanlester.st.maria@gmail.com>'
+DEFAULT_FROM_EMAIL = 'DepEd LUSDO <noreply@deped.gov.ph>'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'

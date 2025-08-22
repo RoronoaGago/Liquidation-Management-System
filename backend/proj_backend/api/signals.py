@@ -12,6 +12,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
 import logging
+import random
+
 import geoip2.database
 import user_agents
 
@@ -19,7 +21,6 @@ DEFAULT_PASSWORD = "password123"
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-
 # Existing request management signals
 
 
@@ -278,7 +279,7 @@ def handle_liquidation_status_change(instance):
                 subject=subject,
                 message=message,
                 recipient=receiver,
-                template_name="emails/liquidation_status_change.txt",
+                template_name="emails/liquidation_status_change.html",
                 context=context
             )
 
@@ -320,9 +321,10 @@ def handle_liquidation_status_change(instance):
 #         'now': timezone.now(),
 #     }
 
-#     # Render both text and HTML versions
-#     text_message = render_to_string('emails/login_notification.txt', context)
-#     html_message = render_to_string('emails/login_notification.html', context)
+    # Render both text and HTML versions
+
+    html_message = render_to_string('emails/login_notification.html', context)
+    text_message = render_to_string('emails/login_notification.txt', context)
 
 #     subject = "Login Notification"
 
