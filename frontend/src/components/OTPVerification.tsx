@@ -1,11 +1,12 @@
 // components/OTPVerification.tsx
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Mail, RefreshCw } from "lucide-react";
+import { ArrowLeft, Mail, RefreshCw, Loader2 } from "lucide-react"; // Add Loader2 import
 import Button from "./ui/button/Button";
 import Input from "./form/input/InputField";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
+import { verifyOTP, resendOTP } from "@/api/axios";
 
 interface OTPVerificationProps {
   email: string;
@@ -18,9 +19,10 @@ export default function OTPVerification({
   onBack,
   onSuccess,
 }: OTPVerificationProps) {
-  const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
+  const [otp, setOtp] = useState(Array(6).fill(""));
   const [isLoading, setIsLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [error, setError] = useState(""); // <-- Add error state
   const inputRefs = useRef<HTMLInputElement[]>([]);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -75,29 +77,22 @@ export default function OTPVerification({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpValue = otp.join("");
+    setError(""); // Clear previous error
 
     if (otpValue.length !== 6) {
-      toast.error("Please enter a valid 6-digit OTP");
+      setError("Please enter a valid 6-digit OTP");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // TODO: Replace with actual OTP verification API call
-      // const response = await api.post("/verify-otp/", { email, otp: otpValue });
-
-      // For now, simulate successful verification
-      setTimeout(() => {
-        setIsLoading(false);
-        toast.success("OTP verified successfully!");
-        onSuccess();
-      }, 1000);
-    } catch (error: any) {
+      await verifyOTP(email, otpValue);
+      toast.success("OTP verified successfully!");
+      onSuccess(); // Just navigate away, no need to set loading to false
+    } catch (err: any) {
       setIsLoading(false);
-      toast.error(
-        error.response?.data?.message || "Invalid OTP. Please try again."
-      );
+      setError(err.message || "Invalid OTP. Please try again.");
     }
   };
 
@@ -107,13 +102,10 @@ export default function OTPVerification({
     setResendCooldown(60); // 60 seconds cooldown
 
     try {
-      // TODO: Replace with actual resend OTP API call
-      // await api.post("/resend-otp/", { email });
+      await resendOTP(email);
       toast.success("OTP sent to your email!");
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.message || "Failed to send OTP. Please try again."
-      );
+      toast.error(error.message || "Failed to send OTP. Please try again.");
     }
   };
 
@@ -143,6 +135,13 @@ export default function OTPVerification({
           {email}
         </p>
       </div>
+
+      {/* Error display (same style as SignInForm) */}
+      {error && (
+        <div className="p-3 mb-6 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-900 dark:text-red-100">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* OTP Inputs */}
@@ -193,11 +192,11 @@ export default function OTPVerification({
         {/* Submit Button */}
         <Button
           type="submit"
-          className="w-full"
+          className="w-full flex items-center justify-center gap-2"
           loading={isLoading}
           disabled={isLoading || otp.join("").length !== 6}
         >
-          Verify & Continue
+          {isLoading ? "Verifying..." : "Verify & Continue"}
         </Button>
       </form>
     </div>

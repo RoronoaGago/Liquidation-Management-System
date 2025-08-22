@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp
+
+
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -21,7 +23,9 @@ urlpatterns = [
     path('protected/', ProtectedView.as_view(), name='protected'),
     path('auth/request-otp/', views.request_otp, name='request-otp'),
     path('auth/verify-otp/', views.verify_otp, name='verify-otp'),
-
+    path('request-otp/', request_otp, name='request-otp'),
+    path('verify-otp/', verify_otp, name='verify-otp'),
+    path('resend-otp/', resend_otp, name='resend-otp'),
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),

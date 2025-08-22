@@ -1,12 +1,13 @@
 // components/SignInForm.tsx (updated)
 import { useState, useCallback, ChangeEvent } from "react";
 import { useNavigate } from "react-router";
-import { EyeIcon, EyeClosedIcon } from "lucide-react";
+import { EyeIcon, EyeClosedIcon, Loader2 } from "lucide-react";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import companyLogo from "../../images/company-logo.png";
 import { useAuth } from "@/context/AuthContext";
 import OTPVerification from "../OTPVerification";
+import { requestOTP } from "@/api/axios";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -16,7 +17,8 @@ export default function SignInForm() {
     password: "",
   });
   const [showOTPVerification, setShowOTPVerification] = useState(false);
-  const { login, isLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
@@ -30,23 +32,21 @@ export default function SignInForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     if (!credentials.email || !credentials.password) {
       setError("Please enter both email and password");
+      setIsLoading(false);
       return;
     }
 
     try {
-      // TODO: Replace with actual API call that sends OTP
-      // const response = await api.post("/request-otp/", {
-      //   email: credentials.email,
-      //   password: credentials.password
-      // });
-
-      // For now, simulate OTP request success
+      await requestOTP(credentials.email, credentials.password);
       setShowOTPVerification(true);
-    } catch (err) {
-      setError("Invalid email or password");
+    } catch (err: any) {
+      setError(err.message || "Invalid email or password");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -155,11 +155,18 @@ export default function SignInForm() {
           </div>
 
           <button
-            className="w-full px-4 py-2 mt-6 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-brand-500 dark:hover:bg-brand-600 disabled:opacity-50"
+            className="w-full px-4 py-2 mt-6 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-brand-500 dark:hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2"
             type="submit"
             disabled={isLoading || !credentials.email || !credentials.password}
           >
-            {isLoading ? "Sending OTP..." : "Send Verification Code"}
+            {isLoading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Sending OTP...
+              </>
+            ) : (
+              "Send Verification Code"
+            )}
           </button>
         </form>
       </div>
