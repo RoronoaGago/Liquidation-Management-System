@@ -26,7 +26,8 @@ import {
   HandCoinsIcon,
   FileUserIcon,
   StampIcon,
-  LandPlotIcon, // <-- Add this
+  LandPlotIcon,
+  FileChartColumnIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -152,6 +153,12 @@ const allNavItems: NavItem[] = [
   //   ],
   // },
   {
+    icon: <FileChartColumnIcon />,
+    name: "Generate Report",
+    path: "/generate-report",
+    roles: ["admin"], // Only admin
+  },
+  {
     icon: <UserRoundPenIcon />,
     name: "User Profile",
     path: "/profile",
@@ -164,12 +171,6 @@ const allNavItems: NavItem[] = [
       "liquidator",
       "accountant",
     ], // All roles
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "My Classes",
-    path: "/classes",
-    roles: ["teacher"], // Only teachers
   },
 ];
 

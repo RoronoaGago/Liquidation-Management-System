@@ -220,6 +220,13 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+CELERY_BEAT_SCHEDULE = {
+    'send-liquidation-reminders-daily': {
+        'task': 'api.tasks.send_urgent_liquidation_reminders',
+        'schedule': 86400.0,  # every 24 hours
+    },
+}
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
