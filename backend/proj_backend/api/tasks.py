@@ -5,13 +5,14 @@
 # from django.conf import settings
 # from .models import RequestManagement, LiquidationManagement
 # from datetime import timedelta
-#tasks.py
+# tasks.py
 from celery import shared_task
 from django.utils import timezone
 from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
 from django.conf import settings
 from .models import LiquidationManagement
+
 
 @shared_task
 def check_liquidation_reminders():
@@ -52,6 +53,7 @@ def send_liquidation_reminder(liquidation_id, days_left):
             )
     except LiquidationManagement.DoesNotExist:
         pass
+
 
 @shared_task
 def send_liquidation_demand_letter(liquidation_id):
@@ -98,3 +100,41 @@ def send_liquidation_demand_letter(liquidation_id):
             )
     except LiquidationManagement.DoesNotExist:
         pass
+
+
+@shared_task
+def send_urgent_liquidation_reminders():
+    """
+    Send reminder emails for all liquidations with 15 days or less before deadline,
+    and not yet liquidated.
+    """
+    today = timezone.now().date()
+    urgent_liquidations = LiquidationManagement.objects.filter(
+        # adjust statuses as needed
+        status__in=['downloaded', 'draft', 'resubmit'],
+        liquidation_deadline__gt=today
+    )
+    for liquidation in urgent_liquidations:
+        days_left = (liquidation.liquidation_deadline - today).days
+        if 0 < days_left <= 15 and liquidation.status != 'liquidated':
+            user = liquidation.request.user
+            context = {
+                'recipient_name': user.get_full_name(),
+                'request_id': liquidation.request.request_id,
+                'days_left': days_left,
+                'deadline': liquidation.liquidation_deadline,
+                'now': timezone.now(),
+                'contact_email': settings.DEFAULT_FROM_EMAIL,
+            }
+            html_message = render_to_string(
+                'emails/liquidation_reminder.html',
+                context
+            )
+            send_mail(
+                subject=f"Reminder: {days_left} days left to liquidate (Liquidation {liquidation.LiquidationID})",
+                message="This is a reminder to liquidate your request.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=True,
+                html_message=html_message,
+            )
