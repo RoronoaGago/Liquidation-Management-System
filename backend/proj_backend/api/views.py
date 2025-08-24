@@ -1,3 +1,7 @@
+from django.http import HttpResponse
+import csv
+from .serializers import UnliquidatedSchoolReportSerializer
+from .models import School, RequestManagement
 from urllib import request
 from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
@@ -1409,3 +1413,28 @@ def resend_otp(request):
         return Response({'message': 'OTP resent'})
     except User.DoesNotExist:
         return Response({'message': 'User not found'}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def schools_with_unliquidated_requests(request):
+    month = request.GET.get('month')  # format: 'YYYY-MM'
+    filters = {'status': 'unliquidated'}
+    if month:
+        filters['request_monthyear'] = month
+
+    # Get all schools with an unliquidated request for the selected month
+    unliquidated_requests = RequestManagement.objects.filter(**filters)
+    school_ids = unliquidated_requests.values_list(
+        'user__school__schoolId', flat=True).distinct()
+    schools = School.objects.filter(schoolId__in=school_ids)
+
+    data = [
+        {
+            "schoolId": school.schoolId,
+            "schoolName": school.schoolName,
+            "has_unliquidated": True
+        }
+        for school in schools
+    ]
+    return Response(data)

@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests
 
 
 from rest_framework_simplejwt.views import (
@@ -99,4 +99,8 @@ urlpatterns = [
          archive_school_district, name='school-district-archive'),
     path('last-liquidated-request/',
          views.last_liquidated_request, name='last_liquidated_request'),
+
+    # Report URLs
+    path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
+         name='unliquidated-schools-report'),
 ]
