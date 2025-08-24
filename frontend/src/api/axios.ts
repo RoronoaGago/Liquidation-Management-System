@@ -86,6 +86,7 @@ export const requestOTP = async (email: string, password: string) => {
         const response = await api.post("/request-otp/", { email, password });
         return response.data;
     } catch (error: any) {
+        console.error(error);
         throw new Error(error.response?.data?.message || "Failed to send OTP");
     }
 };

@@ -44,6 +44,7 @@ export default function SignInForm() {
       await requestOTP(credentials.email, credentials.password);
       setShowOTPVerification(true);
     } catch (err: any) {
+      console.error(err);
       setError(err.message || "Invalid email or password");
     } finally {
       setIsLoading(false);
