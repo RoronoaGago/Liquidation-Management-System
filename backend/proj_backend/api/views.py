@@ -327,19 +327,15 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = Requirement.objects.all()
-        archived = self.request.query_params.get(
-            'archived', 'false').lower() == 'true'
-        if archived:
-            queryset = queryset.filter(is_active=False)
-        else:
-            queryset = queryset.filter(is_active=True)
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
         search_term = self.request.query_params.get('search', None)
         if search_term:
             queryset = queryset.filter(requirementTitle__icontains=search_term)
         return queryset
 
     def create(self, request, *args, **kwargs):
-        # Check if request.data is a list (batch)
         is_many = isinstance(request.data, list)
         serializer = self.get_serializer(data=request.data, many=is_many)
         serializer.is_valid(raise_exception=True)
