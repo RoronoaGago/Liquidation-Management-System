@@ -38,6 +38,7 @@ import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
 // import { useAuth } from "@/context/AuthContext";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { renderLOPRequirements } from "@/pages/ManageListOfPrioritiesPage";
 import SkeletonRow from "@/components/ui/skeleton";
 import api from "@/api/axios";
 import {
@@ -603,14 +604,7 @@ export default function LOPsTable({
 
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       <div className="flex flex-wrap gap-1">
-                        {lop.requirements?.slice(0, 3).map((req) => (
-                          <Badge key={req.requirementID} color="primary">
-                            {req.requirementTitle}
-                          </Badge>
-                        ))}
-                        {lop.requirements && lop.requirements.length > 3 && (
-                          <span className="ml-1 text-gray-500">...</span>
-                        )}
+                        {renderLOPRequirements(lop.requirements)}
                       </div>
                     </TableCell>
 

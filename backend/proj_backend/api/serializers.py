@@ -312,13 +312,15 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
         return instance
 
     def update(self, instance, validated_data):
-        requirements = validated_data.pop('requirements', [])
+        requirements = validated_data.pop('requirements', None)
         instance.expenseTitle = validated_data.get(
             'expenseTitle', instance.expenseTitle)
         instance.is_active = validated_data.get(
             'is_active', instance.is_active)
+        instance.category = validated_data.get('category', instance.category)
         instance.save()
-        instance.requirements.set(requirements)
+        if requirements is not None:
+            instance.requirements.set(requirements)
         return instance
 
 
