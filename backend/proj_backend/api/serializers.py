@@ -568,3 +568,9 @@ class PreviousRequestSerializer(serializers.ModelSerializer):
             }
             for rp in obj.requestpriority_set.all()
         ]
+
+
+class UnliquidatedSchoolReportSerializer(serializers.Serializer):
+    schoolId = serializers.CharField()
+    schoolName = serializers.CharField()
+    unliquidated_count = serializers.IntegerField()
