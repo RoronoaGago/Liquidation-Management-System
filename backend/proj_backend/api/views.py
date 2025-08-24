@@ -1362,15 +1362,21 @@ def generate_otp():
 def request_otp(request):
     email = request.data.get('email')
     password = request.data.get('password')
-    user = authenticate(email=email, password=password)
-    if not user:
+    try:
+        user_obj = User.objects.get(email=email)
+        if not user_obj.is_active:
+            return Response({'message': 'Your account has been archived by the administrator. To reactivate your account, please contact our support team at support@company.com.'}, status=403)
+        user = authenticate(email=email, password=password)
+        if not user:
+            return Response({'message': 'Invalid email or password'}, status=400)
+        otp = generate_otp()
+        user.otp_code = otp
+        user.otp_generated_at = timezone.now()
+        user.save()
+        send_otp_email(user, otp)
+        return Response({'message': 'OTP sent to your email'})
+    except User.DoesNotExist:
         return Response({'message': 'Invalid email or password'}, status=400)
-    otp = generate_otp()
-    user.otp_code = otp
-    user.otp_generated_at = timezone.now()
-    user.save()
-    send_otp_email(user, otp)
-    return Response({'message': 'OTP sent to your email'})
 
 
 @api_view(['POST'])
@@ -1380,12 +1386,13 @@ def verify_otp(request):
     otp = request.data.get('otp')
     try:
         user = User.objects.get(email=email)
+        if not user.is_active:
+            return Response({'error': 'Your account is inactive. Please contact the administrator.'}, status=403)
         # Check OTP validity (add expiry logic if needed)
         if timezone.now() - user.otp_generated_at > timezone.timedelta(minutes=5):
             return Response({'error': 'OTP expired'}, status=400)
 
         if user.otp_code == otp:
-            # Optionally clear OTP after use
             user.otp_code = None
             user.save()
             return Response({'message': 'OTP verified'})

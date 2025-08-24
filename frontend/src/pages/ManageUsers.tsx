@@ -104,7 +104,7 @@ const ManageUsers = () => {
     date_of_birth: "",
     email: "",
     phone_number: "",
-    role: "school_admin",
+    role: "admin",
     school_id: "",
     school_district_id: undefined, // Changed from school_district
     profile_picture_base64: "",
