@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-catch */
 import {
   createContext,
   useContext,
@@ -70,6 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         profile_picture: decoded.profile_picture,
         password_change_required: decoded.password_change_required,
       };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       throw new Error("Invalid token");
     }
@@ -133,7 +135,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (refreshToken) {
         try {
           const response = await axios.post(
-            "http://127.0.0.1:8000/api/token/refresh/",
+            // "http://127.0.0.1:8000/api/token/refresh/",
+            "http://192.168.1.91:8000/api/token/refresh/",
             { refresh: refreshToken }
           );
           if (response.data?.access) {
