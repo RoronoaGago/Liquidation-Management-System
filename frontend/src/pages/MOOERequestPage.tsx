@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
-import { ListofPriorityData } from "@/lib/types";
+import { ListOfPriority, ListofPriorityData } from "@/lib/types";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useLocation, useNavigate } from "react-router";
@@ -157,7 +157,8 @@ const MOOERequestPage = () => {
         const data = Array.isArray(prioritiesResponse.data)
           ? prioritiesResponse.data
           : prioritiesResponse.data.results || [];
-        setPriorities(data);
+        const activeLOPs = data.filter((p: ListOfPriority) => p.is_active); // Only active LOPs
+        setPriorities(activeLOPs);
 
         const hasPending = pendingCheckResponse.data.has_pending_request;
         const activeLiquidation = pendingCheckResponse.data.active_liquidation;
