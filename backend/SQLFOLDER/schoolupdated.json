@@ -1,0 +1,2234 @@
+[
+  {
+    "schoolId": "100801",
+    "schoolName": "Agoo East CES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100802",
+    "schoolName": "Ambitacay ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100803",
+    "schoolName": "Bacsil ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100805",
+    "schoolName": "Macalva ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100806",
+    "schoolName": "San Jose ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100807",
+    "schoolName": "San Jose-San Joaquin ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100808",
+    "schoolName": "San Vicente-San Agustin ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "300129",
+    "schoolName": "President Elpidio Quirino National High School",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "321027",
+    "schoolName": "Agoo National Vocational High School",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100946",
+    "schoolName": "Delles ES",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "100947",
+    "schoolName": "Libtong ES",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "100948",
+    "schoolName": "Linuan ES",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "100949",
+    "schoolName": "Lower Tumapoc ES",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "100950",
+    "schoolName": "Upper Tumapoc ES",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "300102",
+    "schoolName": "Burgos National High School",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "321009",
+    "schoolName": "Upper Tumapoc National High School",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "500600",
+    "schoolName": "Libtong Integrated School",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "502574",
+    "schoolName": "Delles Integrated School",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 10
+  },
+  {
+    "schoolId": "100940",
+    "schoolName": "Caba CES",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "100941",
+    "schoolName": "Doña Antonia Maglaya ES",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "100942",
+    "schoolName": "Labbon ES",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "100944",
+    "schoolName": "San Carlos ES",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "100945",
+    "schoolName": "San Cornelio ES",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "100946",
+    "schoolName": "San Gregorio ES",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "100947",
+    "schoolName": "San Jose ES",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "100949",
+    "schoolName": "Wenceslao Elementary School",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "300104",
+    "schoolName": "Caba National High School",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "300136",
+    "schoolName": "San Gregorio National High School",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "300137",
+    "schoolName": "San Jose National High School",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "300153",
+    "schoolName": "Wenceslao National High School",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "500357",
+    "schoolName": "Liquicia Integrated School",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "500362",
+    "schoolName": "Santiago Sur Integrated School",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 11
+  },
+  {
+    "schoolId": "100950",
+    "schoolName": "Barrientos Elementary School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "100951",
+    "schoolName": "Darigayos ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "100952",
+    "schoolName": "Luna Central School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "100953",
+    "schoolName": "Nalvo Norte ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "100954",
+    "schoolName": "Rimos del Norte ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "100955",
+    "schoolName": "Rimos ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "100956",
+    "schoolName": "Sto. Domingo ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "300120",
+    "schoolName": "Luna National High School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "321003",
+    "schoolName": "Rimos National High School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "321018",
+    "schoolName": "Luna National Vocational High School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 12
+  },
+  {
+    "schoolId": "100957",
+    "schoolName": "Ayaoan Elementary School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100959",
+    "schoolName": "Busel-Busel ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100960",
+    "schoolName": "Cabalitocan ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100961",
+    "schoolName": "Cantoria CS",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100962",
+    "schoolName": "Nagrebcan ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100963",
+    "schoolName": "Nalvo Sur ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100964",
+    "schoolName": "Oaqui ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100965",
+    "schoolName": "Pila ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100966",
+    "schoolName": "Pitpitac ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100967",
+    "schoolName": "Sucoc Norte Elementary School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100968",
+    "schoolName": "Suyo ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100969",
+    "schoolName": "Tallaoen ES",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "300124",
+    "schoolName": "Oanari National High School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "321002",
+    "schoolName": "Canbarbusuy National High School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "500354",
+    "schoolName": "Bungro-Sucoc Integrated School",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 13
+  },
+  {
+    "schoolId": "100970",
+    "schoolName": "Al-Alinao Elementary School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100971",
+    "schoolName": "Ambaracao Sur Elementary School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100972",
+    "schoolName": "Al-alinao Sur Elementary School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100973",
+    "schoolName": "Balecbec ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100974",
+    "schoolName": "Bancagan ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100975",
+    "schoolName": "BARAOAS SUR ELEM. SCHOOL",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100976",
+    "schoolName": "Bariquir Elementary School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100977",
+    "schoolName": "Bato Elementary School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100978",
+    "schoolName": "Lower Bimmotobot ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100979",
+    "schoolName": "Bimmotobot 2 Upper PS",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100981",
+    "schoolName": "Mamat-ing Norte Elementary School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100984",
+    "schoolName": "Don Tomas R. Mendoza ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100985",
+    "schoolName": "Dr. Hermogenes T. Belen ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100986",
+    "schoolName": "Guesset ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100987",
+    "schoolName": "Gusing ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100988",
+    "schoolName": "Lioac ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100989",
+    "schoolName": "Mamat-ing Sur ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100990",
+    "schoolName": "Nagsidorisan ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100991",
+    "schoolName": "Naguilian CS",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100992",
+    "schoolName": "San Antonio ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100993",
+    "schoolName": "San Isidro ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100995",
+    "schoolName": "Tuddinggan ES",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "131154",
+    "schoolName": "AMADEO FLORENDO RIMANDO ELEMENTARY SCHOOL",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "151006",
+    "schoolName": "Mangkaeng PS",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "281525",
+    "schoolName": "Baraoas Norte Elementary School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "300122",
+    "schoolName": "Naguilian National HS",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "300123",
+    "schoolName": "Northern Naguilian National High School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "300144",
+    "schoolName": "Southern Naguilian National High School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "321005",
+    "schoolName": "Eastern Naguilian National High School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "340823",
+    "schoolName": "Naguilian Senior High School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "500355",
+    "schoolName": "Suguidan Integrated School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "500360",
+    "schoolName": "Daramuangan Integrated School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "500495",
+    "schoolName": "Casilagan-Naguilian Integrated School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "501362",
+    "schoolName": "Cabaritan Sur Integrated School",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 14
+  },
+  {
+    "schoolId": "100996",
+    "schoolName": "Ambalite ES",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "100997",
+    "schoolName": "Ambangonan ES",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "100998",
+    "schoolName": "Cuenca ES",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "100999",
+    "schoolName": "Maoasoas ES",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "101000",
+    "schoolName": "Palina ES",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "101001",
+    "schoolName": "Pugo Central School",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "101002",
+    "schoolName": "San Luis ES",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "101004",
+    "schoolName": "Tavora ES",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "151003",
+    "schoolName": "Palina ES - Annex",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "151007",
+    "schoolName": "Maoasoas ES- Annex",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "300108",
+    "schoolName": "Cuenca National High School",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "300121",
+    "schoolName": "Maoasoas National High School",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "300131",
+    "schoolName": "Pugo Central National High School",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "300138",
+    "schoolName": "San Luis National High School",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "500601",
+    "schoolName": "Saytan Integrated School",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 15
+  },
+  {
+    "schoolId": "101005",
+    "schoolName": "Amlang ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101006",
+    "schoolName": "Bani ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101007",
+    "schoolName": "Cadumanian ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101008",
+    "schoolName": "Carunoan ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101009",
+    "schoolName": "Casilagan ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101010",
+    "schoolName": "Cataguingtingan ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101011",
+    "schoolName": "Don Jose B. Bernal Elementary School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101012",
+    "schoolName": "Gumot Elementary School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101013",
+    "schoolName": "Inabaan ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101014",
+    "schoolName": "Marcos Elementary School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101015",
+    "schoolName": "Parasapas ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101017",
+    "schoolName": "Sapilang ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101018",
+    "schoolName": "Tanglag ES",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101019",
+    "schoolName": "Udiao Elementary School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101020",
+    "schoolName": "VILA ELEMENTARY SCHOOL",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "300091",
+    "schoolName": "Amlang-Nagtagaan National High School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "300110",
+    "schoolName": "Alipang National High School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "300127",
+    "schoolName": "Parasapas National High School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "300151",
+    "schoolName": "Tanglag National High School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "500002",
+    "schoolName": "Rosario Integrated School",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 16
+  },
+  {
+    "schoolId": "101047",
+    "schoolName": "Amontoc ES",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101048",
+    "schoolName": "Antonino Memorial ES",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101049",
+    "schoolName": "Bayabas ES",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101050",
+    "schoolName": "Bumbuneg ES",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101053",
+    "schoolName": "Lon-oy ES",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101055",
+    "schoolName": "Padang Elementary School",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101056",
+    "schoolName": "Polipol ES",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101057",
+    "schoolName": "San Gabriel CS",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101058",
+    "schoolName": "Sisi ES",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101059",
+    "schoolName": "Siwsiwan ES",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "151005",
+    "schoolName": "Lacong ES-Annex",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "300097",
+    "schoolName": "Balbalayang National High School",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "300135",
+    "schoolName": "San Gabriel Vocational High School",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "340825",
+    "schoolName": "San Gabriel Senior High School",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "500356",
+    "schoolName": "Lipay Integrated School",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "502075",
+    "schoolName": "Nayba Integrated School",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "502238",
+    "schoolName": "Lacong Integrated School",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 17
+  },
+  {
+    "schoolId": "101060",
+    "schoolName": "Bacsayan Elementary School",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101061",
+    "schoolName": "Balballosa ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101062",
+    "schoolName": "Bugbugcao ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101063",
+    "schoolName": "Caagraoan ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101064",
+    "schoolName": "Cabaroan ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101066",
+    "schoolName": "Legleg Elementary School",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101067",
+    "schoolName": "Lubing ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101068",
+    "schoolName": "Nadsaag ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101069",
+    "schoolName": "Naguituban ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101070",
+    "schoolName": "San Felipe ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101071",
+    "schoolName": "San Juan CES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101072",
+    "schoolName": "Sta. Rosa Elementary School",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101073",
+    "schoolName": "Sto. Rosario ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101074",
+    "schoolName": "Taboc ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101075",
+    "schoolName": "Urbiztondo ES",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "300146",
+    "schoolName": "Sto. Rosario National High School",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "300147",
+    "schoolName": "San Juan National High School",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "340824",
+    "schoolName": "San Juan Senior High School",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "502748",
+    "schoolName": "Dasay Integrated School",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 18
+  },
+  {
+    "schoolId": "101076",
+    "schoolName": "Banbanaba ES",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101078",
+    "schoolName": "Corrooy ES",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101079",
+    "schoolName": "Binatadan Elementary School",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101080",
+    "schoolName": "Liguay ES",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101081",
+    "schoolName": "Mangaan Elementary School",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101082",
+    "schoolName": "Paagan ES",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101083",
+    "schoolName": "Pisnadan PS",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101084",
+    "schoolName": "Ramot Elementary School",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101085",
+    "schoolName": "Santol Central School",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101086",
+    "schoolName": "Sapdaan ES",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101087",
+    "schoolName": "Sasaba PS",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101088",
+    "schoolName": "Tubaday PS",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "151001",
+    "schoolName": "Lettac Norte Elementary School",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "300107",
+    "schoolName": "Corrooy National High School",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "300140",
+    "schoolName": "Santol Vocational High School",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "300141",
+    "schoolName": "Santol Vocational High School( Santol National High School) Liguay annex",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "500363",
+    "schoolName": "La Union Special School for Culture and Arts",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "500471",
+    "schoolName": "BAY-O INTEGRATED SCHOOL",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 19
+  },
+  {
+    "schoolId": "101089",
+    "schoolName": "Ambitacay ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101090",
+    "schoolName": "Bail ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101091",
+    "schoolName": "Balaoc ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101093",
+    "schoolName": "Casilagan ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101094",
+    "schoolName": "Sto. Tomas CES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101096",
+    "schoolName": "Damortis ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101097",
+    "schoolName": "Fernando ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101098",
+    "schoolName": "Namboongan ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101099",
+    "schoolName": "Narvacan ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101100",
+    "schoolName": "Patac Elementary School",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101101",
+    "schoolName": "Pongpong ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101102",
+    "schoolName": "Tococ ES",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101103",
+    "schoolName": "Ubagan Elementary School",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "300096",
+    "schoolName": "Bail National High School",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "300109",
+    "schoolName": "Damortis National High School",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "321010",
+    "schoolName": "Sto. Tomas National High School",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "500361",
+    "schoolName": "Cabaruan Integrated School",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "501164",
+    "schoolName": "Cupang Integrated School",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 20
+  },
+  {
+    "schoolId": "101104",
+    "schoolName": "Badang ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101106",
+    "schoolName": "Castro ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101107",
+    "schoolName": "Duplas ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101108",
+    "schoolName": "Maliclico ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101109",
+    "schoolName": "Old Sudipen ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101110",
+    "schoolName": "Porporiket ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101111",
+    "schoolName": "San Francisco ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101112",
+    "schoolName": "San Jose ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101113",
+    "schoolName": "Sengngat ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101114",
+    "schoolName": "Sudipen Central School",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101115",
+    "schoolName": "Up-uplas ES",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "300117",
+    "schoolName": "Duplas National High School",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "300125",
+    "schoolName": "Old Sudipen National High School",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "300134",
+    "schoolName": "San Francisco National High School",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "300139",
+    "schoolName": "Sudipen National High School",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "500358",
+    "schoolName": "Porporiket Integrated School",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "500359",
+    "schoolName": "San Jose Integrated School",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "500364",
+    "schoolName": "Sengngat Integrated School",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 21
+  },
+  {
+    "schoolId": "101116",
+    "schoolName": "Alipang ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101117",
+    "schoolName": "Amallapay ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101118",
+    "schoolName": "Anduyan ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101119",
+    "schoolName": "Arwas ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101120",
+    "schoolName": "Balinguaua ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101121",
+    "schoolName": "Baracbac ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101122",
+    "schoolName": "Cadawitan ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101123",
+    "schoolName": "Canal ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101124",
+    "schoolName": "Carunuan ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101125",
+    "schoolName": "Franz ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101126",
+    "schoolName": "Gonzalo ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101127",
+    "schoolName": "Halog ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101128",
+    "schoolName": "Leones East ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101129",
+    "schoolName": "Leones West ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101130",
+    "schoolName": "Limmansangan ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101131",
+    "schoolName": "Namitpit ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101132",
+    "schoolName": "Pideg ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101133",
+    "schoolName": "Poblacion ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101134",
+    "schoolName": "Sagayaden ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101135",
+    "schoolName": "Santo Rosario ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101136",
+    "schoolName": "Sapda ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101137",
+    "schoolName": "Tublay ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "101138",
+    "schoolName": "Viejo ES",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "300095",
+    "schoolName": "Anduyan National High School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "300126",
+    "schoolName": "Pideg National High School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "300128",
+    "schoolName": "Tubao National High School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "321004",
+    "schoolName": "Leones National High School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "500353",
+    "schoolName": "Limmansangan Integrated School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "500365",
+    "schoolName": "Sagayaden Integrated School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "500366",
+    "schoolName": "Viejo Integrated School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "500367",
+    "schoolName": "Baracbac Integrated School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  },
+  {
+    "schoolId": "500368",
+    "schoolName": "Cadawitan Integrated School",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 22
+  }
+]
