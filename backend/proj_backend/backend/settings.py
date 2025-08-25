@@ -71,6 +71,7 @@ ROOT_URLCONF = 'backend.urls'
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173",
                         "http://192.168.1.147:5173", "http://192.168.1.111:5173", "http://192.168.1.232:5173", "http://192.168.0.231:5173", "http://172.20.10.2:5173", "http://172.20.10.7:5173", "http://192.168.1.91:5173"]
 
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -78,7 +79,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
 
-FRONTEND_LOGIN_URL = 'http://localhost:5173/login'
+FRONTEND_LOGIN_URL = ('http://localhost:5173/login', 'http://192.168.1.91:5173/login')
 
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True  # If using HTTPS
