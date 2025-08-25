@@ -796,35 +796,34 @@ export default function LOPsTable({
                         .includes(dialogSearchTerm.toLowerCase())
                     )
                     .map((req) => (
-                      <div
+                      <label
                         key={req.requirementID}
-                        className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
+                        className={`flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                          !req.is_active ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
                       >
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id={`req-${req.requirementID}`}
-                            checked={selectedRequirements.includes(
-                              req.requirementID
-                            )}
-                            onChange={() =>
-                              toggleRequirement(req.requirementID)
-                            }
-                            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                          <Label
-                            htmlFor={`req-${req.requirementID}`}
-                            className="ml-2"
-                          >
-                            {req.requirementTitle}
-                          </Label>
-                        </div>
-                        <Badge
-                          color={req.is_required ? "primary" : "secondary"}
-                        >
-                          {req.is_required ? "Required" : "Optional"}
-                        </Badge>
-                      </div>
+                        <input
+                          type="checkbox"
+                          id={`req-${req.requirementID}`}
+                          checked={selectedRequirements.includes(
+                            req.requirementID
+                          )}
+                          disabled={!req.is_active}
+                          onChange={() =>
+                            req.is_active &&
+                            toggleRequirement(req.requirementID)
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span>
+                          {req.requirementTitle}
+                          {!req.is_active && (
+                            <span className="ml-1 text-xs text-red-500">
+                              (inactive)
+                            </span>
+                          )}
+                        </span>
+                      </label>
                     ))}
                 </div>
               </div>

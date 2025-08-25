@@ -113,13 +113,18 @@ def user_list(request):
         school_filter = request.query_params.get('school', None)
         search_term = request.query_params.get('search', None)
         ordering = request.query_params.get('ordering', '-date_joined')
+        show_all = request.query_params.get(
+            'show_all', 'false').lower() == 'true'
+        archived = request.query_params.get(
+            'archived', 'false').lower() == 'true'
 
         queryset = User.objects.exclude(id=request.user.id)
         # Archive filter
-        if not show_archived:
-            queryset = queryset.filter(is_active=True)
-        else:
-            queryset = queryset.filter(is_active=False)
+        if not show_all:
+            if not archived:
+                queryset = queryset.filter(is_active=True)
+            else:
+                queryset = queryset.filter(is_active=False)
 
         # Role filter
         if role_filter:
@@ -1292,12 +1297,15 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
         municipality = self.request.query_params.get('municipality', None)
         archived = self.request.query_params.get(
             'archived', 'false').lower() == 'true'
+        show_all = self.request.query_params.get(
+            'show_all', 'false').lower() == 'true'
 
-        # Archive filter
-        if not archived:
-            queryset = queryset.filter(is_active=True)
-        else:
-            queryset = queryset.filter(is_active=False)
+        # Archive filter - show_all takes precedence over archived
+        if not show_all:
+            if not archived:
+                queryset = queryset.filter(is_active=True)
+            else:
+                queryset = queryset.filter(is_active=False)
 
         if search_term:
             queryset = queryset.filter(

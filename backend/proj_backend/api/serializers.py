@@ -90,6 +90,13 @@ class UserSerializer(serializers.ModelSerializer):
             "id": {"read_only": True},
         }
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Add school active status to the representation
+        if instance.school:
+            representation['school']['is_active'] = instance.school.is_active
+        return representation
+
     def validate(self, data):
         if 'email' not in data:
             raise serializers.ValidationError("Email is required")
