@@ -233,6 +233,7 @@ const ResourceAllocation = () => {
       if (filterDistrict) params.district = filterDistrict;
 
       const schoolsRes = await api.get("schools/", { params });
+      console.log(schoolsRes.data.results);
       let schoolsData = schoolsRes.data.results || schoolsRes.data;
 
       if (filterCanRequest !== null) {
