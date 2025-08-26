@@ -136,7 +136,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const response = await axios.post(
             // "http://127.0.0.1:8000/api/token/refresh/",
-            "http://192.168.1.91:8000/api/token/refresh/",
+            // "http://192.168.1.91:8000/api/token/refresh/",
+            "http://10.92.169.244:8000/api/token/refresh/",
             { refresh: refreshToken }
           );
           if (response.data?.access) {

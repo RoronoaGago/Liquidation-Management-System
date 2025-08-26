@@ -8,7 +8,8 @@ interface TokenResponse {
 
 const api = axios.create({
   // baseURL: "http://127.0.0.1:8000/api/",
-  baseURL: "http://192.168.1.91:8000/api/",
+  // baseURL: "http://192.168.1.91:8000/api/",
+  baseURL: "http://10.92.169.244:8000/api/",
 
   headers: {
     "Content-Type": "application/json",
@@ -57,7 +58,9 @@ api.interceptors.response.use(
 
         const response = await axios.post<TokenResponse>(
           //   "http://127.0.0.1:8000/api/token/refresh/",
-          "http://192.168.1.91:8000/api/token/refresh/",
+          // "http://192.168.1.91:8000/api/token/refresh/",
+          "http://10.92.169.244:8000/api/token/refresh/",
+
           { refresh: refreshToken }
         );
 

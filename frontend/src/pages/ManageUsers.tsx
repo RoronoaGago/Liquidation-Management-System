@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-case-declarations */
 import {
   Dialog,
@@ -323,10 +324,16 @@ const ManageUsers = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await api.post("http://127.0.0.1:8000/api/users/", {
-        ...formData,
-        headers: { "Content-Type": "application/json" },
-      });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const response = await api.post(
+        // "http://127.0.0.1:8000/api/users/",
+        // "http://192.168.1.91:8000/api/users/",
+        "http://10.92.169.244:8000/api/users/",
+        {
+          ...formData,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
       await fetchUsers();
       toast.success("User Added Successfully!");
       setFormData({
@@ -343,6 +350,7 @@ const ManageUsers = () => {
       setPreviewImage(null);
       setErrors({});
       setIsDialogOpen(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       let errorMessage = "An error occurred. Please try again.";
       if (axios.isAxiosError(error) && error.response) {

@@ -4,7 +4,9 @@ export const login = async (email: string, password: string) => {
   try {
     const response = await api.post(
       //   "http://127.0.0.1:8000/api/token/",
-      "http://192.168.1.91:8000/api/token/",
+      // "http://192.168.1.91:8000/api/token/",
+      "http://10.92.169.244:8000/api/token/",
+
       {
         email,
         password,
@@ -43,7 +45,10 @@ export const logout = () => {
 
 export const getProtectedData = async () => {
   try {
-    const response = await api.get("http://127.0.0.1:8000/api/protected/");
+    const response = await api.get(
+      // "http://10.92.169.244:8000/api/protected/",
+      "http://10.92.169.244:8000/api/protected/"
+    );
     return response.data;
   } catch (error) {
     console.error("Failed to fetch protected data:", error);

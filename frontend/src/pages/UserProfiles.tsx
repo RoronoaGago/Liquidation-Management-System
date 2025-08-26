@@ -81,7 +81,9 @@ export default function UserProfiles() {
       setLoading(true);
       try {
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/users/${user?.user_id}`
+          // `http://127.0.0.1:8000/api/users/${user?.user_id}`
+          // `http://192.168.1.91:8000/api/users/${user?.user_id}`
+          `http://10.92.169.244:8000/api/users/${user?.user_id}`
         );
         setDisplayUser(response.data);
         setEditUser({ ...response.data, password: "" }); // Initialize edit user with empty password
@@ -131,6 +133,7 @@ export default function UserProfiles() {
   };
 
   // Handle phone number input
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handlePhoneNumberInput = (e: React.FormEvent<HTMLInputElement>) => {
     const input = e.target as HTMLInputElement;
     input.value = input.value.replace(/[^0-9+]/g, "");
@@ -207,7 +210,8 @@ export default function UserProfiles() {
       };
 
       const response = await axios.put(
-        `http://127.0.0.1:8000/api/users/${editUser.id}/`,
+        // `http://127.0.0.1:8000/api/users/${editUser.id}/`,
+        `http://192.168.1.91:8000/api/users/${editUser.id}/`,
         payload
       );
 
