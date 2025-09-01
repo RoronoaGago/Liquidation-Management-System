@@ -142,21 +142,18 @@ def handle_liquidation_notifications(sender, instance, created, **kwargs):
         if created:
             create_new_liquidation_notification(instance)
         else:
-            if instance.status == 'downloaded' and instance.downloaded_at:
-                # Schedule reminders
-                send_liquidation_reminder.apply_async(
-                    args=[instance.pk, 15],
-                    eta=instance.downloaded_at + timedelta(days=15)
-                )
-                send_liquidation_reminder.apply_async(
-                    args=[instance.pk, 5],
-                    eta=instance.downloaded_at + timedelta(days=25)
-                )
-                # Schedule demand letter on 30th day
-                send_liquidation_demand_letter.apply_async(
-                    args=[instance.pk],
-                    eta=instance.downloaded_at + timedelta(days=30)
-                )
+            # Always update remaining_days before checking
+            instance.refresh_from_db()  # Ensure latest value
+
+            # Send reminder if remaining_days is 15 or 5
+            if instance.remaining_days == 15:
+                send_liquidation_reminder.delay(instance.pk, 15)
+            elif instance.remaining_days == 5:
+                send_liquidation_reminder.delay(instance.pk, 5)
+            # Send demand letter if remaining_days is 0
+            elif instance.remaining_days == 0:
+                send_liquidation_demand_letter.delay(instance.pk)
+
             handle_liquidation_status_change(instance)
     except Exception as e:
         logger.error(

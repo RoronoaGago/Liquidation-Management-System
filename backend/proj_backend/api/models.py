@@ -523,6 +523,7 @@ class LiquidationManagement(models.Model):
 
         # Calculate fields
         self.refund = self.calculate_refund()
+        self.remaining_days = self.calculate_remaining_days()  # <-- Ensure this is called
 
         super().save(*args, **kwargs)
 
