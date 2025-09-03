@@ -3,8 +3,8 @@ import api from "./axios";
 export const login = async (email: string, password: string) => {
   try {
     const response = await api.post(
-      //   "http://127.0.0.1:8000/api/token/",
-      "http://192.168.1.91:8000/api/token/",
+      "http://127.0.0.1:8000/api/token/",
+      // "http://192.168.1.91:8000/api/token/",
       {
         email,
         password,

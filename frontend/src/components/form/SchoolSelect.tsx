@@ -118,7 +118,10 @@ export default function SchoolSelect({
                       <div
                         className={`text-xs ${"text-gray-500 dark:text-gray-400"}`}
                       >
-                        {school.district.districtName}, {school.municipality}
+                        {school.district
+                          ? school.district.districtName
+                          : "No District"}
+                        , {school.municipality}
                       </div>
                     </>
                   )}

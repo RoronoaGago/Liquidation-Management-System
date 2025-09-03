@@ -36,6 +36,7 @@ export default function SignInForm() {
     try {
       await login(credentials.email, credentials.password);
       navigate("/");
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       setError("Invalid email or password");
     }
