@@ -9,7 +9,11 @@ import {
 } from "../../ui/table";
 import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
 import { Submission } from "@/lib/types";
-import { formatDateTime } from "@/lib/helpers";
+import {
+  formatDateTime,
+  isBacklogCompliance,
+  formatRequestMonthYear,
+} from "@/lib/helpers";
 import {
   CheckCircle,
   XCircle,
@@ -244,6 +248,12 @@ const PrioritySubmissionsTable: React.FC<
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
               >
+                Request Month
+              </TableCell>
+              <TableCell
+                isHeader
+                className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
+              >
                 Actions
               </TableCell>
             </TableRow>
@@ -316,6 +326,24 @@ const PrioritySubmissionsTable: React.FC<
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                     {formatDateTime(submission.created_at)}
+                  </TableCell>
+                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                    <div className="flex flex-col">
+                      <span>
+                        {formatRequestMonthYear(submission.request_monthyear)}
+                      </span>
+                      {submission.request_monthyear &&
+                        submission.user.school &&
+                        isBacklogCompliance(
+                          submission.user.school,
+                          submission.request_monthyear
+                        ) && (
+                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            <AlertCircle className="h-3 w-3" />
+                            Backlog Compliance
+                          </span>
+                        )}
+                    </div>
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                     <button

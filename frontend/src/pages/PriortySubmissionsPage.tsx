@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
