@@ -224,7 +224,7 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
     'update_liquidation_remaining_days_daily': {
         'task': 'api.tasks.update_liquidation_remaining_days',
-        'schedule': crontab(hour=0, minute=5),  # Runs every day at 00:05 AM
+        'schedule': crontab(hour=0, minute=1),
     },
 }
 
