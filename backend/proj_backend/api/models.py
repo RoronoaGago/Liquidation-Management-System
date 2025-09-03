@@ -479,11 +479,14 @@ class LiquidationManagement(models.Model):
     def calculate_remaining_days(self):
         if self.request and self.request.downloaded_at:
             # Ensure downloaded_at is timezone-aware if working with timezones
-            deadline = self.request.downloaded_at + timedelta(days=30)
+            downloaded_at = self.request.downloaded_at
+            if isinstance(downloaded_at, date) and not isinstance(downloaded_at, datetime):
+                downloaded_at = timezone.datetime.combine(downloaded_at, timezone.datetime.min.time())
+
+            deadline = downloaded_at + timedelta(days=30)
 
             # Use timezone-aware now() if working with timezones
-            today = datetime.now(
-                deadline.tzinfo) if deadline.tzinfo else datetime.now()
+            today = timezone.now() if timezone.is_aware(deadline) else datetime.now()
 
             remaining = (deadline - today).days
             return max(remaining, 0)  # Returns 0 if deadline has passed
