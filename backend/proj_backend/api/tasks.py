@@ -138,3 +138,8 @@ def send_urgent_liquidation_reminders():
                 fail_silently=True,
                 html_message=html_message,
             )
+
+
+@shared_task
+def update_liquidation_remaining_days():
+    LiquidationManagement.update_all_remaining_days()

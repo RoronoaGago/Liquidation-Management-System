@@ -536,6 +536,14 @@ class LiquidationManagement(models.Model):
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
 
+    @classmethod
+    def update_all_remaining_days(cls):
+        for liquidation in cls.objects.all():
+            new_remaining = liquidation.calculate_remaining_days()
+            if liquidation.remaining_days != new_remaining:
+                liquidation.remaining_days = new_remaining
+                liquidation.save(update_fields=['remaining_days'])
+
 
 class LiquidationDocument(models.Model):
     liquidation = models.ForeignKey(
@@ -622,3 +630,5 @@ class SchoolDistrict(models.Model):
 
     def __str__(self):
         return f"{self.districtName} ({self.districtId})"
+
+

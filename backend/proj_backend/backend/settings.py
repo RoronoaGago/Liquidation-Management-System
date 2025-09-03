@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -221,9 +222,9 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
 CELERY_BEAT_SCHEDULE = {
-    'send-liquidation-reminders-daily': {
-        'task': 'api.tasks.send_urgent_liquidation_reminders',
-        'schedule': 86400.0,  # every 24 hours
+    'update_liquidation_remaining_days_daily': {
+        'task': 'api.tasks.update_liquidation_remaining_days',
+        'schedule': crontab(hour=0, minute=5),  # Runs every day at 00:05 AM
     },
 }
 
