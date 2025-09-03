@@ -398,19 +398,6 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        try:
-            # Save with atomic transaction
-            with transaction.atomic():
-                instance = serializer.save(user=self.request.user)
-                # Force save to ensure signals fire
-                instance.save()
-                logger.info(
-                    f"Successfully created request {instance.request_id}")
-        except Exception as e:
-            logger.error(f"Failed to create request: {str(e)}")
-            raise
-
     def get_queryset(self):
         queryset = RequestManagement.objects.all()
 
@@ -435,7 +422,7 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
         if self.request.user.role not in ['admin', 'superintendent', 'accountant']:
             queryset = queryset.filter(user=self.request.user)
 
-        return queryset.order_by('-created_at')
+        return queryset.select_related('user', 'user__school').order_by('-created_at')
 
 
 class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
