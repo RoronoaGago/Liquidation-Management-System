@@ -92,6 +92,17 @@ const MOOERequestPage = () => {
   // State for selecting all in a category
   const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
 
+  // State for next request month and year
+  const [nextRequestMonth, setNextRequestMonth] = useState<number | null>(null);
+  const [nextRequestYear, setNextRequestYear] = useState<number | null>(null);
+  const [isBehind, setIsBehind] = useState(false);
+  const [lastLiquidatedMonth, setLastLiquidatedMonth] = useState<number | null>(
+    null
+  );
+  const [lastLiquidatedYear, setLastLiquidatedYear] = useState<number | null>(
+    null
+  );
+
   // Function to select all items in a category
   const doCategorySelectAll = (category: string) => {
     if (!category) return;
@@ -199,6 +210,35 @@ const MOOERequestPage = () => {
         }
         const schoolRes = await api.get(`/schools/${schoolId}/`);
         setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
+
+        // Get last liquidated month and year
+        const lastMonth = schoolRes.data.last_liquidated_month;
+        const lastYear = schoolRes.data.last_liquidated_year;
+        setLastLiquidatedMonth(lastMonth);
+        setLastLiquidatedYear(lastYear);
+
+        // Calculate next month to request
+        let nextMonth, nextYear;
+        if (lastMonth && lastYear) {
+          nextMonth = lastMonth === 12 ? 1 : lastMonth + 1;
+          nextYear = lastMonth === 12 ? lastYear + 1 : lastYear;
+        } else {
+          // If no liquidation history, use current month
+          const now = new Date();
+          nextMonth = now.getMonth() + 1;
+          nextYear = now.getFullYear();
+        }
+        setNextRequestMonth(nextMonth);
+        setNextRequestYear(nextYear);
+
+        // Check if behind schedule
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth() + 1;
+        const currentYear = currentDate.getFullYear();
+        const isBehindSchedule =
+          nextYear < currentYear ||
+          (nextYear === currentYear && nextMonth < currentMonth);
+        setIsBehind(isBehindSchedule);
       } catch (error) {
         setAllocatedBudget(0);
         console.error("Failed to fetch allocated budget:", error);
@@ -330,12 +370,19 @@ const MOOERequestPage = () => {
         );
         requestId = res.data?.request_id || location.state.rejectedRequestId;
       } else {
+        // Use the calculated next month instead of current month
+        const monthName =
+          nextRequestMonth && nextRequestYear
+            ? new Date(nextRequestYear, nextRequestMonth - 1).toLocaleString(
+                "default",
+                { month: "long" }
+              )
+            : new Date().toLocaleString("default", { month: "long" });
+        const year = nextRequestYear || new Date().getFullYear();
+
         const res = await api.post("requests/", {
           priority_amounts: selectedPriorities,
-          request_month: new Date().toLocaleString("default", {
-            month: "long",
-            year: "numeric",
-          }),
+          request_month: `${monthName} ${year}`,
           notes: location.state?.rejectedRequestId
             ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
             : undefined,
@@ -540,7 +587,16 @@ const MOOERequestPage = () => {
               Request Submitted!
             </DialogTitle>
             <DialogDescription className="text-center">
-              Your MOOE request was submitted successfully.
+              Your MOOE request for{" "}
+              {nextRequestMonth && nextRequestYear
+                ? `${new Date(
+                    nextRequestYear,
+                    nextRequestMonth - 1
+                  ).toLocaleString("default", {
+                    month: "long",
+                  })} ${nextRequestYear}`
+                : "the selected month"}{" "}
+              was submitted successfully.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center py-4">
@@ -978,6 +1034,51 @@ const MOOERequestPage = () => {
                 </>
               )}
             </Disclosure>
+          </div>
+        )}
+
+        {/* Backlog Warning */}
+        {isBehind && !isFormDisabled && (
+          <div className="mb-4 bg-amber-50/80 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-amber-800 dark:text-amber-200">
+                  Attention: You're behind schedule
+                </h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                  {lastLiquidatedMonth && lastLiquidatedYear ? (
+                    <>
+                      Your last liquidated month was{" "}
+                      <span className="font-semibold">
+                        {new Date(
+                          lastLiquidatedYear,
+                          lastLiquidatedMonth - 1
+                        ).toLocaleString("default", { month: "long" })}{" "}
+                        {lastLiquidatedYear}
+                      </span>
+                      . You should request funds for{" "}
+                      <span className="font-semibold">
+                        {nextRequestMonth && nextRequestYear
+                          ? `${new Date(
+                              nextRequestYear,
+                              nextRequestMonth - 1
+                            ).toLocaleString("default", {
+                              month: "long",
+                            })} ${nextRequestYear}`
+                          : ""}
+                      </span>{" "}
+                      to stay on track.
+                    </>
+                  ) : (
+                    <>
+                      You have not yet liquidated any month. Please start with
+                      the current month.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
