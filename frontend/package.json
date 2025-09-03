@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ant-design/charts": "^2.2.7",
+    "@ant-design/icons": "^6.0.0",
     "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
@@ -25,7 +26,7 @@
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/vite": "^4.0.12",
     "@types/react-router-dom": "^5.3.3",
-    "antd": "^5.24.6",
+    "antd": "^5.27.2",
     "apexcharts": "^4.1.0",
     "axios": "^1.8.4",
     "canvg": "^4.0.3",
