@@ -1,3 +1,5 @@
+from django.db.models.functions import TruncMonth, ExtractDay
+from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField
 from django.http import HttpResponse
 import csv
 from .serializers import UnliquidatedSchoolReportSerializer
@@ -1449,3 +1451,288 @@ def schools_with_unliquidated_requests(request):
         for school in schools
     ]
     return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_dashboard(request):
+    # Check if user is admin
+    if request.user.role != 'admin':
+        return Response({"error": "Only administrators can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
+
+    # Get time range parameter
+    time_range = request.GET.get('time_range', 'last_quarter')
+
+    # Calculate date range based on parameter
+    end_date = timezone.now()
+    if time_range == 'last_week':
+        start_date = end_date - timedelta(days=7)
+    elif time_range == 'last_month':
+        start_date = end_date - timedelta(days=30)
+    elif time_range == 'last_quarter':
+        start_date = end_date - timedelta(days=90)
+    elif time_range == 'last_year':
+        start_date = end_date - timedelta(days=365)
+    else:
+        start_date = end_date - timedelta(days=90)  # Default to last quarter
+
+    # 1. Budget Utilization Data
+    budget_utilization = []
+    months = []
+    current = start_date
+
+    while current <= end_date:
+        month_str = current.strftime('%Y-%m')
+        months.append(month_str)
+        current = current + timedelta(days=30)  # Approximate month
+
+    for month in months:
+        # Get all requests for this month
+        month_requests = RequestManagement.objects.filter(
+            created_at__year=month[:4],
+            created_at__month=month[5:7]
+        )
+
+        total_allocated = School.objects.aggregate(
+            total=Sum('max_budget'))['total'] or 0
+        total_utilized = RequestPriority.objects.filter(
+            request__in=month_requests
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        utilization_rate = (total_utilized / total_allocated *
+                            100) if total_allocated > 0 else 0
+
+        budget_utilization.append({
+            'month': month,
+            'allocated': float(total_allocated),
+            'utilized': float(total_utilized),
+            'utilizationRate': float(utilization_rate)
+        })
+
+    # 2. Request Status Distribution
+    status_counts = RequestManagement.objects.values('status').annotate(
+        count=Count('status')
+    ).order_by('-count')
+
+    total_requests = RequestManagement.objects.count()
+    request_status_distribution = []
+
+    for status in status_counts:
+        percentage = (status['count'] / total_requests *
+                      100) if total_requests > 0 else 0
+        request_status_distribution.append({
+            'status': status['status'],
+            'count': status['count'],
+            'percentage': float(percentage)
+        })
+
+    # 3. Liquidation Timeline
+    liquidation_timeline = []
+    for month in months:
+        month_liquidations = LiquidationManagement.objects.filter(
+            created_at__year=month[:4],
+            created_at__month=month[5:7]
+        )
+
+        # Calculate average processing time (days from request to liquidation)
+        avg_processing = month_liquidations.annotate(
+            processing_time=ExpressionWrapper(
+                F('date_liquidated') - F('request__created_at'),
+                output_field=FloatField()
+            )
+        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+
+        # Convert timedelta to days
+        if hasattr(avg_processing, 'days'):
+            avg_processing_days = avg_processing.days
+        else:
+            avg_processing_days = float(
+                avg_processing) / (24 * 60 * 60) if avg_processing else 0
+
+        approved_count = month_liquidations.filter(status='liquidated').count()
+        rejected_count = month_liquidations.filter(status='resubmit').count()
+
+        liquidation_timeline.append({
+            'month': month,
+            'avgProcessingTime': float(avg_processing_days),
+            'approved': approved_count,
+            'rejected': rejected_count
+        })
+
+    # 4. School Performance
+    school_performance = []
+    schools = School.objects.all()
+
+    for school in schools:
+        school_requests = RequestManagement.objects.filter(user__school=school)
+        total_requests = school_requests.count()
+        approved_requests = school_requests.filter(status='approved').count()
+        rejected_requests = school_requests.filter(status='rejected').count()
+
+        rejection_rate = (rejected_requests / total_requests *
+                          100) if total_requests > 0 else 0
+
+        # Calculate average processing time for this school
+        school_liquidations = LiquidationManagement.objects.filter(
+            request__user__school=school)
+        avg_processing = school_liquidations.annotate(
+            processing_time=ExpressionWrapper(
+                F('date_liquidated') - F('request__created_at'),
+                output_field=FloatField()
+            )
+        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+
+        if hasattr(avg_processing, 'days'):
+            avg_processing_days = avg_processing.days
+        else:
+            avg_processing_days = float(
+                avg_processing) / (24 * 60 * 60) if avg_processing else 0
+
+        # Calculate budget utilization for this school
+        school_utilized = RequestPriority.objects.filter(
+            request__user__school=school
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        budget_utilization_rate = (
+            school_utilized / school.max_budget * 100) if school.max_budget > 0 else 0
+
+        school_performance.append({
+            'schoolId': school.schoolId,
+            'schoolName': school.schoolName,
+            'totalRequests': total_requests,
+            'approvedRequests': approved_requests,
+            'rejectionRate': float(rejection_rate),
+            'avgProcessingTime': float(avg_processing_days),
+            'budgetUtilization': float(budget_utilization_rate)
+        })
+
+    # 5. Category Spending
+    category_spending = []
+    categories = ListOfPriority.CATEGORY_CHOICES
+
+    for category_key, category_name in categories:
+        category_total = RequestPriority.objects.filter(
+            priority__category=category_key
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        total_all_categories = RequestPriority.objects.aggregate(total=Sum('amount'))[
+            'total'] or 0
+        percentage = (category_total / total_all_categories *
+                      100) if total_all_categories > 0 else 0
+
+        # Simple trend calculation (compare with previous period)
+        trend = 'stable'
+        if category_total > 0:
+            # This is a simplified trend calculation
+            trend = 'up' if category_total > 10000 else 'down'
+
+        category_spending.append({
+            'category': category_name,
+            'totalAmount': float(category_total),
+            'percentage': float(percentage),
+            'trend': trend
+        })
+
+    # Sort by total amount descending
+    category_spending.sort(key=lambda x: x['totalAmount'], reverse=True)
+
+    # 6. Document Compliance
+    document_compliance = []
+    requirements = Requirement.objects.all()
+
+    for requirement in requirements:
+        total_submitted = LiquidationDocument.objects.filter(
+            requirement=requirement
+        ).count()
+
+        compliant = LiquidationDocument.objects.filter(
+            requirement=requirement,
+            is_approved=True
+        ).count()
+
+        compliance_rate = (compliant / total_submitted *
+                           100) if total_submitted > 0 else 0
+
+        document_compliance.append({
+            'requirement': requirement.requirementTitle,
+            'totalSubmitted': total_submitted,
+            'compliant': compliant,
+            'complianceRate': float(compliance_rate)
+        })
+
+    # 7. Top Priorities
+    top_priorities = []
+    priorities = RequestPriority.objects.values(
+        'priority__expenseTitle'
+    ).annotate(
+        frequency=Count('priority'),
+        total_amount=Sum('amount')
+    ).order_by('-total_amount')[:10]
+
+    for priority in priorities:
+        # Simple trend calculation
+        trend = 'stable'
+        if priority['total_amount']:
+            trend = 'up' if priority['total_amount'] > 5000 else 'down'
+
+        top_priorities.append({
+            'priority': priority['priority__expenseTitle'],
+            'frequency': priority['frequency'],
+            'totalAmount': float(priority['total_amount']),
+            'trend': trend
+        })
+
+    # 8. Pending Actions
+    pending_actions = []
+
+    # Pending requests needing approval
+    pending_requests = RequestManagement.objects.filter(status='pending')
+    for request in pending_requests:
+        days_pending = (timezone.now() - request.created_at).days
+        priority = 'high' if days_pending > 7 else 'medium' if days_pending > 3 else 'low'
+
+        pending_actions.append({
+            'id': request.request_id,
+            'type': 'request',
+            'title': f'Pending Request: {request.request_id}',
+            'description': f'Request from {request.user.get_full_name()} pending for {days_pending} days',
+            'priority': priority,
+            'timestamp': request.created_at.isoformat()
+        })
+
+    # Pending liquidations needing review
+    pending_liquidations = LiquidationManagement.objects.filter(
+        status__in=['submitted', 'under_review_district',
+                    'under_review_division']
+    )
+    for liquidation in pending_liquidations:
+        days_pending = (timezone.now() - liquidation.created_at).days
+        priority = 'high' if days_pending > 5 else 'medium' if days_pending > 2 else 'low'
+
+        pending_actions.append({
+            'id': liquidation.LiquidationID,
+            'type': 'liquidation',
+            'title': f'Pending Liquidation: {liquidation.LiquidationID}',
+            'description': f'Liquidation for request {liquidation.request.request_id} pending review',
+            'priority': priority,
+            'timestamp': liquidation.created_at.isoformat()
+        })
+
+    # Sort by priority and timestamp
+    priority_order = {'high': 0, 'medium': 1, 'low': 2}
+    pending_actions.sort(key=lambda x: (
+        priority_order[x['priority']], x['timestamp']))
+
+    # Prepare response data
+    response_data = {
+        'budgetUtilization': budget_utilization,
+        'requestStatusDistribution': request_status_distribution,
+        'liquidationTimeline': liquidation_timeline,
+        'schoolPerformance': school_performance,
+        'categorySpending': category_spending,
+        'documentCompliance': document_compliance,
+        'topPriorities': top_priorities,
+        'pendingActions': pending_actions
+    }
+
+    return Response(response_data)
