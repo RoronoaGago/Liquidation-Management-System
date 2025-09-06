@@ -49,8 +49,15 @@ const ManageRequirementsPage = () => {
     setLoading(true);
     setError(null);
     try {
+      const params: any = {};
+      // Only fetch active or inactive requirements, not both
+      if (showArchived) {
+        params.is_active = false;
+      } else {
+        params.is_active = true;
+      }
       const res = await axios.get(`${API_BASE_URL}/api/requirements/`, {
-        params: { archived: showArchived },
+        params,
       });
       setRequirements(Array.isArray(res.data) ? res.data : []);
     } catch (err) {

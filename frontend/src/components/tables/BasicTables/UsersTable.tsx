@@ -197,16 +197,45 @@ export default function UsersTable({
 
   const getSchoolName = (school: any) => {
     if (!school) return "";
-    if (typeof school === "object" && school.schoolName)
-      return school.schoolName;
+
+    // Check if school is inactive for styling
+    const isInactive = typeof school === "object" && school.is_active === false;
+
+    if (typeof school === "object" && school.schoolName) {
+      return `${school.schoolName}${isInactive ? " (inactive)" : ""}`;
+    }
+
     if (typeof school === "number" || typeof school === "string") {
       const found = schools.find(
         (s) =>
           s.schoolId === school || s.schoolId.toString() === school.toString()
       );
-      return found ? found.schoolName : "";
+      return found
+        ? `${found.schoolName}${!found.is_active ? " (inactive)" : ""}`
+        : "";
     }
+
     return "";
+  };
+
+  const getSchoolStatus = (school: any): boolean => {
+    if (!school) return true;
+
+    if (typeof school === "object" && "is_active" in school) {
+      // Treat undefined as active (true)
+      return school.is_active !== false;
+    }
+
+    if (typeof school === "number" || typeof school === "string") {
+      const found = schools.find(
+        (s) =>
+          s.schoolId === school || s.schoolId.toString() === school.toString()
+      );
+      // Treat undefined as active (true)
+      return found ? found.is_active !== false : true;
+    }
+
+    return true; // Default to active if unknown
   };
 
   const getDistrictName = (district: District | null) => {
@@ -896,13 +925,25 @@ export default function UsersTable({
                             </div>
                           )}
                         </div>
+
                         <div>
                           <span className="block font-medium text-gray-800 text-theme-sm dark:text-gray-400">
                             {user.first_name} {user.last_name}
                           </span>
                           <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
                             {roleMap[user.role] || user.role}
-                            {user.school && ` | ${getSchoolName(user.school)}`}
+                            {user.school && ` | `}
+                            {user.school && (
+                              <span
+                                className={
+                                  !getSchoolStatus(user.school)
+                                    ? "text-gray-400 italic"
+                                    : ""
+                                }
+                              >
+                                {getSchoolName(user.school)}
+                              </span>
+                            )}
                             {user.school_district &&
                               ` | ${getDistrictName(user.school_district)}`}
                           </span>
