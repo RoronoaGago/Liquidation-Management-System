@@ -74,6 +74,7 @@ const ResourceAllocation = () => {
   const [editingBudgets, setEditingBudgets] = useState<Record<string, number>>(
     {}
   );
+  const [filterActiveStatus, setFilterActiveStatus] = useState<string>("all");
   const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -232,6 +233,7 @@ const ResourceAllocation = () => {
       if (filterDistrict) params.district = filterDistrict;
 
       const schoolsRes = await api.get("schools/", { params });
+      console.log(schoolsRes.data.results);
       let schoolsData = schoolsRes.data.results || schoolsRes.data;
 
       if (filterCanRequest !== null) {
@@ -1021,11 +1023,18 @@ const ResourceAllocation = () => {
                 <div
                   key={school.schoolId}
                   className={`rounded-lg border transition-all overflow-hidden cursor-pointer flex flex-col 
-                      ${isExpanded ? "h-auto" : "h-[120px]"} ${
-                    isSelected
-                      ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
-                      : "border-gray-200 dark:border-gray-700"
-                  } hover:border-brand-400 dark:hover:border-brand-500`}
+      ${isExpanded ? "h-auto" : "h-[120px]"} 
+      ${
+        isSelected
+          ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
+          : "border-gray-200 dark:border-gray-700"
+      } 
+      ${
+        !school.is_active
+          ? "bg-gray-50 opacity-75 dark:bg-gray-800/50"
+          : "bg-white dark:bg-gray-900"
+      }
+      hover:border-brand-400 dark:hover:border-brand-500`}
                   onClick={(e) => {
                     if (
                       e.target instanceof HTMLButtonElement ||
@@ -1039,13 +1048,24 @@ const ResourceAllocation = () => {
                   <div className="p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="font-medium text-gray-800 dark:text-gray-200">
+                        <div className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
                           {school.schoolName}
+                          {!school.is_active && (
+                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded-full dark:bg-gray-700 dark:text-gray-400">
+                              Inactive
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                           ID: {school.schoolId}
                         </div>
                       </div>
+                      {!school.is_active && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          This school is inactive. Budget cannot be modified.
+                        </div>
+                      )}
+
                       <div className="flex flex-col items-end gap-1">
                         {difference !== 0 && (
                           <div
@@ -1134,12 +1154,13 @@ const ResourceAllocation = () => {
                               }}
                               variant="outline"
                               size="sm"
-                              disabled={currentBudget <= 0}
+                              disabled={currentBudget <= 0 || !school.is_active} // Add !school.is_active
                               className="px-4 py-2 h-10 w-full"
                             >
                               <Minus className="h-4 w-4" />
                               <span className="ml-2">Decrease</span>
                             </Button>
+
                             <Button
                               type="button"
                               onClick={(e) => {
@@ -1148,6 +1169,7 @@ const ResourceAllocation = () => {
                               }}
                               variant="outline"
                               size="sm"
+                              disabled={!school.is_active} // Add !school.is_active
                               className="px-4 py-2 h-10 w-full"
                             >
                               <Plus className="h-4 w-4" />
@@ -1163,11 +1185,13 @@ const ResourceAllocation = () => {
                               min={0}
                               value={editingBudgets[school.schoolId] || 0}
                               onChange={(e) =>
+                                school.is_active && // Only allow changes for active schools
                                 handleBudgetChange(
                                   school.schoolId,
                                   parseFloat(e.target.value) || 0
                                 )
                               }
+                              disabled={!school.is_active} // Disable for inactive schools
                               className="pl-8 h-10 text-center"
                             />
                           </div>

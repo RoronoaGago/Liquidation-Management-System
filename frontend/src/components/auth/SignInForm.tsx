@@ -6,8 +6,6 @@ import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import companyLogo from "../../images/company-logo.png";
 import { useAuth } from "@/context/AuthContext";
-import OTPVerification from "../OTPVerification";
-import { requestOTP } from "@/api/axios";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -16,7 +14,6 @@ export default function SignInForm() {
     email: "",
     password: "",
   });
-  const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -41,41 +38,22 @@ export default function SignInForm() {
     }
 
     try {
-      await requestOTP(credentials.email, credentials.password);
-      setShowOTPVerification(true);
-    } catch (err: any) {
-      setError(err.message || "Invalid email or password");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleOTPSuccess = async () => {
-    try {
-      // After OTP verification, complete the login
+      // --- OTP DISABLED FOR DEVELOPMENT ---
+      // await requestOTP(credentials.email, credentials.password);
+      // setShowOTP(true);
+      // Instead, directly log in:
       await login(credentials.email, credentials.password);
       navigate("/");
-    } catch (err) {
-      setError("Login failed after OTP verification");
-      setShowOTPVerification(false);
+    } catch (err: any) {
+      setError(err.message || "Login failed");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const togglePasswordVisibility = useCallback(() => {
     setShowPassword((prev) => !prev);
   }, []);
-
-  if (showOTPVerification) {
-    return (
-      <div className="flex items-center justify-center min-h-screen dark:bg-gray-900 p-4">
-        <OTPVerification
-          email={credentials.email}
-          onBack={() => setShowOTPVerification(false)}
-          onSuccess={handleOTPSuccess}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="flex items-center justify-center min-h-screen dark:bg-gray-900 p-4">

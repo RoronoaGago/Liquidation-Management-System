@@ -35,6 +35,7 @@ import PasswordChangeModal from "./components/common/PasswordChangeModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
 import ManageDistricts from "./pages/ManageDistricts";
 import GenerateReport from "./pages/GenerateReport";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const App = () => {
   const { passwordChangeRequired, user } = useAuth();
@@ -52,13 +53,7 @@ const App = () => {
           <Route element={<RequireAuth />}>
             <Route
               path="/"
-              element={
-                user?.role === "school_head" ? (
-                  <SchoolHeadDashboard />
-                ) : (
-                  <Home />
-                )
-              }
+              element={user?.role === "admin" ? <AdminDashboard /> : <Home />}
             />
             <Route path="/profile" element={<UserProfile />} />
           </Route>
