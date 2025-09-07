@@ -297,38 +297,108 @@ class RequestManagement(models.Model):
         super().__init__(*args, **kwargs)
         self._old_status = self.status  # Track initial status
         self._skip_auto_status = False  # Explicit control flag
+        
+    def clean(self):
+        """Validate business rules before saving"""
+        super().clean()
+        
+        # Skip validation for existing records being updated (unless status change)
+        if self.pk and not self._state.adding:
+            return
+        
+        # Check if user can submit a request for the requested month
+        if not self.can_user_request_for_month(self.user, self.request_monthyear):
+            raise ValidationError(
+                "You cannot submit a request for this month. Please liquidate your current request first."
+            )
 
     def save(self, *args, **kwargs):
-        """Atomic save with protected status changes"""
+        """Enhanced save with business rule enforcement"""
         from django.db import transaction
-
+        
         try:
             with transaction.atomic():
-                # Fetch existing status safely
-                if self.pk:
-                    current_status = RequestManagement.objects.filter(
-                        pk=self.pk).values_list('status', flat=True).first()
-                    self._old_status = current_status or self.status
-
+                # For new requests, determine the appropriate month/year
+                if self._state.adding and not self.request_monthyear:
+                    self.request_monthyear = self.get_next_available_month()
+                
                 # Set initial month/year if needed (won't affect status)
                 self.set_initial_monthyear()
 
                 # Only auto-set status if not explicitly skipped
-                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status):
+                if not (hasattr(self, '_status_changed_by') or self._skip_auto_status):
                     self.set_automatic_status()
 
                 # Handle status change dates
                 self.handle_status_change_dates()
 
-                logger.debug(
-                    f"Saving request {self.request_id} with status {self.status}")
+                # Validate business rules
+                self.full_clean()
+
+                logger.debug(f"Saving request {self.request_id} with status {self.status}")
                 super().save(*args, **kwargs)
 
         except Exception as e:
-            logger.error(
-                f"Failed to save request {getattr(self, 'request_id', 'new')}: {str(e)}")
+            logger.error(f"Failed to save request {getattr(self, 'request_id', 'new')}: {str(e)}")
             raise
-
+    def get_next_available_month(self):
+        """Determine the next available month for the user to request"""
+        user_school = self.user.school
+        if not user_school:
+            # Default to current month if no school
+            today = date.today()
+            return f"{today.year:04d}-{today.month:02d}"
+        
+        # Check if user has any liquidated requests
+        last_liquidated = RequestManagement.objects.filter(
+            user=self.user,
+            status='liquidated'
+        ).order_by('-request_monthyear').first()
+        
+        if last_liquidated and last_liquidated.request_monthyear:
+            # User has liquidated requests, next month after the last liquidated
+            try:
+                year, month = map(int, last_liquidated.request_monthyear.split('-'))
+                next_month = month + 1
+                next_year = year
+                if next_month > 12:
+                    next_month = 1
+                    next_year += 1
+                return f"{next_year:04d}-{next_month:02d}"
+            except (ValueError, AttributeError):
+                pass
+        
+        # Check if user has any active (non-liquidated) requests
+        active_request = RequestManagement.objects.filter(
+            user=self.user
+        ).exclude(status__in=['liquidated', 'rejected']).first()
+        
+        if active_request and active_request.request_monthyear:
+            # User has active request, next available is the month after
+            try:
+                year, month = map(int, active_request.request_monthyear.split('-'))
+                next_month = month + 1
+                next_year = year
+                if next_month > 12:
+                    next_month = 1
+                    next_year += 1
+                return f"{next_year:04d}-{next_month:02d}"
+            except (ValueError, AttributeError):
+                pass
+        
+        # Default: use school's last liquidated month or current month
+        if user_school.last_liquidated_month and user_school.last_liquidated_year:
+            next_month = user_school.last_liquidated_month + 1
+            next_year = user_school.last_liquidated_year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            return f"{next_year:04d}-{next_month:02d}"
+        else:
+            # No previous liquidations, use current month
+            today = date.today()
+            return f"{today.year:04d}-{today.month:02d}"
+        
     def set_initial_monthyear(self):
         """Safe month/year initialization without status side effects"""
         if not self.request_monthyear:
@@ -342,23 +412,80 @@ class RequestManagement(models.Model):
                     today = date.today()
                     self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
 
+    @staticmethod
+    def can_user_request_for_month(user, target_month_year):
+        """Check if user can submit a request for the specified month"""
+        if not target_month_year:
+            return True  # Let the system determine the month
+        
+        # Check if user already has a request for this month
+        existing_request = RequestManagement.objects.filter(
+            user=user,
+            request_monthyear=target_month_year
+        ).exclude(status='rejected').first()
+        
+        if existing_request:
+            return False  # Already has a request for this month
+        
+        # Parse the target month
+        try:
+            target_year, target_month = map(int, target_month_year.split('-'))
+        except (ValueError, AttributeError):
+            return False  # Invalid format
+        
+        today = date.today()
+        current_year, current_month = today.year, today.month
+        
+        # If requesting for current month or past months
+        if (target_year, target_month) <= (current_year, current_month):
+            # Check if user has any unliquidated requests for previous months
+            unliquidated_requests = RequestManagement.objects.filter(
+                user=user
+            ).exclude(status__in=['liquidated', 'rejected'])
+            
+            for req in unliquidated_requests:
+                if req.request_monthyear:
+                    try:
+                        req_year, req_month = map(int, req.request_monthyear.split('-'))
+                        if (req_year, req_month) < (target_year, target_month):
+                            return False  # Has unliquidated request from previous months
+                    except (ValueError, AttributeError):
+                        continue
+        
+        # If requesting for future months (advance requests)
+        elif (target_year, target_month) > (current_year, current_month):
+            # Must have liquidated all previous requests
+            unliquidated_requests = RequestManagement.objects.filter(
+                user=user
+            ).exclude(status__in=['liquidated', 'rejected'])
+            
+            if unliquidated_requests.exists():
+                return False  # Has unliquidated requests
+        
+        return True
+
     def set_automatic_status(self):
-        """Only runs when not manually approving/rejecting"""
+        """Enhanced automatic status setting with business rules"""
         if (not hasattr(self, '_status_changed_by')
                 and not self._skip_auto_status
                 and self.request_monthyear
             ):
             today = date.today()
             try:
-                req_year, req_month = map(
-                    int, self.request_monthyear.split('-'))
+                req_year, req_month = map(int, self.request_monthyear.split('-'))
+                
+                # Set status based on requested month vs current month
                 if (req_year, req_month) > (today.year, today.month):
                     self.status = 'advanced'
                 elif (req_year, req_month) == (today.year, today.month):
                     self.status = 'pending'
+                else:
+                    # Past month - should not normally happen with proper validation
+                    self.status = 'pending'
+                    
             except (ValueError, AttributeError):
-                logger.warning(
-                    f"Invalid request_monthyear: {self.request_monthyear}")
+                logger.warning(f"Invalid request_monthyear: {self.request_monthyear}")
+                self.status = 'pending'  # Default fallback
 
     def handle_status_change_dates(self):
         """Automatically set date fields based on status changes"""
@@ -385,6 +512,41 @@ class RequestManagement(models.Model):
                 self.downloaded_at = None
             if self.status != 'rejected':
                 self.rejection_date = None
+                
+    def should_be_visible_to_superintendent(self):
+        """
+        Determine if this request should be visible to superintendent for approval.
+        Only pending requests for current or past months should be visible.
+        """
+        if self.status != 'pending':
+            return False
+        
+        if not self.request_monthyear:
+            return True  # Default to visible if no month specified
+        
+        today = date.today()
+        try:
+            req_year, req_month = map(int, self.request_monthyear.split('-'))
+            current_year, current_month = today.year, today.month
+            
+            # Should be visible if request month is current or past
+            return (req_year, req_month) <= (current_year, current_month)
+        except (ValueError, AttributeError):
+            return True  # Default to visible if invalid format
+    
+    def get_visibility_status(self):
+        """Get detailed visibility information for debugging"""
+        today = date.today()
+        current_month_year = f"{today.year:04d}-{today.month:02d}"
+        
+        return {
+            'request_id': self.request_id,
+            'status': self.status,
+            'request_month': self.request_monthyear,
+            'current_month': current_month_year,
+            'visible_to_superintendent': self.should_be_visible_to_superintendent(),
+            'is_future_month': self.request_monthyear > current_month_year if self.request_monthyear else False
+        }
 
 
 class RequestPriority(models.Model):

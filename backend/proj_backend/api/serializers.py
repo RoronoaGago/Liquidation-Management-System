@@ -351,6 +351,9 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         required=False
     )
     reviewed_by = UserSerializer(read_only=True)
+    next_available_month = serializers.SerializerMethodField(read_only=True)
+    is_advance_request = serializers.SerializerMethodField(read_only=True)
+    can_submit_for_month = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = RequestManagement
@@ -364,6 +367,9 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'rejection_date',
             'reviewed_by',
             'reviewed_at',
+            'next_available_month',
+            'is_advance_request', 
+            'can_submit_for_month',
         ]
         read_only_fields = ['request_id', 'created_at',
                             'date_approved', 'reviewed_by', 'reviewed_at']
@@ -393,6 +399,62 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                 except ListOfPriority.DoesNotExist:
                     continue
         return request_obj
+    def get_next_available_month(self, obj):
+        """Get next available month for this user"""
+        if hasattr(obj, 'user') and obj.user:
+            temp_request = RequestManagement(user=obj.user)
+            return temp_request.get_next_available_month()
+        return None
+
+    def get_is_advance_request(self, obj):
+        """Check if this is an advance request"""
+        if not obj.request_monthyear:
+            return False
+        
+        from datetime import date
+        today = date.today()
+        try:
+            req_year, req_month = map(int, obj.request_monthyear.split('-'))
+            return (req_year, req_month) > (today.year, today.month)
+        except (ValueError, AttributeError):
+            return False
+
+    def get_can_submit_for_month(self, obj):
+        """Check if user can submit for the request month"""
+        if hasattr(obj, 'user') and obj.user and obj.request_monthyear:
+            return RequestManagement.can_user_request_for_month(
+                obj.user, obj.request_monthyear
+            )
+        return True
+
+    def validate_request_monthyear(self, value):
+        """Validate the requested month against business rules"""
+        user = self.context['request'].user if 'request' in self.context else None
+        
+        if user and value:
+            if not RequestManagement.can_user_request_for_month(user, value):
+                existing = RequestManagement.objects.filter(
+                    user=user,
+                    request_monthyear=value
+                ).exclude(status='rejected').first()
+                
+                if existing:
+                    raise serializers.ValidationError(
+                        f"You already have a request for {value}. "
+                        f"Request ID: {existing.request_id}"
+                    )
+                else:
+                    unliquidated = RequestManagement.objects.filter(
+                        user=user
+                    ).exclude(status__in=['liquidated', 'rejected']).first()
+                    
+                    if unliquidated:
+                        raise serializers.ValidationError(
+                            f"Please liquidate your current request "
+                            f"({unliquidated.request_id}) before submitting a new one."
+                        )
+        
+        return value
 
 
 class LiquidationPrioritySerializer(serializers.ModelSerializer):

@@ -531,7 +531,7 @@ const ActionsWidget = ({ data }: { data: DashboardData | null }) => (
                 {new Date(action.timestamp).toLocaleDateString()}
               </div>
             </div>
-            <Badge
+            {/* <Badge
               variant={
                 action.priority === "high"
                   ? "destructive"
@@ -541,7 +541,7 @@ const ActionsWidget = ({ data }: { data: DashboardData | null }) => (
               }
             >
               {action.priority}
-            </Badge>
+            </Badge> */}
           </div>
         ))}
       </div>
