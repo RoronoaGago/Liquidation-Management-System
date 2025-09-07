@@ -7,7 +7,15 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  EyeIcon,
+  ChevronUp,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+} from "lucide-react";
 import { Submission } from "@/lib/types";
 import { formatDateTime } from "@/lib/helpers";
 import {
@@ -19,6 +27,8 @@ import {
   ArrowDownCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext"; // Add this import
+import { useState, useMemo } from "react";
+import Button from "@/components/ui/button/Button";
 
 interface PrioritySubmissionsTableProps {
   submissions: Submission[];
@@ -84,6 +94,14 @@ const PrioritySubmissionsTable: React.FC<
     liquidated: <CheckCircle className="h-4 w-4" />,
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const totalPages = Math.ceil(safeSubmissions.length / itemsPerPage);
+  const paginatedSubmissions = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return safeSubmissions.slice(start, start + itemsPerPage);
+  }, [safeSubmissions, currentPage, itemsPerPage]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -277,7 +295,7 @@ const PrioritySubmissionsTable: React.FC<
                 </TableCell>
               </TableRow>
             ) : (
-              safeSubmissions.map((submission) => (
+              paginatedSubmissions.map((submission) => (
                 <TableRow
                   key={submission.request_id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-900/20"
@@ -331,6 +349,75 @@ const PrioritySubmissionsTable: React.FC<
             )}
           </TableBody>
         </Table>
+      </div>
+      {/* Pagination */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          Showing{" "}
+          {paginatedSubmissions.length > 0
+            ? (currentPage - 1) * itemsPerPage + 1
+            : 0}{" "}
+          to {Math.min(currentPage * itemsPerPage, safeSubmissions.length)} of{" "}
+          {safeSubmissions.length} entries
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            variant="outline"
+            size="sm"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            variant="outline"
+            size="sm"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  variant={currentPage === pageNum ? "primary" : "outline"}
+                  size="sm"
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
+          <Button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages || totalPages === 0}
+            variant="outline"
+            size="sm"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages || totalPages === 0}
+            variant="outline"
+            size="sm"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
