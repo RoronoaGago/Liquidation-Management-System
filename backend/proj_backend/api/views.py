@@ -2,6 +2,7 @@ from django.db.models.functions import TruncMonth, ExtractDay
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField
 from django.http import HttpResponse
 import csv
+from datetime import date
 from .serializers import UnliquidatedSchoolReportSerializer
 from .models import School, RequestManagement
 from urllib import request
@@ -414,40 +415,68 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         try:
+            user = self.request.user
+            
+            # Check if user is eligible to submit a request
+            target_month = serializer.validated_data.get('request_monthyear')
+            
+            if target_month:
+                # User specified a month, validate it
+                if not RequestManagement.can_user_request_for_month(user, target_month):
+                    raise ValidationError({
+                        'request_monthyear': 'You cannot submit a request for this month. Please liquidate your current request first.'
+                    })
+            else:
+                # Auto-determine the next available month
+                temp_request = RequestManagement(user=user)
+                target_month = temp_request.get_next_available_month()
+                serializer.validated_data['request_monthyear'] = target_month
+            
             # Save with atomic transaction
             with transaction.atomic():
-                instance = serializer.save(user=self.request.user)
+                instance = serializer.save(user=user)
                 # Force save to ensure signals fire
                 instance.save()
-                logger.info(
-                    f"Successfully created request {instance.request_id}")
+                logger.info(f"Successfully created request {instance.request_id} for month {target_month}")
+                
+        except ValidationError:
+            raise  # Re-raise validation errors
         except Exception as e:
             logger.error(f"Failed to create request: {str(e)}")
-            raise
+            raise ValidationError("Failed to create request. Please try again.")
 
     def get_queryset(self):
         queryset = RequestManagement.objects.all()
+        user = self.request.user
 
         # Filter by multiple statuses if provided (comma-separated)
         status_param = self.request.query_params.get('status')
         if status_param:
-            status_list = [s.strip()
-                           for s in status_param.split(',') if s.strip()]
+            status_list = [s.strip() for s in status_param.split(',') if s.strip()]
             if status_list:
                 queryset = queryset.filter(status__in=status_list)
 
         # Filter by multiple school_ids if provided (comma-separated)
         school_ids_param = self.request.query_params.get('school_ids')
         if school_ids_param:
-            school_ids_list = [s.strip()
-                               for s in school_ids_param.split(',') if s.strip()]
+            school_ids_list = [s.strip() for s in school_ids_param.split(',') if s.strip()]
             if school_ids_list:
-                queryset = queryset.filter(
-                    user__school__schoolId__in=school_ids_list)
+                queryset = queryset.filter(user__school__schoolId__in=school_ids_list)
 
-        # For non-admin users, only show their own requests
-        if self.request.user.role not in ['admin', 'superintendent', 'accountant']:
-            queryset = queryset.filter(user=self.request.user)
+        # Enhanced filtering for different user roles
+        if user.role == 'superintendent':
+            # Superintendents only see requests that should be visible (current/past months and pending)
+            today = date.today()
+            current_month_year = f"{today.year:04d}-{today.month:02d}"
+            
+            # Show pending requests for current/past months, and all non-pending requests
+            queryset = queryset.filter(
+                Q(status='pending', request_monthyear__lte=current_month_year) |
+                Q(status__in=['approved', 'rejected', 'downloaded', 'unliquidated', 'liquidated'])
+            )
+        elif user.role not in ['admin', 'accountant']:
+            # Regular users only see their own requests
+            queryset = queryset.filter(user=user)
 
         return queryset.order_by('-created_at')
 
@@ -1736,3 +1765,71 @@ def admin_dashboard(request):
     }
 
     return Response(response_data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_next_available_month(request):
+    """Get the next available month for the user to submit a request"""
+    user = request.user
+    
+    # Create a temporary request object to use the method
+    temp_request = RequestManagement(user=user)
+    next_month = temp_request.get_next_available_month()
+    
+    today = date.today()
+    try:
+        req_year, req_month = map(int, next_month.split('-'))
+        is_advance = (req_year, req_month) > (today.year, today.month)
+    except (ValueError, AttributeError):
+        is_advance = False
+    
+    return Response({
+        'next_available_month': next_month,
+        'is_advance_request': is_advance,
+        'can_submit': RequestManagement.can_user_request_for_month(user, next_month)
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_request_eligibility(request):
+    """Check if user is eligible to submit a new request"""
+    user = request.user
+    target_month = request.query_params.get('month')  # Format: YYYY-MM
+    
+    if target_month:
+        can_request = RequestManagement.can_user_request_for_month(user, target_month)
+    else:
+        # Check for next available month
+        temp_request = RequestManagement(user=user)
+        next_month = temp_request.get_next_available_month()
+        can_request = RequestManagement.can_user_request_for_month(user, next_month)
+        target_month = next_month
+    
+    # Get current active requests
+    active_requests = RequestManagement.objects.filter(
+        user=user
+    ).exclude(status__in=['liquidated', 'rejected']).order_by('-created_at')
+    
+    # Get reason if cannot request
+    reason = None
+    if not can_request:
+        existing_same_month = RequestManagement.objects.filter(
+            user=user,
+            request_monthyear=target_month
+        ).exclude(status='rejected').first()
+        
+        if existing_same_month:
+            reason = f"You already have a request for {target_month}"
+        else:
+            unliquidated = active_requests.first()
+            if unliquidated:
+                reason = f"Please liquidate your current request ({unliquidated.request_id}) before submitting a new one"
+            else:
+                reason = "Cannot determine eligibility"
+    
+    return Response({
+        'can_submit_request': can_request,
+        'target_month': target_month,
+        'reason': reason,
+        'active_requests': RequestManagementSerializer(active_requests, many=True).data
+    })

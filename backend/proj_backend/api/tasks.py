@@ -8,11 +8,13 @@
 # tasks.py
 from celery import shared_task
 from django.utils import timezone
+from django.db import transaction
 from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
 from django.conf import settings
-from .models import LiquidationManagement
-
+from .models import LiquidationManagement, RequestManagement, Notification, User
+import logging
+logger = logging.getLogger(__name__)
 
 @shared_task
 def check_liquidation_reminders():
@@ -157,3 +159,155 @@ def send_urgent_liquidation_reminders():
 @shared_task
 def update_liquidation_remaining_days():
     LiquidationManagement.update_all_remaining_days()
+    
+@shared_task
+def process_advanced_requests():
+    """
+    Daily task to convert 'advanced' requests to 'pending' when their target month arrives.
+    This makes them visible to superintendents for approval.
+    """
+    today = date.today()
+    current_month_year = f"{today.year:04d}-{today.month:02d}"
+    
+    # Find all advanced requests whose target month has arrived
+    advanced_requests = RequestManagement.objects.filter(
+        status='advanced',
+        request_monthyear=current_month_year
+    )
+    
+    updated_count = 0
+    notifications_sent = 0
+    
+    try:
+        with transaction.atomic():
+            for request in advanced_requests:
+                # Update status to pending
+                old_status = request.status
+                request._old_status = old_status
+                request.status = 'pending'
+                request._status_changed_by = None  # System change, not user change
+                request.save(update_fields=['status'])
+                
+                updated_count += 1
+                logger.info(f"Request {request.request_id} changed from {old_status} to {request.status}")
+                
+                # Notify the user that their advance request is now pending
+                try:
+                    Notification.objects.create(
+                        notification_title="Your advance request is now pending approval",
+                        details=f"Your advance request {request.request_id} for {request.request_monthyear} is now pending approval by the superintendent.",
+                        receiver=request.user,
+                        sender=None  # System notification
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to create notification for request {request.request_id}: {str(e)}")
+                
+                # Notify superintendent(s) about new pending request
+                superintendents = User.objects.filter(role='superintendent')
+                for superintendent in superintendents:
+                    try:
+                        Notification.objects.create(
+                            notification_title=f"New pending request from {request.user.get_full_name()}",
+                            details=f"Advanced request {request.request_id} for {request.request_monthyear} is now ready for your review.",
+                            receiver=superintendent,
+                            sender=request.user
+                        )
+                        notifications_sent += 1
+                    except Exception as e:
+                        logger.error(f"Failed to notify superintendent {superintendent.id} about request {request.request_id}: {str(e)}")
+        
+        logger.info(f"Successfully processed {updated_count} advanced requests, sent {notifications_sent} notifications")
+        return f"Processed {updated_count} requests, sent {notifications_sent} notifications"
+        
+    except Exception as e:
+        logger.error(f"Failed to process advanced requests: {str(e)}")
+        raise
+
+@shared_task
+def monthly_request_status_audit():
+    """
+    Monthly audit task to ensure request statuses are correct based on current date.
+    This is a safety net to catch any missed transitions.
+    """
+    today = date.today()
+    current_month_year = f"{today.year:04d}-{today.month:02d}"
+    
+    issues_found = []
+    corrections_made = 0
+    
+    try:
+        # Check for requests that should be pending but are still advanced
+        incorrect_advanced = RequestManagement.objects.filter(
+            status='advanced',
+            request_monthyear__lt=current_month_year  # Past months still marked as advanced
+        ).exclude(status__in=['rejected', 'liquidated'])
+        
+        for request in incorrect_advanced:
+            try:
+                req_year, req_month = map(int, request.request_monthyear.split('-'))
+                current_year, current_month = today.year, today.month
+                
+                if (req_year, req_month) <= (current_year, current_month):
+                    request._old_status = request.status
+                    request.status = 'pending'
+                    request.save(update_fields=['status'])
+                    corrections_made += 1
+                    
+                    issue = f"Corrected request {request.request_id}: {request.request_monthyear} from advanced to pending"
+                    issues_found.append(issue)
+                    logger.warning(issue)
+                    
+            except (ValueError, AttributeError) as e:
+                error_msg = f"Invalid request_monthyear format for request {request.request_id}: {request.request_monthyear}"
+                issues_found.append(error_msg)
+                logger.error(error_msg)
+        
+        # Check for requests that should be advanced but are marked as pending for future months
+        incorrect_pending = RequestManagement.objects.filter(
+            status='pending',
+            request_monthyear__gt=current_month_year  # Future months marked as pending
+        )
+        
+        for request in incorrect_pending:
+            try:
+                req_year, req_month = map(int, request.request_monthyear.split('-'))
+                current_year, current_month = today.year, today.month
+                
+                if (req_year, req_month) > (current_year, current_month):
+                    request._old_status = request.status
+                    request.status = 'advanced'
+                    request.save(update_fields=['status'])
+                    corrections_made += 1
+                    
+                    issue = f"Corrected request {request.request_id}: {request.request_monthyear} from pending to advanced"
+                    issues_found.append(issue)
+                    logger.warning(issue)
+                    
+            except (ValueError, AttributeError) as e:
+                error_msg = f"Invalid request_monthyear format for request {request.request_id}: {request.request_monthyear}"
+                issues_found.append(error_msg)
+                logger.error(error_msg)
+        
+        result_msg = f"Monthly audit completed. Corrections made: {corrections_made}, Issues found: {len(issues_found)}"
+        logger.info(result_msg)
+        
+        # If significant issues found, you might want to send an admin alert
+        if corrections_made > 0:
+            admin_users = User.objects.filter(role='admin')
+            for admin in admin_users:
+                Notification.objects.create(
+                    notification_title="Monthly Request Status Audit Report",
+                    details=f"Audit corrected {corrections_made} request statuses. Check logs for details.",
+                    receiver=admin,
+                    sender=None
+                )
+        
+        return {
+            'corrections_made': corrections_made,
+            'issues_found': issues_found,
+            'summary': result_msg
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to complete monthly audit: {str(e)}")
+        raise

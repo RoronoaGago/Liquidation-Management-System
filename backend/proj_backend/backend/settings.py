@@ -214,8 +214,8 @@ EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
 # Default sender email
 DEFAULT_FROM_EMAIL = 'DepEd LUSDO <noreply@deped.gov.ph>'
 # Celery Configuration
-CELERY_BROKER_URL = 'django://'
-CELERY_RESULT_BACKEND = 'django-db'
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -224,6 +224,14 @@ CELERY_TIMEZONE = TIME_ZONE
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
+    'process-advanced-requests-precise': {
+        'task': 'api.tasks.process_advanced_requests',
+        'schedule': crontab(minute='*'),  # Daily at 6:00 AM
+    },
+    'monthly-audit-precise': {
+        'task': 'api.tasks.monthly_request_status_audit',
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
+    },
     'check-liquidation-reminders-every-minute': {
         'task': 'api.tasks.check_liquidation_reminders',
         'schedule': crontab(minute='*'),
