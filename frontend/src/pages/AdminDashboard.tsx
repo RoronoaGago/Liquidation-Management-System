@@ -56,10 +56,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import api from "@/api/axios";
-import { Responsive, WidthProvider } from "react-grid-layout";
+import { Responsive, WidthProvider, Layout } from "react-grid-layout";
 import Badge from "@/components/ui/badge/Badge";
 import { Skeleton, Switch } from "antd";
-import Toggle from "@/components/form/Toggle";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -139,16 +138,7 @@ interface DashboardLayout {
   lg: Layout[];
   md: Layout[];
   sm: Layout[];
-}
-
-interface Layout {
-  i: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  minW?: number;
-  minH?: number;
+  [key: string]: Layout[]; // Add index signature
 }
 
 const COLORS = [
@@ -181,6 +171,24 @@ const defaultLayouts: DashboardLayout = {
     { i: "actions", x: 0, y: 36, w: 8, h: 8, minW: 4, minH: 6 },
   ],
   sm: [
+    { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
+    { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
+    { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
+    { i: "timeline", x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 20, w: 4, h: 8, minW: 4, minH: 6 },
+    { i: "categories", x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
+    { i: "actions", x: 0, y: 36, w: 4, h: 8, minW: 4, minH: 6 },
+  ],
+  xs: [
+    { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
+    { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
+    { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
+    { i: "timeline", x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 20, w: 4, h: 8, minW: 4, minH: 6 },
+    { i: "categories", x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
+    { i: "actions", x: 0, y: 36, w: 4, h: 8, minW: 4, minH: 6 },
+  ],
+  xxs: [
     { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
     { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
     { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
@@ -243,10 +251,12 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">
-          {data?.documentCompliance.reduce(
-            (acc, curr) => acc + curr.complianceRate,
-            0
-          ) / (data?.documentCompliance.length || 1) || 0}
+          {data?.documentCompliance && data.documentCompliance.length > 0
+            ? data.documentCompliance.reduce(
+                (acc, curr) => acc + curr.complianceRate,
+                0
+              ) / data.documentCompliance.length
+            : 0}
           %
         </div>
         <p className="text-xs text-muted-foreground">
@@ -531,7 +541,7 @@ const ActionsWidget = ({ data }: { data: DashboardData | null }) => (
                 {new Date(action.timestamp).toLocaleDateString()}
               </div>
             </div>
-            <Badge
+            {/* <Badge
               variant={
                 action.priority === "high"
                   ? "destructive"
@@ -541,7 +551,7 @@ const ActionsWidget = ({ data }: { data: DashboardData | null }) => (
               }
             >
               {action.priority}
-            </Badge>
+            </Badge> */}
           </div>
         ))}
       </div>
@@ -588,7 +598,7 @@ const AdminDashboard = () => {
     fetchDashboardData();
   };
 
-  const handleLayoutChange = (currentLayout: any, allLayouts: any) => {
+  const handleLayoutChange = (currentLayout: Layout[], allLayouts: any) => {
     setLayouts(allLayouts);
   };
 
@@ -668,19 +678,22 @@ const AdminDashboard = () => {
             Refresh
           </Button>
 
-          <Toggle pressed={editMode} onPressedChange={setEditMode}>
-            {editMode ? (
-              <>
-                <Grid className="mr-2 h-4 w-4" />
-                Editing Layouts
-              </>
-            ) : (
-              <>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Layout
-              </>
-            )}
-          </Toggle>
+          <div className="flex items-center gap-2">
+            <Switch checked={editMode} onChange={setEditMode} />
+            <span className="text-sm">
+              {editMode ? (
+                <span className="flex items-center">
+                  <Grid className="mr-2 h-4 w-4" />
+                  Editing Layouts
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Layout
+                </span>
+              )}
+            </span>
+          </div>
 
           {editMode && (
             <>
@@ -745,7 +758,8 @@ const AdminDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      <style jsx>{`
+      <style>
+        {`
         .dashboard-widget {
           height: 100%;
           width: 100%;
@@ -782,7 +796,8 @@ const AdminDashboard = () => {
           -o-user-select: none;
           user-select: none;
         }
-      `}</style>
+      `}
+      </style>
     </div>
   );
 };
