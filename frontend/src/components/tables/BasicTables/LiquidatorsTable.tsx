@@ -26,6 +26,10 @@ import {
   ChevronsUpDown,
   Filter,
   X,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
 } from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react";
 import Badge from "@/components/ui/badge/Badge";
@@ -788,7 +792,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
             variant="outline"
             size="sm"
           >
-            {"<<"}
+            <ChevronsLeft className="h-4 w-4" />
           </Button>
           <Button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -796,26 +800,47 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
             variant="outline"
             size="sm"
           >
-            {"<"}
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  variant={currentPage === pageNum ? "primary" : "outline"}
+                  size="sm"
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
           <Button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
           >
-            {">"}
+            <ChevronRight className="h-4 w-4" />
           </Button>
           <Button
             onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
           >
-            {">>"}
+            <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
