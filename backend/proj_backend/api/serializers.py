@@ -456,15 +456,13 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
-    remaining_days = serializers.SerializerMethodField()
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     submitted_at = serializers.DateTimeField(
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
-    reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
-    liquidation_priorities = LiquidationPrioritySerializer(
-        many=True)
+    reviewed_by_district = UserSerializer(read_only=True)
+    liquidation_priorities = LiquidationPrioritySerializer(many=True)
 
     class Meta:
         model = LiquidationManagement
@@ -481,16 +479,12 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'reviewer_comments',
             'documents',
             'created_at',
-            'liquidation_priorities',  # <-- Add this line
+            'liquidation_priorities',
             'refund',
-            'remaining_days',  # <-- Add this
+            'remaining_days',  # will now come directly from DB
         ]
 
-    def get_remaining_days(self, obj):
-        return obj.calculate_remaining_days()
-
     def get_reviewer_comments(self, obj):
-        # Get all reviewer comments from documents
         comments = []
         for doc in obj.documents.all():
             if doc.reviewer_comment:
@@ -502,18 +496,16 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-
-        # Add actual amounts from LiquidationPriority records
         if hasattr(instance, 'liquidation_priorities'):
             data['actual_amounts'] = [
                 {
                     'expense_id': lp.priority.LOPID,
-                    'actual_amount': lp.amount  # Remove float() if not needed
+                    'actual_amount': lp.amount
                 }
                 for lp in instance.liquidation_priorities.all()
             ]
-
         return data
+
 
 
 class NotificationSerializer(serializers.ModelSerializer):
