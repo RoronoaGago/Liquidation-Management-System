@@ -822,7 +822,6 @@ const PriortySubmissionsPage = () => {
         currentUserRole={user?.role}
       />
 
-      {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
         <div className="text-sm text-gray-600 dark:text-gray-400">
           Showing{" "}
@@ -832,7 +831,7 @@ const PriortySubmissionsPage = () => {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            onClick={() => goToPage(1)}
+            onClick={() => setCurrentPage(1)}
             disabled={currentPage === 1}
             variant="outline"
             size="sm"
@@ -840,7 +839,7 @@ const PriortySubmissionsPage = () => {
             <ChevronsLeft className="h-4 w-4" />
           </Button>
           <Button
-            onClick={() => goToPage(currentPage - 1)}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
             variant="outline"
             size="sm"
@@ -862,7 +861,7 @@ const PriortySubmissionsPage = () => {
               return (
                 <Button
                   key={pageNum}
-                  onClick={() => goToPage(pageNum)}
+                  onClick={() => setCurrentPage(pageNum)}
                   variant={currentPage === pageNum ? "primary" : "outline"}
                   size="sm"
                 >
@@ -872,7 +871,7 @@ const PriortySubmissionsPage = () => {
             })}
           </div>
           <Button
-            onClick={() => goToPage(currentPage + 1)}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
@@ -880,7 +879,7 @@ const PriortySubmissionsPage = () => {
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button
-            onClick={() => goToPage(totalPages)}
+            onClick={() => setCurrentPage(totalPages)}
             disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
