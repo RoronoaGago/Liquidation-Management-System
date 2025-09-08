@@ -199,36 +199,36 @@ const PriortySubmissionsPage = () => {
   };
 
   // Fetch submissions based on active tab
-  const fetchSubmissions = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const status = activeTab === "pending" ? "pending" : "approved";
-      const params: any = { status };
+ const fetchSubmissions = async () => {
+  setLoading(true);
+  setError(null);
+  try {
+    const status = activeTab === "pending" ? "pending" : "approved";
+    const params: any = { status };
 
-      // Add filters to params
-      if (filterOptions.school) params.school_ids = filterOptions.school;
-      if (filterOptions.start_date)
-        params.start_date = filterOptions.start_date;
-      if (filterOptions.end_date) params.end_date = filterOptions.end_date;
+    // Add filters to params
+    if (filterOptions.school) params.school_ids = filterOptions.school;
+    if (filterOptions.start_date)
+      params.start_date = filterOptions.start_date;
+    if (filterOptions.end_date) params.end_date = filterOptions.end_date;
 
-      const res = await api.get(`requests/`, { params });
-      setSubmissionsState(res.data);
+    const res = await api.get(`requests/`, { params });
+    setSubmissionsState(res.data.results); // Changed from res.data to res.data.results
+    console.log("Fetched submissions:", res.data.results);
 
-      // Fetch schools and districts
-      const schoolRes = await api.get("schools/");
-      setSchools(schoolRes.data);
+    // Fetch schools and districts
+    const schoolRes = await api.get("schools/");
+    setSchools(schoolRes.data);
 
-      const districtRes = await api.get("school-districts/");
-      setDistricts(districtRes.data);
-    } catch (err: any) {
-      console.error("Failed to fetch submissions:", err);
-      setError("Failed to fetch submissions");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    const districtRes = await api.get("school-districts/");
+    setDistricts(districtRes.data);
+  } catch (err: any) {
+    console.error("Failed to fetch submissions:", err);
+    setError("Failed to fetch submissions");
+  } finally {
+    setLoading(false);
+  }
+};
   useEffect(() => {
     fetchSubmissions();
   }, [
@@ -356,42 +356,48 @@ const PriortySubmissionsPage = () => {
     return filtered;
   }, [submissionsState, filterOptions]);
 
-  // Sorting logic
-  const sortedSubmissions = useMemo(() => {
-    if (!sortConfig) return filteredSubmissions;
-    return [...filteredSubmissions].sort((a, b) => {
-      if (sortConfig.key === "created_at") {
-        const aDate = new Date(a.created_at).getTime();
-        const bDate = new Date(b.created_at).getTime();
-        return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
-      }
-      if (sortConfig.key === "request_id") {
-        return sortConfig.direction === "asc"
-          ? a.request_id.localeCompare(b.request_id)
-          : b.request_id.localeCompare(a.request_id);
-      }
-      if (sortConfig.key === "status") {
-        return sortConfig.direction === "asc"
-          ? a.status.localeCompare(b.status)
-          : b.status.localeCompare(a.status);
-      }
-      if (sortConfig.key === "school") {
-        const aSchool = a.user.school?.schoolName || "";
-        const bSchool = b.user.school?.schoolName || "";
-        return sortConfig.direction === "asc"
-          ? aSchool.localeCompare(bSchool)
-          : bSchool.localeCompare(aSchool);
-      }
-      if (sortConfig.key === "submitted_by") {
-        const aName = `${a.user.first_name} ${a.user.last_name}`;
-        const bName = `${b.user.first_name} ${b.user.last_name}`;
-        return sortConfig.direction === "asc"
-          ? aName.localeCompare(bName)
-          : bName.localeCompare(aName);
-      }
-      return 0;
-    });
-  }, [filteredSubmissions, sortConfig]);
+// Sorting logic - add proper null checks
+const sortedSubmissions = useMemo(() => {
+  // Ensure filteredSubmissions is always an array before processing
+  const submissions = Array.isArray(filteredSubmissions) ? filteredSubmissions : [];
+  
+  if (!sortConfig || submissions.length === 0) {
+    return submissions;
+  }
+  
+  return [...submissions].sort((a, b) => {
+    if (sortConfig.key === "created_at") {
+      const aDate = new Date(a.created_at).getTime();
+      const bDate = new Date(b.created_at).getTime();
+      return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
+    }
+    if (sortConfig.key === "request_id") {
+      return sortConfig.direction === "asc"
+        ? a.request_id.localeCompare(b.request_id)
+        : b.request_id.localeCompare(a.request_id);
+    }
+    if (sortConfig.key === "status") {
+      return sortConfig.direction === "asc"
+        ? a.status.localeCompare(b.status)
+        : b.status.localeCompare(a.status);
+    }
+    if (sortConfig.key === "school") {
+      const aSchool = a.user.school?.schoolName || "";
+      const bSchool = b.user.school?.schoolName || "";
+      return sortConfig.direction === "asc"
+        ? aSchool.localeCompare(bSchool)
+        : bSchool.localeCompare(aSchool);
+    }
+    if (sortConfig.key === "submitted_by") {
+      const aName = `${a.user.first_name} ${a.user.last_name}`;
+      const bName = `${b.user.first_name} ${b.user.last_name}`;
+      return sortConfig.direction === "asc"
+        ? aName.localeCompare(bName)
+        : bName.localeCompare(aName);
+    }
+    return 0;
+  });
+}, [filteredSubmissions, sortConfig]);
 
   const requestSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";

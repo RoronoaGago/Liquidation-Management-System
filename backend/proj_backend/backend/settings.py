@@ -234,15 +234,15 @@ CELERY_BEAT_SCHEDULE = {
     },
     'check-liquidation-reminders-every-minute': {
         'task': 'api.tasks.check_liquidation_reminders',
-        'schedule': crontab(minute='*'),
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
     },
     'send-urgent-reminders-every-2-minutes': {
         'task': 'api.tasks.send_urgent_liquidation_reminders',
-        'schedule': crontab(minute='*/2'),
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
     },
     'update-remaining-days-daily': {
         'task': 'api.tasks.update_liquidation_remaining_days',
-        'schedule': crontab(minute='*'),  # once a day at midnight
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
     },
 }
 
