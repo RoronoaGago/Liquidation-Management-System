@@ -16,14 +16,19 @@ from .models import LiquidationManagement
 
 @shared_task
 def check_liquidation_reminders():
+    today = timezone.now().date()
+
     liquidations = LiquidationManagement.objects.filter(
-        status='downloaded',
-        liquidation_deadline__gt=timezone.now().date()
-    )
+        status__in=['draft', 'submitted', 'resubmit'],
+        request__downloaded_at__isnull=False
+    ).exclude(status='liquidated')
+
     for liquidation in liquidations:
-        liquidation.check_and_send_reminders()
-
-
+        deadline = liquidation.liquidation_deadline
+        if deadline:
+            days_left = (deadline - today).days
+            # Now decide what to do (reminders, updates, etc.)
+            liquidation.check_and_send_reminders()
 @shared_task
 def send_liquidation_reminder(liquidation_id, days_left):
     try:
@@ -108,36 +113,45 @@ def send_urgent_liquidation_reminders():
     Send reminder emails for all liquidations with 15 days or less before deadline,
     and not yet liquidated.
     """
+    from django.utils import timezone
+    from datetime import timedelta
+    
     today = timezone.now().date()
+    
+    # Calculate the cutoff date for downloaded_at (45 days ago means 15 days left)
+    cutoff_date = today - timedelta(days=15)  # 15 days have passed since download
+    
     urgent_liquidations = LiquidationManagement.objects.filter(
-        # adjust statuses as needed
-        status__in=['downloaded', 'draft', 'resubmit'],
-        liquidation_deadline__gt=today
-    )
+        status__in=['downloaded', 'draft', 'resubmit', 'submitted'],
+        request__downloaded_at__isnull=False,
+        request__downloaded_at__lte=timezone.now() - timedelta(days=15)  # At least 15 days have passed
+    ).exclude(status='liquidated')
+    
     for liquidation in urgent_liquidations:
-        days_left = (liquidation.liquidation_deadline - today).days
-        if 0 < days_left <= 15 and liquidation.status != 'liquidated':
-            user = liquidation.request.user
-            context = {
-                'recipient_name': user.get_full_name(),
-                'request_id': liquidation.request.request_id,
-                'days_left': days_left,
-                'deadline': liquidation.liquidation_deadline,
-                'now': timezone.now(),
-                'contact_email': settings.DEFAULT_FROM_EMAIL,
-            }
-            html_message = render_to_string(
-                'emails/liquidation_reminder.html',
-                context
-            )
-            send_mail(
-                subject=f"Reminder: {days_left} days left to liquidate (Liquidation {liquidation.LiquidationID})",
-                message="This is a reminder to liquidate your request.",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=True,
-                html_message=html_message,
-            )
+        if liquidation.liquidation_deadline:  # Check property exists
+            days_left = (liquidation.liquidation_deadline - today).days
+            if 0 < days_left <= 15:  # Only send if 1-15 days remaining
+                user = liquidation.request.user
+                context = {
+                    'recipient_name': user.get_full_name(),
+                    'request_id': liquidation.request.request_id,
+                    'days_left': days_left,
+                    'deadline': liquidation.liquidation_deadline,
+                    'now': timezone.now(),
+                    'contact_email': settings.DEFAULT_FROM_EMAIL,
+                }
+                html_message = render_to_string(
+                    'emails/liquidation_reminder.html',
+                    context
+                )
+                send_mail(
+                    subject=f"Reminder: {days_left} days left to liquidate (Liquidation {liquidation.LiquidationID})",
+                    message="This is a reminder to liquidate your request.",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=True,
+                    html_message=html_message,
+                )
 
 
 @shared_task

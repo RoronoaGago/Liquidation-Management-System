@@ -182,7 +182,7 @@ SIMPLE_JWT = {
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -221,12 +221,24 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+from celery.schedules import crontab
+
 CELERY_BEAT_SCHEDULE = {
-    'update_liquidation_remaining_days_daily': {
+    'check-liquidation-reminders-every-minute': {
+        'task': 'api.tasks.check_liquidation_reminders',
+        'schedule': crontab(minute='*'),
+    },
+    'send-urgent-reminders-every-2-minutes': {
+        'task': 'api.tasks.send_urgent_liquidation_reminders',
+        'schedule': crontab(minute='*/2'),
+    },
+    'update-remaining-days-daily': {
         'task': 'api.tasks.update_liquidation_remaining_days',
-        'schedule': crontab(hour=0, minute=1)
+        'schedule': crontab(minute='*'),  # once a day at midnight
     },
 }
+
+
 
 LOGGING = {
     'version': 1,
@@ -238,7 +250,7 @@ LOGGING = {
     },
     'root': {
         'handlers': ['console'],
-        'level': 'DEBUG',  # Show all logs, including debug
+        'level': 'INFO',  # Show all logs, including debug
     },
     'loggers': {
         'django': {

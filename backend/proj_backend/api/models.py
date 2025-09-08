@@ -458,6 +458,8 @@ class LiquidationManagement(models.Model):
         super().__init__(*args, **kwargs)
         self._old_status = self.status  # Track initial status
         self._status_changed_by = None  # Track who changed the status
+        self._old_remaining_days = self.remaining_days  # Track initial remaining_days
+
 
     @property
     def liquidation_deadline(self):
@@ -475,7 +477,33 @@ class LiquidationManagement(models.Model):
         if total_requested == total_liquidated:
             return None
         return total_requested - total_liquidated
-
+    def check_and_send_reminders(self):
+        """Check and send reminders based on remaining days"""
+        if self.status in ['liquidated']:
+            return
+        
+        if not self.liquidation_deadline:
+            return
+        
+        from django.utils import timezone
+        today = timezone.now().date()
+        days_left = (self.liquidation_deadline - today).days
+        
+        reminder_days = [15, 10, 5, 3, 1]
+        
+        if days_left in reminder_days:
+            if self.request.last_reminder_sent != today:
+                from .tasks import send_liquidation_reminder
+                send_liquidation_reminder.delay(self.pk, days_left)
+                self.request.last_reminder_sent = today
+                self.request.save(update_fields=['last_reminder_sent'])
+        
+        elif days_left <= 0 and not self.request.demand_letter_sent:
+            from .tasks import send_liquidation_demand_letter
+            send_liquidation_demand_letter.delay(self.pk)
+            self.request.demand_letter_sent = True
+            self.request.demand_letter_date = today
+            self.request.save(update_fields=['demand_letter_sent', 'demand_letter_date'])
     def calculate_remaining_days(self):
         if self.request and self.request.downloaded_at:
             # Ensure downloaded_at is timezone-aware if working with timezones
@@ -498,10 +526,11 @@ class LiquidationManagement(models.Model):
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
             self._old_status = old.status
+            self._old_remaining_days = old.remaining_days  # Store old value
 
-        # Set downloaded_at when status changes to 'downloaded'
-        # if self.status == 'downloaded' and not self.downloaded_at:
-        #     self.downloaded_at = timezone.now()
+        # Calculate fields BEFORE saving
+        self.refund = self.calculate_refund()
+        self.remaining_days = self.calculate_remaining_days()
 
         # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:
@@ -523,10 +552,6 @@ class LiquidationManagement(models.Model):
             self.date_districtApproved = timezone.now().date()
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
             self.date_districtApproved = None
-
-        # Calculate fields
-        self.refund = self.calculate_refund()
-        self.remaining_days = self.calculate_remaining_days()  # <-- Ensure this is called
 
         super().save(*args, **kwargs)
 
