@@ -9,6 +9,7 @@
 from celery import shared_task
 from django.utils import timezone
 from django.db import transaction
+from datetime import date
 from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
 from django.conf import settings
