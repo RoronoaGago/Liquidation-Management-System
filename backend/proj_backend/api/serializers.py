@@ -59,6 +59,7 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    e_signature = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -78,6 +79,7 @@ class UserSerializer(serializers.ModelSerializer):
             "school_district",
             "profile_picture",
             "profile_picture_base64",
+            "e_signature",  # <-- Add this line
             "is_active",
             "date_joined"
         ]
@@ -121,6 +123,14 @@ class UserSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"role": f"There is already a {role.replace('_', ' ')} assigned to this school."}
                 )
+        # E-signature required for specific roles
+        role = data.get("role")
+        e_signature = data.get("e_signature")
+        required_roles = ["school_head", "superintendent", "accountant"]
+        if role in required_roles and not e_signature:
+            raise serializers.ValidationError(
+                {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant."}
+            )
         return data
 
     def create(self, validated_data):

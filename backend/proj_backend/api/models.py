@@ -91,6 +91,13 @@ class User(AbstractUser):
     )
     otp_code = models.CharField(max_length=6, null=True, blank=True)
     otp_generated_at = models.DateTimeField(blank=True, null=True)
+    e_signature = models.ImageField(
+        upload_to='e_signatures/',
+        validators=[FileExtensionValidator(['jpg', 'jpeg', 'png'])],
+        blank=True,
+        null=True,
+        help_text="E-signature for School Head, Division Superintendent, and Division Accountant"
+    )
 
     USERNAME_FIELD = 'email'  # Use email as the login identifier
     REQUIRED_FIELDS = ['first_name', 'last_name']  # Add basic required fields
