@@ -36,7 +36,12 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from .models import User
+import openpyxl
+from openpyxl.styles import Font, Alignment
+from django.http import HttpResponse
+from django.utils.timezone import localtime
 import random
+
 
 logger = logging.getLogger(__name__)
 
@@ -1757,3 +1762,104 @@ def update_e_signature(request):
     user.e_signature = e_signature
     user.save(update_fields=['e_signature'])
     return Response({"message": "E-signature updated successfully."})
+
+# Add to views.py
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def generate_liquidation_report(request, LiquidationID):
+    """
+    Generate a detailed liquidation report in Excel format
+    """
+    try:
+        liquidation = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
+        
+        # Create workbook and worksheet
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Liquidation Report"
+        
+        # Set column widths as specified
+        ws.column_dimensions['A'].width = 30.71
+        ws.column_dimensions['B'].width = 36.25
+        ws.column_dimensions['C'].width = 33.39
+        
+        # Format cell C1
+        cell_c1 = ws['C1']
+        cell_c1.value = "Appendix 44"
+        cell_c1.font = Font(name='Times New Roman', size=14)
+        cell_c1.alignment = Alignment(horizontal='right', vertical='top')
+        
+        # Continue with the rest of the report structure
+        # Add more content based on your specific requirements
+        ws['A3'] = "LIQUIDATION REPORT"
+        ws['A3'].font = Font(bold=True, size=14)
+        ws.merge_cells('A3:C3')
+        
+        # Add liquidation details
+        ws['A5'] = "Liquidation ID:"
+        ws['B5'] = liquidation.LiquidationID
+        
+        ws['A6'] = "Request ID:"
+        ws['B6'] = liquidation.request.request_id
+        
+        ws['A7'] = "School:"
+        ws['B7'] = liquidation.request.user.school.schoolName if liquidation.request.user.school else "N/A"
+        
+        ws['A8'] = "Submitted By:"
+        ws['B8'] = f"{liquidation.request.user.first_name} {liquidation.request.user.last_name}"
+        
+        ws['A9'] = "Submission Date:"
+        ws['B9'] = localtime(liquidation.created_at).strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Add priorities and amounts
+        row = 11
+        ws['A11'] = "EXPENSE ITEM"
+        ws['B11'] = "REQUESTED AMOUNT"
+        ws['C11'] = "LIQUIDATED AMOUNT"
+        ws['A11'].font = ws['B11'].font = ws['C11'].font = Font(bold=True)
+        
+        row += 1
+        for lp in liquidation.liquidation_priorities.all():
+            ws[f'A{row}'] = lp.priority.expenseTitle
+            # Get requested amount
+            requested_amount = RequestPriority.objects.filter(
+                request=liquidation.request,
+                priority=lp.priority
+            ).first()
+            ws[f'B{row}'] = float(requested_amount.amount) if requested_amount else 0
+            ws[f'C{row}'] = float(lp.amount)
+            row += 1
+        
+        # Add total row
+        ws[f'A{row}'] = "TOTAL"
+        ws[f'A{row}'].font = Font(bold=True)
+        ws[f'B{row}'] = f"=SUM(B12:B{row-1})"
+        ws[f'C{row}'] = f"=SUM(C12:C{row-1})"
+        
+        # Add refund amount if applicable
+        if liquidation.refund:
+            row += 2
+            ws[f'A{row}'] = "REFUND AMOUNT:"
+            ws[f'B{row}'] = float(liquidation.refund)
+            ws[f'A{row}'].font = ws[f'B{row}'].font = Font(bold=True)
+        
+        # Create HTTP response with Excel file
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="liquidation_report_{LiquidationID}.xlsx"'
+        
+        wb.save(response)
+        return response
+        
+    except LiquidationManagement.DoesNotExist:
+        return Response(
+            {'error': 'Liquidation not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error generating liquidation report: {str(e)}")
+        return Response(
+            {'error': 'Failed to generate report'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
