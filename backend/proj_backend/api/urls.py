@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature
 
 
 from rest_framework_simplejwt.views import (
@@ -104,4 +104,5 @@ urlpatterns = [
     path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
          name='unliquidated-schools-report'),
     path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
+    path("users/update-e-signature/", update_e_signature, name="update-e-signature"),
 ]

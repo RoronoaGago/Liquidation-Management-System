@@ -1745,3 +1745,15 @@ def admin_dashboard(request):
     }
 
     return Response(response_data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_e_signature(request):
+    user = request.user
+    e_signature = request.FILES.get('e_signature')
+    if not e_signature:
+        return Response({"error": "No e-signature file provided."}, status=400)
+    user.e_signature = e_signature
+    user.save(update_fields=['e_signature'])
+    return Response({"message": "E-signature updated successfully."})
