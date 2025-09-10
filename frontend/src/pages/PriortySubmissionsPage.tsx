@@ -33,6 +33,7 @@ import {
   Info,
   Eye,
   EyeOff,
+  Calendar,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
@@ -41,6 +42,10 @@ import { Submission, School, Priority, Prayoridad } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
+
+const { RangePicker } = DatePicker;
 
 type HistoryItem = {
   priorities: Prayoridad[];
@@ -54,7 +59,7 @@ type HistoryItem = {
 };
 
 type PriorityDiff = {
-  LOPID: number; // Unique identifier for the priority
+  LOPID: number;
   expenseTitle: string;
   prevAmount?: number;
   currAmount?: number;
@@ -65,7 +70,6 @@ const getPriorityDiffs = (
   prev: Prayoridad[] = [],
   curr: Prayoridad[] = []
 ): PriorityDiff[] => {
-  // Create maps using LOPID as key
   const prevMap = new Map<number, number>();
   prev.forEach((p) => {
     const LOPID = p.LOPID || 0;
@@ -80,7 +84,6 @@ const getPriorityDiffs = (
     currMap.set(LOPID, amount);
   });
 
-  // Get all unique LOPIDs from both versions
   const allLOPIDs = Array.from(
     new Set([...Array.from(prevMap.keys()), ...Array.from(currMap.keys())])
   );
@@ -89,7 +92,6 @@ const getPriorityDiffs = (
     const prevAmount = prevMap.get(LOPID);
     const currAmount = currMap.get(LOPID);
 
-    // Find the priority to get the title
     const priority = [...prev, ...curr].find((p) => p.LOPID === LOPID);
     const expenseTitle = priority?.expenseTitle || "Unknown";
 
@@ -120,21 +122,22 @@ const getPriorityDiffs = (
 };
 
 const PriortySubmissionsPage = () => {
+  const [activeTab, setActiveTab] = useState<"pending" | "approved">("pending");
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
   const [submissionHistory, setSubmissionHistory] = useState<
     HistoryItem[] | null
   >(null);
-  const [showAllDiffs, setShowAllDiffs] = useState(false); // Toggle show all/only changed
+  const [showAllDiffs, setShowAllDiffs] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
   const [rejectionReason, setRejectionReason] = useState("");
   const [submissionsState, setSubmissionsState] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const [, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<
     "approve" | "reject" | null
   >(null);
@@ -150,6 +153,9 @@ const PriortySubmissionsPage = () => {
     searchTerm: "",
     status: "",
     school: "",
+    district: "",
+    start_date: "",
+    end_date: "",
   });
   const [sortConfig, setSortConfig] = useState<{
     key: string;
@@ -192,16 +198,29 @@ const PriortySubmissionsPage = () => {
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
 
-  // Fetch submissions and schools from backend
+  // Fetch submissions based on active tab
   const fetchSubmissions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("requests/?status=pending");
+      const status = activeTab === "pending" ? "pending" : "approved";
+      const params: any = { status };
+
+      // Add filters to params
+      if (filterOptions.school) params.school_ids = filterOptions.school;
+      if (filterOptions.start_date)
+        params.start_date = filterOptions.start_date;
+      if (filterOptions.end_date) params.end_date = filterOptions.end_date;
+
+      const res = await api.get(`requests/`, { params });
       setSubmissionsState(res.data);
-      // Fetch schools for filter dropdown
+
+      // Fetch schools and districts
       const schoolRes = await api.get("schools/");
       setSchools(schoolRes.data);
+
+      const districtRes = await api.get("school-districts/");
+      setDistricts(districtRes.data);
     } catch (err: any) {
       console.error("Failed to fetch submissions:", err);
       setError("Failed to fetch submissions");
@@ -212,7 +231,13 @@ const PriortySubmissionsPage = () => {
 
   useEffect(() => {
     fetchSubmissions();
-  }, []);
+  }, [
+    activeTab,
+    filterOptions.school,
+    filterOptions.district,
+    filterOptions.start_date,
+    filterOptions.end_date,
+  ]);
 
   // Approve handler
   const handleApprove = async (submission: Submission) => {
@@ -275,6 +300,8 @@ const PriortySubmissionsPage = () => {
   // Filtering logic
   const filteredSubmissions = useMemo(() => {
     let filtered = submissionsState;
+
+    // Search term filter
     if (filterOptions.searchTerm) {
       const term = filterOptions.searchTerm.toLowerCase();
       filtered = filtered.filter((submission) => {
@@ -292,9 +319,13 @@ const PriortySubmissionsPage = () => {
         );
       });
     }
+
+    // Status filter
     if (filterOptions.status) {
       filtered = filtered.filter((s) => s.status === filterOptions.status);
     }
+
+    // School filter
     if (filterOptions.school) {
       filtered = filtered.filter(
         (s) =>
@@ -302,6 +333,26 @@ const PriortySubmissionsPage = () => {
           String(s.user.school.schoolId) === filterOptions.school
       );
     }
+
+    // District filter
+    if (filterOptions.district) {
+      filtered = filtered.filter(
+        (s) => s.user.school?.district?.districtId === filterOptions.district
+      );
+    }
+
+    // Date range filter
+    if (filterOptions.start_date && filterOptions.end_date) {
+      const startDate = new Date(filterOptions.start_date);
+      const endDate = new Date(filterOptions.end_date);
+      endDate.setHours(23, 59, 59, 999); // Include entire end date
+
+      filtered = filtered.filter((s) => {
+        const submissionDate = new Date(s.created_at);
+        return submissionDate >= startDate && submissionDate <= endDate;
+      });
+    }
+
     return filtered;
   }, [submissionsState, filterOptions]);
 
@@ -375,7 +426,6 @@ const PriortySubmissionsPage = () => {
         const res = await api.get(
           `/requests/${viewedSubmission.request_id}/history/`
         );
-        console.log(res.data);
         setSubmissionHistory(res.data as HistoryItem[]);
       } catch (err) {
         setSubmissionHistory(null);
@@ -391,7 +441,6 @@ const PriortySubmissionsPage = () => {
     history: HistoryItem[] | null
   ): HistoryItem | null => {
     if (!history || history.length < 2) return null;
-    // Find most recent version with status "rejected"
     return (
       history.find((item, idx) => idx !== 0 && item.status === "rejected") ||
       null
@@ -564,13 +613,83 @@ const PriortySubmissionsPage = () => {
     );
   }
 
+  // Date range handler
+  const handleDateRangeChange = (dates: any, dateStrings: [string, string]) => {
+    if (!dates || !dates[0] || !dates[1]) {
+      setFilterOptions((prev) => ({
+        ...prev,
+        start_date: "",
+        end_date: "",
+      }));
+      return;
+    }
+
+    const [start, end] = dates;
+
+    if (start.isAfter(end)) {
+      toast.error("End date must be after start date");
+      return;
+    }
+
+    const maxRange = 365;
+    if (end.diff(start, "days") > maxRange) {
+      toast.error(`Date range cannot exceed ${maxRange} days`);
+      return;
+    }
+
+    setFilterOptions((prev) => ({
+      ...prev,
+      start_date: dateStrings[0],
+      end_date: dateStrings[1],
+    }));
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setFilterOptions({
+      searchTerm: "",
+      status: "",
+      school: "",
+      district: "",
+      start_date: "",
+      end_date: "",
+    });
+    setCurrentPage(1);
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="School Heads' Priority Submissions" />
+
+      {/* Tab Navigation */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "pending"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("pending")}
+        >
+          Pending Requests
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "approved"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("approved")}
+        >
+          Approved Requests
+        </button>
+      </div>
+
       {/* Search, Filters, and Items Per Page */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-        <div className="flex flex-col md:flex-row gap-2 w-full">
-          <div className="relative w-full">
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Search and Basic Filters */}
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative w-full md:w-80">
             <Input
               type="text"
               placeholder="Search submissions..."
@@ -581,31 +700,117 @@ const PriortySubmissionsPage = () => {
                   searchTerm: e.target.value,
                 }))
               }
-              className="pl-10 "
+              className="pl-10"
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           </div>
-        </div>
-        <div className="flex gap-4 w-full md:w-auto items-center">
-          <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-            Items per page:
-          </label>
+
+          {/* Status Filter */}
           <select
-            value={itemsPerPage.toString()}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              setItemsPerPage(Number(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700"
+            value={filterOptions.status}
+            onChange={(e) =>
+              setFilterOptions((prev) => ({ ...prev, status: e.target.value }))
+            }
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            {[5, 10, 20, 50].map((num) => (
-              <option key={num} value={num}>
-                Show {num}
-              </option>
-            ))}
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
           </select>
+
+          {/* School Filter */}
+          <select
+            value={filterOptions.school}
+            onChange={(e) =>
+              setFilterOptions((prev) => ({ ...prev, school: e.target.value }))
+            }
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Schools</option>
+            {/* {schools.map((school) => (
+              <option key={school.schoolId} value={school.schoolId}>
+                {school.schoolName}
+              </option>
+            ))} */}
+          </select>
+
+          {/* District Filter */}
+          <select
+            value={filterOptions.district}
+            onChange={(e) =>
+              setFilterOptions((prev) => ({
+                ...prev,
+                district: e.target.value,
+              }))
+            }
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Districts</option>
+            {/* {districts.map((district) => (
+              <option key={district.districtId} value={district.districtId}>
+                {district.districtName}
+              </option>
+            ))} */}
+          </select>
+
+          {/* Items per page */}
+          <div className="flex gap-2 items-center">
+            <label className="text-sm text-gray-600 whitespace-nowrap">
+              Items per page:
+            </label>
+            <select
+              value={itemsPerPage.toString()}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {[5, 10, 20, 50].map((num) => (
+                <option key={num} value={num}>
+                  Show {num}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-600">Date Range:</span>
+          </div>
+          <RangePicker
+            onChange={handleDateRangeChange}
+            value={
+              filterOptions.start_date && filterOptions.end_date
+                ? [
+                    dayjs(filterOptions.start_date),
+                    dayjs(filterOptions.end_date),
+                  ]
+                : null
+            }
+            disabledDate={(current) =>
+              current && current > dayjs().endOf("day")
+            }
+            format="YYYY-MM-DD"
+            style={{ width: "100%", maxWidth: "300px" }}
+          />
+
+          {/* Clear Filters Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearFilters}
+            className="whitespace-nowrap"
+          >
+            Clear Filters
+          </Button>
         </div>
       </div>
+
       {/* Table */}
       <PrioritySubmissionsTable
         submissions={currentItems}
@@ -614,7 +819,9 @@ const PriortySubmissionsPage = () => {
         error={error}
         sortConfig={sortConfig}
         requestSort={requestSort}
+        currentUserRole={user?.role}
       />
+
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
         <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -682,6 +889,7 @@ const PriortySubmissionsPage = () => {
           </Button>
         </div>
       </div>
+
       {/* Modal for viewing priorities and actions */}
       <Dialog
         open={!!viewedSubmission}
@@ -827,8 +1035,6 @@ const PriortySubmissionsPage = () => {
                   </div>
                 )
               )}
-
-              {/* Enhanced: Resubmission comparison - unchanged */}
 
               {/* Priorities Table - updated */}
               <div className="space-y-2">

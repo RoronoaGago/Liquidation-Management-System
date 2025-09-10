@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -183,7 +184,7 @@ SIMPLE_JWT = {
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -213,7 +214,7 @@ EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
 
 EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
 # Default sender email
-DEFAULT_FROM_EMAIL = 'DepEd LUSDO <riverajanlester.st.maria@gmail.com>'
+DEFAULT_FROM_EMAIL = 'DepEd LUSDO <noreply@deped.gov.ph>'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
@@ -221,6 +222,25 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'check-liquidation-reminders-every-minute': {
+        'task': 'api.tasks.check_liquidation_reminders',
+        'schedule': crontab(minute='*'),
+    },
+    'send-urgent-reminders-every-2-minutes': {
+        'task': 'api.tasks.send_urgent_liquidation_reminders',
+        'schedule': crontab(minute='*/2'),
+    },
+    'update-remaining-days-daily': {
+        'task': 'api.tasks.update_liquidation_remaining_days',
+        'schedule': crontab(minute='*'),  # once a day at midnight
+    },
+}
+
+
 
 LOGGING = {
     'version': 1,
@@ -232,7 +252,7 @@ LOGGING = {
     },
     'root': {
         'handlers': ['console'],
-        'level': 'DEBUG',  # Show all logs, including debug
+        'level': 'INFO',  # Show all logs, including debug
     },
     'loggers': {
         'django': {

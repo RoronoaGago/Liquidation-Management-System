@@ -112,31 +112,43 @@ const ManageSchools = () => {
       // Fetch schools and districts in parallel
       const [schoolsResponse, districtsResponse] = await Promise.all([
         api.get("schools/", { params }),
-        api.get("school-districts/"),
+        api.get("school-districts?show_all=true"),
       ]);
 
       const schoolsData = schoolsResponse.data.results || schoolsResponse.data;
+      console.log(schoolsData);
       const districtsData =
         districtsResponse.data.results || districtsResponse.data;
+      console.log(districtsData);
 
       // Create a mapping of district IDs to names with proper typing
-      const districtMap: Record<string, string> = districtsData.reduce(
-        (acc: Record<string, string>, district: District) => {
-          acc[district.districtId] = district.districtName;
+      const districtMap: Record<
+        string,
+        { districtName: string; is_active: boolean }
+      > = districtsData.reduce(
+        (
+          acc: Record<string, { districtName: string; is_active: boolean }>,
+          district: District
+        ) => {
+          acc[district.districtId] = {
+            districtName: district.districtName,
+            is_active: district.is_active,
+          };
           return acc;
         },
-        {} as Record<string, string> // Explicit type annotation
+        {} as Record<string, { districtName: string; is_active: boolean }>
       );
 
       // Enhance schools data with district names
       const enhancedSchools = schoolsData.map((school: any) => ({
         ...school,
-        district: {
-          districtId: school.district,
-          districtName: school.district
-            ? districtMap[school.district] || ""
-            : "",
-        },
+        district: school.district
+          ? {
+              districtId: school.district,
+              districtName: districtMap[school.district]?.districtName || "",
+              is_active: districtMap[school.district]?.is_active ?? true,
+            }
+          : { districtId: "", districtName: "", is_active: true },
       }));
 
       setSchools(enhancedSchools);
@@ -152,7 +164,7 @@ const ManageSchools = () => {
   useEffect(() => {
     const fetchDistricts = async () => {
       try {
-        const response = await api.get("school-districts/");
+        const response = await api.get("school-districts/?show_all=true");
         // Handle both paginated and non-paginated responses
         const districtsData = response.data.results || response.data;
         // Ensure we always set an array
@@ -502,15 +514,25 @@ const ManageSchools = () => {
                       districts
                         .filter(
                           (district) =>
-                            district.municipality === formData.municipality &&
-                            district.is_active
+                            district.municipality === formData.municipality
                         )
                         .map((district) => (
                           <option
                             key={district.districtId}
                             value={district.districtId}
+                            disabled={!district.is_active}
+                            style={{
+                              color: !district.is_active ? "#888" : undefined,
+                              backgroundColor: !district.is_active
+                                ? "#f3f4f6"
+                                : undefined,
+                              fontStyle: !district.is_active
+                                ? "italic"
+                                : undefined,
+                            }}
                           >
                             {district.districtName}
+                            {!district.is_active ? " (inactive)" : ""}
                           </option>
                         ))}
                   </select>
