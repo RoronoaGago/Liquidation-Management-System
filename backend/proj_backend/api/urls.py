@@ -26,6 +26,7 @@ urlpatterns = [
     path('request-otp/', request_otp, name='request-otp'),
     path('verify-otp/', verify_otp, name='verify-otp'),
     path('resend-otp/', resend_otp, name='resend-otp'),
+    path("users/update-e-signature/", update_e_signature, name="update-e-signature"),
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
@@ -101,8 +102,7 @@ urlpatterns = [
          views.last_liquidated_request, name='last_liquidated_request'),
 
     # Report URLs
-    path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
-         name='unliquidated-schools-report'),
+    path('reports/unliquidated-schools/', schools_with_unliquidated_requests,name='unliquidated-schools-report'),
     path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
-    path("users/update-e-signature/", update_e_signature, name="update-e-signature"),
+    path('liquidations/<str:LiquidationID>/generate-report/', views.generate_liquidation_report, name='generate-liquidation-report'),
 ]
