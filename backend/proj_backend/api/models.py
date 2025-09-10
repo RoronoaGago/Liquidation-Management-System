@@ -89,6 +89,8 @@ class User(AbstractUser):
         related_name='district_users',
         help_text="District assignment (only for district administrative assistants)"
     )
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_generated_at = models.DateTimeField(blank=True, null=True)
 
     USERNAME_FIELD = 'email'  # Use email as the login identifier
     REQUIRED_FIELDS = ['first_name', 'last_name']  # Add basic required fields
@@ -145,7 +147,8 @@ class School(models.Model):
     )
     legislativeDistrict = models.CharField(
         max_length=100,
-        choices=[("1st District", "1st District"), ("2nd District", "2nd District")]
+        choices=[("1st District", "1st District"),
+                 ("2nd District", "2nd District")]
     )
     is_active = models.BooleanField(default=True)
     max_budget = models.DecimalField(
@@ -154,11 +157,14 @@ class School(models.Model):
         default=0.00,
         verbose_name="Maximum Budget"
     )
-    last_liquidated_month = models.PositiveSmallIntegerField(null=True, blank=True)
-    last_liquidated_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_liquidated_month = models.PositiveSmallIntegerField(
+        null=True, blank=True)
+    last_liquidated_year = models.PositiveSmallIntegerField(
+        null=True, blank=True)
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
+
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
@@ -339,8 +345,8 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Only runs when not manually approving/rejecting"""
         if (not hasattr(self, '_status_changed_by')
-            and not self._skip_auto_status
-            and self.request_monthyear
+                and not self._skip_auto_status
+                and self.request_monthyear
             ):
             today = date.today()
             try:
@@ -452,6 +458,8 @@ class LiquidationManagement(models.Model):
         super().__init__(*args, **kwargs)
         self._old_status = self.status  # Track initial status
         self._status_changed_by = None  # Track who changed the status
+        self._old_remaining_days = self.remaining_days  # Track initial remaining_days
+
 
     @property
     def liquidation_deadline(self):
@@ -469,15 +477,44 @@ class LiquidationManagement(models.Model):
         if total_requested == total_liquidated:
             return None
         return total_requested - total_liquidated
-
+    def check_and_send_reminders(self):
+        """Check and send reminders based on remaining days"""
+        if self.status in ['liquidated']:
+            return
+        
+        if not self.liquidation_deadline:
+            return
+        
+        from django.utils import timezone
+        today = timezone.now().date()
+        days_left = (self.liquidation_deadline - today).days
+        
+        reminder_days = [15, 10, 5, 3, 1]
+        
+        if days_left in reminder_days:
+            if self.request.last_reminder_sent != today:
+                from .tasks import send_liquidation_reminder
+                send_liquidation_reminder.delay(self.pk, days_left)
+                self.request.last_reminder_sent = today
+                self.request.save(update_fields=['last_reminder_sent'])
+        
+        elif days_left <= 0 and not self.request.demand_letter_sent:
+            from .tasks import send_liquidation_demand_letter
+            send_liquidation_demand_letter.delay(self.pk)
+            self.request.demand_letter_sent = True
+            self.request.demand_letter_date = today
+            self.request.save(update_fields=['demand_letter_sent', 'demand_letter_date'])
     def calculate_remaining_days(self):
         if self.request and self.request.downloaded_at:
             # Ensure downloaded_at is timezone-aware if working with timezones
-            deadline = self.request.downloaded_at + timedelta(days=30)
+            downloaded_at = self.request.downloaded_at
+            if isinstance(downloaded_at, date) and not isinstance(downloaded_at, datetime):
+                downloaded_at = timezone.datetime.combine(downloaded_at, timezone.datetime.min.time())
+
+            deadline = downloaded_at + timedelta(days=30)
 
             # Use timezone-aware now() if working with timezones
-            today = datetime.now(
-                deadline.tzinfo) if deadline.tzinfo else datetime.now()
+            today = timezone.now() if timezone.is_aware(deadline) else datetime.now()
 
             remaining = (deadline - today).days
             return max(remaining, 0)  # Returns 0 if deadline has passed
@@ -489,10 +526,11 @@ class LiquidationManagement(models.Model):
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
             self._old_status = old.status
+            self._old_remaining_days = old.remaining_days  # Store old value
 
-        # Set downloaded_at when status changes to 'downloaded'
-        # if self.status == 'downloaded' and not self.downloaded_at:
-        #     self.downloaded_at = timezone.now()
+        # Calculate fields BEFORE saving
+        self.refund = self.calculate_refund()
+        self.remaining_days = self.calculate_remaining_days()
 
         # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:
@@ -515,9 +553,6 @@ class LiquidationManagement(models.Model):
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
             self.date_districtApproved = None
 
-        # Calculate fields
-        self.refund = self.calculate_refund()
-
         super().save(*args, **kwargs)
 
     def clean(self):
@@ -528,6 +563,14 @@ class LiquidationManagement(models.Model):
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
+
+    @classmethod
+    def update_all_remaining_days(cls):
+        for liquidation in cls.objects.all():
+            new_remaining = liquidation.calculate_remaining_days()
+            if liquidation.remaining_days != new_remaining:
+                liquidation.remaining_days = new_remaining
+                liquidation.save(update_fields=['remaining_days'])
 
 
 class LiquidationDocument(models.Model):
@@ -601,15 +644,19 @@ class LiquidationPriority(models.Model):
     def __str__(self):
         return f"{self.liquidation} - {self.priority} (${self.amount})"
 
+
 class SchoolDistrict(models.Model):
     districtId = models.AutoField(primary_key=True)
     districtName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(
         max_length=100,
-        choices=[("1st District", "1st District"), ("2nd District", "2nd District")]
+        choices=[("1st District", "1st District"),
+                 ("2nd District", "2nd District")]
     )
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.districtName} ({self.districtId})"
+
+

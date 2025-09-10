@@ -1,3 +1,9 @@
+from django.db.models.functions import TruncMonth, ExtractDay
+from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField
+from django.http import HttpResponse
+import csv
+from .serializers import UnliquidatedSchoolReportSerializer
+from .models import School, RequestManagement
 from urllib import request
 from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
@@ -23,7 +29,14 @@ from rest_framework.pagination import PageNumberPagination
 import string
 from django.contrib.auth import update_session_auth_hash
 from django.utils.crypto import get_random_string
-
+from .utils import generate_otp, send_otp_email
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from django.contrib.auth import authenticate
+from django.utils import timezone
+from .models import User
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -102,13 +115,18 @@ def user_list(request):
         school_filter = request.query_params.get('school', None)
         search_term = request.query_params.get('search', None)
         ordering = request.query_params.get('ordering', '-date_joined')
+        show_all = request.query_params.get(
+            'show_all', 'false').lower() == 'true'
+        archived = request.query_params.get(
+            'archived', 'false').lower() == 'true'
 
         queryset = User.objects.exclude(id=request.user.id)
         # Archive filter
-        if not show_archived:
-            queryset = queryset.filter(is_active=True)
-        else:
-            queryset = queryset.filter(is_active=False)
+        if not show_all:
+            if not archived:
+                queryset = queryset.filter(is_active=True)
+            else:
+                queryset = queryset.filter(is_active=False)
 
         # Role filter
         if role_filter:
@@ -316,19 +334,15 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = Requirement.objects.all()
-        archived = self.request.query_params.get(
-            'archived', 'false').lower() == 'true'
-        if archived:
-            queryset = queryset.filter(is_active=False)
-        else:
-            queryset = queryset.filter(is_active=True)
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
         search_term = self.request.query_params.get('search', None)
         if search_term:
             queryset = queryset.filter(requirementTitle__icontains=search_term)
         return queryset
 
     def create(self, request, *args, **kwargs):
-        # Check if request.data is a list (batch)
         is_many = isinstance(request.data, list)
         serializer = self.get_serializer(data=request.data, many=is_many)
         serializer.is_valid(raise_exception=True)
@@ -1234,6 +1248,39 @@ def liquidation_management_history(request, LiquidationID):
     return Response(serializer.data)
 
 
+# @api_view(['POST'])
+# def request_otp(request):
+#     email = request.data.get('email')
+#     user = User.objects.filter(email=email).first()
+#     if not user:
+#         return Response({'error': 'User not found'}, status=404)
+#     otp = generate_otp()
+#     user.otp_code = otp
+#     user.otp_generated_at = timezone.now()
+#     user.save(update_fields=['otp_code', 'otp_generated_at'])
+#     send_otp_email(user, otp)
+#     return Response({'message': 'OTP sent to your email.'})
+
+
+# @api_view(['POST'])
+# def verify_otp(request):
+#     email = request.data.get('email')
+#     otp = request.data.get('otp')
+#     user = User.objects.filter(email=email).first()
+#     if not user or not user.otp_code:
+#         return Response({'error': 'OTP not found'}, status=404)
+#     # Optional: Check OTP expiry (e.g., valid for 5 minutes)
+#     if timezone.now() - user.otp_generated_at > timezone.timedelta(minutes=5):
+#         return Response({'error': 'OTP expired'}, status=400)
+#     if user.otp_code != otp:
+#         return Response({'error': 'Invalid OTP'}, status=400)
+#     # OTP is valid, clear it
+#     user.otp_code = None
+#     user.otp_generated_at = None
+#     user.save(update_fields=['otp_code', 'otp_generated_at'])
+#     return Response({'message': 'OTP verified. You may now log in.'})
+
+
 class SchoolDistrictPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
@@ -1252,12 +1299,15 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
         municipality = self.request.query_params.get('municipality', None)
         archived = self.request.query_params.get(
             'archived', 'false').lower() == 'true'
+        show_all = self.request.query_params.get(
+            'show_all', 'false').lower() == 'true'
 
-        # Archive filter
-        if not archived:
-            queryset = queryset.filter(is_active=True)
-        else:
-            queryset = queryset.filter(is_active=False)
+        # Archive filter - show_all takes precedence over archived
+        if not show_all:
+            if not archived:
+                queryset = queryset.filter(is_active=True)
+            else:
+                queryset = queryset.filter(is_active=False)
 
         if search_term:
             queryset = queryset.filter(
@@ -1320,3 +1370,378 @@ def last_liquidated_request(request):
     if not last_req:
         return Response({"detail": "No liquidated request found"}, status=404)
     return Response(PreviousRequestSerializer(last_req).data)
+
+
+def generate_otp():
+    return ''.join(str(random.randint(0, 9)) for _ in range(6))
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def request_otp(request):
+    email = request.data.get('email')
+    password = request.data.get('password')
+    try:
+        user_obj = User.objects.get(email=email)
+        if not user_obj.is_active:
+            return Response({'message': 'Your account has been archived by the administrator. To reactivate your account, please contact our support team at support@company.com.'}, status=403)
+        user = authenticate(email=email, password=password)
+        if not user:
+            return Response({'message': 'Invalid email or password'}, status=400)
+        otp = generate_otp()
+        user.otp_code = otp
+        user.otp_generated_at = timezone.now()
+        user.save()
+        send_otp_email(user, otp)
+        return Response({'message': 'OTP sent to your email'})
+    except User.DoesNotExist:
+        return Response({'message': 'Invalid email or password'}, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    email = request.data.get('email')
+    otp = request.data.get('otp')
+    try:
+        user = User.objects.get(email=email)
+        if not user.is_active:
+            return Response({'error': 'Your account is inactive. Please contact the administrator.'}, status=403)
+        # Check OTP validity (add expiry logic if needed)
+        if timezone.now() - user.otp_generated_at > timezone.timedelta(minutes=5):
+            return Response({'error': 'OTP expired'}, status=400)
+
+        if user.otp_code == otp:
+            user.otp_code = None
+            user.save()
+            return Response({'message': 'OTP verified'})
+        else:
+            return Response({'message': 'Invalid OTP. Please try again.'}, status=400)
+    except User.DoesNotExist:
+        return Response({'message': 'User not found'}, status=404)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_otp(request):
+    email = request.data.get('email')
+    try:
+        user = User.objects.get(email=email)
+        otp = generate_otp()
+        user.otp_code = otp
+        user.otp_generated_at = timezone.now()
+        user.save()
+        send_otp_email(user, otp)
+        return Response({'message': 'OTP resent'})
+    except User.DoesNotExist:
+        return Response({'message': 'User not found'}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def schools_with_unliquidated_requests(request):
+    month = request.GET.get('month')  # format: 'YYYY-MM'
+    filters = {'status': 'unliquidated'}
+    if month:
+        filters['request_monthyear'] = month
+
+    # Get all schools with an unliquidated request for the selected month
+    unliquidated_requests = RequestManagement.objects.filter(**filters)
+    school_ids = unliquidated_requests.values_list(
+        'user__school__schoolId', flat=True).distinct()
+    schools = School.objects.filter(schoolId__in=school_ids)
+
+    data = [
+        {
+            "schoolId": school.schoolId,
+            "schoolName": school.schoolName,
+            "has_unliquidated": True
+        }
+        for school in schools
+    ]
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_dashboard(request):
+    # Check if user is admin
+    if request.user.role != 'admin':
+        return Response({"error": "Only administrators can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
+
+    # Get time range parameter
+    time_range = request.GET.get('time_range', 'last_quarter')
+
+    # Calculate date range based on parameter
+    end_date = timezone.now()
+    if time_range == 'last_week':
+        start_date = end_date - timedelta(days=7)
+    elif time_range == 'last_month':
+        start_date = end_date - timedelta(days=30)
+    elif time_range == 'last_quarter':
+        start_date = end_date - timedelta(days=90)
+    elif time_range == 'last_year':
+        start_date = end_date - timedelta(days=365)
+    else:
+        start_date = end_date - timedelta(days=90)  # Default to last quarter
+
+    # 1. Budget Utilization Data
+    budget_utilization = []
+    months = []
+    current = start_date
+
+    while current <= end_date:
+        month_str = current.strftime('%Y-%m')
+        months.append(month_str)
+        current = current + timedelta(days=30)  # Approximate month
+
+    for month in months:
+        # Get all requests for this month
+        month_requests = RequestManagement.objects.filter(
+            created_at__year=month[:4],
+            created_at__month=month[5:7]
+        )
+
+        total_allocated = School.objects.aggregate(
+            total=Sum('max_budget'))['total'] or 0
+        total_utilized = RequestPriority.objects.filter(
+            request__in=month_requests
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        utilization_rate = (total_utilized / total_allocated *
+                            100) if total_allocated > 0 else 0
+
+        budget_utilization.append({
+            'month': month,
+            'allocated': float(total_allocated),
+            'utilized': float(total_utilized),
+            'utilizationRate': float(utilization_rate)
+        })
+
+    # 2. Request Status Distribution
+    status_counts = RequestManagement.objects.values('status').annotate(
+        count=Count('status')
+    ).order_by('-count')
+
+    total_requests = RequestManagement.objects.count()
+    request_status_distribution = []
+
+    for status in status_counts:
+        percentage = (status['count'] / total_requests *
+                      100) if total_requests > 0 else 0
+        request_status_distribution.append({
+            'status': status['status'],
+            'count': status['count'],
+            'percentage': float(percentage)
+        })
+
+    # 3. Liquidation Timeline
+    liquidation_timeline = []
+    for month in months:
+        month_liquidations = LiquidationManagement.objects.filter(
+            created_at__year=month[:4],
+            created_at__month=month[5:7]
+        )
+
+        # Calculate average processing time (days from request to liquidation)
+        avg_processing = month_liquidations.annotate(
+            processing_time=ExpressionWrapper(
+                F('date_liquidated') - F('request__created_at'),
+                output_field=FloatField()
+            )
+        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+
+        # Convert timedelta to days
+        if hasattr(avg_processing, 'days'):
+            avg_processing_days = avg_processing.days
+        else:
+            avg_processing_days = float(
+                avg_processing) / (24 * 60 * 60) if avg_processing else 0
+
+        approved_count = month_liquidations.filter(status='liquidated').count()
+        rejected_count = month_liquidations.filter(status='resubmit').count()
+
+        liquidation_timeline.append({
+            'month': month,
+            'avgProcessingTime': float(avg_processing_days),
+            'approved': approved_count,
+            'rejected': rejected_count
+        })
+
+    # 4. School Performance
+    school_performance = []
+    schools = School.objects.all()
+
+    for school in schools:
+        school_requests = RequestManagement.objects.filter(user__school=school)
+        total_requests = school_requests.count()
+        approved_requests = school_requests.filter(status='approved').count()
+        rejected_requests = school_requests.filter(status='rejected').count()
+
+        rejection_rate = (rejected_requests / total_requests *
+                          100) if total_requests > 0 else 0
+
+        # Calculate average processing time for this school
+        school_liquidations = LiquidationManagement.objects.filter(
+            request__user__school=school)
+        avg_processing = school_liquidations.annotate(
+            processing_time=ExpressionWrapper(
+                F('date_liquidated') - F('request__created_at'),
+                output_field=FloatField()
+            )
+        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+
+        if hasattr(avg_processing, 'days'):
+            avg_processing_days = avg_processing.days
+        else:
+            avg_processing_days = float(
+                avg_processing) / (24 * 60 * 60) if avg_processing else 0
+
+        # Calculate budget utilization for this school
+        school_utilized = RequestPriority.objects.filter(
+            request__user__school=school
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        budget_utilization_rate = (
+            school_utilized / school.max_budget * 100) if school.max_budget > 0 else 0
+
+        school_performance.append({
+            'schoolId': school.schoolId,
+            'schoolName': school.schoolName,
+            'totalRequests': total_requests,
+            'approvedRequests': approved_requests,
+            'rejectionRate': float(rejection_rate),
+            'avgProcessingTime': float(avg_processing_days),
+            'budgetUtilization': float(budget_utilization_rate)
+        })
+
+    # 5. Category Spending
+    category_spending = []
+    categories = ListOfPriority.CATEGORY_CHOICES
+
+    for category_key, category_name in categories:
+        category_total = RequestPriority.objects.filter(
+            priority__category=category_key
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        total_all_categories = RequestPriority.objects.aggregate(total=Sum('amount'))[
+            'total'] or 0
+        percentage = (category_total / total_all_categories *
+                      100) if total_all_categories > 0 else 0
+
+        # Simple trend calculation (compare with previous period)
+        trend = 'stable'
+        if category_total > 0:
+            # This is a simplified trend calculation
+            trend = 'up' if category_total > 10000 else 'down'
+
+        category_spending.append({
+            'category': category_name,
+            'totalAmount': float(category_total),
+            'percentage': float(percentage),
+            'trend': trend
+        })
+
+    # Sort by total amount descending
+    category_spending.sort(key=lambda x: x['totalAmount'], reverse=True)
+
+    # 6. Document Compliance
+    document_compliance = []
+    requirements = Requirement.objects.all()
+
+    for requirement in requirements:
+        total_submitted = LiquidationDocument.objects.filter(
+            requirement=requirement
+        ).count()
+
+        compliant = LiquidationDocument.objects.filter(
+            requirement=requirement,
+            is_approved=True
+        ).count()
+
+        compliance_rate = (compliant / total_submitted *
+                           100) if total_submitted > 0 else 0
+
+        document_compliance.append({
+            'requirement': requirement.requirementTitle,
+            'totalSubmitted': total_submitted,
+            'compliant': compliant,
+            'complianceRate': float(compliance_rate)
+        })
+
+    # 7. Top Priorities
+    top_priorities = []
+    priorities = RequestPriority.objects.values(
+        'priority__expenseTitle'
+    ).annotate(
+        frequency=Count('priority'),
+        total_amount=Sum('amount')
+    ).order_by('-total_amount')[:10]
+
+    for priority in priorities:
+        # Simple trend calculation
+        trend = 'stable'
+        if priority['total_amount']:
+            trend = 'up' if priority['total_amount'] > 5000 else 'down'
+
+        top_priorities.append({
+            'priority': priority['priority__expenseTitle'],
+            'frequency': priority['frequency'],
+            'totalAmount': float(priority['total_amount']),
+            'trend': trend
+        })
+
+    # 8. Pending Actions
+    pending_actions = []
+
+    # Pending requests needing approval
+    pending_requests = RequestManagement.objects.filter(status='pending')
+    for request in pending_requests:
+        days_pending = (timezone.now() - request.created_at).days
+        priority = 'high' if days_pending > 7 else 'medium' if days_pending > 3 else 'low'
+
+        pending_actions.append({
+            'id': request.request_id,
+            'type': 'request',
+            'title': f'Pending Request: {request.request_id}',
+            'description': f'Request from {request.user.get_full_name()} pending for {days_pending} days',
+            'priority': priority,
+            'timestamp': request.created_at.isoformat()
+        })
+
+    # Pending liquidations needing review
+    pending_liquidations = LiquidationManagement.objects.filter(
+        status__in=['submitted', 'under_review_district',
+                    'under_review_division']
+    )
+    for liquidation in pending_liquidations:
+        days_pending = (timezone.now() - liquidation.created_at).days
+        priority = 'high' if days_pending > 5 else 'medium' if days_pending > 2 else 'low'
+
+        pending_actions.append({
+            'id': liquidation.LiquidationID,
+            'type': 'liquidation',
+            'title': f'Pending Liquidation: {liquidation.LiquidationID}',
+            'description': f'Liquidation for request {liquidation.request.request_id} pending review',
+            'priority': priority,
+            'timestamp': liquidation.created_at.isoformat()
+        })
+
+    # Sort by priority and timestamp
+    priority_order = {'high': 0, 'medium': 1, 'low': 2}
+    pending_actions.sort(key=lambda x: (
+        priority_order[x['priority']], x['timestamp']))
+
+    # Prepare response data
+    response_data = {
+        'budgetUtilization': budget_utilization,
+        'requestStatusDistribution': request_status_distribution,
+        'liquidationTimeline': liquidation_timeline,
+        'schoolPerformance': school_performance,
+        'categorySpending': category_spending,
+        'documentCompliance': document_compliance,
+        'topPriorities': top_priorities,
+        'pendingActions': pending_actions
+    }
+
+    return Response(response_data)

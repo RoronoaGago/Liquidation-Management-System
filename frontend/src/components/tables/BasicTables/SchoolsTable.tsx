@@ -875,8 +875,20 @@ export default function SchoolsTable({
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {school.schoolName}
                     </TableCell>
-                    <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
+                    <TableCell
+                      className={
+                        school.district?.is_active === false
+                          ? "px-6 whitespace-nowrap py-4 text-gray-400 italic text-start text-theme-sm dark:text-gray-500"
+                          : "px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400"
+                      }
+                    >
                       {school.district?.districtName}
+                      {school.district &&
+                        school.district.is_active === false && (
+                          <span className="ml-1 text-xs text-red-500">
+                            (inactive)
+                          </span>
+                        )}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {school.municipality}
@@ -1129,15 +1141,23 @@ export default function SchoolsTable({
                   {districts
                     .filter(
                       (district) =>
-                        district.municipality ===
-                          selectedSchool?.municipality && district.is_active
+                        district.municipality === selectedSchool?.municipality
                     )
                     .map((district) => (
                       <option
                         key={district.districtId}
                         value={district.districtId}
+                        disabled={!district.is_active}
+                        style={{
+                          color: !district.is_active ? "#888" : undefined,
+                          backgroundColor: !district.is_active
+                            ? "#f3f4f6"
+                            : undefined,
+                          fontStyle: !district.is_active ? "italic" : undefined,
+                        }}
                       >
                         {district.districtName}
+                        {!district.is_active ? " (inactive)" : ""}
                       </option>
                     ))}
                 </select>
@@ -1237,8 +1257,20 @@ export default function SchoolsTable({
                   <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     District
                   </Label>
-                  <p className="text-gray-800 dark:text-gray-200 mt-1">
-                    {schoolToView.district.districtName}
+                  <p
+                    className={
+                      schoolToView.district?.is_active === false
+                        ? " text-gray-400 italic text-start text-theme-sm dark:text-gray-500"
+                        : " text-gray-800 text-start text-theme-sm dark:text-gray-400"
+                    }
+                  >
+                    {schoolToView.district?.districtName}
+                    {schoolToView.district &&
+                      schoolToView.district.is_active === false && (
+                        <span className="ml-1 text-xs text-red-500">
+                          (inactive)
+                        </span>
+                      )}
                   </p>
                 </div>
                 <div>
