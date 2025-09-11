@@ -1,5 +1,5 @@
 from django.db.models.functions import TruncMonth, ExtractDay
-from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When
+from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
 from django.http import HttpResponse
 import csv
 from datetime import date
@@ -1683,37 +1683,42 @@ def admin_dashboard(request):
         })
 
     # 3. Liquidation Timeline - FIXED: Use liquidation created_at instead of request created_at
+    
+
+    # In your admin_dashboard view, replace the liquidation timeline calculation with:
+
     liquidation_timeline = []
     for month in months:
         month_liquidations = LiquidationManagement.objects.filter(
             created_at__year=month[:4],
-            created_at__month=month[5:7]
-        )
-
-        # Calculate average processing time (days from liquidation creation to completion)
-        avg_processing = month_liquidations.filter(
+            created_at__month=month[5:7],
             status='liquidated'
         ).annotate(
-            processing_time=ExpressionWrapper(
-                # CHANGED: Use liquidation creation date
-                F('date_liquidated') - F('created_at'),
-                output_field=FloatField()
+            processing_days=ExpressionWrapper(
+                # Use the actual liquidation date minus the request download date
+                F('date_liquidated') - F('request__downloaded_at__date'),
+                output_field=DurationField()
             )
-        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+        )
 
-        # Convert timedelta to days
-        if hasattr(avg_processing, 'days'):
-            avg_processing_days = avg_processing.days
-        else:
-            avg_processing_days = float(
-                avg_processing) / (24 * 60 * 60) if avg_processing else 0
+        # Calculate average processing time in days
+        avg_seconds = month_liquidations.aggregate(
+            avg_seconds=Avg('processing_days')
+        )['avg_seconds'] or 0
+        
+        # Convert seconds to days
+        avg_days = avg_seconds.total_seconds() / (24 * 60 * 60) if avg_seconds else 0
 
-        approved_count = month_liquidations.filter(status='liquidated').count()
-        rejected_count = month_liquidations.filter(status='resubmit').count()
+        approved_count = month_liquidations.count()
+        rejected_count = LiquidationManagement.objects.filter(
+            created_at__year=month[:4],
+            created_at__month=month[5:7],
+            status='resubmit'
+        ).count()
 
         liquidation_timeline.append({
             'month': month,
-            'avgProcessingTime': float(avg_processing_days),
+            'avgProcessingTime': float(avg_days),
             'approved': approved_count,
             'rejected': rejected_count
         })
@@ -1737,18 +1742,14 @@ def admin_dashboard(request):
             status='liquidated'
         )
         avg_processing = school_liquidations.annotate(
-            processing_time=ExpressionWrapper(
-                # CHANGED: Use liquidation creation date
-                F('date_liquidated') - F('created_at'),
-                output_field=FloatField()
-            )
-        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+        processing_days=ExpressionWrapper(
+            F('date_liquidated') - F('request__downloaded_at__date'),
+            output_field=DurationField())).aggregate(avg=Avg('processing_days'))['avg'] or 0
 
-        if hasattr(avg_processing, 'days'):
-            avg_processing_days = avg_processing.days
+        if avg_processing:
+            avg_processing_days = avg_processing.total_seconds() / (24 * 60 * 60)
         else:
-            avg_processing_days = float(
-                avg_processing) / (24 * 60 * 60) if avg_processing else 0
+            avg_processing_days = 0
 
         # Calculate budget utilization for this school
         school_utilized = RequestPriority.objects.filter(
