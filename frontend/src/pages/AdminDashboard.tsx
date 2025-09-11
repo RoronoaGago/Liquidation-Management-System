@@ -69,6 +69,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 // Types for our data
 interface DashboardData {
   budgetUtilization: BudgetUtilizationData[];
+  categoryBreakdown: CategoryBreakdownData[];
   requestStatusDistribution: StatusData[];
   liquidationTimeline: TimelineData[];
   schoolPerformance: SchoolPerformanceData[];
@@ -103,8 +104,14 @@ interface SchoolSpeedData {
 interface BudgetUtilizationData {
   month: string;
   allocated: number;
-  utilized: number;
-  utilizationRate: number;
+  planned: number; // NEW
+  actual: number; // NEW
+  plannedUtilizationRate: number; // NEW
+  actualUtilizationRate: number; // NEW
+}
+interface CategoryBreakdownData {
+  month: string;
+  [category: string]: { planned: number; actual: number } | string; // Index signature
 }
 
 interface StatusData {
@@ -191,8 +198,8 @@ const COLORS = [
 // In the defaultLayouts object, update the compliance widget position and size
 const defaultLayouts: DashboardLayout = {
   lg: [
-    { i: "metrics", x: 0, y: 0, w: 12, h: 2, minW: 4, minH: 1 }, // rows 0-1
-    { i: "timeline", x: 0, y: 2, w: 12, h: 5, minW: 6, minH: 3 }, // rows 2-7
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 }, // Increased from h:2 to h:4
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 4 }, // y starts at 4 instead of
     { i: "budget", x: 0, y: 8, w: 6, h: 6, minW: 4, minH: 4 }, // rows 8-13
     { i: "status", x: 6, y: 8, w: 6, h: 6, minW: 4, minH: 4 }, // rows 8-13
     { i: "performance", x: 0, y: 14, w: 12, h: 8, minW: 6, minH: 6 }, // rows 14-21
@@ -263,8 +270,8 @@ const WidgetContainer = ({
               {title}
             </h3>
             {editMode && (
-              <span className="widget-drag-handle cursor-grab active:cursor-grabbing">
-                <GripVertical className="h-4 w-4" />
+              <span className="widget-drag-handle cursor-grab active:cursor-grabbing p-1">
+                <GripVertical className="h-5 w-5 text-gray-400" />
               </span>
             )}
           </div>
@@ -449,86 +456,218 @@ const BudgetWidget = ({
   editMode: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"utilization" | "categories">(
+    "utilization"
+  ); // NEW
 
   const toggleDropdown = () => setIsOpen(!isOpen);
   const closeDropdown = () => setIsOpen(false);
 
+  // NEW: Prepare data for the category stacked bar chart
+  const getCategoryChartData = () => {
+    if (!data?.categoryBreakdown) return [];
+
+    return data.categoryBreakdown.map((monthData) => {
+      const result: any = { month: monthData.month };
+
+      // Sum all planned values for the total bar
+      result["Total Planned"] = 0;
+      result["Total Actual"] = 0;
+
+      // Add each category
+      Object.entries(monthData).forEach(([key, value]) => {
+        if (key !== "month" && typeof value === "object") {
+          result[`${key} (Planned)`] = value.planned;
+          result[`${key} (Actual)`] = value.actual;
+          result["Total Planned"] += value.planned;
+          result["Total Actual"] += value.actual;
+        }
+      });
+
+      return result;
+    });
+  };
+
   return (
     <WidgetContainer
-      title="Budget Utilization Over Time"
+      title="Budget Analysis"
+      subtitle="Planned vs. actual spending over time"
       editMode={editMode}
       actions={
-        <div className="relative inline-block">
-          <button className="dropdown-toggle no-drag" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+        <div className="flex items-center gap-2">
+          {/* NEW: View mode toggle */}
+          <div className="flex rounded-lg border border-gray-200 p-1 dark:border-gray-700">
+            <button
+              onClick={() => setViewMode("utilization")}
+              className={`rounded-md px-2 py-1 text-sm ${
+                viewMode === "utilization"
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
             >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+              Utilization
+            </button>
+            <button
+              onClick={() => setViewMode("categories")}
+              className={`rounded-md px-2 py-1 text-sm ${
+                viewMode === "categories"
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
             >
-              Delete
-            </DropdownItem>
-          </Dropdown>
+              Categories
+            </button>
+          </div>
+
+          <div className="relative inline-block">
+            <button
+              className="dropdown-toggle no-drag"
+              onClick={toggleDropdown}
+            >
+              <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
+            </button>
+            <Dropdown
+              isOpen={isOpen}
+              onClose={closeDropdown}
+              className="w-40 p-2"
+            >
+              <DropdownItem
+                onItemClick={closeDropdown}
+                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+              >
+                View More
+              </DropdownItem>
+              <DropdownItem
+                onItemClick={closeDropdown}
+                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+              >
+                Delete
+              </DropdownItem>
+            </Dropdown>
+          </div>
         </div>
       }
     >
       <div className="h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data?.budgetUtilization || []}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
-            <XAxis
-              dataKey="month"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-              tickFormatter={(value) => `₱${value / 1000}k`}
-            />
-            <Tooltip
-              formatter={(value) => [
-                `₱${Number(value).toLocaleString()}`,
-                "Amount",
-              ]}
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #E4E7EC",
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="allocated"
-              stackId="1"
-              stroke="#465FFF"
-              fill="#465FFF"
-              fillOpacity={0.2}
-            />
-            <Area
-              type="monotone"
-              dataKey="utilized"
-              stackId="2"
-              stroke="#9CB9FF"
-              fill="#9CB9FF"
-              fillOpacity={0.2}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        {viewMode === "utilization" ? (
+          // Utilization View (Line Chart)
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data?.budgetUtilization || []}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
+              <XAxis
+                dataKey="month"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#6B7280" }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#6B7280" }}
+                tickFormatter={(value) => `₱${value / 1000}k`}
+              />
+              <Tooltip
+                formatter={(value, name) => {
+                  const formattedValue = `₱${Number(value).toLocaleString()}`;
+                  if (
+                    name === "plannedUtilizationRate" ||
+                    name === "actualUtilizationRate"
+                  ) {
+                    return [
+                      `${Number(value).toFixed(1)}%`,
+                      name.includes("planned") ? "Planned %" : "Actual %",
+                    ];
+                  }
+                  return [formattedValue, name];
+                }}
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  border: "1px solid #E4E7EC",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                }}
+              />
+              <Legend />
+              {/* Planned Amount */}
+              <Line
+                type="monotone"
+                dataKey="planned"
+                stroke="#465FFF"
+                strokeWidth={2}
+                name="Planned Amount"
+                dot={{ r: 4 }}
+              />
+              {/* Actual Amount */}
+              <Line
+                type="monotone"
+                dataKey="actual"
+                stroke="#00C49F"
+                strokeWidth={2}
+                name="Actual Amount"
+                dot={{ r: 4 }}
+              />
+              {/* Utilization Rates (on a second Y-axis if needed) */}
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          // Category View (Stacked Bar Chart)
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={getCategoryChartData()}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
+              <XAxis
+                dataKey="month"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#6B7280" }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#6B7280" }}
+                tickFormatter={(value) => `₱${value / 1000}k`}
+              />
+              <Tooltip
+                formatter={(value, name) => [
+                  `₱${Number(value).toLocaleString()}`,
+                  name,
+                ]}
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  border: "1px solid #E4E7EC",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                }}
+              />
+              <Legend />
+              {/* You would dynamically generate these based on your categories */}
+              <Bar
+                dataKey="Total Planned"
+                stackId="a"
+                fill="#465FFF"
+                name="Total Planned"
+              />
+              <Bar
+                dataKey="Total Actual"
+                stackId="a"
+                fill="#9CB9FF"
+                name="Total Actual"
+              />
+              {/* Example for one category - you'd need to generate these dynamically */}
+              <Bar
+                dataKey="Travel Expenses (Planned)"
+                stackId="a"
+                fill="#8884D8"
+                name="Travel (Planned)"
+              />
+              <Bar
+                dataKey="Travel Expenses (Actual)"
+                stackId="a"
+                fill="#82CA9D"
+                name="Travel (Actual)"
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </WidgetContainer>
   );
@@ -1291,6 +1430,29 @@ const AdminDashboard = () => {
   const [layouts, setLayouts] = useState<DashboardLayout>(defaultLayouts);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [layoutDirty, setLayoutDirty] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (!editMode) return;
+
+    const handleScrollDuringDrag = (e: WheelEvent) => {
+      if (!isDragging) return;
+
+      e.preventDefault();
+      window.scrollBy({
+        top: e.deltaY > 0 ? 100 : -100,
+        behavior: "smooth",
+      });
+    };
+
+    window.addEventListener("wheel", handleScrollDuringDrag, {
+      passive: false,
+    });
+
+    return () => {
+      window.removeEventListener("wheel", handleScrollDuringDrag);
+    };
+  }, [editMode, isDragging]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -1327,7 +1489,10 @@ const AdminDashboard = () => {
   };
 
   const handleLayoutChange = (currentLayout: Layout[], allLayouts: any) => {
-    setLayouts(allLayouts);
+    setLayouts((prev) => ({
+      ...prev,
+      ...allLayouts,
+    }));
     setLayoutDirty(true);
   };
 
@@ -1380,7 +1545,9 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-6">
+      <div
+        className={`p-4 md:p-6 ${editMode ? "select-none min-h-screen" : ""}`}
+      >
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">
@@ -1516,16 +1683,20 @@ const AdminDashboard = () => {
         layouts={layouts}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 8, sm: 4, xs: 4, xxs: 4 }}
-        rowHeight={60}
+        rowHeight={60} // Increase from 60 to 100 or higher
+        margin={[20, 20]} // Increase margin for better spacing
         isDraggable={editMode}
         isResizable={editMode}
-        onLayoutChange={handleLayoutChange}
-        margin={[16, 16]}
-        containerPadding={[0, 0]}
         compactType="vertical"
-        preventCollision={true}
+        preventCollision={false} // Allow widgets to swap positions
         isBounded={true}
-        autoSize
+        useCSSTransforms={true}
+        onDragStart={() => setIsDragging(true)}
+        onDragStop={() => setIsDragging(false)}
+        verticalCompact={true} // Explicitly enable vertical compaction
+        allowOverlap={false} // Ensure widgets don't overlap
+        onLayoutChange={handleLayoutChange}
+        containerPadding={[0, 0]}
         draggableHandle=".widget-drag-handle"
         draggableCancel=".no-drag, button, input, textarea, select, [role='menu'], [role='dialog']"
       >

@@ -1428,29 +1428,107 @@ def resend_otp(request):
         return Response({'message': 'User not found'}, status=404)
 
 
+# views.py
+# views.py
+
+
+class AgingReportPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def schools_with_unliquidated_requests(request):
-    month = request.GET.get('month')  # format: 'YYYY-MM'
-    filters = {'status': 'unliquidated'}
-    if month:
-        filters['request_monthyear'] = month
+    days_threshold = request.GET.get('days', '30')  # Get days threshold
+    export_format = request.GET.get('export')  # Check if export requested
+    page_size = request.GET.get('page_size', 50)  # Get page size
 
-    # Get all schools with an unliquidated request for the selected month
-    unliquidated_requests = RequestManagement.objects.filter(**filters)
-    school_ids = unliquidated_requests.values_list(
-        'user__school__schoolId', flat=True).distinct()
-    schools = School.objects.filter(schoolId__in=school_ids)
+    # Get all unliquidated requests
+    unliquidated_requests = RequestManagement.objects.filter(
+        status='unliquidated')
 
-    data = [
-        {
-            "schoolId": school.schoolId,
-            "schoolName": school.schoolName,
-            "has_unliquidated": True
+    # Calculate aging for each request
+    today = timezone.now().date()
+    aging_data = []
+
+    for req in unliquidated_requests:
+        if req.downloaded_at:
+            days_elapsed = (today - req.downloaded_at.date()).days
+        else:
+            # Fallback to created_at if downloaded_at is not available
+            days_elapsed = (today - req.created_at.date()).days
+
+        # Apply threshold filter
+        if days_threshold == 'all' or int(days_threshold) <= days_elapsed:
+            aging_data.append({
+                'request_id': req.request_id,
+                'school_id': req.user.school.schoolId if req.user and req.user.school else '',
+                'school_name': req.user.school.schoolName if req.user and req.user.school else '',
+                'downloaded_at': req.downloaded_at.date() if req.downloaded_at else req.created_at.date(),
+                'days_elapsed': days_elapsed,
+                'aging_period': get_aging_period(days_elapsed),
+                'amount': sum(rp.amount for rp in req.requestpriority_set.all())
+            })
+
+    # Handle CSV export - return all data without pagination
+    if export_format == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="aging_report_{days_threshold}_days.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['School ID', 'School Name', 'Request ID', 'Downloaded At',
+                         'Days Elapsed', 'Aging Period', 'Amount'])
+
+        for item in aging_data:
+            writer.writerow([
+                item['school_id'],
+                item['school_name'],
+                item['request_id'],
+                item['downloaded_at'],
+                item['days_elapsed'],
+                item['aging_period'],
+                item['amount']
+            ])
+
+        return response
+
+    # Apply pagination for regular API response
+    paginator = AgingReportPagination()
+    paginator.page_size = page_size
+    paginated_data = paginator.paginate_queryset(aging_data, request)
+
+    return paginator.get_paginated_response({
+        'results': paginated_data,
+        'total_count': len(aging_data),
+        'filters': {
+            'days_threshold': days_threshold,
+            'aging_periods': {
+                '0-30': len([item for item in aging_data if item['aging_period'] == '0-30 days']),
+                '31-60': len([item for item in aging_data if item['aging_period'] == '31-60 days']),
+                '61-90': len([item for item in aging_data if item['aging_period'] == '61-90 days']),
+                '91-120': len([item for item in aging_data if item['aging_period'] == '91-120 days']),
+                '121-180': len([item for item in aging_data if item['aging_period'] == '121-180 days']),
+                '180+': len([item for item in aging_data if item['aging_period'] == '180+ days']),
+            }
         }
-        for school in schools
-    ]
-    return Response(data)
+    })
+
+
+def get_aging_period(days):
+    if days <= 30:
+        return "0-30 days"
+    elif days <= 60:
+        return "31-60 days"
+    elif days <= 90:
+        return "61-90 days"
+    elif days <= 120:
+        return "91-120 days"
+    elif days <= 180:
+        return "121-180 days"
+    else:
+        return "180+ days"
 
 
 @api_view(['GET'])
@@ -1476,8 +1554,8 @@ def admin_dashboard(request):
     else:
         start_date = end_date - timedelta(days=90)  # Default to last quarter
 
-    # 1. Budget Utilization Data
     budget_utilization = []
+    category_breakdown = []  # NEW: For stacked bar chart
     months = []
     current = start_date
 
@@ -1493,20 +1571,69 @@ def admin_dashboard(request):
             created_at__month=month[5:7]
         )
 
+        # --- 1. Planned (Requested) Amounts ---
         total_allocated = School.objects.aggregate(
             total=Sum('max_budget'))['total'] or 0
-        total_utilized = RequestPriority.objects.filter(
+        total_planned = RequestPriority.objects.filter(
             request__in=month_requests
         ).aggregate(total=Sum('amount'))['total'] or 0
 
-        utilization_rate = (total_utilized / total_allocated *
-                            100) if total_allocated > 0 else 0
+        # --- 2. Actual (Liquidated) Amounts ---
+        # Find liquidations that were submitted for requests made in this month
+        month_liquidations = LiquidationManagement.objects.filter(
+            request__in=month_requests,
+            status='liquidated'  # Only count completed liquidations
+        )
+        total_actual = 0
+        for liquidation in month_liquidations:
+            # Sum the amounts from the LiquidationPriority records
+            total_actual += liquidation.liquidation_priorities.aggregate(total=Sum('amount'))[
+                'total'] or 0
+
+        # --- 3. Utilization Rates ---
+        planned_utilization_rate = (
+            total_planned / total_allocated * 100) if total_allocated > 0 else 0
+        actual_utilization_rate = (
+            total_actual / total_allocated * 100) if total_allocated > 0 else 0
+
+        # --- 4. Category Breakdown for this month (NEW) ---
+        category_data_for_month = {}
+        for category_key, category_name in ListOfPriority.CATEGORY_CHOICES:
+            # Get planned amount for this category
+            planned_for_category = RequestPriority.objects.filter(
+                request__in=month_requests,
+                priority__category=category_key
+            ).aggregate(total=Sum('amount'))['total'] or 0
+
+            # Get actual liquidated amount for this category
+            actual_for_category = 0
+            liquidations_for_category = month_liquidations.filter(
+                liquidation_priorities__priority__category=category_key
+            ).distinct()
+            for liq in liquidations_for_category:
+                amount = liq.liquidation_priorities.filter(
+                    priority__category=category_key
+                ).aggregate(total=Sum('amount'))['total'] or 0
+                actual_for_category += amount
+
+            category_data_for_month[category_name] = {
+                'planned': float(planned_for_category),
+                'actual': float(actual_for_category)
+            }
 
         budget_utilization.append({
             'month': month,
             'allocated': float(total_allocated),
-            'utilized': float(total_utilized),
-            'utilizationRate': float(utilization_rate)
+            'planned': float(total_planned),        # NEW
+            'actual': float(total_actual),          # NEW
+            'plannedUtilizationRate': float(planned_utilization_rate),  # NEW
+            'actualUtilizationRate': float(actual_utilization_rate)    # NEW
+        })
+
+        # Append category data for the stacked chart
+        category_breakdown.append({
+            'month': month,
+            **category_data_for_month  # Unpacks the dictionary of categories
         })
 
     # 2. Request Status Distribution
@@ -1828,6 +1955,7 @@ def admin_dashboard(request):
 
     response_data = {
         'budgetUtilization': budget_utilization,
+        'categoryBreakdown': category_breakdown,  # NEW
         'requestStatusDistribution': request_status_distribution,
         'liquidationTimeline': liquidation_timeline,
         'schoolPerformance': school_performance,
