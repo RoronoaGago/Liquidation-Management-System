@@ -41,6 +41,7 @@ import {
 } from "react";
 import api from "@/api/axios";
 import SkeletonRow from "@/components/ui/skeleton";
+import Badge from "@/components/ui/badge/Badge";
 
 interface District {
   districtId: string;
@@ -631,15 +632,9 @@ export default function DistrictsTable({
                       {district.legislativeDistrict}
                     </TableCell>
                     <TableCell className="px-6 py-4 text-start text-theme-sm">
-                      <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                          district.is_active
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
+                     <Badge color={district.is_active ? "success" : "error"}>
                         {district.is_active ? "Active" : "Archived"}
-                      </span>
+                      </Badge>
                     </TableCell>
                     <TableCell className="px-6 py-4 text-start text-theme-sm">
                       <div className="flex gap-2">
