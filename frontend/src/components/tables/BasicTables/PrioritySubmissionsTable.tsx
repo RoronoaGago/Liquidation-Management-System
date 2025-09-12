@@ -336,88 +336,21 @@ const PrioritySubmissionsTable: React.FC<
                     {formatDateTime(submission.created_at)}
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    <button
-                      className="flex items-center gap-2 text-blue-600 hover:underline"
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      startIcon={<EyeIcon className="w-4 h-4" />}
                       onClick={() => onView(submission)}
+                      className="text-blue-600 p-0"
                     >
                       View
-                      <EyeIcon className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </div>
-      {/* Pagination */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          Showing{" "}
-          {paginatedSubmissions.length > 0
-            ? (currentPage - 1) * itemsPerPage + 1
-            : 0}{" "}
-          to {Math.min(currentPage * itemsPerPage, safeSubmissions.length)} of{" "}
-          {safeSubmissions.length} entries
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
-            variant="outline"
-            size="sm"
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            variant="outline"
-            size="sm"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-              return (
-                <Button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  variant={currentPage === pageNum ? "primary" : "outline"}
-                  size="sm"
-                >
-                  {pageNum}
-                </Button>
-              );
-            })}
-          </div>
-          <Button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages || totalPages === 0}
-            variant="outline"
-            size="sm"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages || totalPages === 0}
-            variant="outline"
-            size="sm"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
-        </div>
       </div>
     </div>
   );
