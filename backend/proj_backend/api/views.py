@@ -1,7 +1,8 @@
 from django.db.models.functions import TruncMonth, ExtractDay
-from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When
+from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
 from django.http import HttpResponse
 import csv
+from datetime import date
 from .serializers import UnliquidatedSchoolReportSerializer
 from .models import School, RequestManagement
 from urllib import request
@@ -419,19 +420,43 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         try:
+            user = self.request.user
+
+            # Check if user is eligible to submit a request
+            target_month = serializer.validated_data.get('request_monthyear')
+
+            if target_month:
+                # User specified a month, validate it
+                if not RequestManagement.can_user_request_for_month(user, target_month):
+                    raise ValidationError({
+                        'request_monthyear': 'You cannot submit a request for this month. Please liquidate your current request first.'
+                    })
+            else:
+                # Auto-determine the next available month
+                temp_request = RequestManagement(user=user)
+                target_month = temp_request.get_next_available_month()
+                serializer.validated_data['request_monthyear'] = target_month
+
             # Save with atomic transaction
             with transaction.atomic():
-                instance = serializer.save(user=self.request.user)
+                instance = serializer.save(user=user)
                 # Force save to ensure signals fire
                 instance.save()
                 logger.info(
-                    f"Successfully created request {instance.request_id}")
+                    f"Successfully created request {instance.request_id} for month {target_month}")
+
+        except ValidationError:
+            raise  # Re-raise validation errors
         except Exception as e:
             logger.error(f"Failed to create request: {str(e)}")
-            raise
+            raise ValidationError(
+                "Failed to create request. Please try again.")
 
     def get_queryset(self):
-        queryset = RequestManagement.objects.all()
+        queryset = RequestManagement.objects.select_related(
+            'user__school__district'  # Add this to optimize queries
+        ).all()
+        user = self.request.user
 
         # Filter by multiple statuses if provided (comma-separated)
         status_param = self.request.query_params.get('status')
@@ -450,9 +475,73 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
                 queryset = queryset.filter(
                     user__school__schoolId__in=school_ids_list)
 
-        # For non-admin users, only show their own requests
-        if self.request.user.role not in ['admin', 'superintendent', 'accountant']:
-            queryset = queryset.filter(user=self.request.user)
+        # FIXED: District filter - ensure proper field lookup
+        district_param = self.request.query_params.get('district')
+        if district_param:
+            print(f"Filtering by district: {district_param}")  # Debug log
+            queryset = queryset.filter(
+                user__school__district__districtId=district_param)
+            # Debug log
+            print(f"Queryset after district filter: {queryset.count()}")
+
+        # FIXED: Legislative District filter
+        legislative_district_param = self.request.query_params.get(
+            'legislative_district')
+        if legislative_district_param:
+            # Debug log
+            print(
+                f"Filtering by legislative district: {legislative_district_param}")
+            queryset = queryset.filter(
+                user__school__district__legislativeDistrict=legislative_district_param)
+            # Debug log
+            print(
+                f"Queryset after legislative district filter: {queryset.count()}")
+
+        # FIXED: Municipality filter
+        municipality_param = self.request.query_params.get('municipality')
+        if municipality_param:
+            # Debug log
+            print(f"Filtering by municipality: {municipality_param}")
+            queryset = queryset.filter(
+                user__school__district__municipality=municipality_param)
+            # Debug log
+            print(f"Queryset after municipality filter: {queryset.count()}")
+
+        # Search filter - add this if it's missing
+        search_param = self.request.query_params.get('search')
+        if search_param:
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=search_param) |
+                Q(user__last_name__icontains=search_param) |
+                Q(user__school__schoolName__icontains=search_param) |
+                Q(request_id__icontains=search_param) |
+                Q(priorities__priority__expenseTitle__icontains=search_param)
+            ).distinct()
+
+        # Date range filter
+        start_date_param = self.request.query_params.get('start_date')
+        end_date_param = self.request.query_params.get('end_date')
+        if start_date_param and end_date_param:
+            queryset = queryset.filter(
+                created_at__date__gte=start_date_param,
+                created_at__date__lte=end_date_param
+            )
+
+        # Enhanced filtering for different user roles
+        if user.role == 'superintendent':
+            # Superintendents only see requests that should be visible (current/past months and pending)
+            today = date.today()
+            current_month_year = f"{today.year:04d}-{today.month:02d}"
+
+            # Show pending requests for current/past months, and all non-pending requests
+            queryset = queryset.filter(
+                Q(status='pending', request_monthyear__lte=current_month_year) |
+                Q(status__in=['approved', 'rejected',
+                  'downloaded', 'unliquidated', 'liquidated'])
+            )
+        elif user.role not in ['admin', 'accountant']:
+            # Regular users only see their own requests
+            queryset = queryset.filter(user=user)
 
         return queryset.order_by('-created_at')
 
@@ -1668,37 +1757,41 @@ def admin_dashboard(request):
         })
 
     # 3. Liquidation Timeline - FIXED: Use liquidation created_at instead of request created_at
+
+    # In your admin_dashboard view, replace the liquidation timeline calculation with:
+
     liquidation_timeline = []
     for month in months:
         month_liquidations = LiquidationManagement.objects.filter(
             created_at__year=month[:4],
-            created_at__month=month[5:7]
-        )
-
-        # Calculate average processing time (days from liquidation creation to completion)
-        avg_processing = month_liquidations.filter(
+            created_at__month=month[5:7],
             status='liquidated'
         ).annotate(
-            processing_time=ExpressionWrapper(
-                # CHANGED: Use liquidation creation date
-                F('date_liquidated') - F('created_at'),
-                output_field=FloatField()
+            processing_days=ExpressionWrapper(
+                # Use the actual liquidation date minus the request download date
+                F('date_liquidated') - F('request__downloaded_at__date'),
+                output_field=DurationField()
             )
-        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+        )
 
-        # Convert timedelta to days
-        if hasattr(avg_processing, 'days'):
-            avg_processing_days = avg_processing.days
-        else:
-            avg_processing_days = float(
-                avg_processing) / (24 * 60 * 60) if avg_processing else 0
+        # Calculate average processing time in days
+        avg_seconds = month_liquidations.aggregate(
+            avg_seconds=Avg('processing_days')
+        )['avg_seconds'] or 0
 
-        approved_count = month_liquidations.filter(status='liquidated').count()
-        rejected_count = month_liquidations.filter(status='resubmit').count()
+        # Convert seconds to days
+        avg_days = avg_seconds.total_seconds() / (24 * 60 * 60) if avg_seconds else 0
+
+        approved_count = month_liquidations.count()
+        rejected_count = LiquidationManagement.objects.filter(
+            created_at__year=month[:4],
+            created_at__month=month[5:7],
+            status='resubmit'
+        ).count()
 
         liquidation_timeline.append({
             'month': month,
-            'avgProcessingTime': float(avg_processing_days),
+            'avgProcessingTime': float(avg_days),
             'approved': approved_count,
             'rejected': rejected_count
         })
@@ -1722,18 +1815,14 @@ def admin_dashboard(request):
             status='liquidated'
         )
         avg_processing = school_liquidations.annotate(
-            processing_time=ExpressionWrapper(
-                # CHANGED: Use liquidation creation date
-                F('date_liquidated') - F('created_at'),
-                output_field=FloatField()
-            )
-        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+            processing_days=ExpressionWrapper(
+                F('date_liquidated') - F('request__downloaded_at__date'),
+                output_field=DurationField())).aggregate(avg=Avg('processing_days'))['avg'] or 0
 
-        if hasattr(avg_processing, 'days'):
-            avg_processing_days = avg_processing.days
+        if avg_processing:
+            avg_processing_days = avg_processing.total_seconds() / (24 * 60 * 60)
         else:
-            avg_processing_days = float(
-                avg_processing) / (24 * 60 * 60) if avg_processing else 0
+            avg_processing_days = 0
 
         # Calculate budget utilization for this school
         school_utilized = RequestPriority.objects.filter(
@@ -1997,6 +2086,8 @@ def update_e_signature(request):
     return Response({"message": "E-signature updated successfully."})
 
 # Add to views.py
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def generate_liquidation_report(request, LiquidationID):
@@ -2004,53 +2095,55 @@ def generate_liquidation_report(request, LiquidationID):
     Generate a detailed liquidation report in Excel format
     """
     try:
-        liquidation = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
-        
+        liquidation = LiquidationManagement.objects.get(
+            LiquidationID=LiquidationID)
+
         # Create workbook and worksheet
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Liquidation Report"
-        
+
         # Set column widths as specified
         ws.column_dimensions['A'].width = 30.71
         ws.column_dimensions['B'].width = 36.25
         ws.column_dimensions['C'].width = 33.39
-        
+
         # Format cell C1
         cell_c1 = ws['C1']
         cell_c1.value = "Appendix 44"
         cell_c1.font = Font(name='Times New Roman', size=14)
         cell_c1.alignment = Alignment(horizontal='right', vertical='top')
-        
+
         # Continue with the rest of the report structure
         # Add more content based on your specific requirements
         ws['A3'] = "LIQUIDATION REPORT"
         ws['A3'].font = Font(bold=True, size=14)
         ws.merge_cells('A3:C3')
-        
+
         # Add liquidation details
         ws['A5'] = "Liquidation ID:"
         ws['B5'] = liquidation.LiquidationID
-        
+
         ws['A6'] = "Request ID:"
         ws['B6'] = liquidation.request.request_id
-        
+
         ws['A7'] = "School:"
         ws['B7'] = liquidation.request.user.school.schoolName if liquidation.request.user.school else "N/A"
-        
+
         ws['A8'] = "Submitted By:"
         ws['B8'] = f"{liquidation.request.user.first_name} {liquidation.request.user.last_name}"
-        
+
         ws['A9'] = "Submission Date:"
-        ws['B9'] = localtime(liquidation.created_at).strftime("%Y-%m-%d %H:%M:%S")
-        
+        ws['B9'] = localtime(liquidation.created_at).strftime(
+            "%Y-%m-%d %H:%M:%S")
+
         # Add priorities and amounts
         row = 11
         ws['A11'] = "EXPENSE ITEM"
         ws['B11'] = "REQUESTED AMOUNT"
         ws['C11'] = "LIQUIDATED AMOUNT"
         ws['A11'].font = ws['B11'].font = ws['C11'].font = Font(bold=True)
-        
+
         row += 1
         for lp in liquidation.liquidation_priorities.all():
             ws[f'A{row}'] = lp.priority.expenseTitle
@@ -2059,32 +2152,33 @@ def generate_liquidation_report(request, LiquidationID):
                 request=liquidation.request,
                 priority=lp.priority
             ).first()
-            ws[f'B{row}'] = float(requested_amount.amount) if requested_amount else 0
+            ws[f'B{row}'] = float(
+                requested_amount.amount) if requested_amount else 0
             ws[f'C{row}'] = float(lp.amount)
             row += 1
-        
+
         # Add total row
         ws[f'A{row}'] = "TOTAL"
         ws[f'A{row}'].font = Font(bold=True)
         ws[f'B{row}'] = f"=SUM(B12:B{row-1})"
         ws[f'C{row}'] = f"=SUM(C12:C{row-1})"
-        
+
         # Add refund amount if applicable
         if liquidation.refund:
             row += 2
             ws[f'A{row}'] = "REFUND AMOUNT:"
             ws[f'B{row}'] = float(liquidation.refund)
             ws[f'A{row}'].font = ws[f'B{row}'].font = Font(bold=True)
-        
+
         # Create HTTP response with Excel file
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         response['Content-Disposition'] = f'attachment; filename="liquidation_report_{LiquidationID}.xlsx"'
-        
+
         wb.save(response)
         return response
-        
+
     except LiquidationManagement.DoesNotExist:
         return Response(
             {'error': 'Liquidation not found'},
@@ -2096,3 +2190,75 @@ def generate_liquidation_report(request, LiquidationID):
             {'error': 'Failed to generate report'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_next_available_month(request):
+    """Get the next available month for the user to submit a request"""
+    user = request.user
+
+    # Create a temporary request object to use the method
+    temp_request = RequestManagement(user=user)
+    next_month = temp_request.get_next_available_month()
+
+    today = date.today()
+    try:
+        req_year, req_month = map(int, next_month.split('-'))
+        is_advance = (req_year, req_month) > (today.year, today.month)
+    except (ValueError, AttributeError):
+        is_advance = False
+
+    return Response({
+        'next_available_month': next_month,
+        'is_advance_request': is_advance,
+        'can_submit': RequestManagement.can_user_request_for_month(user, next_month)
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_request_eligibility(request):
+    """Check if user is eligible to submit a new request"""
+    user = request.user
+    target_month = request.query_params.get('month')  # Format: YYYY-MM
+
+    if target_month:
+        can_request = RequestManagement.can_user_request_for_month(
+            user, target_month)
+    else:
+        # Check for next available month
+        temp_request = RequestManagement(user=user)
+        next_month = temp_request.get_next_available_month()
+        can_request = RequestManagement.can_user_request_for_month(
+            user, next_month)
+        target_month = next_month
+
+    # Get current active requests
+    active_requests = RequestManagement.objects.filter(
+        user=user
+    ).exclude(status__in=['liquidated', 'rejected']).order_by('-created_at')
+
+    # Get reason if cannot request
+    reason = None
+    if not can_request:
+        existing_same_month = RequestManagement.objects.filter(
+            user=user,
+            request_monthyear=target_month
+        ).exclude(status='rejected').first()
+
+        if existing_same_month:
+            reason = f"You already have a request for {target_month}"
+        else:
+            unliquidated = active_requests.first()
+            if unliquidated:
+                reason = f"Please liquidate your current request ({unliquidated.request_id}) before submitting a new one"
+            else:
+                reason = "Cannot determine eligibility"
+
+    return Response({
+        'can_submit_request': can_request,
+        'target_month': target_month,
+        'reason': reason,
+        'active_requests': RequestManagementSerializer(active_requests, many=True).data
+    })
