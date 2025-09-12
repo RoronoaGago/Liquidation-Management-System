@@ -59,6 +59,7 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    e_signature = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -78,6 +79,7 @@ class UserSerializer(serializers.ModelSerializer):
             "school_district",
             "profile_picture",
             "profile_picture_base64",
+            "e_signature",  # <-- Add this line
             "is_active",
             "date_joined"
         ]
@@ -121,6 +123,14 @@ class UserSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"role": f"There is already a {role.replace('_', ' ')} assigned to this school."}
                 )
+        # E-signature required for specific roles
+        role = data.get("role")
+        e_signature = data.get("e_signature")
+        required_roles = ["school_head", "superintendent", "accountant"]
+        if role in required_roles and not e_signature:
+            raise serializers.ValidationError(
+                {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant."}
+            )
         return data
 
     def create(self, validated_data):
@@ -456,15 +466,13 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
-    remaining_days = serializers.SerializerMethodField()
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     submitted_at = serializers.DateTimeField(
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
-    reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
-    liquidation_priorities = LiquidationPrioritySerializer(
-        many=True)
+    reviewed_by_district = UserSerializer(read_only=True)
+    liquidation_priorities = LiquidationPrioritySerializer(many=True)
 
     class Meta:
         model = LiquidationManagement
@@ -481,16 +489,12 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'reviewer_comments',
             'documents',
             'created_at',
-            'liquidation_priorities',  # <-- Add this line
+            'liquidation_priorities',
             'refund',
-            'remaining_days',  # <-- Add this
+            'remaining_days',  # will now come directly from DB
         ]
 
-    def get_remaining_days(self, obj):
-        return obj.calculate_remaining_days()
-
     def get_reviewer_comments(self, obj):
-        # Get all reviewer comments from documents
         comments = []
         for doc in obj.documents.all():
             if doc.reviewer_comment:
@@ -502,18 +506,16 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-
-        # Add actual amounts from LiquidationPriority records
         if hasattr(instance, 'liquidation_priorities'):
             data['actual_amounts'] = [
                 {
                     'expense_id': lp.priority.LOPID,
-                    'actual_amount': lp.amount  # Remove float() if not needed
+                    'actual_amount': lp.amount
                 }
                 for lp in instance.liquidation_priorities.all()
             ]
-
         return data
+
 
 
 class NotificationSerializer(serializers.ModelSerializer):

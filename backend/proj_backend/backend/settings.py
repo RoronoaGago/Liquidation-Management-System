@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -69,15 +70,17 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'backend.urls'
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173",
-                        "http://192.168.1.147:5173", "http://192.168.1.111:5173", "http://192.168.1.232:5173", "http://192.168.0.231:5173", "http://172.20.10.2:5173", "http://172.20.10.7:5173"]
+                        "http://192.168.1.147:5173", "http://192.168.1.111:5173", "http://192.168.1.232:5173", "http://192.168.0.231:5173", "http://172.20.10.2:5173", "http://172.20.10.7:5173", "http://192.168.1.91:5173"]
+
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://192.168.1.91:5173"
 ]
 CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
 
-FRONTEND_LOGIN_URL = 'http://localhost:5173/login'
+FRONTEND_LOGIN_URL = ('http://localhost:5173/login', 'http://192.168.1.91:5173/login')
 
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True  # If using HTTPS
@@ -181,7 +184,7 @@ SIMPLE_JWT = {
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -220,12 +223,24 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+from celery.schedules import crontab
+
 CELERY_BEAT_SCHEDULE = {
-    'send-liquidation-reminders-daily': {
+    'check-liquidation-reminders-every-minute': {
+        'task': 'api.tasks.check_liquidation_reminders',
+        'schedule': crontab(minute='*'),
+    },
+    'send-urgent-reminders-every-2-minutes': {
         'task': 'api.tasks.send_urgent_liquidation_reminders',
-        'schedule': 86400.0,  # every 24 hours
+        'schedule': crontab(minute='*/2'),
+    },
+    'update-remaining-days-daily': {
+        'task': 'api.tasks.update_liquidation_remaining_days',
+        'schedule': crontab(minute='*'),  # once a day at midnight
     },
 }
+
+
 
 LOGGING = {
     'version': 1,
@@ -237,7 +252,7 @@ LOGGING = {
     },
     'root': {
         'handlers': ['console'],
-        'level': 'DEBUG',  # Show all logs, including debug
+        'level': 'INFO',  # Show all logs, including debug
     },
     'loggers': {
         'django': {

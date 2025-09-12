@@ -1,0 +1,83 @@
+[
+  {
+    "schoolId": "100801",
+    "schoolName": "Agoo East CES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100802",
+    "schoolName": "Ambitacay ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100803",
+    "schoolName": "Bacsil ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100805",
+    "schoolName": "Macalva ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100806",
+    "schoolName": "San Jose ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100807",
+    "schoolName": "San Jose-San Joaquin ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "100808",
+    "schoolName": "San Vicente-San Agustin ES",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "300129",
+    "schoolName": "President Elpidio Quirino National High School",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  },
+  {
+    "schoolId": "321027",
+    "schoolName": "Agoo National Vocational High School",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "district_id": 1
+  }
+]
