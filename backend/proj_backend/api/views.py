@@ -446,8 +446,11 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
             raise ValidationError("Failed to create request. Please try again.")
 
     def get_queryset(self):
-        queryset = RequestManagement.objects.all()
+        queryset = RequestManagement.objects.select_related(
+            'user__school__district'  # Add this to optimize queries
+        ).all()
         user = self.request.user
+        
         # Filter by multiple statuses if provided (comma-separated)
         status_param = self.request.query_params.get('status')
         if status_param:
@@ -461,6 +464,47 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
             school_ids_list = [s.strip() for s in school_ids_param.split(',') if s.strip()]
             if school_ids_list:
                 queryset = queryset.filter(user__school__schoolId__in=school_ids_list)
+
+        # FIXED: District filter - ensure proper field lookup
+        district_param = self.request.query_params.get('district')
+        if district_param:
+            print(f"Filtering by district: {district_param}")  # Debug log
+            queryset = queryset.filter(user__school__district__districtId=district_param)
+            print(f"Queryset after district filter: {queryset.count()}")  # Debug log
+
+        # FIXED: Legislative District filter
+        legislative_district_param = self.request.query_params.get('legislative_district')
+        if legislative_district_param:
+            print(f"Filtering by legislative district: {legislative_district_param}")  # Debug log
+            queryset = queryset.filter(user__school__district__legislativeDistrict=legislative_district_param)
+            print(f"Queryset after legislative district filter: {queryset.count()}")  # Debug log
+
+        # FIXED: Municipality filter
+        municipality_param = self.request.query_params.get('municipality')
+        if municipality_param:
+            print(f"Filtering by municipality: {municipality_param}")  # Debug log
+            queryset = queryset.filter(user__school__district__municipality=municipality_param)
+            print(f"Queryset after municipality filter: {queryset.count()}")  # Debug log
+
+        # Search filter - add this if it's missing
+        search_param = self.request.query_params.get('search')
+        if search_param:
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=search_param) |
+                Q(user__last_name__icontains=search_param) |
+                Q(user__school__schoolName__icontains=search_param) |
+                Q(request_id__icontains=search_param) |
+                Q(priorities__priority__expenseTitle__icontains=search_param)
+            ).distinct()
+
+        # Date range filter
+        start_date_param = self.request.query_params.get('start_date')
+        end_date_param = self.request.query_params.get('end_date')
+        if start_date_param and end_date_param:
+            queryset = queryset.filter(
+                created_at__date__gte=start_date_param,
+                created_at__date__lte=end_date_param
+            )
 
         # Enhanced filtering for different user roles
         if user.role == 'superintendent':
