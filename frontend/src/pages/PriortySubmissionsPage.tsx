@@ -199,59 +199,64 @@ const PriortySubmissionsPage = () => {
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
 
-  // Fetch submissions based on active tab
   const fetchSubmissions = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const status = activeTab === "pending" ? "pending" : "approved";
-      const params: any = {
-        status,
-        district: filterOptions.district,
-        legislative_district: filterOptions.legislative_district,
-        municipality: filterOptions.municipality,
-      };
+  setLoading(true);
+  setError(null);
+  try {
+    const status = activeTab === "pending" ? "pending" : "approved";
+    const params: any = {
+      status,
+    };
 
-      // Add all filters to params
-      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
-      if (filterOptions.school) params.school_ids = filterOptions.school;
-      if (filterOptions.start_date)
-        params.start_date = filterOptions.start_date;
-      if (filterOptions.end_date) params.end_date = filterOptions.end_date;
-      if (filterOptions.legislative_district)
-        params.legislative_district = filterOptions.legislative_district;
-      if (filterOptions.municipality)
-        params.municipality = filterOptions.municipality;
-      if (filterOptions.district) params.district = filterOptions.district;
-
-      const res = await api.get(`requests/`, { params });
-
-      const submissionsData = res.data.results || res.data || [];
-      setSubmissionsState(submissionsData);
-
-      // Fetch schools for display purposes (not filtering)
-      const schoolRes = await api.get("schools/");
-      setSchools(schoolRes.data.results || schoolRes.data || []);
-    } catch (err: any) {
-      console.error("Failed to fetch submissions:", err);
-      setError("Failed to fetch submissions");
-      setSubmissionsState([]);
-    } finally {
-      setLoading(false);
+    // Add filters to params - backend will handle the complex filtering
+    if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+    if (filterOptions.school) params.school_ids = filterOptions.school;
+    if (filterOptions.start_date) params.start_date = filterOptions.start_date;
+    if (filterOptions.end_date) params.end_date = filterOptions.end_date;
+    
+    // FIXED: Ensure proper parameter names match your backend
+    if (filterOptions.legislative_district) {
+      params.legislative_district = filterOptions.legislative_district;
     }
-  };
-  useEffect(() => {
-    fetchSubmissions();
-  }, [
-    activeTab,
-    filterOptions.school,
-    filterOptions.district,
-    filterOptions.start_date,
-    filterOptions.end_date,
-    filterOptions.legislative_district,
-    filterOptions.municipality,
-  ]);
+    if (filterOptions.municipality) {
+      params.municipality = filterOptions.municipality;
+    }
+    if (filterOptions.district) {
+      params.district = filterOptions.district;
+    }
 
+    console.log('API params being sent:', params); // Debug log
+
+    const res = await api.get(`requests/`, { params });
+
+    const submissionsData = res.data.results || res.data || [];
+    console.log('API response:', submissionsData); // Debug log
+    setSubmissionsState(submissionsData);
+
+    // Fetch schools for display purposes (not filtering)
+    const schoolRes = await api.get("schools/");
+    setSchools(schoolRes.data.results || schoolRes.data || []);
+  } catch (err: any) {
+    console.error("Failed to fetch submissions:", err);
+    console.error("Error response:", err.response?.data); // Debug log
+    setError("Failed to fetch submissions");
+    setSubmissionsState([]);
+  } finally {
+    setLoading(false);
+  }
+};
+useEffect(() => {
+  fetchSubmissions();
+}, [
+  activeTab,
+  filterOptions.school,
+  filterOptions.district,
+  filterOptions.start_date,
+  filterOptions.end_date,
+  filterOptions.legislative_district,
+  filterOptions.municipality,
+  filterOptions.searchTerm, // Add this since it's backend filtered now
+]);
   useEffect(() => {
     // Update municipality options when legislative district changes
     if (
@@ -423,81 +428,39 @@ const PriortySubmissionsPage = () => {
     setIsRejectDialogOpen(true);
   };
 
-  // Filtering logic
-  const filteredSubmissions = useMemo(() => {
-    let filtered = Array.isArray(submissionsState) ? submissionsState : [];
+ const filteredSubmissions = useMemo(() => {
+  let filtered = Array.isArray(submissionsState) ? submissionsState : [];
 
-    // Search term filter
-    if (filterOptions.searchTerm) {
-      const term = filterOptions.searchTerm.toLowerCase();
-      filtered = filtered.filter((submission) => {
-        const userName =
-          `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
-        const school = (submission.user.school?.schoolName || "").toLowerCase();
-        return (
-          userName.includes(term) ||
-          school.includes(term) ||
-          submission.priorities.some((p: Priority) =>
-            p.priority.expenseTitle.toLowerCase().includes(term)
-          ) ||
-          submission.status.toLowerCase().includes(term) ||
-          submission.request_id.toLowerCase().includes(term)
-        );
-      });
-    }
-
-    // Status filter
-    if (filterOptions.status) {
-      filtered = filtered.filter((s) => s.status === filterOptions.status);
-    }
-
-    // School filter - FIXED
-    if (filterOptions.school) {
-      filtered = filtered.filter(
-        (s) =>
-          s.user.school &&
-          String(s.user.school.schoolId) === filterOptions.school
+  // Search term filter - keep this as it's working
+  if (filterOptions.searchTerm) {
+    const term = filterOptions.searchTerm.toLowerCase();
+    filtered = filtered.filter((submission) => {
+      const userName =
+        `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
+      const school = (submission.user.school?.schoolName || "").toLowerCase();
+      return (
+        userName.includes(term) ||
+        school.includes(term) ||
+        submission.priorities.some((p: Priority) =>
+          p.priority.expenseTitle.toLowerCase().includes(term)
+        ) ||
+        submission.status.toLowerCase().includes(term) ||
+        submission.request_id.toLowerCase().includes(term)
       );
-    }
+    });
+  }
 
-    // District filter - FIXED
-    if (filterOptions.district) {
-      filtered = filtered.filter(
-        (s) => s.user.school?.district?.districtId === filterOptions.district
-      );
-    }
+  // Status filter - keep this as it's working
+  if (filterOptions.status) {
+    filtered = filtered.filter((s) => s.status === filterOptions.status);
+  }
 
-    // Legislative District filter - FIXED
-    if (filterOptions.legislative_district) {
-      filtered = filtered.filter(
-        (s) =>
-          s.user.school?.district?.legislativeDistrict ===
-          filterOptions.legislative_district
-      );
-    }
+  // REMOVE ALL OTHER FILTERS since backend handles them
+  // The issue is you're double-filtering - backend + frontend
+  
+  return filtered;
+}, [submissionsState, filterOptions.searchTerm, filterOptions.status]);
 
-    // Municipality filter - FIXED
-    if (filterOptions.municipality) {
-      filtered = filtered.filter(
-        (s) =>
-          s.user.school?.district?.municipality === filterOptions.municipality
-      );
-    }
-
-    // Date range filter
-    if (filterOptions.start_date && filterOptions.end_date) {
-      const startDate = new Date(filterOptions.start_date);
-      const endDate = new Date(filterOptions.end_date);
-      endDate.setHours(23, 59, 59, 999); // Include entire end date
-
-      filtered = filtered.filter((s) => {
-        const submissionDate = new Date(s.created_at);
-        return submissionDate >= startDate && submissionDate <= endDate;
-      });
-    }
-
-    return filtered;
-  }, [submissionsState, filterOptions]);
 
   console.log(filteredSubmissions);
   // Sorting logic - add proper null checks
