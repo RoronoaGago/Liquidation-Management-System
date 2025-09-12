@@ -448,7 +448,6 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = RequestManagement.objects.all()
         user = self.request.user
-
         # Filter by multiple statuses if provided (comma-separated)
         status_param = self.request.query_params.get('status')
         if status_param:
