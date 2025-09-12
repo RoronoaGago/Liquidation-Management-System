@@ -1738,10 +1738,9 @@ def admin_dashboard(request):
             status='liquidated'
         ).annotate(
             processing_days=ExpressionWrapper(
-                # Use the actual liquidation date minus the request download date
-                F('date_liquidated') - F('request__downloaded_at__date'),
-                output_field=DurationField()
-            )
+    F('date_liquidated') - F('request__downloaded_at__date'),  # ← Remove __date
+    output_field=DurationField()
+)
         )
 
         # Calculate average processing time in days
@@ -1786,8 +1785,9 @@ def admin_dashboard(request):
         )
         avg_processing = school_liquidations.annotate(
         processing_days=ExpressionWrapper(
-            F('date_liquidated') - F('request__downloaded_at__date'),
-            output_field=DurationField())).aggregate(avg=Avg('processing_days'))['avg'] or 0
+            F('date_liquidated') - F('request__downloaded_at'),
+            output_field=DurationField()
+        )).aggregate(avg=Avg('processing_days'))['avg'] or 0
 
         if avg_processing:
             avg_processing_days = avg_processing.total_seconds() / (24 * 60 * 60)
