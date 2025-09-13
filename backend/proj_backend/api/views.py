@@ -2083,7 +2083,43 @@ def update_e_signature(request):
         return Response({"error": "No e-signature file provided."}, status=400)
     user.e_signature = e_signature
     user.save(update_fields=['e_signature'])
-    return Response({"message": "E-signature updated successfully."})
+    
+    # Generate new token with updated e_signature
+    from rest_framework_simplejwt.tokens import RefreshToken
+    refresh = RefreshToken.for_user(user)
+    access_token = refresh.access_token
+    
+    # Add custom claims to the new token
+    access_token['first_name'] = user.first_name
+    access_token['last_name'] = user.last_name
+    access_token['email'] = user.email
+    access_token['role'] = user.role
+    access_token['password_change_required'] = user.password_change_required
+    
+    if user.school_district:
+        access_token['school_district'] = {
+            'id': user.school_district.districtId,
+            'name': user.school_district.districtName,
+            'municipality': user.school_district.municipality,
+            'legislative_district': user.school_district.legislativeDistrict
+        }
+    else:
+        access_token['school_district'] = None
+    
+    # Add profile picture URL if available
+    if user.profile_picture:
+        access_token['profile_picture'] = user.profile_picture.url
+    else:
+        access_token['profile_picture'] = None
+    
+    # Add e-signature URL (now available)
+    access_token['e_signature'] = user.e_signature.url
+    
+    return Response({
+        "message": "E-signature updated successfully.",
+        "access": str(access_token),
+        "refresh": str(refresh)
+    })
 
 # Add to views.py
 

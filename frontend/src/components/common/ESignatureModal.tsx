@@ -1,25 +1,24 @@
 // components/ESignatureModal.tsx
 import { useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { XIcon, UploadIcon, CameraIcon } from "lucide-react";
+import { UploadIcon } from "lucide-react";
 import Label from "../form/Label";
 import { toast } from "react-toastify";
 import api from "@/api/axios";
+import { jwtDecode } from "jwt-decode";
 
 interface ESignatureModalProps {
   isOpen: boolean;
-  onClose: () => void;
   onSuccess: () => void;
   requiredRoles?: string[];
 }
 
 const ESignatureModal = ({
   isOpen,
-  onClose,
   onSuccess,
   requiredRoles = ["school_head", "superintendent", "accountant"],
 }: ESignatureModalProps) => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [signature, setSignature] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,17 +52,22 @@ const ESignatureModal = ({
     }
   };
 
-  const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSignature(file);
-      setPreviewUrl(URL.createObjectURL(file));
-    }
-  };
 
   const handleRemoveSignature = () => {
     setSignature(null);
     setPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
+    }
+  };
+
+  const resetForm = () => {
+    setSignature(null);
+    setPreviewUrl(null);
+    setPrivacyAgreed(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -98,8 +102,53 @@ const ESignatureModal = ({
 
       if (response.status === 200) {
         toast.success("E-signature uploaded successfully!");
+        resetForm(); // Clear form after successful submission
+        
+        // Update tokens if provided
+        if (response.data.access) {
+          localStorage.setItem("accessToken", response.data.access);
+          if (response.data.refresh) {
+            localStorage.setItem("refreshToken", response.data.refresh);
+          }
+          
+          // Update the user context with new token data
+          if (user) {
+            // Decode the new token to get updated user data
+            try {
+              const decodedToken = jwtDecode<{
+                user_id: string;
+                email: string;
+                school_district?: any;
+                first_name: string;
+                last_name: string;
+                role: string;
+                profile_picture: string;
+                password_change_required?: boolean;
+                e_signature?: string;
+              }>(response.data.access);
+              
+              // Map JWT payload to UserData interface
+              const updatedUserData = {
+                user_id: decodedToken.user_id || user.user_id,
+                role: decodedToken.role || user.role,
+                first_name: decodedToken.first_name || user.first_name,
+                last_name: decodedToken.last_name || user.last_name,
+                email: decodedToken.email || user.email,
+                password_change_required: decodedToken.password_change_required ?? user.password_change_required,
+                phone_number: user.phone_number,
+                school_district: decodedToken.school_district || user.school_district,
+                profile_picture: decodedToken.profile_picture || user.profile_picture,
+                e_signature: decodedToken.e_signature || user.e_signature,
+              };
+              // Update the user context with the new token
+              updateUser(updatedUserData, response.data.access);
+            } catch (error) {
+              console.error("Failed to decode new token:", error);
+            }
+          }
+        }
+        
         onSuccess();
-        onClose();
       }
     } catch (error: any) {
       console.error("E-signature upload error:", error);
@@ -114,17 +163,9 @@ const ESignatureModal = ({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-2xl">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-            Upload E-Signature
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-          >
-            <XIcon className="w-6 h-6" />
-          </button>
-        </div>
+        <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">
+          Upload E-Signature
+        </h2>
 
         <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
           As a {user.role.replace("_", " ")}, you are required to upload your
@@ -182,7 +223,7 @@ const ESignatureModal = ({
                 </div>
 
                 {/* Camera capture (optional) */}
-                <div className="text-center">
+                {/* <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                     Or capture using camera
                   </p>
@@ -202,7 +243,7 @@ const ESignatureModal = ({
                     <CameraIcon className="w-4 h-4" />
                     Take Photo
                   </label>
-                </div>
+                </div> */}
               </div>
             )}
           </div>
@@ -234,22 +275,13 @@ const ESignatureModal = ({
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!signature || isLoading}
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Uploading..." : "Upload Signature"}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={!signature || !privacyAgreed || isLoading}
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? "Uploading..." : "Upload Signature"}
+          </button>
         </form>
       </div>
     </div>
