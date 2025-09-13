@@ -2074,7 +2074,8 @@ def update_e_signature(request):
 @permission_classes([IsAuthenticated])
 def generate_liquidation_report(request, LiquidationID):
     """
-    Generate a detailed liquidation report in Excel format
+    Generate a detailed liquidation report in Excel format with professional borders
+    and Times New Roman font throughout
     """
     try:
         liquidation = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
@@ -2089,65 +2090,253 @@ def generate_liquidation_report(request, LiquidationID):
         ws.column_dimensions['B'].width = 36.25
         ws.column_dimensions['C'].width = 33.39
         
+        # Define border styles
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        thick_border = Border(
+            left=Side(style='thick'),
+            right=Side(style='thick'),
+            top=Side(style='thick'),
+            bottom=Side(style='thick')
+        )
+        
+        # Define base font (Times New Roman for all text)
+        base_font = Font(name='Times New Roman', size=10)
+        bold_font = Font(name='Times New Roman', size=10, bold=True)
+        title_font = Font(name='Times New Roman', size=14, bold=True)
+        
         # Format cell C1
         cell_c1 = ws['C1']
         cell_c1.value = "Appendix 44"
         cell_c1.font = Font(name='Times New Roman', size=14)
         cell_c1.alignment = Alignment(horizontal='right', vertical='top')
+        cell_c1.border = thin_border
         
-        # Continue with the rest of the report structure
-        # Add more content based on your specific requirements
+        # Report title
         ws['A3'] = "LIQUIDATION REPORT"
-        ws['A3'].font = Font(bold=True, size=14)
+        ws['A3'].font = title_font
         ws.merge_cells('A3:C3')
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}3'].border = thick_border
+            ws[f'{col}3'].alignment = Alignment(horizontal='center', vertical='center')
         
         # Add liquidation details
-        ws['A5'] = "Liquidation ID:"
-        ws['B5'] = liquidation.LiquidationID
+        details_rows = [
+            ("Liquidation ID:", liquidation.LiquidationID),
+            ("Request ID:", liquidation.request.request_id),
+            ("School:", liquidation.request.user.school.schoolName if liquidation.request.user.school else "N/A"),
+            ("Submitted By:", f"{liquidation.request.user.first_name} {liquidation.request.user.last_name}"),
+            ("Submission Date:", localtime(liquidation.created_at).strftime("%Y-%m-%d %H:%M:%S")),
+            ("Status:", liquidation.status.upper()),
+        ]
         
-        ws['A6'] = "Request ID:"
-        ws['B6'] = liquidation.request.request_id
+        row = 5
+        for label, value in details_rows:
+            ws[f'A{row}'] = label
+            ws[f'A{row}'].font = bold_font
+            ws[f'A{row}'].border = thin_border
+            
+            ws[f'B{row}'] = value
+            ws[f'B{row}'].font = base_font
+            ws[f'B{row}'].border = thin_border
+            
+            # Merge B and C cells for better appearance
+            ws.merge_cells(f'B{row}:C{row}')
+            row += 1
         
-        ws['A7'] = "School:"
-        ws['B7'] = liquidation.request.user.school.schoolName if liquidation.request.user.school else "N/A"
-        
-        ws['A8'] = "Submitted By:"
-        ws['B8'] = f"{liquidation.request.user.first_name} {liquidation.request.user.last_name}"
-        
-        ws['A9'] = "Submission Date:"
-        ws['B9'] = localtime(liquidation.created_at).strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Add priorities and amounts
-        row = 11
-        ws['A11'] = "EXPENSE ITEM"
-        ws['B11'] = "REQUESTED AMOUNT"
-        ws['C11'] = "LIQUIDATED AMOUNT"
-        ws['A11'].font = ws['B11'].font = ws['C11'].font = Font(bold=True)
-        
+        # Empty row before table
         row += 1
+        
+        # Table headers
+        headers = ["EXPENSE ITEM", "REQUESTED AMOUNT", "LIQUIDATED AMOUNT"]
+        ws[f'A{row}'] = headers[0]
+        ws[f'B{row}'] = headers[1]
+        ws[f'C{row}'] = headers[2]
+        
+        # Format headers
+        for col, header in zip(['A', 'B', 'C'], headers):
+            cell = ws[f'{col}{row}']
+            cell.font = bold_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = thick_border
+        
+        # Add data rows
+        row += 1
+        start_data_row = row
+
         for lp in liquidation.liquidation_priorities.all():
             ws[f'A{row}'] = lp.priority.expenseTitle
+            ws[f'A{row}'].font = base_font
+            ws[f'A{row}'].border = thin_border
+            
             # Get requested amount
             requested_amount = RequestPriority.objects.filter(
                 request=liquidation.request,
                 priority=lp.priority
             ).first()
+            
             ws[f'B{row}'] = float(requested_amount.amount) if requested_amount else 0
+            ws[f'B{row}'].font = base_font
+            ws[f'B{row}'].border = thin_border
+            ws[f'B{row}'].number_format = '#,##0.00'
+            
             ws[f'C{row}'] = float(lp.amount)
+            ws[f'C{row}'].font = base_font
+            ws[f'C{row}'].border = thin_border
+            ws[f'C{row}'].number_format = '#,##0.00'
+            
             row += 1
         
         # Add total row
         ws[f'A{row}'] = "TOTAL"
-        ws[f'A{row}'].font = Font(bold=True)
-        ws[f'B{row}'] = f"=SUM(B12:B{row-1})"
-        ws[f'C{row}'] = f"=SUM(C12:C{row-1})"
+        ws[f'A{row}'].font = bold_font
+        ws[f'A{row}'].border = thick_border
+        
+        ws[f'B{row}'] = f"=SUM(B{start_data_row}:B{row-1})"
+        ws[f'B{row}'].font = bold_font
+        ws[f'B{row}'].border = thick_border
+        ws[f'B{row}'].number_format = '#,##0.00'
+        
+        ws[f'C{row}'] = f"=SUM(C{start_data_row}:C{row-1})"
+        ws[f'C{row}'].font = bold_font
+        ws[f'C{row}'].border = thick_border
+        ws[f'C{row}'].number_format = '#,##0.00'
         
         # Add refund amount if applicable
         if liquidation.refund:
             row += 2
             ws[f'A{row}'] = "REFUND AMOUNT:"
+            ws[f'A{row}'].font = bold_font
+            ws[f'A{row}'].border = thin_border
+            
             ws[f'B{row}'] = float(liquidation.refund)
-            ws[f'A{row}'].font = ws[f'B{row}'].font = Font(bold=True)
+            ws[f'B{row}'].font = bold_font
+            ws[f'B{row}'].border = thin_border
+            ws[f'B{row}'].number_format = '#,##0.00'
+            
+            ws.merge_cells(f'B{row}:C{row}')
+        
+        # Add approval section if liquidated
+        if liquidation.status == 'liquidated':
+            row += 2
+            ws[f'A{row}'] = "APPROVED BY:"
+            ws[f'A{row}'].font = bold_font
+            ws[f'A{row}'].border = thin_border
+            
+            approver = liquidation.reviewed_by_division or liquidation.reviewed_by_district
+            if approver:
+                ws[f'B{row}'] = f"{approver.first_name} {approver.last_name}"
+                ws[f'B{row}'].font = base_font
+                ws[f'B{row}'].border = thin_border
+                ws.merge_cells(f'B{row}:C{row}')
+            
+            row += 1
+            ws[f'A{row}'] = "APPROVAL DATE:"
+            ws[f'A{row}'].font = bold_font
+            ws[f'A{row}'].border = thin_border
+            
+            approval_date = liquidation.date_liquidated or liquidation.reviewed_at_division or liquidation.reviewed_at_district
+            if approval_date:
+                if hasattr(approval_date, 'strftime'):
+                    ws[f'B{row}'] = approval_date.strftime("%Y-%m-%d")
+                else:
+                    ws[f'B{row}'] = str(approval_date)
+                ws[f'B{row}'].font = base_font
+                ws[f'B{row}'].border = thin_border
+                ws.merge_cells(f'B{row}:C{row}')
+        
+        # Add certification section
+        row += 3  # Add some space before certification section
+        
+        # Column A certification
+        cert_row = row
+        ws[f'A{cert_row}'] = "Certified: Correctness of the above data"
+        ws[f'A{cert_row}'].font = bold_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'A{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'A{cert_row}'] = "ROMEO C. ANCHETA"
+        ws[f'A{cert_row}'].font = bold_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'A{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'A{cert_row}'] = "School Head/PIII"
+        ws[f'A{cert_row}'].font = base_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'A{cert_row}'].border = thin_border
+        
+        # Column B certification
+        cert_row = row
+        ws[f'B{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
+        ws[f'B{cert_row}'].font = bold_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'B{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'B{cert_row}'] = "LUCRECIA B. CAMAT"
+        ws[f'B{cert_row}'].font = bold_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'B{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'B{cert_row}'] = "OIC of the Public Schools District Supervisor / Education Program Specialist"
+        ws[f'B{cert_row}'].font = base_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'B{cert_row}'].border = thin_border
+        
+        # Column C certification
+        cert_row = row
+        ws[f'C{cert_row}'] = "Certified: Supporting documents complete and proper"
+        ws[f'C{cert_row}'].font = bold_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'C{cert_row}'] = "MARIA N. NAPEÑAS"
+        ws[f'C{cert_row}'].font = bold_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'C{cert_row}'] = "Administrative Assistant III"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'C{cert_row}'] = "Noted:"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'C{cert_row}'] = "CRISTEL MAE B. FONTANILLA"
+        ws[f'C{cert_row}'].font = bold_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'C{cert_row}'] = "Accountant III"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+        
+        cert_row += 1
+        ws[f'C{cert_row}'] = "Head, Accounting Unit"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+        
+        # Adjust row heights for certification section
+        for i in range(row, cert_row + 1):
+            ws.row_dimensions[i].height = 20
         
         # Create HTTP response with Excel file
         response = HttpResponse(
@@ -2164,7 +2353,7 @@ def generate_liquidation_report(request, LiquidationID):
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
-        logger.error(f"Error generating liquidation report: {str(e)}")
+        logger.error(f"Error generating liquidation report: {str(e)}", exc_info=True)
         return Response(
             {'error': 'Failed to generate report'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
