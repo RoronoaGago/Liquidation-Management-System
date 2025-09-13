@@ -51,12 +51,23 @@ const LiquidationReportPage = () => {
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
     let filtered = liquidations;
-    console.log(filtered);
-    // If user is district_admin and has a school_district, filter by district
+    console.log("All liquidations:", filtered);
+    console.log("User role:", user?.role);
+    console.log("User school_district:", user?.school_district);
+    
+    // If user is district_admin and has a school_district, filter by district and status
     if (user?.role === "district_admin" && user.school_district) {
+      const districtId = (user.school_district as any).id;
+      console.log("Filtering by district ID:", districtId);
       filtered = filtered.filter(
-        (liq) => liq.request?.user?.school?.district === user.school_district
+        (liq) => {
+          const schoolDistrict = liq.request?.user?.school?.district;
+          const status = liq.status;
+          console.log(`Liquidation ${liq.LiquidationID}: school district=${schoolDistrict}, status=${status}`);
+          return schoolDistrict != null && parseInt(schoolDistrict.toString()) === districtId && status === "submitted";
+        }
       );
+      console.log("Filtered liquidations:", filtered);
     }
     if (!searchTerm) return filtered;
     return filtered.filter((liq) => {
