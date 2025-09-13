@@ -39,24 +39,17 @@ const SetupModal = () => {
     completeSetupFlow();
   };
 
-  const handleCancel = () => {
-    setShowPasswordModal(false);
-    setShowESignatureModal(false);
-    // Don't complete setup flow if user cancels - they'll need to login again
-  };
 
   return (
     <>
       <PasswordChangeModal
         isOpen={showPasswordModal}
         onSuccess={handlePasswordSuccess}
-        onClose={handleCancel}
       />
 
       <ESignatureModal
         isOpen={showESignatureModal}
         onSuccess={handleESignatureSuccess}
-        onClose={handleCancel}
       />
     </>
   );

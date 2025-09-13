@@ -1,18 +1,15 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { EyeIcon, EyeClosedIcon } from "lucide-react";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import { toast } from "react-toastify";
 interface PasswordChangeModalProps {
   isOpen: boolean;
-  onClose: () => void;
   onSuccess: () => void;
 }
 const PasswordChangeModal = ({
   isOpen,
-  onClose,
   onSuccess,
 }: PasswordChangeModalProps) => {
   const { changePassword, passwordChangeRequired } = useAuth();
@@ -29,12 +26,12 @@ const PasswordChangeModal = ({
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const navigate = useNavigate();
 
   // Add early return if modal is not open
   if (!isOpen) {
     return null;
   }
+
   const validateForm = () => {
     let valid = true;
     const newErrors = {
@@ -114,6 +111,21 @@ const PasswordChangeModal = ({
     return valid;
   };
 
+  const resetForm = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setErrors({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+      general: "",
+    });
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -123,6 +135,7 @@ const PasswordChangeModal = ({
     try {
       await changePassword(currentPassword, newPassword);
       toast.success("Password changed successfully!");
+      resetForm(); // Clear form after successful submission
       onSuccess();
     } catch (err) {
       console.error("Password change error:", err);

@@ -273,6 +273,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         else:
             token['profile_picture'] = None
 
+        # Add e-signature URL if available
+        if user.e_signature:
+            token['e_signature'] = user.e_signature.url
+        else:
+            token['e_signature'] = None
+
         return token
 
 
