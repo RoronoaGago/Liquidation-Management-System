@@ -7,7 +7,15 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  EyeIcon,
+  ChevronUp,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+} from "lucide-react";
 import { Submission } from "@/lib/types";
 import { formatDateTime } from "@/lib/helpers";
 import {
@@ -19,6 +27,8 @@ import {
   ArrowDownCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext"; // Add this import
+import { useState, useMemo } from "react";
+import Button from "@/components/ui/button/Button";
 
 interface PrioritySubmissionsTableProps {
   submissions: Submission[];
@@ -84,6 +94,14 @@ const PrioritySubmissionsTable: React.FC<
     liquidated: <CheckCircle className="h-4 w-4" />,
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const totalPages = Math.ceil(safeSubmissions.length / itemsPerPage);
+  const paginatedSubmissions = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return safeSubmissions.slice(start, start + itemsPerPage);
+  }, [safeSubmissions, currentPage, itemsPerPage]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -277,7 +295,7 @@ const PrioritySubmissionsTable: React.FC<
                 </TableCell>
               </TableRow>
             ) : (
-              safeSubmissions.map((submission) => (
+              paginatedSubmissions.map((submission) => (
                 <TableRow
                   key={submission.request_id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-900/20"
@@ -318,13 +336,15 @@ const PrioritySubmissionsTable: React.FC<
                     {formatDateTime(submission.created_at)}
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    <button
-                      className="flex items-center gap-2 text-blue-600 hover:underline"
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      startIcon={<EyeIcon className="w-4 h-4" />}
                       onClick={() => onView(submission)}
+                      className="text-blue-600 p-0"
                     >
                       View
-                      <EyeIcon className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

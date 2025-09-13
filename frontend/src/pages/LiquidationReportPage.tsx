@@ -38,6 +38,7 @@ const LiquidationReportPage = () => {
       try {
         const res = await api.get("/liquidations/");
         setLiquidations(res.data);
+        console.log(res.data);
       } catch (err) {
         // Optionally handle error
       } finally {

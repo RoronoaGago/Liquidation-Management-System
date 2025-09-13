@@ -226,17 +226,25 @@ CELERY_TIMEZONE = TIME_ZONE
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
+    'process-advanced-requests-precise': {
+        'task': 'api.tasks.process_advanced_requests',
+        'schedule': crontab(minute='*'),  # Daily at 6:00 AM
+    },
+    'monthly-audit-precise': {
+        'task': 'api.tasks.monthly_request_status_audit',
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
+    },
     'check-liquidation-reminders-every-minute': {
         'task': 'api.tasks.check_liquidation_reminders',
-        'schedule': crontab(minute='*'),
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
     },
     'send-urgent-reminders-every-2-minutes': {
         'task': 'api.tasks.send_urgent_liquidation_reminders',
-        'schedule': crontab(minute='*/2'),
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
     },
     'update-remaining-days-daily': {
         'task': 'api.tasks.update_liquidation_remaining_days',
-        'schedule': crontab(minute='*'),  # once a day at midnight
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
     },
 }
 
