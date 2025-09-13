@@ -70,17 +70,15 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'backend.urls'
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173",
-                        "http://192.168.1.147:5173", "http://192.168.1.111:5173", "http://192.168.1.232:5173", "http://192.168.0.231:5173", "http://172.20.10.2:5173", "http://172.20.10.7:5173", "http://192.168.1.91:5173"]
-
+                        "http://192.168.1.147:5173", "http://192.168.1.111:5173", "http://192.168.1.232:5173", "http://192.168.0.231:5173", "http://172.20.10.2:5173", "http://172.20.10.7:5173"]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://192.168.1.91:5173"
 ]
 CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
 
-FRONTEND_LOGIN_URL = ('http://localhost:5173/login', 'http://192.168.1.91:5173/login')
+FRONTEND_LOGIN_URL = 'http://localhost:5173/login'
 
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True  # If using HTTPS
@@ -223,7 +221,6 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
     'process-advanced-requests-precise': {
@@ -232,22 +229,25 @@ CELERY_BEAT_SCHEDULE = {
     },
     'monthly-audit-precise': {
         'task': 'api.tasks.monthly_request_status_audit',
-        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
+        # 1st of month at 2:00 AM
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),
     },
     'check-liquidation-reminders-every-minute': {
         'task': 'api.tasks.check_liquidation_reminders',
-        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
+        # 1st of month at 2:00 AM
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),
     },
     'send-urgent-reminders-every-2-minutes': {
         'task': 'api.tasks.send_urgent_liquidation_reminders',
-        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
+        # 1st of month at 2:00 AM
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),
     },
     'update-remaining-days-daily': {
         'task': 'api.tasks.update_liquidation_remaining_days',
-        'schedule': crontab(hour=2, minute=0, day_of_month=1),  # 1st of month at 2:00 AM
+        # 1st of month at 2:00 AM
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),
     },
 }
-
 
 
 LOGGING = {

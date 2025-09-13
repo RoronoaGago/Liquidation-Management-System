@@ -359,6 +359,7 @@ const ManageUsers = () => {
       setErrors({});
       setIsDialogOpen(false);
     } catch (error: any) {
+      console.error("Error adding user:", error);
       let errorMessage = "An error occurred. Please try again.";
       if (axios.isAxiosError(error) && error.response) {
         if (error.response.data.email) {

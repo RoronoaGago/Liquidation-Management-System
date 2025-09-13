@@ -1,0 +1,61 @@
+[
+  {
+    "first_name": "John",
+    "last_name": "Doe",
+    "date_of_birth": "1990-01-01",
+    "email": "admin@slc-sflu.edu.ph",
+    "phone_number": "+1234567890",
+    "role": "admin"
+  },
+  {
+    "first_name": "Maria",
+    "last_name": "Santos",
+    "date_of_birth": "1985-05-15",
+    "email": "msantos@slc-sflu.edu.ph",
+    "phone_number": "+639171234567",
+    "role": "school_head",
+    "school": 100803
+  },
+  {
+    "first_name": "Juan",
+    "last_name": "Dela Cruz",
+    "date_of_birth": "1988-07-20",
+    "email": "jdelacruz@slc-sflu.edu.ph",
+    "phone_number": "+639281234567",
+    "role": "school_admin",
+    "school": 100803
+  },
+  {
+    "first_name": "Ana",
+    "last_name": "Reyes",
+    "date_of_birth": "1982-11-30",
+    "email": "areyes@slc-sflu.edu.ph",
+    "phone_number": "+639391234567",
+    "role": "district_admin",
+    "school_district": 3
+  },
+  {
+    "first_name": "Robert",
+    "last_name": "Garcia",
+    "date_of_birth": "1975-03-12",
+    "email": "rgarcia@slc-sflu.edu.ph",
+    "phone_number": "+639451234567",
+    "role": "superintendent"
+  },
+  {
+    "first_name": "Liza",
+    "last_name": "Martinez",
+    "date_of_birth": "1992-09-08",
+    "email": "lmartinez@slc-sflu.edu.ph",
+    "phone_number": "+639521234567",
+    "role": "liquidator"
+  },
+  {
+    "first_name": "Carlos",
+    "last_name": "Ramirez",
+    "date_of_birth": "1980-12-25",
+    "email": "cramirez@slc-sflu.edu.ph",
+    "phone_number": "+639631234567",
+    "role": "accountant"
+  }
+]

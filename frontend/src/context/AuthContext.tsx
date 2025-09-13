@@ -1,4 +1,3 @@
-/* eslint-disable no-useless-catch */
 import {
   createContext,
   useContext,
@@ -23,6 +22,7 @@ interface UserData {
   school_district?: District;
   email: string;
   profile_picture?: string;
+  e_signature?: string;
 }
 
 interface AuthContextType {
@@ -37,6 +37,9 @@ interface AuthContextType {
     newPassword: string
   ) => Promise<void>;
   passwordChangeRequired: boolean;
+  eSignatureRequired: boolean;
+  setupFlowActive: boolean;
+  completeSetupFlow: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,6 +50,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [user, setUser] = useState<UserData | null>(null);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+  const [eSignatureRequired, setESignatureRequired] = useState(false);
+  const [setupFlowActive, setSetupFlowActive] = useState(false);
 
   const decodeToken = (token: string): UserData => {
     try {
@@ -59,6 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role: string;
         profile_picture: string;
         password_change_required?: boolean;
+        e_signature?: string;
       }>(token);
 
       return {
@@ -70,8 +76,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role: decoded.role,
         profile_picture: decoded.profile_picture,
         password_change_required: decoded.password_change_required,
+        e_signature: decoded.e_signature,
       };
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       throw new Error("Invalid token");
     }
@@ -93,12 +99,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem("refreshToken", response.data.refresh);
         }
         setPasswordChangeRequired(false);
+
+        // Check if e-signature is required after password change
+        const newUserData = decodeToken(response.data.access);
+        setUser(newUserData);
+        const requiresESignature = Boolean(
+          newUserData.role &&
+          ["school_head", "superintendent", "accountant"].includes(
+            newUserData.role
+          ) &&
+          !newUserData.e_signature
+        );
+        setESignatureRequired(requiresESignature);
+
+        // Set setup flow as active if e-signature is required
+        if (requiresESignature) {
+          setSetupFlowActive(true);
+        } else {
+          completeSetupFlow();
+        }
       }
 
       return response.data;
     } catch (error) {
       throw error;
     }
+  };
+
+  const completeSetupFlow = () => {
+    setSetupFlowActive(false);
+    setPasswordChangeRequired(false);
+    setESignatureRequired(false);
+    navigate("/");
   };
 
   useEffect(() => {
@@ -122,6 +154,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(userData);
           setIsAuthenticated(true);
           setPasswordChangeRequired(userData.password_change_required || false);
+          setESignatureRequired(
+            (userData.role === "school_head" ||
+              userData.role === "superintendent" ||
+              userData.role === "accountant") &&
+              !userData.e_signature // <-- This line was missing a closing parenthesis
+          );
         } catch {
           localStorage.removeItem("accessToken");
           setIsAuthenticated(false);
@@ -136,7 +174,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const response = await axios.post(
             "http://127.0.0.1:8000/api/token/refresh/",
-            // "http://192.168.1.91:8000/api/token/refresh/",
             { refresh: refreshToken }
           );
           if (response.data?.access) {
@@ -148,6 +185,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setIsAuthenticated(true);
               setPasswordChangeRequired(
                 userData.password_change_required || false
+              );
+              setESignatureRequired(
+                // <-- You should also add this for the refresh case
+                (userData.role === "school_head" ||
+                  userData.role === "superintendent" ||
+                  userData.role === "accountant") &&
+                  !userData.e_signature
               );
             }
             setIsLoading(false);
@@ -184,8 +228,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated(true);
       setPasswordChangeRequired(userData.password_change_required || false);
 
-      if (!userData.password_change_required) {
-        navigate("/");
+      // Check if setup flow should be activated
+      if (userData.password_change_required) {
+        setSetupFlowActive(true);
+      } else {
+        // Check if e-signature is required
+        const requiresESignature =
+          userData.role &&
+          ["school_head", "superintendent", "accountant"].includes(
+            userData.role
+          ) &&
+          !userData.e_signature;
+        if (requiresESignature) {
+          setESignatureRequired(true);
+          setSetupFlowActive(true);
+        } else {
+          navigate("/");
+        }
       }
     } catch (error) {
       localStorage.removeItem("accessToken");
@@ -222,6 +281,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         updateUser,
         changePassword,
         passwordChangeRequired,
+        eSignatureRequired,
+        setupFlowActive,
+        completeSetupFlow,
       }}
     >
       {children}

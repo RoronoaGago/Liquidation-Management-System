@@ -5,8 +5,16 @@ import { EyeIcon, EyeClosedIcon } from "lucide-react";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import { toast } from "react-toastify";
-
-const PasswordChangeModal = () => {
+interface PasswordChangeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+const PasswordChangeModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}: PasswordChangeModalProps) => {
   const { changePassword, passwordChangeRequired } = useAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -23,6 +31,10 @@ const PasswordChangeModal = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
+  // Add early return if modal is not open
+  if (!isOpen) {
+    return null;
+  }
   const validateForm = () => {
     let valid = true;
     const newErrors = {
@@ -111,7 +123,7 @@ const PasswordChangeModal = () => {
     try {
       await changePassword(currentPassword, newPassword);
       toast.success("Password changed successfully!");
-      navigate("/");
+      onSuccess();
     } catch (err) {
       console.error("Password change error:", err);
       setErrors((prev) => ({

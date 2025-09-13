@@ -31,15 +31,14 @@ import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
-import PasswordChangeModal from "./components/common/PasswordChangeModal";
+import SetupModal from "./components/common/SetupModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
 import ManageDistricts from "./pages/ManageDistricts";
 import GenerateReport from "./pages/GenerateReport";
 import AdminDashboard from "./pages/AdminDashboard";
 
 const App = () => {
-  const { passwordChangeRequired, user } = useAuth();
-  console.log("Password change required:", passwordChangeRequired);
+  const { setupFlowActive, user } = useAuth();
   return (
     <>
       {/* Main application routes */}
@@ -162,9 +161,9 @@ const App = () => {
           </Route>
         </Route>
         {/* Catch-all route */}
-        <Route path="*" element={<Navigate to="/" replace />} />-
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      {passwordChangeRequired && <PasswordChangeModal />}
+      <SetupModal />
       <LiquidationReminder />
     </>
   );
