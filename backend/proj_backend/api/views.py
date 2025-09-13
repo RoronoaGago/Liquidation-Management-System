@@ -1756,31 +1756,27 @@ def admin_dashboard(request):
             'percentage': float(percentage)
         })
 
-    # 3. Liquidation Timeline - FIXED: Use liquidation created_at instead of request created_at
-
-    # In your admin_dashboard view, replace the liquidation timeline calculation with:
-
+   # 3. Liquidation Timeline - FIXED calculation
     liquidation_timeline = []
     for month in months:
         month_liquidations = LiquidationManagement.objects.filter(
             created_at__year=month[:4],
             created_at__month=month[5:7],
             status='liquidated'
-        ).annotate(
-            processing_days=ExpressionWrapper(
-                # Use the actual liquidation date minus the request download date
-                F('date_liquidated') - F('request__downloaded_at__date'),
-                output_field=DurationField()
-            )
         )
 
-        # Calculate average processing time in days
-        avg_seconds = month_liquidations.aggregate(
-            avg_seconds=Avg('processing_days')
-        )['avg_seconds'] or 0
+        total_seconds = 0
+        count = 0
 
-        # Convert seconds to days
-        avg_days = avg_seconds.total_seconds() / (24 * 60 * 60) if avg_seconds else 0
+        for liquidation in month_liquidations:
+            if liquidation.date_liquidated and liquidation.request.downloaded_at:
+                # Calculate time difference properly
+                time_diff = liquidation.date_liquidated - liquidation.request.downloaded_at
+                total_seconds += time_diff.total_seconds()
+                count += 1
+
+        avg_seconds = total_seconds / count if count > 0 else 0
+        avg_days = avg_seconds / (24 * 60 * 60)  # Convert seconds to days
 
         approved_count = month_liquidations.count()
         rejected_count = LiquidationManagement.objects.filter(
@@ -1810,19 +1806,23 @@ def admin_dashboard(request):
                           100) if total_requests > 0 else 0
 
         # Calculate average processing time for this school - FIXED: Use liquidation creation date
+        # Calculate average processing time for this school - FIXED
         school_liquidations = LiquidationManagement.objects.filter(
             request__user__school=school,
             status='liquidated'
         )
-        avg_processing = school_liquidations.annotate(
-            processing_days=ExpressionWrapper(
-                F('date_liquidated') - F('request__downloaded_at__date'),
-                output_field=DurationField())).aggregate(avg=Avg('processing_days'))['avg'] or 0
 
-        if avg_processing:
-            avg_processing_days = avg_processing.total_seconds() / (24 * 60 * 60)
-        else:
-            avg_processing_days = 0
+        total_seconds = 0
+        count = 0
+
+        for liquidation in school_liquidations:
+            if liquidation.date_liquidated and liquidation.request.downloaded_at:
+                time_diff = liquidation.date_liquidated - liquidation.request.downloaded_at
+                total_seconds += time_diff.total_seconds()
+                count += 1
+
+        avg_processing_days = (
+            total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
 
         # Calculate budget utilization for this school
         school_utilized = RequestPriority.objects.filter(

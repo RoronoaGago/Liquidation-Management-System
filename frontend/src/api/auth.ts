@@ -1,152 +1,47 @@
-import axios from 'axios';
+import api from './axios';
 
-// Define your API response data types
-interface TokenResponse {
-  access: string;
-  refresh?: string;
-}
+export const login = async (email: string, password: string) => {
+  try {
+    const response = await api.post('http://127.0.0.1:8000/api/token/', {
+      email,
+      password
+    });
 
-const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api/',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Helper function to get tokens
-const getTokens = () => ({
-  accessToken: localStorage.getItem('accessToken'),
-  refreshToken: localStorage.getItem('refreshToken'),
-});
-
-// Set initial token if available
-const { accessToken } = getTokens();
-if (accessToken) {
-  api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-}
-
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    const { accessToken } = getTokens();
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // If error is 401 and we haven't already retried
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      // Don't try to refresh token for authentication endpoints
-      const isAuthEndpoint = originalRequest.url?.includes('/token/') ||
-        originalRequest.url?.includes('/request-otp/') ||
-        originalRequest.url?.includes('/verify-otp/') ||
-        originalRequest.url?.includes('/resend-otp/');
-
-      if (isAuthEndpoint) {
-        return Promise.reject(error);
+    if (response.data?.access) {
+      localStorage.setItem('accessToken', response.data.access);
+      if (response.data.refresh) {
+        localStorage.setItem('refreshToken', response.data.refresh);
       }
-
-      try {
-        const { refreshToken } = getTokens();
-        if (!refreshToken) {
-          // Clear any stale tokens and redirect to login
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          // window.location.href = '/login';
-          throw new Error('No refresh token available');
-        }
-
-        const response = await axios.post<TokenResponse>(
-          'http://127.0.0.1:8000/api/token/refresh/',
-          { refresh: refreshToken }
-        );
-
-        localStorage.setItem('accessToken', response.data.access);
-        if (response.data.refresh) {
-          localStorage.setItem('refreshToken', response.data.refresh);
-        }
-
-        api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
-        originalRequest.headers.Authorization = `Bearer ${response.data.access}`;
-
-        return api(originalRequest);
-      } catch (err) {
-        // If refresh fails, clear storage and redirect to login
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        // window.location.href = '/login';
-        return Promise.reject(err);
+      return response.data;
+    }
+    //  date time nalang average 
+    throw new Error('Authentication failed: No access token received');
+  } catch (error: any) {
+    // Transform Axios error to a more specific error
+    if (error.response) {
+      // Handle HTTP errors
+      if (error.response.status === 401) {
+        throw new Error('Invalid email or password');
+      } else if (error.response.status >= 500) {
+        throw new Error('Server error. Please try again later.');
       }
     }
-
-    return Promise.reject(error);
-  }
-);
-
-// api/axios.ts (add these functions)
-export const requestOTP = async (email: string, password: string) => {
-  try {
-    // Create a new axios instance without interceptors for auth requests
-    const authApi = axios.create({
-      baseURL: 'http://127.0.0.1:8000/api/',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const response = await authApi.post("/request-otp/", { email, password });
-    return response.data;
-  } catch (error: any) {
-    console.error(error);
-    throw new Error(error.response?.data?.message || "Failed to send OTP");
+    // Re-throw other errors
+    throw new Error(error.message || 'Login failed');
   }
 };
 
-export const verifyOTP = async (email: string, otp: string) => {
-  try {
-    // Create a new axios instance without interceptors for auth requests
-    const authApi = axios.create({
-      baseURL: 'http://127.0.0.1:8000/api/',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const response = await authApi.post("/verify-otp/", { email, otp });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.message || "Invalid OTP");
-  }
+export const logout = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
 };
 
-export const resendOTP = async (email: string) => {
+export const getProtectedData = async () => {
   try {
-    // Create a new axios instance without interceptors for auth requests
-    const authApi = axios.create({
-      baseURL: 'http://127.0.0.1:8000/api/',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const response = await authApi.post("/resend-otp/", { email });
+    const response = await api.get('http://127.0.0.1:8000/api/protected/');
     return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.message || "Failed to resend OTP");
+  } catch (error) {
+    console.error('Failed to fetch protected data:', error);
+    throw error;
   }
 };
-
-export default api;
