@@ -58,6 +58,7 @@ const ManageSchools = () => {
     legislative_district: "",
     districtId: "",
     municipality: "",
+    district: "",
   });
   const [sortConfig, setSortConfig] = useState<{
     key: string;
@@ -73,6 +74,8 @@ const ManageSchools = () => {
     legislativeDistrict: "",
   });
   const [districtOptions, setDistrictOptions] = useState<string[]>([]);
+  // Add district options state
+const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([]);
   const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
   const [legislativeDistricts, setLegislativeDistricts] = useState<{
     [key: string]: string[];
@@ -80,6 +83,15 @@ const ManageSchools = () => {
   const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
     string[]
   >([]);
+
+  useEffect(() => {
+  if (districts && Array.isArray(districts)) {
+    const activeDistricts = districts
+      .filter(district => district.is_active)
+      .map(district => district.districtId);
+    setDistrictFilterOptions(activeDistricts);
+  }
+}, [districts]);
   const isFormValid =
     requiredFields.every((field) => {
       const value = formData[field as keyof SchoolFormData];
@@ -101,7 +113,7 @@ const ManageSchools = () => {
         params.legislative_district = filterOptions.legislative_district;
       if (filterOptions.municipality)
         params.municipality = filterOptions.municipality;
-      if (filterOptions.districtId) params.district = filterOptions.districtId;
+       if (filterOptions.district) params.district = filterOptions.district; // Use 'district' not 'districtId'
       if (sortConfig) {
         params.ordering =
           sortConfig.direction === "asc"

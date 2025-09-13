@@ -2,14 +2,10 @@ import api from "./axios";
 
 export const login = async (email: string, password: string) => {
   try {
-    const response = await api.post(
-      "http://127.0.0.1:8000/api/token/",
-      // "http://192.168.1.91:8000/api/token/",
-      {
-        email,
-        password,
-      }
-    );
+    const response = await api.post("http://127.0.0.1:8000/api/token/", {
+      email,
+      password,
+    });
 
     if (response.data?.access) {
       localStorage.setItem("accessToken", response.data.access);
@@ -18,9 +14,8 @@ export const login = async (email: string, password: string) => {
       }
       return response.data;
     }
-
+    //  date time nalang average
     throw new Error("Authentication failed: No access token received");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     // Transform Axios error to a more specific error
     if (error.response) {

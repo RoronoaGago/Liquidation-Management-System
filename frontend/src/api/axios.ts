@@ -49,9 +49,26 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
+      // Don't try to refresh token for authentication endpoints
+      const isAuthEndpoint =
+        originalRequest.url?.includes("/token/") ||
+        originalRequest.url?.includes("/request-otp/") ||
+        originalRequest.url?.includes("/verify-otp/") ||
+        originalRequest.url?.includes("/resend-otp/");
+
+      if (isAuthEndpoint) {
+        return Promise.reject(error);
+      }
+
       try {
         const { refreshToken } = getTokens();
-        if (!refreshToken) throw new Error("No refresh token available");
+        if (!refreshToken) {
+          // Clear any stale tokens and redirect to login
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          // window.location.href = '/login';
+          throw new Error("No refresh token available");
+        }
 
         const response = await axios.post<TokenResponse>(
           //   "http://127.0.0.1:8000/api/token/refresh/",

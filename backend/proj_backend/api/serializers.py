@@ -59,6 +59,7 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    e_signature = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -78,6 +79,7 @@ class UserSerializer(serializers.ModelSerializer):
             "school_district",
             "profile_picture",
             "profile_picture_base64",
+            "e_signature",  # <-- Add this line
             "is_active",
             "date_joined"
         ]
@@ -120,6 +122,18 @@ class UserSerializer(serializers.ModelSerializer):
             if qs.exists():
                 raise serializers.ValidationError(
                     {"role": f"There is already a {role.replace('_', ' ')} assigned to this school."}
+                )
+        # E-signature required for specific roles (only for updates, not creation)
+        role = data.get("role")
+        e_signature = data.get("e_signature")
+        required_roles = ["school_head", "superintendent", "accountant"]
+        
+        # Only require e-signature for updates (when instance exists), not for creation
+        if self.instance and role in required_roles and not e_signature:
+            # Check if user already has an e-signature
+            if not self.instance.e_signature:
+                raise serializers.ValidationError(
+                    {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant."}
                 )
         return data
 
@@ -242,6 +256,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email  # Now the primary identifier
         token['role'] = user.role
         token['password_change_required'] = user.password_change_required
+
         if user.school_district:
             token['school_district'] = {
                 'id': user.school_district.districtId,
@@ -257,6 +272,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['profile_picture'] = user.profile_picture.url
         else:
             token['profile_picture'] = None
+
+        # Add e-signature URL if available
+        if user.e_signature:
+            token['e_signature'] = user.e_signature.url
+        else:
+            token['e_signature'] = None
 
         return token
 
@@ -368,7 +389,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'reviewed_by',
             'reviewed_at',
             'next_available_month',
-            'is_advance_request', 
+            'is_advance_request',
             'can_submit_for_month',
         ]
         read_only_fields = ['request_id', 'created_at',
@@ -399,6 +420,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                 except ListOfPriority.DoesNotExist:
                     continue
         return request_obj
+
     def get_next_available_month(self, obj):
         """Get next available month for this user"""
         if hasattr(obj, 'user') and obj.user:
@@ -410,7 +432,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         """Check if this is an advance request"""
         if not obj.request_monthyear:
             return False
-        
+
         from datetime import date
         today = date.today()
         try:
@@ -430,14 +452,14 @@ class RequestManagementSerializer(serializers.ModelSerializer):
     def validate_request_monthyear(self, value):
         """Validate the requested month against business rules"""
         user = self.context['request'].user if 'request' in self.context else None
-        
+
         if user and value:
             if not RequestManagement.can_user_request_for_month(user, value):
                 existing = RequestManagement.objects.filter(
                     user=user,
                     request_monthyear=value
                 ).exclude(status='rejected').first()
-                
+
                 if existing:
                     raise serializers.ValidationError(
                         f"You already have a request for {value}. "
@@ -447,13 +469,13 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                     unliquidated = RequestManagement.objects.filter(
                         user=user
                     ).exclude(status__in=['liquidated', 'rejected']).first()
-                    
+
                     if unliquidated:
                         raise serializers.ValidationError(
                             f"Please liquidate your current request "
                             f"({unliquidated.request_id}) before submitting a new one."
                         )
-        
+
         return value
 
 
@@ -567,7 +589,6 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                 for lp in instance.liquidation_priorities.all()
             ]
         return data
-
 
 
 class NotificationSerializer(serializers.ModelSerializer):

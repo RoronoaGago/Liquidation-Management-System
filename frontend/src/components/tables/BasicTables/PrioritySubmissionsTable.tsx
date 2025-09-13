@@ -346,31 +346,15 @@ const PrioritySubmissionsTable: React.FC<
                     {formatDateTime(submission.created_at)}
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    <div className="flex flex-col">
-                      <span>
-                        {formatRequestMonthYear(submission.request_monthyear)}
-                      </span>
-                      {submission.request_monthyear &&
-                        submission.user.school &&
-                        isBacklogCompliance(
-                          submission.user.school,
-                          submission.request_monthyear
-                        ) && (
-                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                            <AlertCircle className="h-3 w-3" />
-                            Backlog Compliance
-                          </span>
-                        )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    <button
-                      className="flex items-center gap-2 text-blue-600 hover:underline"
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      startIcon={<EyeIcon className="w-4 h-4" />}
                       onClick={() => onView(submission)}
+                      className="text-blue-600 p-0"
                     >
                       View
-                      <EyeIcon className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -378,7 +362,6 @@ const PrioritySubmissionsTable: React.FC<
           </TableBody>
         </Table>
       </div>
-      
     </div>
   );
 };

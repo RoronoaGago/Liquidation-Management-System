@@ -27,9 +27,6 @@ import {
   Loader2,
   Archive,
   ArchiveRestore,
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  SquarePenIcon,
   AlertTriangle,
   RefreshCw,
   Loader2Icon,
@@ -39,12 +36,8 @@ import Button from "@/components/ui/button/Button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "@/api/axios";
 import SkeletonRow from "@/components/ui/skeleton";
-import {
-  laUnionMunicipalities,
-  municipalityDistricts,
-  firstDistrictMunicipalities,
-} from "@/lib/constants";
 import { District, School } from "@/lib/types";
+import Badge from "@/components/ui/badge/Badge";
 
 interface SchoolsTableProps {
   schools: School[];
@@ -69,7 +62,6 @@ interface SchoolsTableProps {
 
 export default function SchoolsTable({
   schools,
-  setSchools,
   showArchived,
   setShowArchived,
   fetchSchools,
@@ -87,7 +79,7 @@ export default function SchoolsTable({
   totalSchools,
   ITEMS_PER_PAGE_OPTIONS,
 }: SchoolsTableProps) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm] = useState("");
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -102,7 +94,6 @@ export default function SchoolsTable({
 
   // Dialogs and form state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
@@ -327,24 +318,19 @@ export default function SchoolsTable({
     }
   };
 
+  // Update the filter change handler
   const handleFilterChange = (name: string, value: string) => {
     setFilterOptions((prev: any) => ({
       ...prev,
       [name]: value,
     }));
+    setCurrentPage(1);
   };
 
-  const resetFilters = () => {
-    setFilterOptions({
-      searchTerm: "",
-      district: "",
-      municipality: "",
-    });
-    setSearchTerm("");
-  };
+
 
   const [districtOptions, setDistrictOptions] = useState<string[]>([]);
-  const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
+  
   const handleViewSchool = (school: School) => {
     setSchoolToView(school);
     setIsViewDialogOpen(true);
@@ -455,49 +441,42 @@ export default function SchoolsTable({
   const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
     string[]
   >([]);
-  const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
-    []
-  );
-
+const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>([]); 
   // --- Update filter options dynamically ---
-  useEffect(() => {
-    // Update municipality options when legislative district changes
-    if (
-      filterLegislativeDistrict &&
-      legislativeDistricts[filterLegislativeDistrict]
-    ) {
-      setFilterMunicipalityOptions(
-        legislativeDistricts[filterLegislativeDistrict]
-      );
-    } else {
-      setFilterMunicipalityOptions([]);
-    }
-    setFilterMunicipality(""); // Reset municipality when district changes
-    setFilterDistrict("");
+ useEffect(() => {
+  // Update municipality options when legislative district changes
+  if (filterLegislativeDistrict && legislativeDistricts[filterLegislativeDistrict]) {
+    setFilterMunicipalityOptions(legislativeDistricts[filterLegislativeDistrict]);
+  } else {
+    setFilterMunicipalityOptions([]);
+  }
+  setFilterMunicipality(""); // Reset municipality when district changes
+  setFilterDistrict(""); // Reset district when legislative district changes
+}, [filterLegislativeDistrict, legislativeDistricts]);
+
+useEffect(() => {
+  // Update district options when municipality changes
+  if (filterMunicipality) {
+    const districtsForMunicipality = districts
+      .filter(district => district.municipality === filterMunicipality && district.is_active)
+      .map(district => district.districtId);
+    setFilterDistrictOptions(districtsForMunicipality);
+  } else {
     setFilterDistrictOptions([]);
-  }, [filterLegislativeDistrict, legislativeDistricts]);
+  }
+  setFilterDistrict(""); // Reset district when municipality changes
+}, [filterMunicipality, districts]);
+ useEffect(() => {
+  setFilterOptions((prev: any) => ({
+    ...prev,
+    legislative_district: filterLegislativeDistrict,
+    municipality: filterMunicipality,
+    district: filterDistrict, // This should now be the district ID
+  }));
+  setCurrentPage(1);
+  // eslint-disable-next-line
+}, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
 
-  useEffect(() => {
-    // Update district options when municipality changes
-    if (filterMunicipality && municipalityDistricts[filterMunicipality]) {
-      setFilterDistrictOptions(municipalityDistricts[filterMunicipality]);
-    } else {
-      setFilterDistrictOptions([]);
-    }
-    setFilterDistrict("");
-  }, [filterMunicipality]);
-
-  // --- Sync filterOptions with dropdowns ---
-  useEffect(() => {
-    setFilterOptions((prev: any) => ({
-      ...prev,
-      legislative_district: filterLegislativeDistrict,
-      municipality: filterMunicipality,
-      district: filterDistrict,
-    }));
-    setCurrentPage(1);
-    // eslint-disable-next-line
-  }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
 
   return (
     <div className="space-y-4">
@@ -579,68 +558,104 @@ export default function SchoolsTable({
             </select>
           </div>
         </div>
-        {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-            <div className="space-y-2">
-              <Label
-                htmlFor="filter-legislative-district"
-                className="text-sm font-medium"
-              >
-                Legislative District
-              </Label>
-              <select
-                id="filter-legislative-district"
-                value={filterLegislativeDistrict}
-                onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
-                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-              >
-                <option value="">All</option>
-                {legislativeDistrictOptions.map((ld) => (
-                  <option key={ld} value={ld}>
-                    {ld}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label
-                htmlFor="filter-municipality"
-                className="text-sm font-medium"
-              >
-                Municipality
-              </Label>
-              <select
-                id="filter-municipality"
-                value={filterMunicipality}
-                onChange={(e) => setFilterMunicipality(e.target.value)}
-                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                disabled={!filterLegislativeDistrict}
-              >
-                <option value="">All</option>
-                {filterMunicipalityOptions.map((mun) => (
-                  <option key={mun} value={mun}>
-                    {mun}
-                  </option>
-                ))}
-              </select>
-            </div>
+       {showFilters && (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+    {/* Legislative District Filter */}
+    <div className="space-y-2">
+      <Label
+        htmlFor="filter-legislative-district"
+        className="text-sm font-medium"
+      >
+        Legislative District
+      </Label>
+      <select
+        id="filter-legislative-district"
+        value={filterLegislativeDistrict}
+        onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
+        className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+      >
+        <option value="">All</option>
+        {legislativeDistrictOptions.map((ld) => (
+          <option key={ld} value={ld}>
+            {ld}
+          </option>
+        ))}
+      </select>
+    </div>
+    
+    {/* Municipality Filter */}
+    <div className="space-y-2">
+      <Label
+        htmlFor="filter-municipality"
+        className="text-sm font-medium"
+      >
+        Municipality
+      </Label>
+      <select
+        id="filter-municipality"
+        value={filterMunicipality}
+        onChange={(e) => setFilterMunicipality(e.target.value)}
+        className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+        disabled={!filterLegislativeDistrict}
+      >
+        <option value="">All</option>
+        {filterMunicipalityOptions.map((mun) => (
+          <option key={mun} value={mun}>
+            {mun}
+          </option>
+        ))}
+      </select>
+    </div>
 
-            <div className="md:col-span-3 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setFilterLegislativeDistrict("");
-                  setFilterMunicipality("");
-                  setFilterDistrict("");
-                }}
-                startIcon={<X className="size-4" />}
-              >
-                Clear Filters
-              </Button>
-            </div>
-          </div>
-        )}
+    {/* School District Filter */}
+    <div className="space-y-2">
+      <Label
+        htmlFor="filter-school-district"
+        className="text-sm font-medium"
+      >
+        School District
+      </Label>
+      <select
+        id="filter-school-district"
+        value={filterDistrict}
+        onChange={(e) => setFilterDistrict(e.target.value)}
+        className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+        disabled={!filterMunicipality}
+      >
+        <option value="">All Districts</option>
+        {filterDistrictOptions.map((districtId) => {
+          const district = districts.find(d => d.districtId === districtId);
+          return (
+            <option key={districtId} value={districtId}>
+              {district?.districtName} 
+            </option>
+          );
+        })}
+      </select>
+    </div>
+    
+    <div className="md:col-span-3 flex justify-end gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setFilterLegislativeDistrict("");
+          setFilterMunicipality("");
+          setFilterDistrict("");
+          setFilterOptions((prev: any) => ({
+            ...prev,
+            district: "",
+            legislative_district: "",
+            municipality: "",
+          }));
+        }}
+        startIcon={<X className="size-4" />}
+      >
+        Clear Filters
+      </Button>
+    </div>
+  </div>
+)}
       </div>
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -897,15 +912,9 @@ export default function SchoolsTable({
                       {school.legislativeDistrict}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                          school.is_active !== false
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {school.is_active !== false ? "Active" : "Archived"}
-                      </span>
+                      <Badge color={school.is_active ? "success" : "error"}>
+                        {school.is_active ? "Active" : "Archived"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start text-theme-sm">
                       <div className="flex justify-start space-x-2">
@@ -1293,15 +1302,9 @@ export default function SchoolsTable({
                   <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     Status
                   </Label>
-                  <span
-                    className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                      schoolToView.is_active !== false
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {schoolToView.is_active !== false ? "Active" : "Archived"}
-                  </span>
+                 <Badge color={schoolToView.is_active ? "success" : "error"}>
+                        {schoolToView.is_active ? "Active" : "Archived"}
+                      </Badge>
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-6">
