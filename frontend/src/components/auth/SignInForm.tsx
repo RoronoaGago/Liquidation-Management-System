@@ -1,6 +1,7 @@
+// components/SignInForm.tsx (updated)
 import { useState, useCallback, ChangeEvent } from "react";
 import { useNavigate } from "react-router";
-import { EyeIcon, EyeClosedIcon } from "lucide-react";
+import { EyeIcon, EyeClosedIcon, Loader2 } from "lucide-react";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import companyLogo from "../../images/company-logo.png";
@@ -13,7 +14,8 @@ export default function SignInForm() {
     email: "",
     password: "",
   });
-  const { login, isLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
@@ -27,13 +29,19 @@ export default function SignInForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     if (!credentials.email || !credentials.password) {
       setError("Please enter both email and password");
+      setIsLoading(false);
       return;
     }
 
     try {
+      // --- OTP DISABLED FOR DEVELOPMENT ---
+      // await requestOTP(credentials.email, credentials.password);
+      // setShowOTP(true);
+      // Instead, directly log in:
       await login(credentials.email, credentials.password);
       navigate("/");
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -47,7 +55,7 @@ export default function SignInForm() {
   }, []);
 
   return (
-    <div className="flex items-center justify-center min-h-screen  dark:bg-gray-900 p-4">
+    <div className="flex items-center justify-center min-h-screen dark:bg-gray-900 p-4">
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
         {/* Logo and Title */}
         <div className="flex flex-col items-center mb-8">
@@ -124,11 +132,18 @@ export default function SignInForm() {
           </div>
 
           <button
-            className="w-full px-4 py-2 mt-6 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-brand-500 dark:hover:bg-brand-600 disabled:opacity-50"
+            className="w-full px-4 py-2 mt-6 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-brand-500 dark:hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2"
             type="submit"
             disabled={isLoading || !credentials.email || !credentials.password}
           >
-            {isLoading ? "Logging in..." : "Login"}
+            {isLoading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Sending OTP...
+              </>
+            ) : (
+              "Send Verification Code"
+            )}
           </button>
         </form>
       </div>

@@ -203,6 +203,7 @@ export interface Requirement {
   requirementID: number;
   requirementTitle: string;
   is_required: boolean;
+  is_active: boolean;
 }
 
 export interface ListOfPriority {

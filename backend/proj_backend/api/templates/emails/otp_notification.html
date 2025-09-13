@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Login Notification</title>
+    <title>OTP Verification</title>
     <style>
         body { 
             font-family: 'Segoe UI', Arial, sans-serif; 
@@ -50,17 +50,21 @@
         .content { 
             padding: 35px 40px 25px 40px; 
         }
-        .login-details {
+        .otp-display {
             background: #f0f7ff;
             border-left: 4px solid #094684;
-            padding: 16px;
-            margin: 20px 0;
+            padding: 25px;
+            margin: 25px 0;
             border-radius: 0 6px 6px 0;
+            text-align: center;
+            font-size: 1.2em;
         }
-        .detail-title {
-            font-weight: 600;
+        .otp-code {
+            font-size: 2.5em;
+            font-weight: 700;
             color: #094684;
-            margin-bottom: 8px;
+            letter-spacing: 5px;
+            margin: 15px 0;
         }
         .security-note {
             background: #fff8f0;
@@ -105,45 +109,39 @@
         <div class="content">
             <p>Dear {{ user.first_name|default:user.username }},</p>
             
-            <p>We would like to inform you that a successful login to your account was recorded:</p>
+            <p>Your One-Time Password (OTP) for account verification is:</p>
             
-            <div class="login-details">
-                <div class="detail-title">Login Details:</div>
-                <p><strong>Date & Time:</strong>  {{ now|date:"F j, Y H:i" }} </p>
-                <p><strong>Your OTP code:</strong> {{ otp }}</p>
-                <p><strong>IP Address:</strong> {{ ip }}</p>
-                {% if location %}
-                <p><strong>Approximate Location:</strong> {{ location }}</p>
-                {% endif %}
-                {% if device_info%}
-                <p><strong>Device:</strong> {{ device_info }}</p>
-                {% endif %}
+            <div class="otp-display">
+                <div class="detail-title">Verification Code</div>
+                <div class="otp-code">{{ otp }}</div>
+                <p>This code will expire in 10 minutes</p>
             </div>
             
             <div class="security-note">
                 <p><strong>Security Notice:</strong></p>
-                <p>If you recognize this activity, no further action is required. If you did not initiate this login, please secure your account immediately:</p>
+                <p>For your protection:</p>
                 <ol>
-                    <li>Change your password</li>
-                    <li>Contact system administrators</li>
+                    <li>Never share this code with anyone</li>
+                    <li>This code will expire after 10 minutes</li>
+                    <li>If you didn't request this code, please secure your account immediately</li>
                 </ol>
             </div>
             
-            <div style="text-align: center; margin: 25px 0;">
-                <a href="{{ account_settings_url }}" class="button">Review Account Security</a>
-            </div>
+            <p style="text-align: center; margin: 25px 0;">
+                <a href="{{ account_settings_url }}" class="button">Account Security Settings</a>
+            </p>
 
             <div class="signature">
                 <p>Best regards,</p>
                 <p><strong>System Security Team</strong><br>
                 Liquidation Management System<br>
-                Department of Education</p>
+                Department of Education - La Union Schools Division</p>
             </div>
         </div>
 
         <div class="footer">
             <p>&copy; {{ now|date:"Y" }} La Union Schools Division Office. All rights reserved.</p>
-            <p>This is an automated security notification. Please do not reply to this email.</p>
+            <p>This is an automated message. Please do not reply to this email.</p>
         </div>
     </div>
 </body>

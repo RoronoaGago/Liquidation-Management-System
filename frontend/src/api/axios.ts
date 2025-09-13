@@ -83,4 +83,57 @@ api.interceptors.response.use(
   }
 );
 
+// api/axios.ts (add these functions)
+export const requestOTP = async (email: string, password: string) => {
+  try {
+    // Create a new axios instance without interceptors for auth requests
+    const authApi = axios.create({
+      baseURL: "http://127.0.0.1:8000/api/",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const response = await authApi.post("/request-otp/", { email, password });
+    return response.data;
+  } catch (error: any) {
+    console.error(error);
+    throw new Error(error.response?.data?.message || "Failed to send OTP");
+  }
+};
+
+export const verifyOTP = async (email: string, otp: string) => {
+  try {
+    // Create a new axios instance without interceptors for auth requests
+    const authApi = axios.create({
+      baseURL: "http://127.0.0.1:8000/api/",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const response = await authApi.post("/verify-otp/", { email, otp });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || "Invalid OTP");
+  }
+};
+
+export const resendOTP = async (email: string) => {
+  try {
+    // Create a new axios instance without interceptors for auth requests
+    const authApi = axios.create({
+      baseURL: "http://127.0.0.1:8000/api/",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const response = await authApi.post("/resend-otp/", { email });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || "Failed to resend OTP");
+  }
+};
+
 export default api;

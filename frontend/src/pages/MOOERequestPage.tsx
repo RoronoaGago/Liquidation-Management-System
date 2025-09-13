@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
-import { ListofPriorityData } from "@/lib/types";
+import { ListOfPriority, ListofPriorityData } from "@/lib/types";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useLocation, useNavigate } from "react-router";
@@ -85,6 +85,8 @@ const MOOERequestPage = () => {
   const [expenseToRemove, setExpenseToRemove] = useState<string | null>(null);
   const [showClearAllDialog, setShowClearAllDialog] = useState(false);
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
+  const [isAdvanceRequest, setIsAdvanceRequest] = useState(false);
+  const [targetMonth, setTargetMonth] = useState("");
 
   // State for submit confirmation dialog
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
@@ -168,7 +170,8 @@ const MOOERequestPage = () => {
         const data = Array.isArray(prioritiesResponse.data)
           ? prioritiesResponse.data
           : prioritiesResponse.data.results || [];
-        setPriorities(data);
+        const activeLOPs = data.filter((p: ListOfPriority) => p.is_active); // Only active LOPs
+        setPriorities(activeLOPs);
 
         const hasPending = pendingCheckResponse.data.has_pending_request;
         const activeLiquidation = pendingCheckResponse.data.active_liquidation;
@@ -248,7 +251,21 @@ const MOOERequestPage = () => {
   }, []);
 
   const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
+  useEffect(() => {
+    const fetchNextMonth = async () => {
+      try {
+        const response = await api.get("requests/next-available-month/");
+        setTargetMonth(response.data.next_available_month);
+        setIsAdvanceRequest(response.data.is_advance_request);
+      } catch (error) {
+        console.error("Failed to fetch next available month:", error);
+      }
+    };
 
+    if (!isFormDisabled) {
+      fetchNextMonth();
+    }
+  }, [isFormDisabled]);
   // Update handleCheck to track selection order
   const handleCheck = (expense: string) => {
     setSelected((prev) => {
@@ -355,17 +372,40 @@ const MOOERequestPage = () => {
       setCopyLoading(false);
     }
   };
+  const checkEligibility = async () => {
+    try {
+      const response = await api.get(
+        `requests/check-eligibility/?month=${targetMonth}`
+      );
+      return response.data.can_submit_request;
+    } catch (error) {
+      console.error("Eligibility check failed:", error);
+      return false;
+    }
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
     setSubmitting(true);
+    // Check eligibility first
+    const canSubmit = await checkEligibility();
+    if (!canSubmit) {
+      toast.error("You are not eligible to submit a request at this time.");
+      return;
+    }
     try {
+      // Get the next available month from the backend
+      const nextMonthResponse = await api.get("requests/next-available-month/");
+      const { next_available_month, is_advance_request } =
+        nextMonthResponse.data;
+
       let requestId: string | null = null;
       if (location.state?.rejectedRequestId) {
         const res = await api.put(
           `requests/${location.state.rejectedRequestId}/resubmit/`,
           {
             priority_amounts: selectedPriorities,
+            request_monthyear: next_available_month, // Add this
           }
         );
         requestId = res.data?.request_id || location.state.rejectedRequestId;
@@ -382,12 +422,21 @@ const MOOERequestPage = () => {
 
         const res = await api.post("requests/", {
           priority_amounts: selectedPriorities,
-          request_month: `${monthName} ${year}`,
+          request_monthyear: next_available_month, // Use the backend-provided month
           notes: location.state?.rejectedRequestId
             ? `Resubmission of rejected request ${location.state.rejectedRequestId}`
             : undefined,
         });
         requestId = res.data?.request_id;
+      }
+      // Show appropriate message based on whether it's an advance request
+      if (is_advance_request) {
+        toast.success(
+          `Advance request submitted for ${next_available_month}. It will become pending when the month arrives.`,
+          { autoClose: 6000 }
+        );
+      } else {
+        toast.success("Request submitted successfully!");
       }
 
       setSelected({});
@@ -724,7 +773,27 @@ const MOOERequestPage = () => {
                 </div>
               </div>
             )}
-
+            {hasPendingRequest && pendingRequestData?.status === "advanced" && (
+              <div className="flex gap-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                <div className="flex-shrink-0 p-2 rounded-md text-blue-600 dark:text-blue-400">
+                  <Info className="h-5 w-5" />
+                </div>
+                <div className="space-y-2.5">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Advance Request Pending
+                  </h3>
+                  <div className="text-gray-600 dark:text-gray-300 text-sm">
+                    <p>
+                      You have an advance request for{" "}
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">
+                        {pendingRequestData?.request_monthyear}
+                      </span>
+                      . It will become active when the month arrives.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             {hasActiveLiquidation && (
               <div className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
                 <div className="flex-shrink-0 p-2 rounded-md text-brand-600 dark:text-brand-400">
@@ -849,7 +918,16 @@ const MOOERequestPage = () => {
                   </span>
                 </div>
               </div>
-
+              {isAdvanceRequest && (
+                <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-100 dark:border-blue-900/20">
+                  <Info className="h-4 w-4 flex-shrink-0 text-blue-500 dark:text-blue-400 mt-0.5" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    This is an <strong>advance request</strong> for{" "}
+                    {targetMonth}. It will be automatically converted to pending
+                    status when the month arrives.
+                  </p>
+                </div>
+              )}
               {/* Success checkmark if full budget is used */}
               {totalAmount === allocatedBudget && (
                 <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/10 rounded border border-green-100 dark:border-green-900/20">
@@ -1286,7 +1364,30 @@ const MOOERequestPage = () => {
                 )}
               </div>
             </div>
-
+            {!isFormDisabled && targetMonth && (
+              <div className="mb-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20 p-3">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm text-blue-800 dark:text-blue-200">
+                    {isAdvanceRequest ? (
+                      <>
+                        This will be an <strong>advance request</strong> for{" "}
+                        <strong>{targetMonth}</strong>
+                      </>
+                    ) : (
+                      <>
+                        Requesting for <strong>{targetMonth}</strong>
+                      </>
+                    )}
+                  </span>
+                </div>
+                {isAdvanceRequest && (
+                  <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                    This request will become pending when {targetMonth} arrives.
+                  </p>
+                )}
+              </div>
+            )}
             {/* Right Column - Summary Panel */}
             <div className="sticky top-4 h-fit">
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 overflow-hidden">

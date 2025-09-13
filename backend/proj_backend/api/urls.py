@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard
+
+
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -19,7 +21,11 @@ urlpatterns = [
          name='token_refresh'),  # Updated
     path('change-password/', views.change_password, name='change-password'),
     path('protected/', ProtectedView.as_view(), name='protected'),
-
+    path('auth/request-otp/', views.request_otp, name='request-otp'),
+    path('auth/verify-otp/', views.verify_otp, name='verify-otp'),
+    path('request-otp/', request_otp, name='request-otp'),
+    path('verify-otp/', verify_otp, name='verify-otp'),
+    path('resend-otp/', resend_otp, name='resend-otp'),
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
@@ -34,6 +40,8 @@ urlpatterns = [
          name='requirement-list-create'),
     path('requirements/<int:requirementID>/',
          views.RequirementRetrieveUpdateDestroyAPIView.as_view(), name='requirement-detail'),
+     path('requests/next-available-month/', views.get_next_available_month, name='next-available-month'),
+    path('requests/check-eligibility/', views.check_request_eligibility, name='check-request-eligibility'),
 
     path('priorities/', views.ListOfPriorityListCreateAPIView.as_view(),
          name='priority-list-create'),
@@ -93,4 +101,9 @@ urlpatterns = [
          archive_school_district, name='school-district-archive'),
     path('last-liquidated-request/',
          views.last_liquidated_request, name='last_liquidated_request'),
+
+    # Report URLs
+    path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
+         name='unliquidated-schools-report'),
+    path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
 ]

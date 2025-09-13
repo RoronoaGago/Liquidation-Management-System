@@ -608,7 +608,7 @@ export default function DistrictsTable({
               ) : districts.length > 0 ? (
                 districts.map((district) => (
                   <TableRow key={district.districtId}>
-                    <TableCell className="px-6 py-4 text-start">
+                    <TableCell className="px-6 py-4 text-start text-theme-sm">
                       <input
                         type="checkbox"
                         checked={isSelected(district.districtId)}
@@ -618,19 +618,19 @@ export default function DistrictsTable({
                         className="h-4 w-4 rounded border-gray-300 text-primary-600"
                       />
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-start">
+                    <TableCell className="px-6 py-4 text-start text-theme-sm">
                       {district.districtId}
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-start">
+                    <TableCell className="px-6 py-4 text-start text-theme-sm">
                       {district.districtName}
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-start">
+                    <TableCell className="px-6 py-4 text-start text-theme-sm">
                       {district.municipality}
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-start">
+                    <TableCell className="px-6 py-4 text-start text-theme-sm">
                       {district.legislativeDistrict}
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-start">
+                    <TableCell className="px-6 py-4 text-start text-theme-sm">
                       <span
                         className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
                           district.is_active
@@ -641,7 +641,7 @@ export default function DistrictsTable({
                         {district.is_active ? "Active" : "Archived"}
                       </span>
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-start">
+                    <TableCell className="px-6 py-4 text-start text-theme-sm">
                       <div className="flex gap-2">
                         <button
                           className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"

@@ -89,6 +89,8 @@ class User(AbstractUser):
         related_name='district_users',
         help_text="District assignment (only for district administrative assistants)"
     )
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_generated_at = models.DateTimeField(blank=True, null=True)
 
     USERNAME_FIELD = 'email'  # Use email as the login identifier
     REQUIRED_FIELDS = ['first_name', 'last_name']  # Add basic required fields
@@ -145,7 +147,8 @@ class School(models.Model):
     )
     legislativeDistrict = models.CharField(
         max_length=100,
-        choices=[("1st District", "1st District"), ("2nd District", "2nd District")]
+        choices=[("1st District", "1st District"),
+                 ("2nd District", "2nd District")]
     )
     is_active = models.BooleanField(default=True)
     max_budget = models.DecimalField(
@@ -154,11 +157,14 @@ class School(models.Model):
         default=0.00,
         verbose_name="Maximum Budget"
     )
-    last_liquidated_month = models.PositiveSmallIntegerField(null=True, blank=True)
-    last_liquidated_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_liquidated_month = models.PositiveSmallIntegerField(
+        null=True, blank=True)
+    last_liquidated_year = models.PositiveSmallIntegerField(
+        null=True, blank=True)
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
+
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
@@ -291,38 +297,108 @@ class RequestManagement(models.Model):
         super().__init__(*args, **kwargs)
         self._old_status = self.status  # Track initial status
         self._skip_auto_status = False  # Explicit control flag
+        
+    def clean(self):
+        """Validate business rules before saving"""
+        super().clean()
+        
+        # Skip validation for existing records being updated (unless status change)
+        if self.pk and not self._state.adding:
+            return
+        
+        # Check if user can submit a request for the requested month
+        if not self.can_user_request_for_month(self.user, self.request_monthyear):
+            raise ValidationError(
+                "You cannot submit a request for this month. Please liquidate your current request first."
+            )
 
     def save(self, *args, **kwargs):
-        """Atomic save with protected status changes"""
+        """Enhanced save with business rule enforcement"""
         from django.db import transaction
-
+        
         try:
             with transaction.atomic():
-                # Fetch existing status safely
-                if self.pk:
-                    current_status = RequestManagement.objects.filter(
-                        pk=self.pk).values_list('status', flat=True).first()
-                    self._old_status = current_status or self.status
-
+                # For new requests, determine the appropriate month/year
+                if self._state.adding and not self.request_monthyear:
+                    self.request_monthyear = self.get_next_available_month()
+                
                 # Set initial month/year if needed (won't affect status)
                 self.set_initial_monthyear()
 
                 # Only auto-set status if not explicitly skipped
-                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status):
+                if not (hasattr(self, '_status_changed_by') or self._skip_auto_status):
                     self.set_automatic_status()
 
                 # Handle status change dates
                 self.handle_status_change_dates()
 
-                logger.debug(
-                    f"Saving request {self.request_id} with status {self.status}")
+                # Validate business rules
+                self.full_clean()
+
+                logger.debug(f"Saving request {self.request_id} with status {self.status}")
                 super().save(*args, **kwargs)
 
         except Exception as e:
-            logger.error(
-                f"Failed to save request {getattr(self, 'request_id', 'new')}: {str(e)}")
+            logger.error(f"Failed to save request {getattr(self, 'request_id', 'new')}: {str(e)}")
             raise
-
+    def get_next_available_month(self):
+        """Determine the next available month for the user to request"""
+        user_school = self.user.school
+        if not user_school:
+            # Default to current month if no school
+            today = date.today()
+            return f"{today.year:04d}-{today.month:02d}"
+        
+        # Check if user has any liquidated requests
+        last_liquidated = RequestManagement.objects.filter(
+            user=self.user,
+            status='liquidated'
+        ).order_by('-request_monthyear').first()
+        
+        if last_liquidated and last_liquidated.request_monthyear:
+            # User has liquidated requests, next month after the last liquidated
+            try:
+                year, month = map(int, last_liquidated.request_monthyear.split('-'))
+                next_month = month + 1
+                next_year = year
+                if next_month > 12:
+                    next_month = 1
+                    next_year += 1
+                return f"{next_year:04d}-{next_month:02d}"
+            except (ValueError, AttributeError):
+                pass
+        
+        # Check if user has any active (non-liquidated) requests
+        active_request = RequestManagement.objects.filter(
+            user=self.user
+        ).exclude(status__in=['liquidated', 'rejected']).first()
+        
+        if active_request and active_request.request_monthyear:
+            # User has active request, next available is the month after
+            try:
+                year, month = map(int, active_request.request_monthyear.split('-'))
+                next_month = month + 1
+                next_year = year
+                if next_month > 12:
+                    next_month = 1
+                    next_year += 1
+                return f"{next_year:04d}-{next_month:02d}"
+            except (ValueError, AttributeError):
+                pass
+        
+        # Default: use school's last liquidated month or current month
+        if user_school.last_liquidated_month and user_school.last_liquidated_year:
+            next_month = user_school.last_liquidated_month + 1
+            next_year = user_school.last_liquidated_year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            return f"{next_year:04d}-{next_month:02d}"
+        else:
+            # No previous liquidations, use current month
+            today = date.today()
+            return f"{today.year:04d}-{today.month:02d}"
+        
     def set_initial_monthyear(self):
         """Safe month/year initialization without status side effects"""
         if not self.request_monthyear:
@@ -336,23 +412,80 @@ class RequestManagement(models.Model):
                     today = date.today()
                     self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
 
+    @staticmethod
+    def can_user_request_for_month(user, target_month_year):
+        """Check if user can submit a request for the specified month"""
+        if not target_month_year:
+            return True  # Let the system determine the month
+        
+        # Check if user already has a request for this month
+        existing_request = RequestManagement.objects.filter(
+            user=user,
+            request_monthyear=target_month_year
+        ).exclude(status='rejected').first()
+        
+        if existing_request:
+            return False  # Already has a request for this month
+        
+        # Parse the target month
+        try:
+            target_year, target_month = map(int, target_month_year.split('-'))
+        except (ValueError, AttributeError):
+            return False  # Invalid format
+        
+        today = date.today()
+        current_year, current_month = today.year, today.month
+        
+        # If requesting for current month or past months
+        if (target_year, target_month) <= (current_year, current_month):
+            # Check if user has any unliquidated requests for previous months
+            unliquidated_requests = RequestManagement.objects.filter(
+                user=user
+            ).exclude(status__in=['liquidated', 'rejected'])
+            
+            for req in unliquidated_requests:
+                if req.request_monthyear:
+                    try:
+                        req_year, req_month = map(int, req.request_monthyear.split('-'))
+                        if (req_year, req_month) < (target_year, target_month):
+                            return False  # Has unliquidated request from previous months
+                    except (ValueError, AttributeError):
+                        continue
+        
+        # If requesting for future months (advance requests)
+        elif (target_year, target_month) > (current_year, current_month):
+            # Must have liquidated all previous requests
+            unliquidated_requests = RequestManagement.objects.filter(
+                user=user
+            ).exclude(status__in=['liquidated', 'rejected'])
+            
+            if unliquidated_requests.exists():
+                return False  # Has unliquidated requests
+        
+        return True
+
     def set_automatic_status(self):
-        """Only runs when not manually approving/rejecting"""
+        """Enhanced automatic status setting with business rules"""
         if (not hasattr(self, '_status_changed_by')
-            and not self._skip_auto_status
-            and self.request_monthyear
+                and not self._skip_auto_status
+                and self.request_monthyear
             ):
             today = date.today()
             try:
-                req_year, req_month = map(
-                    int, self.request_monthyear.split('-'))
+                req_year, req_month = map(int, self.request_monthyear.split('-'))
+                
+                # Set status based on requested month vs current month
                 if (req_year, req_month) > (today.year, today.month):
                     self.status = 'advanced'
                 elif (req_year, req_month) == (today.year, today.month):
                     self.status = 'pending'
+                else:
+                    # Past month - should not normally happen with proper validation
+                    self.status = 'pending'
+                    
             except (ValueError, AttributeError):
-                logger.warning(
-                    f"Invalid request_monthyear: {self.request_monthyear}")
+                logger.warning(f"Invalid request_monthyear: {self.request_monthyear}")
+                self.status = 'pending'  # Default fallback
 
     def handle_status_change_dates(self):
         """Automatically set date fields based on status changes"""
@@ -379,6 +512,41 @@ class RequestManagement(models.Model):
                 self.downloaded_at = None
             if self.status != 'rejected':
                 self.rejection_date = None
+                
+    def should_be_visible_to_superintendent(self):
+        """
+        Determine if this request should be visible to superintendent for approval.
+        Only pending requests for current or past months should be visible.
+        """
+        if self.status != 'pending':
+            return False
+        
+        if not self.request_monthyear:
+            return True  # Default to visible if no month specified
+        
+        today = date.today()
+        try:
+            req_year, req_month = map(int, self.request_monthyear.split('-'))
+            current_year, current_month = today.year, today.month
+            
+            # Should be visible if request month is current or past
+            return (req_year, req_month) <= (current_year, current_month)
+        except (ValueError, AttributeError):
+            return True  # Default to visible if invalid format
+    
+    def get_visibility_status(self):
+        """Get detailed visibility information for debugging"""
+        today = date.today()
+        current_month_year = f"{today.year:04d}-{today.month:02d}"
+        
+        return {
+            'request_id': self.request_id,
+            'status': self.status,
+            'request_month': self.request_monthyear,
+            'current_month': current_month_year,
+            'visible_to_superintendent': self.should_be_visible_to_superintendent(),
+            'is_future_month': self.request_monthyear > current_month_year if self.request_monthyear else False
+        }
 
 
 class RequestPriority(models.Model):
@@ -452,6 +620,8 @@ class LiquidationManagement(models.Model):
         super().__init__(*args, **kwargs)
         self._old_status = self.status  # Track initial status
         self._status_changed_by = None  # Track who changed the status
+        self._old_remaining_days = self.remaining_days  # Track initial remaining_days
+
 
     @property
     def liquidation_deadline(self):
@@ -469,15 +639,44 @@ class LiquidationManagement(models.Model):
         if total_requested == total_liquidated:
             return None
         return total_requested - total_liquidated
-
+    def check_and_send_reminders(self):
+        """Check and send reminders based on remaining days"""
+        if self.status in ['liquidated']:
+            return
+        
+        if not self.liquidation_deadline:
+            return
+        
+        from django.utils import timezone
+        today = timezone.now().date()
+        days_left = (self.liquidation_deadline - today).days
+        
+        reminder_days = [15, 10, 5, 3, 1]
+        
+        if days_left in reminder_days:
+            if self.request.last_reminder_sent != today:
+                from .tasks import send_liquidation_reminder
+                send_liquidation_reminder.delay(self.pk, days_left)
+                self.request.last_reminder_sent = today
+                self.request.save(update_fields=['last_reminder_sent'])
+        
+        elif days_left <= 0 and not self.request.demand_letter_sent:
+            from .tasks import send_liquidation_demand_letter
+            send_liquidation_demand_letter.delay(self.pk)
+            self.request.demand_letter_sent = True
+            self.request.demand_letter_date = today
+            self.request.save(update_fields=['demand_letter_sent', 'demand_letter_date'])
     def calculate_remaining_days(self):
         if self.request and self.request.downloaded_at:
             # Ensure downloaded_at is timezone-aware if working with timezones
-            deadline = self.request.downloaded_at + timedelta(days=30)
+            downloaded_at = self.request.downloaded_at
+            if isinstance(downloaded_at, date) and not isinstance(downloaded_at, datetime):
+                downloaded_at = timezone.datetime.combine(downloaded_at, timezone.datetime.min.time())
+
+            deadline = downloaded_at + timedelta(days=30)
 
             # Use timezone-aware now() if working with timezones
-            today = datetime.now(
-                deadline.tzinfo) if deadline.tzinfo else datetime.now()
+            today = timezone.now() if timezone.is_aware(deadline) else datetime.now()
 
             remaining = (deadline - today).days
             return max(remaining, 0)  # Returns 0 if deadline has passed
@@ -489,10 +688,11 @@ class LiquidationManagement(models.Model):
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
             self._old_status = old.status
+            self._old_remaining_days = old.remaining_days  # Store old value
 
-        # Set downloaded_at when status changes to 'downloaded'
-        # if self.status == 'downloaded' and not self.downloaded_at:
-        #     self.downloaded_at = timezone.now()
+        # Calculate fields BEFORE saving
+        self.refund = self.calculate_refund()
+        self.remaining_days = self.calculate_remaining_days()
 
         # Automatically set dates based on status changes
         if self.status == 'liquidated' and self.date_liquidated is None:
@@ -515,9 +715,6 @@ class LiquidationManagement(models.Model):
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
             self.date_districtApproved = None
 
-        # Calculate fields
-        self.refund = self.calculate_refund()
-
         super().save(*args, **kwargs)
 
     def clean(self):
@@ -528,6 +725,14 @@ class LiquidationManagement(models.Model):
 
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
+
+    @classmethod
+    def update_all_remaining_days(cls):
+        for liquidation in cls.objects.all():
+            new_remaining = liquidation.calculate_remaining_days()
+            if liquidation.remaining_days != new_remaining:
+                liquidation.remaining_days = new_remaining
+                liquidation.save(update_fields=['remaining_days'])
 
 
 class LiquidationDocument(models.Model):
@@ -601,15 +806,19 @@ class LiquidationPriority(models.Model):
     def __str__(self):
         return f"{self.liquidation} - {self.priority} (${self.amount})"
 
+
 class SchoolDistrict(models.Model):
     districtId = models.AutoField(primary_key=True)
     districtName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
     legislativeDistrict = models.CharField(
         max_length=100,
-        choices=[("1st District", "1st District"), ("2nd District", "2nd District")]
+        choices=[("1st District", "1st District"),
+                 ("2nd District", "2nd District")]
     )
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.districtName} ({self.districtId})"
+
+

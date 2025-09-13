@@ -104,7 +104,7 @@ const ManageUsers = () => {
     date_of_birth: "",
     email: "",
     phone_number: "",
-    role: "school_admin",
+    role: "admin",
     school_id: "",
     school_district_id: undefined, // Changed from school_district
     profile_picture_base64: "",
@@ -312,7 +312,22 @@ const ManageUsers = () => {
       finalErrors.school_district_id =
         "School district is required for district administrators.";
     }
-
+    // Add warning for inactive schools
+    if (formData.school_id) {
+      const selectedSchool = schools.find(
+        (s) => s.schoolId === formData.school_id
+      );
+      if (selectedSchool && !selectedSchool.is_active) {
+        if (
+          !window.confirm(
+            "You are assigning a user to an inactive school. Are you sure you want to continue?"
+          )
+        ) {
+          setShowConfirmation(false);
+          return;
+        }
+      }
+    }
     setErrors(finalErrors);
 
     if (Object.keys(finalErrors).length > 0) {

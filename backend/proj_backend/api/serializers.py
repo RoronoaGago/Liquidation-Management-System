@@ -90,6 +90,13 @@ class UserSerializer(serializers.ModelSerializer):
             "id": {"read_only": True},
         }
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Add school active status to the representation
+        if instance.school:
+            representation['school']['is_active'] = instance.school.is_active
+        return representation
+
     def validate(self, data):
         if 'email' not in data:
             raise serializers.ValidationError("Email is required")
@@ -312,13 +319,15 @@ class ListOfPrioritySerializer(serializers.ModelSerializer):
         return instance
 
     def update(self, instance, validated_data):
-        requirements = validated_data.pop('requirements', [])
+        requirements = validated_data.pop('requirements', None)
         instance.expenseTitle = validated_data.get(
             'expenseTitle', instance.expenseTitle)
         instance.is_active = validated_data.get(
             'is_active', instance.is_active)
+        instance.category = validated_data.get('category', instance.category)
         instance.save()
-        instance.requirements.set(requirements)
+        if requirements is not None:
+            instance.requirements.set(requirements)
         return instance
 
 
@@ -342,6 +351,9 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         required=False
     )
     reviewed_by = UserSerializer(read_only=True)
+    next_available_month = serializers.SerializerMethodField(read_only=True)
+    is_advance_request = serializers.SerializerMethodField(read_only=True)
+    can_submit_for_month = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = RequestManagement
@@ -355,6 +367,9 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'rejection_date',
             'reviewed_by',
             'reviewed_at',
+            'next_available_month',
+            'is_advance_request', 
+            'can_submit_for_month',
         ]
         read_only_fields = ['request_id', 'created_at',
                             'date_approved', 'reviewed_by', 'reviewed_at']
@@ -384,6 +399,62 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                 except ListOfPriority.DoesNotExist:
                     continue
         return request_obj
+    def get_next_available_month(self, obj):
+        """Get next available month for this user"""
+        if hasattr(obj, 'user') and obj.user:
+            temp_request = RequestManagement(user=obj.user)
+            return temp_request.get_next_available_month()
+        return None
+
+    def get_is_advance_request(self, obj):
+        """Check if this is an advance request"""
+        if not obj.request_monthyear:
+            return False
+        
+        from datetime import date
+        today = date.today()
+        try:
+            req_year, req_month = map(int, obj.request_monthyear.split('-'))
+            return (req_year, req_month) > (today.year, today.month)
+        except (ValueError, AttributeError):
+            return False
+
+    def get_can_submit_for_month(self, obj):
+        """Check if user can submit for the request month"""
+        if hasattr(obj, 'user') and obj.user and obj.request_monthyear:
+            return RequestManagement.can_user_request_for_month(
+                obj.user, obj.request_monthyear
+            )
+        return True
+
+    def validate_request_monthyear(self, value):
+        """Validate the requested month against business rules"""
+        user = self.context['request'].user if 'request' in self.context else None
+        
+        if user and value:
+            if not RequestManagement.can_user_request_for_month(user, value):
+                existing = RequestManagement.objects.filter(
+                    user=user,
+                    request_monthyear=value
+                ).exclude(status='rejected').first()
+                
+                if existing:
+                    raise serializers.ValidationError(
+                        f"You already have a request for {value}. "
+                        f"Request ID: {existing.request_id}"
+                    )
+                else:
+                    unliquidated = RequestManagement.objects.filter(
+                        user=user
+                    ).exclude(status__in=['liquidated', 'rejected']).first()
+                    
+                    if unliquidated:
+                        raise serializers.ValidationError(
+                            f"Please liquidate your current request "
+                            f"({unliquidated.request_id}) before submitting a new one."
+                        )
+        
+        return value
 
 
 class LiquidationPrioritySerializer(serializers.ModelSerializer):
@@ -447,15 +518,13 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
 
 
 class LiquidationManagementSerializer(serializers.ModelSerializer):
-    remaining_days = serializers.SerializerMethodField()
     request = RequestManagementSerializer(read_only=True)
     documents = LiquidationDocumentSerializer(many=True, read_only=True)
     submitted_at = serializers.DateTimeField(
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
-    reviewed_by_district = UserSerializer(read_only=True)  # <-- ADD THIS LINE
-    liquidation_priorities = LiquidationPrioritySerializer(
-        many=True)
+    reviewed_by_district = UserSerializer(read_only=True)
+    liquidation_priorities = LiquidationPrioritySerializer(many=True)
 
     class Meta:
         model = LiquidationManagement
@@ -472,16 +541,12 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'reviewer_comments',
             'documents',
             'created_at',
-            'liquidation_priorities',  # <-- Add this line
+            'liquidation_priorities',
             'refund',
-            'remaining_days',  # <-- Add this
+            'remaining_days',  # will now come directly from DB
         ]
 
-    def get_remaining_days(self, obj):
-        return obj.calculate_remaining_days()
-
     def get_reviewer_comments(self, obj):
-        # Get all reviewer comments from documents
         comments = []
         for doc in obj.documents.all():
             if doc.reviewer_comment:
@@ -493,18 +558,16 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-
-        # Add actual amounts from LiquidationPriority records
         if hasattr(instance, 'liquidation_priorities'):
             data['actual_amounts'] = [
                 {
                     'expense_id': lp.priority.LOPID,
-                    'actual_amount': lp.amount  # Remove float() if not needed
+                    'actual_amount': lp.amount
                 }
                 for lp in instance.liquidation_priorities.all()
             ]
-
         return data
+
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -568,3 +631,9 @@ class PreviousRequestSerializer(serializers.ModelSerializer):
             }
             for rp in obj.requestpriority_set.all()
         ]
+
+
+class UnliquidatedSchoolReportSerializer(serializers.Serializer):
+    schoolId = serializers.CharField()
+    schoolName = serializers.CharField()
+    unliquidated_count = serializers.IntegerField()
