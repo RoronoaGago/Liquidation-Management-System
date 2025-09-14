@@ -626,6 +626,8 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
     reviewed_by_district = UserSerializer(read_only=True)
+    reviewed_by_liquidator = UserSerializer(read_only=True)
+    reviewed_by_division = UserSerializer(read_only=True)
     liquidation_priorities = LiquidationPrioritySerializer(many=True)
 
     class Meta:
@@ -637,9 +639,15 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'status',
             'reviewed_by_district',
             'reviewed_at_district',
+            'reviewed_by_liquidator',
+            'reviewed_at_liquidator',
             'reviewed_by_division',
             'reviewed_at_division',
             'submitted_at',
+            'date_submitted',
+            'date_districtApproved',
+            'date_liquidatorApproved',
+            'date_liquidated',
             'reviewer_comments',
             'documents',
             'created_at',

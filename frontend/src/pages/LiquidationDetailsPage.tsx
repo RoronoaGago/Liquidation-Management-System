@@ -56,9 +56,11 @@ const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   submitted: "Submitted",
   under_review_district: "Under Review (District)",
+  under_review_liquidator: "Under Review (Liquidator)",
   under_review_division: "Under Review (Division)",
   resubmit: "Needs Revision",
   approved_district: "Approved by District",
+  approved_liquidator: "Approved by Liquidator",
   liquidated: "Liquidated",
 };
 
@@ -69,14 +71,19 @@ const statusBadgeStyle = (status: string) => {
     case "submitted":
       return "bg-blue-100 text-blue-800";
     case "under_review_district":
-    case "under_review_division":
       return "bg-yellow-100 text-yellow-800";
+    case "under_review_liquidator":
+      return "bg-orange-100 text-orange-800";
+    case "under_review_division":
+      return "bg-purple-100 text-purple-800";
     case "approved_district":
+      return "bg-green-100 text-green-800";
+    case "approved_liquidator":
       return "bg-green-100 text-green-800";
     case "resubmit":
       return "bg-red-100 text-red-800";
     case "liquidated":
-      return "bg-purple-100 text-purple-800";
+      return "bg-emerald-100 text-emerald-800";
     default:
       return "bg-gray-100 text-gray-800";
   }
@@ -257,10 +264,17 @@ const LiquidationDetailsPage = () => {
 
   // Document completion calculation
   const getCompletion = () => {
-    const totalRequired = documents.filter(
-      (doc) => doc.requirement_obj && doc.is_approved !== undefined
-    ).length;
-    const approved = documents.filter((doc) => doc.is_approved).length;
+    // Only count documents that correspond to required requirements
+    const requiredDocs = documents.filter((doc) => {
+      const expense = expenseList.find(exp => exp.id === doc.request_priority_id);
+      if (!expense) return false;
+      
+      const requirement = expense.requirements.find(req => req.requirementID === doc.requirement_id);
+      return requirement?.is_required === true;
+    });
+    
+    const totalRequired = requiredDocs.length;
+    const approved = requiredDocs.filter((doc) => doc.is_approved === true).length;
     return { approved, totalRequired };
   };
 
@@ -269,16 +283,22 @@ const LiquidationDetailsPage = () => {
     (doc) => doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
   );
 
+  // At the bottom of the dialog, after all required documents are reviewed:
+  const requiredDocs = documents.filter((doc) => {
+    // Find the corresponding requirement to check if it's required
+    const expense = expenseList.find(exp => exp.id === doc.request_priority_id);
+    if (!expense) return false;
+    
+    const requirement = expense.requirements.find(req => req.requirementID === doc.requirement_id);
+    return requirement?.is_required === true;
+  });
+  
+  const allReviewed = requiredDocs.length > 0 && requiredDocs.every((doc) => doc.is_approved !== null);
+  
+
   // Approve enabled only if all required docs are approved
   const canApprove = totalRequired > 0 && approved === totalRequired;
 
-  // Reject enabled only if at least one reviewer comment exists
-  const canReject = documents.some(
-    (doc) => doc.is_approved === false && doc.reviewer_comment?.trim()
-  );
-
-  // At the bottom of the dialog, after all documents are reviewed:
-  const allReviewed = documents.every((doc) => doc.is_approved !== null);
 
   // --- Update handlers to show confirmation dialogs ---
   const handleApproveReport = () => {
@@ -300,14 +320,15 @@ const LiquidationDetailsPage = () => {
         // Set status based on user role
         let newStatus = "approved_district";
         if (user?.role === "liquidator") {
+          newStatus = "approved_liquidator";
+        } else if (user?.role === "accountant") {
           newStatus = "liquidated";
         }
         await api.patch(`/liquidations/${liquidationId}/`, {
           status: newStatus,
-          reviewed_at_district: new Date().toISOString(),
         });
-        // If liquidator, also mark the connected request as liquidated
-        if (user?.role === "liquidator" && liquidation?.request?.request_id) {
+        // If accountant, also mark the connected request as liquidated
+        if (user?.role === "accountant" && liquidation?.request?.request_id) {
           await api.patch(`/requests/${liquidation.request.request_id}/`, {
             status: "liquidated",
           });
@@ -320,7 +341,6 @@ const LiquidationDetailsPage = () => {
       } else {
         await api.patch(`/liquidations/${liquidationId}/`, {
           status: "resubmit",
-          reviewed_at_district: new Date().toISOString(),
           rejection_comment: rejectionComment,
         });
         toast.error("Liquidation report sent back for revision.");
@@ -330,6 +350,8 @@ const LiquidationDetailsPage = () => {
         navigate("/pre-auditing");
       } else if (user?.role === "liquidator") {
         navigate("/liquidation-finalize");
+      } else if (user?.role === "accountant") {
+        navigate("/division-review");
       }
     } catch (err) {
       toast.error(`Failed to ${currentReportAction} liquidation report`);
@@ -437,10 +459,8 @@ const LiquidationDetailsPage = () => {
   // --- Role/Status logic ---
   const isDistrictAdmin = user?.role === "district_admin";
   const isLiquidator = user?.role === "liquidator";
+  const isAccountant = user?.role === "accountant";
   const status = liquidation?.status;
-  const canDistrictAdminAct =
-    isDistrictAdmin && status === "under_review_district";
-  const canLiquidatorAct = isLiquidator && status === "approved_district";
 
   // --- Dynamic back button logic ---
   let backUrl = "/";
@@ -450,15 +470,20 @@ const LiquidationDetailsPage = () => {
     pageBreadcrumbText = "District Liquidation Management";
   } else if (isLiquidator) {
     backUrl = "/liquidation-finalize";
-    pageBreadcrumbText = "Finalize Liquidation Report";
+    pageBreadcrumbText = "Liquidator Review";
+  } else if (isAccountant) {
+    backUrl = "/division-review";
+    pageBreadcrumbText = "Division Accountant Review";
   }
 
   // --- Role-based action logic ---
   const showDistrictAdminActions =
-    isDistrictAdmin && status === "under_review_district" && allReviewed;
-  // For liquidators, allow reject/finalize as long as status is correct, regardless of allReviewed
+    isDistrictAdmin && (status === "submitted" || status === "under_review_district") && allReviewed;
   const showLiquidatorActions =
-    isLiquidator && status === "under_review_division";
+    isLiquidator && status === "under_review_liquidator" && allReviewed;
+  const showAccountantActions =
+    isAccountant && status === "under_review_division" && allReviewed;
+
 
   return (
     <div className="container mx-auto px-5 py-10">
@@ -664,7 +689,7 @@ const LiquidationDetailsPage = () => {
                   </div>
                   <div className="flex gap-2 mt-4 justify-between">
                     <div className="flex gap-2">
-                      {/* Only show approve/reject for district admin, hide for liquidator */}
+                      {/* Only show approve/reject for district admin, hide for liquidator and accountant */}
                       {isDistrictAdmin && (
                         <>
                           <Button
@@ -717,8 +742,8 @@ const LiquidationDetailsPage = () => {
                           </Button>
                         </>
                       )}
-                      {/* If liquidator, show disabled buttons for clarity (optional) */}
-                      {isLiquidator && (
+                      {/* If liquidator or accountant, show disabled buttons for clarity (optional) */}
+                      {(isLiquidator || isAccountant) && (
                         <>
                           <Button
                             variant={
@@ -1067,8 +1092,48 @@ const LiquidationDetailsPage = () => {
             </Button>
           </div>
         )}
-        {/* Finalize/Reject Buttons (Liquidator) */}
+        {/* Approve/Reject Buttons (Liquidator) */}
         {showLiquidatorActions && (
+          <div className="flex gap-4 justify-end mt-8">
+            <Button
+              onClick={handleRejectReport}
+              disabled={actionLoading && currentReportAction === "reject"}
+              variant="destructive"
+              startIcon={
+                actionLoading && currentReportAction === "reject" ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <AlertCircle className="h-5 w-5" />
+                )
+              }
+            >
+              {actionLoading && currentReportAction === "reject"
+                ? "Rejecting..."
+                : "Reject Liquidation Report"}
+            </Button>
+            <Button
+              onClick={handleApproveReport}
+              disabled={
+                !canApprove ||
+                (actionLoading && currentReportAction === "approve")
+              }
+              color="success"
+              startIcon={
+                actionLoading && currentReportAction === "approve" ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-5 w-5" />
+                )
+              }
+            >
+              {actionLoading && currentReportAction === "approve"
+                ? "Approving..."
+                : "Approve Liquidation Report"}
+            </Button>
+          </div>
+        )}
+        {/* Finalize/Reject Buttons (Division Accountant) */}
+        {showAccountantActions && (
           <div className="flex gap-4 justify-end mt-8">
             <Button
               onClick={handleRejectReport}

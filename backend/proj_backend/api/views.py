@@ -813,17 +813,33 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'liquidator':
-            # Show both approved_district and under_review_division for liquidators
+        if user.role == 'district_admin':
+            # District admins see submitted, under_review_district, and resubmit liquidations from their district
+            if user.school_district:
+                return LiquidationManagement.objects.filter(
+                    status__in=['submitted', 'under_review_district', 'resubmit'],
+                    request__user__school__district=user.school_district
+                )
             return LiquidationManagement.objects.filter(
-                status__in=['approved_district', 'under_review_division']
+                status__in=['submitted', 'under_review_district', 'resubmit']
+            )
+        elif user.role == 'liquidator':
+            # Liquidators see liquidations approved by district and under their review
+            return LiquidationManagement.objects.filter(
+                status__in=['under_review_liquidator', 'approved_district']
+            )
+        elif user.role == 'accountant':
+            # Division accountants see liquidations approved by liquidators and under their review
+            return LiquidationManagement.objects.filter(
+                status__in=['under_review_division', 'approved_liquidator']
             )
         elif user.role == 'school_head':
-            # Only return the latest liquidation for the school_head's requests
-            qs = LiquidationManagement.objects.filter(
-                request__user=user).order_by('-created_at')
-            latest = qs.first()
-            return LiquidationManagement.objects.filter(pk=latest.pk) if latest else LiquidationManagement.objects.none()
+            # School heads see their liquidations in various states (except completed ones)
+            return LiquidationManagement.objects.filter(
+                request__user=user
+            ).exclude(
+                status__in=['liquidated']
+            ).order_by('-created_at')
         # All other users see all liquidations
         return LiquidationManagement.objects.all()
 
@@ -845,6 +861,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             'request__user',
             'request__user__school',
             'reviewed_by_district',
+            'reviewed_by_liquidator',
             'reviewed_by_division'
         ).prefetch_related(
             'documents',
@@ -861,13 +878,45 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         partial = kwargs.pop('partial', False)
         data = request.data.copy()
 
-        # If approving at district level, set reviewed_by_district
-        if data.get("status") == "approved_district":
+        # Handle different approval levels based on user role and status
+        user_role = request.user.role
+        new_status = data.get("status")
+
+        # Handle status changes when viewing liquidations
+        if new_status == "under_review_district" and user_role == "district_admin":
+            # District admin is viewing a submitted liquidation
+            pass  # Just update the status, no additional changes needed
+        elif new_status == "under_review_liquidator" and user_role == "liquidator":
+            # Liquidator is viewing a district-approved liquidation
+            pass  # Just update the status, no additional changes needed
+        elif new_status == "under_review_division" and user_role == "accountant":
+            # Accountant is viewing a liquidator-approved liquidation
+            pass  # Just update the status, no additional changes needed
+
+        # District Admin approval
+        elif new_status == "approved_district" and user_role == "district_admin":
             data["reviewed_by_district"] = request.user.id
             data["reviewed_at_district"] = timezone.now()
+            data["date_districtApproved"] = timezone.now().date()
+            # Move to liquidator review
+            data["status"] = "under_review_liquidator"
+
+        # Liquidator approval
+        elif new_status == "approved_liquidator" and user_role == "liquidator":
+            data["reviewed_by_liquidator"] = request.user.id
+            data["reviewed_at_liquidator"] = timezone.now()
+            data["date_liquidatorApproved"] = timezone.now().date()
+            # Status becomes approved_liquidator (not under_review_division)
+            data["status"] = "approved_liquidator"
+
+        # Division Accountant final approval
+        elif new_status == "liquidated" and user_role == "accountant":
+            data["reviewed_by_division"] = request.user.id
+            data["reviewed_at_division"] = timezone.now()
+            data["date_liquidated"] = timezone.now()
 
         # If rejecting (resubmit), capture rejection_comment
-        if data.get("status") == "resubmit":
+        if new_status == "resubmit":
             rejection_comment = data.get('rejection_comment', '').strip()
             if not rejection_comment:
                 return Response(
@@ -889,29 +938,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         serializer.save()
 
 
-@api_view(['POST'])
-def approve_liquidation(request, LiquidationID):
-    try:
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=LiquidationID)
-        if liquidation.status not in ['submitted', 'under_review_district', 'under_review_division']:
-            return Response(
-                {'error': 'Liquidation is not in a reviewable state'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        # ... (other checks as needed) ...
-        liquidation._status_changed_by = request.user
-        liquidation.status = 'liquidated'
-        liquidation.reviewed_by = request.user
-        liquidation.reviewed_at = timezone.now()
-        liquidation.save()
-        serializer = LiquidationManagementSerializer(liquidation)
-        return Response(serializer.data)
-    except LiquidationManagement.DoesNotExist:
-        return Response(
-            {'error': 'Liquidation not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+# Removed old approve_liquidation function - now handled in update method
 
 
 class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
@@ -1094,6 +1121,7 @@ def submit_liquidation(request, LiquidationID):
             # Update status to submitted and track who changed it
             liquidation._status_changed_by = request.user
             liquidation.status = 'submitted'
+            liquidation.date_submitted = timezone.now()
             liquidation.save()
 
             # Create notification for the reviewer

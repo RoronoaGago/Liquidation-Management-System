@@ -74,8 +74,7 @@ urlpatterns = [
          views.LiquidationDocumentListCreateAPIView.as_view(), name='liquidation-document-list'),
     path('liquidations/<str:LiquidationID>/documents/<int:pk>/',
          views.LiquidationDocumentRetrieveUpdateDestroyAPIView.as_view(), name='liquidation-document-detail'),
-    path('liquidations/<str:LiquidationID>/approve/',
-         views.approve_liquidation, name='approve-liquidation'),
+    # Removed approve_liquidation URL - now handled through PATCH on liquidation-detail
 
     # Additional custom endpoints
     path('user-requests/', views.UserRequestListAPIView.as_view(),
