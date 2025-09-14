@@ -84,15 +84,21 @@ const allNavItems: NavItem[] = [
   },
   {
     icon: <StampIcon />,
-    name: "Finalize Liquidation Report",
+    name: "Liquidator Review",
     path: "/liquidation-finalize",
     roles: ["liquidator"], // Only liquidator
   },
   {
     icon: <FileSearch />, // <-- Use FileSearch or any icon you prefer
-    name: "Pre Audit",
+    name: "District Review",
     path: "/pre-auditing",
     roles: ["district_admin"], // Only for district_admin
+  },
+  {
+    icon: <FileCheck2Icon />,
+    name: "Division Review",
+    path: "/division-review",
+    roles: ["accountant"], // Only for division accountant
   },
   {
     icon: <PhilippinePeso />,

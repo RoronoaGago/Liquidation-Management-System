@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 type Liquidation = {
   LiquidationID: string;
   status: string;
-  created_at: string; // Add this property to match the expected type
+  created_at: string;
   request?: {
     request_id?: string;
     user?: {
@@ -16,14 +16,13 @@ type Liquidation = {
       last_name: string;
       school?: {
         schoolName: string;
-        district?: string; // <-- Add this line
+        district?: string;
       };
     };
   };
-  // Add other fields as needed
 };
 
-const LiquidationReportPage = () => {
+const LiquidatorReviewPage = () => {
   const { user } = useAuth();
   const [liquidations, setLiquidations] = useState<Liquidation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,25 +52,15 @@ const LiquidationReportPage = () => {
     let filtered = liquidations;
     console.log("All liquidations:", filtered);
     console.log("User role:", user?.role);
-    console.log("User school_district:", user?.school_district);
     
-    // Debug: Log each liquidation's structure
-    filtered.forEach((liq) => {
-      console.log(`Liquidation ${liq.LiquidationID}:`, {
-        status: liq.status,
-        school: liq.request?.user?.school?.schoolName,
-        district: liq.request?.user?.school?.district,
-        user: liq.request?.user?.first_name + ' ' + liq.request?.user?.last_name
-      });
-    });
+    // Liquidators see liquidations approved by district admins
+    if (user?.role === "liquidator") {
+      filtered = filtered.filter(
+        (liq) => liq.status === "under_review_liquidator"
+      );
+      console.log("Filtered liquidations for liquidator:", filtered);
+    }
     
-    // Backend already filters liquidations by role, so we don't need additional filtering here
-    // The backend LiquidationManagementListCreateAPIView.get_queryset() already handles:
-    // - district_admin: filters by status='submitted' and district
-    // - liquidator: filters by status='under_review_liquidator'  
-    // - accountant: filters by status='under_review_division'
-    // - school_head: shows only their latest liquidation
-    console.log("Backend should have already filtered liquidations by role and district");
     if (!searchTerm) return filtered;
     return filtered.filter((liq) => {
       const userObj = liq.request?.user;
@@ -96,11 +85,9 @@ const LiquidationReportPage = () => {
     return filteredLiquidations.slice(start, start + itemsPerPage);
   }, [filteredLiquidations, currentPage, itemsPerPage]);
 
-  // Pagination helpers
-
   return (
     <div className="container mx-auto px-5 py-10">
-      <PageBreadcrumb pageTitle="District Liquidation Management" />
+      <PageBreadcrumb pageTitle="Liquidator Review" />
 
       {/* Table */}
       <LiquidationReportTable
@@ -118,10 +105,8 @@ const LiquidationReportPage = () => {
           }
         }}
       />
-
-      {/* Pagination */}
     </div>
   );
 };
 
-export default LiquidationReportPage;
+export default LiquidatorReviewPage;

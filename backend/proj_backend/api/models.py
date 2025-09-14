@@ -593,9 +593,11 @@ class LiquidationManagement(models.Model):
         ('draft', 'Draft'),
         ('submitted', 'Submitted'),
         ('under_review_district', 'Under Review (District)'),
+        ('under_review_liquidator', 'Under Review (Liquidator)'),
         ('under_review_division', 'Under Review (Division)'),
         ('resubmit', 'Needs Revision'),
         ('approved_district', 'Approved by District'),
+        ('approved_liquidator', 'Approved by Liquidator'),
         ('liquidated', 'Liquidated'),
     ]
 
@@ -621,12 +623,18 @@ class LiquidationManagement(models.Model):
         User, null=True, blank=True, related_name='district_reviewed_liquidations', on_delete=models.SET_NULL
     )
     reviewed_at_district = models.DateTimeField(null=True, blank=True)
+    reviewed_by_liquidator = models.ForeignKey(
+        User, null=True, blank=True, related_name='liquidator_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_liquidator = models.DateTimeField(null=True, blank=True)
     reviewed_by_division = models.ForeignKey(
         User, null=True, blank=True, related_name='division_reviewed_liquidations', on_delete=models.SET_NULL
     )
     reviewed_at_division = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    date_submitted = models.DateTimeField(null=True, blank=True)
     date_districtApproved = models.DateField(null=True, blank=True)
+    date_liquidatorApproved = models.DateField(null=True, blank=True)
     date_liquidated = models.DateTimeField(
         null=True, blank=True)  # Changed from DateField
     remaining_days = models.IntegerField(null=True, blank=True)
@@ -729,10 +737,23 @@ class LiquidationManagement(models.Model):
         elif self.status != 'liquidated' and self.date_liquidated is not None:
             self.date_liquidated = None
 
+        # Handle submitted status
+        if self.status == 'submitted' and self.date_submitted is None:
+            self.date_submitted = timezone.now()
+        elif self.status != 'submitted' and self.date_submitted is not None:
+            self.date_submitted = None
+
+        # Handle district approval
         if self.status == 'approved_district' and self.date_districtApproved is None:
             self.date_districtApproved = timezone.now().date()
         elif self.status != 'approved_district' and self.date_districtApproved is not None:
             self.date_districtApproved = None
+
+        # Handle liquidator approval
+        if self.status == 'approved_liquidator' and self.date_liquidatorApproved is None:
+            self.date_liquidatorApproved = timezone.now().date()
+        elif self.status != 'approved_liquidator' and self.date_liquidatorApproved is not None:
+            self.date_liquidatorApproved = None
 
         super().save(*args, **kwargs)
 
