@@ -480,9 +480,9 @@ class RequestManagement(models.Model):
     def set_automatic_status(self):
         """Enhanced automatic status setting with business rules"""
         if (not hasattr(self, '_status_changed_by')
-            and not self._skip_auto_status
-            and self.request_monthyear
-            ):
+                and not self._skip_auto_status
+                and self.request_monthyear
+                ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -734,6 +734,12 @@ class LiquidationManagement(models.Model):
                     school.last_liquidated_month = month
                     school.last_liquidated_year = year
                     school.save()
+
+            # CRITICAL: Update the request status to 'liquidated'
+            if self.request and self.request.status != 'liquidated':
+                self.request.status = 'liquidated'
+                self.request.save(update_fields=['status'])
+
         elif self.status != 'liquidated' and self.date_liquidated is not None:
             self.date_liquidated = None
 
