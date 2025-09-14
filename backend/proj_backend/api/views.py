@@ -817,7 +817,8 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
             # District admins see submitted, under_review_district, and resubmit liquidations from their district
             if user.school_district:
                 return LiquidationManagement.objects.filter(
-                    status__in=['submitted', 'under_review_district', 'resubmit'],
+                    status__in=['submitted',
+                                'under_review_district', 'resubmit'],
                     request__user__school__district=user.school_district
                 )
             return LiquidationManagement.objects.filter(
@@ -914,8 +915,9 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             data["date_liquidated"] = timezone.now()
             # Also update the corresponding request status to liquidated
             if instance.request:
+                # Update the request status directly
                 instance.request.status = 'liquidated'
-                instance.request.save()
+                instance.request.save(update_fields=['status'])
 
         # If rejecting (resubmit), capture rejection_comment
         if new_status == "resubmit":

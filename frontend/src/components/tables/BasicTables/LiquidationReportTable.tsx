@@ -48,6 +48,25 @@ type Liquidation = {
     };
     priorities?: any[]; // Add this line to include priorities
   };
+  // Approval fields
+  reviewed_by_district?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_district?: string;
+  reviewed_by_liquidator?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_liquidator?: string;
+  reviewed_by_division?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_division?: string;
+  date_districtApproved?: string;
+  date_liquidatorApproved?: string;
+  date_liquidated?: string;
   // Add other fields as needed
 };
 
@@ -518,7 +537,6 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                         className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline cursor-pointer font-medium"
                         title={
                           liq.status === "resubmit" ||
-                          liq.status === "approved_liquidator" ||
                           liq.status === "liquidated" ||
                           liq.status === "completed"
                             ? "Viewing is disabled for approved or completed liquidations."
@@ -529,7 +547,6 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                         style={{
                           opacity:
                             liq.status === "resubmit" ||
-                            liq.status === "approved_liquidator" ||
                             liq.status === "liquidated" ||
                             liq.status === "completed" ||
                             viewLoading === liq.LiquidationID
@@ -537,7 +554,6 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                               : 1,
                           pointerEvents:
                             liq.status === "resubmit" ||
-                            liq.status === "approved_liquidator" ||
                             liq.status === "liquidated" ||
                             liq.status === "completed" ||
                             viewLoading === liq.LiquidationID
@@ -546,7 +562,6 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                         }}
                         tabIndex={
                           liq.status === "resubmit" ||
-                          liq.status === "approved_liquidator" ||
                           liq.status === "liquidated" ||
                           liq.status === "completed" ||
                           viewLoading === liq.LiquidationID
