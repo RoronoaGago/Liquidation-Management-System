@@ -368,6 +368,10 @@ const ManageUsers = () => {
           errorMessage = Array.isArray(error.response.data.role) 
             ? error.response.data.role[0] 
             : error.response.data.role;
+        } else if (error.response.data.is_active) {
+          errorMessage = Array.isArray(error.response.data.is_active) 
+            ? error.response.data.is_active[0] 
+            : error.response.data.is_active;
         } else if (error.response.data.school_district) {
           errorMessage = Array.isArray(error.response.data.school_district) 
             ? error.response.data.school_district[0] 

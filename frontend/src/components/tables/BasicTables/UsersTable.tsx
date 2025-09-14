@@ -529,6 +529,10 @@ export default function UsersTable({
           errorMessage = Array.isArray(error.response.data.role) 
             ? error.response.data.role[0] 
             : error.response.data.role;
+        } else if (error.response.data.is_active) {
+          errorMessage = Array.isArray(error.response.data.is_active) 
+            ? error.response.data.is_active[0] 
+            : error.response.data.is_active;
         } else if (error.response.data.school_district) {
           errorMessage = Array.isArray(error.response.data.school_district) 
             ? error.response.data.school_district[0] 
@@ -572,9 +576,21 @@ export default function UsersTable({
       );
       await fetchUsers();
     } catch (error) {
-      toast.error(
-        `Failed to ${userToArchive.is_active ? "archive" : "restore"} user`
-      );
+      let errorMessage = `Failed to ${userToArchive.is_active ? "archive" : "restore"} user`;
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.data.is_active) {
+          errorMessage = Array.isArray(error.response.data.is_active) 
+            ? error.response.data.is_active[0] 
+            : error.response.data.is_active;
+        } else if (error.response.data.role) {
+          errorMessage = Array.isArray(error.response.data.role) 
+            ? error.response.data.role[0] 
+            : error.response.data.role;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        }
+      }
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
       setIsArchiveDialogOpen(false);
