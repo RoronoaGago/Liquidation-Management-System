@@ -324,3 +324,323 @@ class UserBusinessRuleValidationTestCase(APITestCase):
         self.assertEqual(school_head_2.school, school_2)
         self.assertTrue(school_head_1.is_active)
         self.assertTrue(school_head_2.is_active)
+        
+    def test_activation_conflict_prevention(self):
+        """Test that activating a user prevents conflicts with existing active users"""
+        # Create two inactive school heads for the same school
+        school_head_1 = User.objects.create_user(
+            email="head1@test.com",
+            password="password123",
+            first_name="School",
+            last_name="Head 1",
+            role="school_head",
+            school=self.school,
+            is_active=False
+        )
+        
+        school_head_2 = User.objects.create_user(
+            email="head2@test.com",
+            password="password123",
+            first_name="School",
+            last_name="Head 2",
+            role="school_head",
+            school=self.school,
+            is_active=False
+        )
+        
+        # Activate first school head - should succeed
+        school_head_1.is_active = True
+        school_head_1.save()
+        
+        # Try to activate second school head - should fail
+        serializer = UserSerializer(
+            instance=school_head_2,
+            data={'is_active': True},
+            partial=True
+        )
+        
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('is_active', serializer.errors)
+        self.assertIn('Cannot activate this user', serializer.errors['is_active'][0])
+        self.assertIn('existing user first', serializer.errors['is_active'][0])
+        
+    def test_activation_conflict_superintendent(self):
+        """Test activation conflict for superintendent role"""
+        # Create two inactive superintendents
+        superintendent_1 = User.objects.create_user(
+            email="super1@test.com",
+            password="password123",
+            first_name="Division",
+            last_name="Superintendent 1",
+            role="superintendent",
+            is_active=False
+        )
+        
+        superintendent_2 = User.objects.create_user(
+            email="super2@test.com",
+            password="password123",
+            first_name="Division",
+            last_name="Superintendent 2",
+            role="superintendent",
+            is_active=False
+        )
+        
+        # Activate first superintendent - should succeed
+        superintendent_1.is_active = True
+        superintendent_1.save()
+        
+        # Try to activate second superintendent - should fail
+        serializer = UserSerializer(
+            instance=superintendent_2,
+            data={'is_active': True},
+            partial=True
+        )
+        
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('is_active', serializer.errors)
+        self.assertIn('Cannot activate this user', serializer.errors['is_active'][0])
+        
+    def test_activation_conflict_accountant(self):
+        """Test activation conflict for accountant role"""
+        # Create two inactive accountants
+        accountant_1 = User.objects.create_user(
+            email="accountant1@test.com",
+            password="password123",
+            first_name="Division",
+            last_name="Accountant 1",
+            role="accountant",
+            is_active=False
+        )
+        
+        accountant_2 = User.objects.create_user(
+            email="accountant2@test.com",
+            password="password123",
+            first_name="Division",
+            last_name="Accountant 2",
+            role="accountant",
+            is_active=False
+        )
+        
+        # Activate first accountant - should succeed
+        accountant_1.is_active = True
+        accountant_1.save()
+        
+        # Try to activate second accountant - should fail
+        serializer = UserSerializer(
+            instance=accountant_2,
+            data={'is_active': True},
+            partial=True
+        )
+        
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('is_active', serializer.errors)
+        self.assertIn('Cannot activate this user', serializer.errors['is_active'][0])
+        
+    def test_activation_conflict_district_admin(self):
+        """Test activation conflict for district admin role"""
+        # Create two inactive district admins for same district
+        district_admin_1 = User.objects.create_user(
+            email="district1@test.com",
+            password="password123",
+            first_name="District",
+            last_name="Admin 1",
+            role="district_admin",
+            school_district=self.district,
+            is_active=False
+        )
+        
+        district_admin_2 = User.objects.create_user(
+            email="district2@test.com",
+            password="password123",
+            first_name="District",
+            last_name="Admin 2",
+            role="district_admin",
+            school_district=self.district,
+            is_active=False
+        )
+        
+        # Activate first district admin - should succeed
+        district_admin_1.is_active = True
+        district_admin_1.save()
+        
+        # Try to activate second district admin - should fail
+        serializer = UserSerializer(
+            instance=district_admin_2,
+            data={'is_active': True},
+            partial=True
+        )
+        
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('is_active', serializer.errors)
+        self.assertIn('Cannot activate this user', serializer.errors['is_active'][0])
+        
+    def test_deactivation_allows_reactivation(self):
+        """Test that deactivating a user allows reactivating another with same role"""
+        # Create two inactive school heads
+        school_head_1 = User.objects.create_user(
+            email="head1@test.com",
+            password="password123",
+            first_name="School",
+            last_name="Head 1",
+            role="school_head",
+            school=self.school,
+            is_active=False
+        )
+        
+        school_head_2 = User.objects.create_user(
+            email="head2@test.com",
+            password="password123",
+            first_name="School",
+            last_name="Head 2",
+            role="school_head",
+            school=self.school,
+            is_active=False
+        )
+        
+        # Activate first school head
+        school_head_1.is_active = True
+        school_head_1.save()
+        
+        # Deactivate first school head
+        school_head_1.is_active = False
+        school_head_1.save()
+        
+        # Now activate second school head - should succeed
+        school_head_2.is_active = True
+        school_head_2.save()
+        
+        self.assertTrue(school_head_2.is_active)
+        self.assertFalse(school_head_1.is_active)
+        
+    def test_deactivation_works_without_conflicts(self):
+        """Test that deactivating a user works without validation conflicts"""
+        # Create an active school head
+        school_head = User.objects.create_user(
+            email="head@test.com",
+            password="password123",
+            first_name="School",
+            last_name="Head",
+            role="school_head",
+            school=self.school,
+            is_active=True
+        )
+        
+        # Deactivate the school head - should succeed
+        serializer = UserSerializer(
+            instance=school_head,
+            data={'is_active': False},
+            partial=True
+        )
+        
+        self.assertTrue(serializer.is_valid())
+        serializer.save()
+        
+        # Verify user is deactivated
+        school_head.refresh_from_db()
+        self.assertFalse(school_head.is_active)
+        
+    def test_activation_validation_only_for_activation(self):
+        """Test that validation only runs when activating users, not when deactivating"""
+        # Create an active school head
+        school_head_1 = User.objects.create_user(
+            email="head1@test.com",
+            password="password123",
+            first_name="School",
+            last_name="Head 1",
+            role="school_head",
+            school=self.school,
+            is_active=True
+        )
+        
+        # Create an inactive school head for the same school
+        school_head_2 = User.objects.create_user(
+            email="head2@test.com",
+            password="password123",
+            first_name="School",
+            last_name="Head 2",
+            role="school_head",
+            school=self.school,
+            is_active=False
+        )
+        
+        # Try to deactivate the active user - should succeed (no conflict validation)
+        serializer = UserSerializer(
+            instance=school_head_1,
+            data={'is_active': False},
+            partial=True
+        )
+        
+        self.assertTrue(serializer.is_valid())
+        serializer.save()
+        
+        # Verify first user is deactivated
+        school_head_1.refresh_from_db()
+        self.assertFalse(school_head_1.is_active)
+        
+        # Now activate the second user - should succeed since first is deactivated
+        serializer = UserSerializer(
+            instance=school_head_2,
+            data={'is_active': True},
+            partial=True
+        )
+        
+        self.assertTrue(serializer.is_valid())
+        serializer.save()
+        
+        # Verify second user is activated
+        school_head_2.refresh_from_db()
+        self.assertTrue(school_head_2.is_active)
+        
+    def test_deactivation_only_updates_is_active(self):
+        """Test that deactivating a user only requires is_active field and doesn't trigger other validations"""
+        # Create an active user with any role
+        user = User.objects.create_user(
+            email="test@test.com",
+            password="password123",
+            first_name="Test",
+            last_name="User",
+            role="school_head",
+            school=self.school,
+            is_active=True
+        )
+        
+        # Deactivate user with only is_active field - should succeed without requiring other fields
+        serializer = UserSerializer(
+            instance=user,
+            data={'is_active': False},
+            partial=True
+        )
+        
+        self.assertTrue(serializer.is_valid(), f"Validation errors: {serializer.errors}")
+        serializer.save()
+        
+        # Verify user is deactivated
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+        
+    def test_activation_only_updates_is_active(self):
+        """Test that activating a user only requires is_active field and uses existing role data"""
+        # Create an inactive user
+        user = User.objects.create_user(
+            email="test@test.com",
+            password="password123",
+            first_name="Test",
+            last_name="User",
+            role="school_head",
+            school=self.school,
+            is_active=False
+        )
+        
+        # Activate user with only is_active field - should succeed and use existing role/school data
+        serializer = UserSerializer(
+            instance=user,
+            data={'is_active': True},
+            partial=True
+        )
+        
+        self.assertTrue(serializer.is_valid(), f"Validation errors: {serializer.errors}")
+        serializer.save()
+        
+        # Verify user is activated
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
