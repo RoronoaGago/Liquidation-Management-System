@@ -43,6 +43,7 @@ urlpatterns = [
          views.RequirementRetrieveUpdateDestroyAPIView.as_view(), name='requirement-detail'),
      path('requests/next-available-month/', views.get_next_available_month, name='next-available-month'),
     path('requests/check-eligibility/', views.check_request_eligibility, name='check-request-eligibility'),
+    path('debug/liquidation-times/', views.debug_liquidation_times, name='debug-liquidation-times'),
 
     path('priorities/', views.ListOfPriorityListCreateAPIView.as_view(),
          name='priority-list-create'),

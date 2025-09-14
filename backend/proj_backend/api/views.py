@@ -1,3 +1,4 @@
+from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
 from django.http import HttpResponse
@@ -1769,9 +1770,9 @@ def admin_dashboard(request):
         count = 0
 
         for liquidation in month_liquidations:
-            if liquidation.date_liquidated and liquidation.request.downloaded_at:
-                # Calculate time difference properly
-                time_diff = liquidation.date_liquidated - liquidation.request.downloaded_at
+            if liquidation.date_liquidated and liquidation.created_at:
+                # Calculate time difference properly - from liquidation creation to completion
+                time_diff = liquidation.date_liquidated - liquidation.created_at
                 total_seconds += time_diff.total_seconds()
                 count += 1
 
@@ -1816,8 +1817,8 @@ def admin_dashboard(request):
         count = 0
 
         for liquidation in school_liquidations:
-            if liquidation.date_liquidated and liquidation.request.downloaded_at:
-                time_diff = liquidation.date_liquidated - liquidation.request.downloaded_at
+            if liquidation.date_liquidated and liquidation.created_at:
+                time_diff = liquidation.date_liquidated - liquidation.created_at
                 total_seconds += time_diff.total_seconds()
                 count += 1
 
@@ -1961,20 +1962,38 @@ def admin_dashboard(request):
         priority_order[x['priority']], x['timestamp']))
 
     # 9. Additional Liquidation Metrics - NEW
+    # Debug: Check for liquidations with unrealistic dates
+    liquidated_liquidations = LiquidationManagement.objects.filter(
+        status='liquidated',
+        date_liquidated__isnull=False,
+        created_at__isnull=False
+    )
+
+    # Filter out liquidations with unrealistic processing times (more than 1 year)
+    realistic_liquidations = []
+    for liq in liquidated_liquidations:
+        if liq.date_liquidated and liq.created_at:
+            time_diff = liq.date_liquidated - liq.created_at
+            # Only include liquidations with processing time less than 365 days
+            if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                realistic_liquidations.append(liq)
+
+    # Calculate average from realistic liquidations only
+    if realistic_liquidations:
+        total_seconds = sum((liq.date_liquidated - liq.created_at).total_seconds()
+                            for liq in realistic_liquidations)
+        avg_seconds = total_seconds / len(realistic_liquidations)
+        avg_liquidation_time = avg_seconds
+    else:
+        avg_liquidation_time = 0
+
     liquidation_metrics = {
         'total_liquidations': LiquidationManagement.objects.count(),
         'completed_liquidations': LiquidationManagement.objects.filter(status='liquidated').count(),
         'pending_liquidations': LiquidationManagement.objects.exclude(status='liquidated').count(),
         'completion_rate': (LiquidationManagement.objects.filter(status='liquidated').count() /
                             LiquidationManagement.objects.count() * 100) if LiquidationManagement.objects.count() > 0 else 0,
-        'avg_liquidation_time': LiquidationManagement.objects.filter(
-            status='liquidated'
-        ).annotate(
-            processing_time=ExpressionWrapper(
-                F('date_liquidated') - F('created_at'),
-                output_field=FloatField()
-            )
-        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+        'avg_liquidation_time': avg_liquidation_time
     }
 
     # Convert avg_liquidation_time to days
@@ -1984,39 +2003,73 @@ def admin_dashboard(request):
         liquidation_metrics['avg_liquidation_time_days'] = float(
             liquidation_metrics['avg_liquidation_time']) / (24 * 60 * 60) if liquidation_metrics['avg_liquidation_time'] else 0
 
-    # 10. Top Schools by Liquidation Speed - NEW
+    # Debug information - show some sample data
+    sample_liquidations = []
+    for liq in liquidated_liquidations[:3]:  # Show first 3 liquidations
+        if liq.date_liquidated and liq.created_at:
+            time_diff = liq.date_liquidated - liq.created_at
+            sample_liquidations.append({
+                'liquidation_id': liq.LiquidationID,
+                'created_at': liq.created_at.isoformat(),
+                'date_liquidated': liq.date_liquidated.isoformat(),
+                'time_diff_seconds': time_diff.total_seconds(),
+                'time_diff_days': time_diff.total_seconds() / (24 * 60 * 60)
+            })
+
+    liquidation_metrics['debug_info'] = {
+        'total_liquidated_count': len(liquidated_liquidations),
+        'realistic_liquidations_count': len(realistic_liquidations),
+        'avg_seconds_raw': liquidation_metrics['avg_liquidation_time'],
+        'avg_days_calculated': liquidation_metrics['avg_liquidation_time_days'],
+        'sample_liquidations': sample_liquidations
+    }
+
+    # 10. Top Schools by Liquidation Speed - NEW (Fixed with realistic time filtering)
     top_schools_by_speed = []
-    schools_with_liquidations = School.objects.annotate(
-        avg_processing_time=Avg(
-            Case(
-                When(
-                    users__requestmanagement__liquidation__status='liquidated',
-                    then=ExpressionWrapper(
-                        F('users__requestmanagement__liquidation__date_liquidated') -
-                        F('users__requestmanagement__liquidation__created_at'),
-                        output_field=FloatField()
-                    )
-                ),
-                output_field=FloatField()
-            )
-        )
-    ).filter(avg_processing_time__isnull=False).order_by('avg_processing_time')[:5]
 
-    for school in schools_with_liquidations:
-        # Convert seconds to days
-        avg_days = school.avg_processing_time / \
-            (24 * 60 * 60) if school.avg_processing_time else 0
-        top_schools_by_speed.append({
-            'schoolId': school.schoolId,
-            'schoolName': school.schoolName,
-            'avgProcessingDays': float(avg_days)
-        })
-
-        # 11. School Document Compliance - NEW
-    school_document_compliance = []
+    # Get all schools and calculate realistic processing times manually
     all_schools = School.objects.all()
 
     for school in all_schools:
+        # Get liquidations for this school that are liquidated
+        school_liquidations = LiquidationManagement.objects.filter(
+            request__user__school=school,
+            status='liquidated',
+            date_liquidated__isnull=False,
+            created_at__isnull=False
+        )
+
+        # Filter out unrealistic processing times (more than 1 year)
+        realistic_processing_times = []
+        for liq in school_liquidations:
+            if liq.date_liquidated and liq.created_at:
+                time_diff = liq.date_liquidated - liq.created_at
+                # Only include liquidations with processing time less than 365 days
+                if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                    realistic_processing_times.append(
+                        time_diff.total_seconds())
+
+        # Calculate average from realistic times only
+        if realistic_processing_times:
+            avg_seconds = sum(realistic_processing_times) / \
+                len(realistic_processing_times)
+            avg_days = avg_seconds / (24 * 60 * 60)
+
+            top_schools_by_speed.append({
+                'schoolId': school.schoolId,
+                'schoolName': school.schoolName,
+                'avgProcessingDays': float(avg_days)
+            })
+
+    # Sort by processing time (ascending = fastest first) and take top 5
+    top_schools_by_speed.sort(key=lambda x: x['avgProcessingDays'])
+    top_schools_by_speed = top_schools_by_speed[:5]
+
+    # 11. School Document Compliance - NEW
+    school_document_compliance = []
+    all_schools_for_compliance = School.objects.all()
+
+    for school in all_schools_for_compliance:
         # Get all liquidations for this school
         school_liquidations = LiquidationManagement.objects.filter(
             request__user__school=school
@@ -2083,19 +2136,19 @@ def update_e_signature(request):
         return Response({"error": "No e-signature file provided."}, status=400)
     user.e_signature = e_signature
     user.save(update_fields=['e_signature'])
-    
+
     # Generate new token with updated e_signature
     from rest_framework_simplejwt.tokens import RefreshToken
     refresh = RefreshToken.for_user(user)
     access_token = refresh.access_token
-    
+
     # Add custom claims to the new token
     access_token['first_name'] = user.first_name
     access_token['last_name'] = user.last_name
     access_token['email'] = user.email
     access_token['role'] = user.role
     access_token['password_change_required'] = user.password_change_required
-    
+
     if user.school_district:
         access_token['school_district'] = {
             'id': user.school_district.districtId,
@@ -2105,30 +2158,34 @@ def update_e_signature(request):
         }
     else:
         access_token['school_district'] = None
-    
+
     # Add profile picture URL if available
     if user.profile_picture:
         access_token['profile_picture'] = user.profile_picture.url
     else:
         access_token['profile_picture'] = None
-    
+
     # Add e-signature URL (now available)
     access_token['e_signature'] = user.e_signature.url
-    
+
     return Response({
         "message": "E-signature updated successfully.",
         "access": str(access_token),
         "refresh": str(refresh)
     })
 
+
 # Add to views.py
 
+
+# Add to views.py
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def generate_liquidation_report(request, LiquidationID):
     """
-    Generate a detailed liquidation report in Excel format
+    Generate a detailed liquidation report in Excel format with professional borders
+    and Times New Roman font throughout
     """
     try:
         liquidation = LiquidationManagement.objects.get(
@@ -2144,67 +2201,270 @@ def generate_liquidation_report(request, LiquidationID):
         ws.column_dimensions['B'].width = 36.25
         ws.column_dimensions['C'].width = 33.39
 
+        # Define border styles
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        thick_border = Border(
+            left=Side(style='thick'),
+            right=Side(style='thick'),
+            top=Side(style='thick'),
+            bottom=Side(style='thick')
+        )
+
+        # Define base font (Times New Roman for all text)
+        base_font = Font(name='Times New Roman', size=10)
+        bold_font = Font(name='Times New Roman', size=10, bold=True)
+        title_font = Font(name='Times New Roman', size=14, bold=True)
+
         # Format cell C1
         cell_c1 = ws['C1']
         cell_c1.value = "Appendix 44"
         cell_c1.font = Font(name='Times New Roman', size=14)
         cell_c1.alignment = Alignment(horizontal='right', vertical='top')
+        cell_c1.border = thin_border
 
-        # Continue with the rest of the report structure
-        # Add more content based on your specific requirements
+        # Report title
         ws['A3'] = "LIQUIDATION REPORT"
-        ws['A3'].font = Font(bold=True, size=14)
+        ws['A3'].font = title_font
         ws.merge_cells('A3:C3')
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}3'].border = thick_border
+            ws[f'{col}3'].alignment = Alignment(
+                horizontal='center', vertical='center')
 
         # Add liquidation details
-        ws['A5'] = "Liquidation ID:"
-        ws['B5'] = liquidation.LiquidationID
+        details_rows = [
+            ("Liquidation ID:", liquidation.LiquidationID),
+            ("Request ID:", liquidation.request.request_id),
+            ("School:", liquidation.request.user.school.schoolName if liquidation.request.user.school else "N/A"),
+            ("Submitted By:",
+             f"{liquidation.request.user.first_name} {liquidation.request.user.last_name}"),
+            ("Submission Date:", localtime(
+                liquidation.created_at).strftime("%Y-%m-%d %H:%M:%S")),
+            ("Status:", liquidation.status.upper()),
+        ]
 
-        ws['A6'] = "Request ID:"
-        ws['B6'] = liquidation.request.request_id
+        row = 5
+        for label, value in details_rows:
+            ws[f'A{row}'] = label
+            ws[f'A{row}'].font = bold_font
+            ws[f'A{row}'].border = thin_border
 
-        ws['A7'] = "School:"
-        ws['B7'] = liquidation.request.user.school.schoolName if liquidation.request.user.school else "N/A"
+            ws[f'B{row}'] = value
+            ws[f'B{row}'].font = base_font
+            ws[f'B{row}'].border = thin_border
 
-        ws['A8'] = "Submitted By:"
-        ws['B8'] = f"{liquidation.request.user.first_name} {liquidation.request.user.last_name}"
+            # Merge B and C cells for better appearance
+            ws.merge_cells(f'B{row}:C{row}')
+            row += 1
 
-        ws['A9'] = "Submission Date:"
-        ws['B9'] = localtime(liquidation.created_at).strftime(
-            "%Y-%m-%d %H:%M:%S")
-
-        # Add priorities and amounts
-        row = 11
-        ws['A11'] = "EXPENSE ITEM"
-        ws['B11'] = "REQUESTED AMOUNT"
-        ws['C11'] = "LIQUIDATED AMOUNT"
-        ws['A11'].font = ws['B11'].font = ws['C11'].font = Font(bold=True)
-
+        # Empty row before table
         row += 1
+
+        # Table headers
+        headers = ["EXPENSE ITEM", "REQUESTED AMOUNT", "LIQUIDATED AMOUNT"]
+        ws[f'A{row}'] = headers[0]
+        ws[f'B{row}'] = headers[1]
+        ws[f'C{row}'] = headers[2]
+
+        # Format headers
+        for col, header in zip(['A', 'B', 'C'], headers):
+            cell = ws[f'{col}{row}']
+            cell.font = bold_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = thick_border
+
+        # Add data rows
+        row += 1
+        start_data_row = row
+
         for lp in liquidation.liquidation_priorities.all():
             ws[f'A{row}'] = lp.priority.expenseTitle
+            ws[f'A{row}'].font = base_font
+            ws[f'A{row}'].border = thin_border
+
             # Get requested amount
             requested_amount = RequestPriority.objects.filter(
                 request=liquidation.request,
                 priority=lp.priority
             ).first()
+
             ws[f'B{row}'] = float(
                 requested_amount.amount) if requested_amount else 0
+            ws[f'B{row}'].font = base_font
+            ws[f'B{row}'].border = thin_border
+            ws[f'B{row}'].number_format = '#,##0.00'
+
             ws[f'C{row}'] = float(lp.amount)
+            ws[f'C{row}'].font = base_font
+            ws[f'C{row}'].border = thin_border
+            ws[f'C{row}'].number_format = '#,##0.00'
+
             row += 1
 
         # Add total row
         ws[f'A{row}'] = "TOTAL"
-        ws[f'A{row}'].font = Font(bold=True)
-        ws[f'B{row}'] = f"=SUM(B12:B{row-1})"
-        ws[f'C{row}'] = f"=SUM(C12:C{row-1})"
+        ws[f'A{row}'].font = bold_font
+        ws[f'A{row}'].border = thick_border
+
+        ws[f'B{row}'] = f"=SUM(B{start_data_row}:B{row-1})"
+        ws[f'B{row}'].font = bold_font
+        ws[f'B{row}'].border = thick_border
+        ws[f'B{row}'].number_format = '#,##0.00'
+
+        ws[f'C{row}'] = f"=SUM(C{start_data_row}:C{row-1})"
+        ws[f'C{row}'].font = bold_font
+        ws[f'C{row}'].border = thick_border
+        ws[f'C{row}'].number_format = '#,##0.00'
 
         # Add refund amount if applicable
         if liquidation.refund:
             row += 2
             ws[f'A{row}'] = "REFUND AMOUNT:"
+            ws[f'A{row}'].font = bold_font
+            ws[f'A{row}'].border = thin_border
+
             ws[f'B{row}'] = float(liquidation.refund)
-            ws[f'A{row}'].font = ws[f'B{row}'].font = Font(bold=True)
+            ws[f'B{row}'].font = bold_font
+            ws[f'B{row}'].border = thin_border
+            ws[f'B{row}'].number_format = '#,##0.00'
+
+            ws.merge_cells(f'B{row}:C{row}')
+
+        # Add approval section if liquidated
+        if liquidation.status == 'liquidated':
+            row += 2
+            ws[f'A{row}'] = "APPROVED BY:"
+            ws[f'A{row}'].font = bold_font
+            ws[f'A{row}'].border = thin_border
+
+            approver = liquidation.reviewed_by_division or liquidation.reviewed_by_district
+            if approver:
+                ws[f'B{row}'] = f"{approver.first_name} {approver.last_name}"
+                ws[f'B{row}'].font = base_font
+                ws[f'B{row}'].border = thin_border
+                ws.merge_cells(f'B{row}:C{row}')
+
+            row += 1
+            ws[f'A{row}'] = "APPROVAL DATE:"
+            ws[f'A{row}'].font = bold_font
+            ws[f'A{row}'].border = thin_border
+
+            approval_date = liquidation.date_liquidated or liquidation.reviewed_at_division or liquidation.reviewed_at_district
+            if approval_date:
+                if hasattr(approval_date, 'strftime'):
+                    ws[f'B{row}'] = approval_date.strftime("%Y-%m-%d")
+                else:
+                    ws[f'B{row}'] = str(approval_date)
+                ws[f'B{row}'].font = base_font
+                ws[f'B{row}'].border = thin_border
+                ws.merge_cells(f'B{row}:C{row}')
+
+        # Add certification section
+        row += 3  # Add some space before certification section
+
+        # Column A certification
+        cert_row = row
+        ws[f'A{cert_row}'] = "Certified: Correctness of the above data"
+        ws[f'A{cert_row}'].font = bold_font
+        ws[f'A{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'A{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'A{cert_row}'] = "ROMEO C. ANCHETA"
+        ws[f'A{cert_row}'].font = bold_font
+        ws[f'A{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'A{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'A{cert_row}'] = "School Head/PIII"
+        ws[f'A{cert_row}'].font = base_font
+        ws[f'A{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'A{cert_row}'].border = thin_border
+
+        # Column B certification
+        cert_row = row
+        ws[f'B{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
+        ws[f'B{cert_row}'].font = bold_font
+        ws[f'B{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'B{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'B{cert_row}'] = "LUCRECIA B. CAMAT"
+        ws[f'B{cert_row}'].font = bold_font
+        ws[f'B{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'B{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'B{cert_row}'] = "OIC of the Public Schools District Supervisor / Education Program Specialist"
+        ws[f'B{cert_row}'].font = base_font
+        ws[f'B{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'B{cert_row}'].border = thin_border
+
+        # Column C certification
+        cert_row = row
+        ws[f'C{cert_row}'] = "Certified: Supporting documents complete and proper"
+        ws[f'C{cert_row}'].font = bold_font
+        ws[f'C{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'C{cert_row}'] = "MARIA N. NAPEÑAS"
+        ws[f'C{cert_row}'].font = bold_font
+        ws[f'C{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'C{cert_row}'] = "Administrative Assistant III"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'C{cert_row}'] = "Noted:"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'C{cert_row}'] = "CRISTEL MAE B. FONTANILLA"
+        ws[f'C{cert_row}'].font = bold_font
+        ws[f'C{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'C{cert_row}'] = "Accountant III"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+
+        cert_row += 1
+        ws[f'C{cert_row}'] = "Head, Accounting Unit"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(
+            horizontal='center', vertical='center')
+        ws[f'C{cert_row}'].border = thin_border
+
+        # Adjust row heights for certification section
+        for i in range(row, cert_row + 1):
+            ws.row_dimensions[i].height = 20
 
         # Create HTTP response with Excel file
         response = HttpResponse(
@@ -2221,7 +2481,8 @@ def generate_liquidation_report(request, LiquidationID):
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
-        logger.error(f"Error generating liquidation report: {str(e)}")
+        logger.error(
+            f"Error generating liquidation report: {str(e)}", exc_info=True)
         return Response(
             {'error': 'Failed to generate report'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -2249,6 +2510,35 @@ def get_next_available_month(request):
         'next_available_month': next_month,
         'is_advance_request': is_advance,
         'can_submit': RequestManagement.can_user_request_for_month(user, next_month)
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def debug_liquidation_times(request):
+    """Debug endpoint to check liquidation time calculations"""
+    liquidated_liquidations = LiquidationManagement.objects.filter(
+        status='liquidated',
+        date_liquidated__isnull=False,
+        created_at__isnull=False
+    ).order_by('-created_at')[:10]  # Get last 10 liquidations
+
+    debug_data = []
+    for liq in liquidated_liquidations:
+        if liq.date_liquidated and liq.created_at:
+            time_diff = liq.date_liquidated - liq.created_at
+            debug_data.append({
+                'liquidation_id': liq.LiquidationID,
+                'created_at': liq.created_at.isoformat(),
+                'date_liquidated': liq.date_liquidated.isoformat(),
+                'time_diff_seconds': time_diff.total_seconds(),
+                'time_diff_days': time_diff.total_seconds() / (24 * 60 * 60),
+                'is_realistic': time_diff.total_seconds() < (365 * 24 * 60 * 60)
+            })
+
+    return Response({
+        'total_liquidated': liquidated_liquidations.count(),
+        'sample_data': debug_data
     })
 
 
