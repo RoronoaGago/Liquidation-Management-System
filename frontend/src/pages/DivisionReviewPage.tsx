@@ -9,6 +9,24 @@ type Liquidation = {
   LiquidationID: string;
   status: string;
   created_at: string;
+  reviewed_by_district?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_district?: string;
+  reviewed_by_liquidator?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_liquidator?: string;
+  reviewed_by_division?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_division?: string;
+  date_districtApproved?: string;
+  date_liquidatorApproved?: string;
+  date_liquidated?: string;
   request?: {
     request_id?: string;
     user?: {
@@ -53,13 +71,13 @@ const DivisionReviewPage = () => {
     console.log("All liquidations:", filtered);
     console.log("User role:", user?.role);
     
-    // Division accountants see liquidations approved by liquidators
-    if (user?.role === "accountant") {
-      filtered = filtered.filter(
-        (liq) => liq.status === "under_review_division"
-      );
-      console.log("Filtered liquidations for accountant:", filtered);
-    }
+    // Backend already filters liquidations by role, so we don't need additional filtering here
+    // The backend LiquidationManagementListCreateAPIView.get_queryset() already handles:
+    // - district_admin: filters by status='submitted' and district
+    // - liquidator: filters by status='under_review_liquidator' and 'approved_district'  
+    // - accountant: filters by status='under_review_division' and 'approved_liquidator'
+    // - school_head: shows only their latest liquidation
+    console.log("Backend should have already filtered liquidations by role and status");
     
     if (!searchTerm) return filtered;
     return filtered.filter((liq) => {
