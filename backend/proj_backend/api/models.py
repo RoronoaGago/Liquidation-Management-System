@@ -743,17 +743,15 @@ class LiquidationManagement(models.Model):
         elif self.status != 'submitted' and self.date_submitted is not None:
             self.date_submitted = None
 
-        # Handle district approval
+        # Handle district approval - only set if not already set
         if self.status == 'approved_district' and self.date_districtApproved is None:
             self.date_districtApproved = timezone.now().date()
-        elif self.status != 'approved_district' and self.date_districtApproved is not None:
-            self.date_districtApproved = None
+        # Don't reset the date when status changes - keep the approval date
 
-        # Handle liquidator approval
+        # Handle liquidator approval - only set if not already set
         if self.status == 'approved_liquidator' and self.date_liquidatorApproved is None:
             self.date_liquidatorApproved = timezone.now().date()
-        elif self.status != 'approved_liquidator' and self.date_liquidatorApproved is not None:
-            self.date_liquidatorApproved = None
+        # Don't reset the date when status changes - keep the approval date
 
         super().save(*args, **kwargs)
 

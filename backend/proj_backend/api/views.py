@@ -898,22 +898,24 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             data["reviewed_by_district"] = request.user.id
             data["reviewed_at_district"] = timezone.now()
             data["date_districtApproved"] = timezone.now().date()
-            # Move to liquidator review
-            data["status"] = "under_review_liquidator"
+            # Keep status as approved_district (don't change to under_review_liquidator yet)
 
         # Liquidator approval
         elif new_status == "approved_liquidator" and user_role == "liquidator":
             data["reviewed_by_liquidator"] = request.user.id
             data["reviewed_at_liquidator"] = timezone.now()
             data["date_liquidatorApproved"] = timezone.now().date()
-            # Status becomes approved_liquidator (not under_review_division)
-            data["status"] = "approved_liquidator"
+            # Keep status as approved_liquidator (don't change to under_review_division yet)
 
         # Division Accountant final approval
         elif new_status == "liquidated" and user_role == "accountant":
             data["reviewed_by_division"] = request.user.id
             data["reviewed_at_division"] = timezone.now()
             data["date_liquidated"] = timezone.now()
+            # Also update the corresponding request status to liquidated
+            if instance.request:
+                instance.request.status = 'liquidated'
+                instance.request.save()
 
         # If rejecting (resubmit), capture rejection_comment
         if new_status == "resubmit":

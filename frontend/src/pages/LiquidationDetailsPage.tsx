@@ -333,6 +333,9 @@ const LiquidationDetailsPage = () => {
             status: "liquidated",
           });
         }
+        // Refresh the liquidation data to show updated fields
+        const updatedLiquidation = await api.get(`/liquidations/${liquidationId}/`);
+        setLiquidation(updatedLiquidation.data);
         toast.success(
           newStatus === "liquidated"
             ? "Liquidation report finalized!"
@@ -552,6 +555,95 @@ const LiquidationDetailsPage = () => {
             )}
           </div>
         </div>
+
+        {/* Approval Information */}
+        {(liquidation.reviewed_by_district || liquidation.reviewed_by_liquidator || liquidation.reviewed_by_division) && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold mb-4">Approval Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* District Approval */}
+              {liquidation.reviewed_by_district && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-blue-900 mb-2">District Approval</h3>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="font-medium">Approved by:</span>{" "}
+                      {typeof liquidation.reviewed_by_district === "object"
+                        ? `${liquidation.reviewed_by_district.first_name} ${liquidation.reviewed_by_district.last_name}`
+                        : "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium">Approved at:</span>{" "}
+                      {liquidation.reviewed_at_district
+                        ? new Date(liquidation.reviewed_at_district).toLocaleString()
+                        : "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium">Approval Date:</span>{" "}
+                      {liquidation.date_districtApproved
+                        ? new Date(liquidation.date_districtApproved).toLocaleDateString()
+                        : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Liquidator Approval */}
+              {liquidation.reviewed_by_liquidator && (
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-green-900 mb-2">Liquidator Approval</h3>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="font-medium">Approved by:</span>{" "}
+                      {typeof liquidation.reviewed_by_liquidator === "object"
+                        ? `${liquidation.reviewed_by_liquidator.first_name} ${liquidation.reviewed_by_liquidator.last_name}`
+                        : "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium">Approved at:</span>{" "}
+                      {liquidation.reviewed_at_liquidator
+                        ? new Date(liquidation.reviewed_at_liquidator).toLocaleString()
+                        : "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium">Approval Date:</span>{" "}
+                      {liquidation.date_liquidatorApproved
+                        ? new Date(liquidation.date_liquidatorApproved).toLocaleDateString()
+                        : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Division Approval */}
+              {liquidation.reviewed_by_division && (
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-purple-900 mb-2">Division Approval</h3>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="font-medium">Approved by:</span>{" "}
+                      {typeof liquidation.reviewed_by_division === "object"
+                        ? `${liquidation.reviewed_by_division.first_name} ${liquidation.reviewed_by_division.last_name}`
+                        : "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium">Approved at:</span>{" "}
+                      {liquidation.reviewed_at_division
+                        ? new Date(liquidation.reviewed_at_division).toLocaleString()
+                        : "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium">Finalized Date:</span>{" "}
+                      {liquidation.date_liquidated
+                        ? new Date(liquidation.date_liquidated).toLocaleDateString()
+                        : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Document Completion Progress */}
         <div className="mb-8">
