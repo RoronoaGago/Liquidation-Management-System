@@ -1055,7 +1055,30 @@ const MOOERequestPage = () => {
             </Disclosure>
           </div>
         )}
-
+        {!isFormDisabled && targetMonth && (
+          <div className="mb-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20 p-3">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm text-blue-800 dark:text-blue-200">
+                {isAdvanceRequest ? (
+                  <>
+                    This will be an <strong>advance request</strong> for{" "}
+                    <strong>{targetMonth}</strong>
+                  </>
+                ) : (
+                  <>
+                    Requesting for <strong>{targetMonth}</strong>
+                  </>
+                )}
+              </span>
+            </div>
+            {isAdvanceRequest && (
+              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                This request will become pending when {targetMonth} arrives.
+              </p>
+            )}
+          </div>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -1260,30 +1283,7 @@ const MOOERequestPage = () => {
                 )}
               </div>
             </div>
-            {!isFormDisabled && targetMonth && (
-              <div className="mb-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20 p-3">
-                <div className="flex items-center gap-2">
-                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm text-blue-800 dark:text-blue-200">
-                    {isAdvanceRequest ? (
-                      <>
-                        This will be an <strong>advance request</strong> for{" "}
-                        <strong>{targetMonth}</strong>
-                      </>
-                    ) : (
-                      <>
-                        Requesting for <strong>{targetMonth}</strong>
-                      </>
-                    )}
-                  </span>
-                </div>
-                {isAdvanceRequest && (
-                  <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                    This request will become pending when {targetMonth} arrives.
-                  </p>
-                )}
-              </div>
-            )}
+
             {/* Right Column - Summary Panel */}
             <div className="sticky top-4 h-fit">
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 overflow-hidden">
