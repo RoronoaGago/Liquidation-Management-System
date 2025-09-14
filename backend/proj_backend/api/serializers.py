@@ -114,14 +114,42 @@ class UserSerializer(serializers.ModelSerializer):
 
         role = data.get("role")
         school = data.get("school") or data.get("school_id")
+        school_district = data.get("school_district") or data.get("school_district_id")
+        
+        # Validate school-level role uniqueness (only one active per school)
         if role in ["school_head", "school_admin"] and school:
             user_id = self.instance.pk if self.instance else None
-            qs = User.objects.filter(role=role, school=school)
+            qs = User.objects.filter(role=role, school=school, is_active=True)
             if user_id:
                 qs = qs.exclude(pk=user_id)
             if qs.exists():
+                existing_user = qs.first()
                 raise serializers.ValidationError(
-                    {"role": f"There is already a {role.replace('_', ' ')} assigned to this school."}
+                    {"role": f"There is already an active {role.replace('_', ' ')} assigned to this school ({existing_user.get_full_name()}). Only one active {role.replace('_', ' ')} is allowed per school."}
+                )
+        
+        # Validate district-level role uniqueness (only one active per district)
+        if role == "district_admin" and school_district:
+            user_id = self.instance.pk if self.instance else None
+            qs = User.objects.filter(role=role, school_district=school_district, is_active=True)
+            if user_id:
+                qs = qs.exclude(pk=user_id)
+            if qs.exists():
+                existing_user = qs.first()
+                raise serializers.ValidationError(
+                    {"role": f"There is already an active district administrative assistant assigned to this district ({existing_user.get_full_name()}). Only one active district administrative assistant is allowed per district."}
+                )
+        
+        # Validate division-level role uniqueness (only one active per division)
+        if role in ["superintendent", "accountant"]:
+            user_id = self.instance.pk if self.instance else None
+            qs = User.objects.filter(role=role, is_active=True)
+            if user_id:
+                qs = qs.exclude(pk=user_id)
+            if qs.exists():
+                existing_user = qs.first()
+                raise serializers.ValidationError(
+                    {"role": f"There is already an active {role.replace('_', ' ')} in the division ({existing_user.get_full_name()}). Only one active {role.replace('_', ' ')} is allowed per division."}
                 )
         # E-signature required for specific roles (only for updates, not creation)
         role = data.get("role")

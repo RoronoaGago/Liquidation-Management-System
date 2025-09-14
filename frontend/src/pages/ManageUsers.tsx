@@ -365,9 +365,13 @@ const ManageUsers = () => {
         if (error.response.data.email) {
           errorMessage = "Email already exists.";
         } else if (error.response.data.role) {
-          errorMessage = error.response.data.role[0];
+          errorMessage = Array.isArray(error.response.data.role) 
+            ? error.response.data.role[0] 
+            : error.response.data.role;
         } else if (error.response.data.school_district) {
-          errorMessage = error.response.data.school_district[0];
+          errorMessage = Array.isArray(error.response.data.school_district) 
+            ? error.response.data.school_district[0] 
+            : error.response.data.school_district;
         } else if (error.response.data.detail) {
           errorMessage = error.response.data.detail;
         }

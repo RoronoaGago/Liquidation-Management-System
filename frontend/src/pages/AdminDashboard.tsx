@@ -203,10 +203,10 @@ const defaultLayouts: DashboardLayout = {
     { i: "budget", x: 0, y: 8, w: 6, h: 6, minW: 4, minH: 4 }, // rows 8-13
     { i: "status", x: 6, y: 8, w: 6, h: 6, minW: 4, minH: 4 }, // rows 8-13
     { i: "performance", x: 0, y: 14, w: 12, h: 8, minW: 6, minH: 6 }, // rows 14-21
-    { i: "categories", x: 0, y: 22, w: 4, h: 8, minW: 4, minH: 6 }, // rows 22-29
-    { i: "topSchools", x: 4, y: 22, w: 4, h: 8, minW: 4, minH: 6 }, // rows 22-29
-    { i: "actions", x: 8, y: 22, w: 4, h: 8, minW: 4, minH: 6 }, // rows 22-29
-    { i: "compliance", x: 0, y: 30, w: 12, h: 8, minW: 6, minH: 6 }, // rows 30-37
+    { i: "categories", x: 0, y: 22, w: 6, h: 6, minW: 4, minH: 6 }, // rows 22-29
+    { i: "topSchools", x: 6, y: 22, w: 6, h: 6, minW: 4, minH: 6 }, // rows 22-29
+    { i: "actions", x: 8, y: 22, w: 6, h: 8, minW: 4, minH: 6 }, // rows 22-29
+    { i: "compliance", x: 0, y: 30, w: 6, h: 8, minW: 6, minH: 6 }, // rows 30-37
   ],
   md: [
     { i: "metrics", x: 0, y: 0, w: 8, h: 2, minW: 4, minH: 2 },
@@ -687,6 +687,11 @@ const StatusWidget = ({
 
   const distribution = data?.requestStatusDistribution ?? [];
 
+  // Helper function to capitalize first letter
+  const capitalizeFirstLetter = (str: string) => {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
   return (
     <WidgetContainer
       title="Request Status Distribution"
@@ -727,7 +732,9 @@ const StatusWidget = ({
               outerRadius={100}
               fill="#8884d8"
               dataKey="count"
-              label={({ status, percentage }) => `${status} (${percentage}%)`}
+              label={({ status, percentage }) =>
+                `${capitalizeFirstLetter(status)} (${percentage.toFixed(2)}%)`
+              }
             >
               {distribution.map((entry, index) => (
                 <Cell

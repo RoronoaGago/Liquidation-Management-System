@@ -525,8 +525,14 @@ export default function UsersTable({
           errorMessage = "Email already exists.";
         } else if (error.response.data.password) {
           errorMessage = "Password doesn't meet requirements.";
+        } else if (error.response.data.role) {
+          errorMessage = Array.isArray(error.response.data.role) 
+            ? error.response.data.role[0] 
+            : error.response.data.role;
         } else if (error.response.data.school_district) {
-          errorMessage = error.response.data.school_district[0];
+          errorMessage = Array.isArray(error.response.data.school_district) 
+            ? error.response.data.school_district[0] 
+            : error.response.data.school_district;
         }
       }
       console.error(error);
