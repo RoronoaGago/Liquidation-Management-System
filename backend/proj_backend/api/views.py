@@ -876,47 +876,30 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance._old_status = instance.status  # Track previous status for signals
+        instance._old_status = instance.status
         partial = kwargs.pop('partial', False)
         data = request.data.copy()
-
-        # Handle different approval levels based on user role and status
-        user_role = request.user.role
         new_status = data.get("status")
+        user_role = request.user.role
 
-        # Handle status changes when viewing liquidations
-        if new_status == "under_review_district" and user_role == "district_admin":
-            # District admin is viewing a submitted liquidation
-            pass  # Just update the status, no additional changes needed
-        elif new_status == "under_review_liquidator" and user_role == "liquidator":
-            # Liquidator is viewing a district-approved liquidation
-            pass  # Just update the status, no additional changes needed
-        elif new_status == "under_review_division" and user_role == "accountant":
-            # Accountant is viewing a liquidator-approved liquidation
-            pass  # Just update the status, no additional changes needed
+        # Handle different approval levels
+        if new_status == "approved_district" and user_role == "district_admin":
+            instance.reviewed_by_district = request.user
+            instance.reviewed_at_district = timezone.now()
+            instance.date_districtApproved = timezone.now().date()
 
-        # District Admin approval
-        elif new_status == "approved_district" and user_role == "district_admin":
-            data["reviewed_by_district"] = request.user.id
-            data["reviewed_at_district"] = timezone.now()
-            data["date_districtApproved"] = timezone.now().date()
-            # Keep status as approved_district (don't change to under_review_liquidator yet)
-
-        # Liquidator approval
         elif new_status == "approved_liquidator" and user_role == "liquidator":
-            data["reviewed_by_liquidator"] = request.user.id
-            data["reviewed_at_liquidator"] = timezone.now()
-            data["date_liquidatorApproved"] = timezone.now().date()
-            # Keep status as approved_liquidator (don't change to under_review_division yet)
+            instance.reviewed_by_liquidator = request.user
+            instance.reviewed_at_liquidator = timezone.now()
+            instance.date_liquidatorApproved = timezone.now().date()
 
-        # Division Accountant final approval
         elif new_status == "liquidated" and user_role == "accountant":
-            data["reviewed_by_division"] = request.user.id
-            data["reviewed_at_division"] = timezone.now()
-            data["date_liquidated"] = timezone.now()
-            # Also update the corresponding request status to liquidated
+            instance.reviewed_by_division = request.user
+            instance.reviewed_at_division = timezone.now()
+            instance.date_liquidated = timezone.now()
+
             if instance.request:
-                # Update the request status directly
+                instance.request._skip_auto_status = True
                 instance.request.status = 'liquidated'
                 instance.request.save(update_fields=['status'])
 
@@ -935,6 +918,8 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
+        instance.save()
         return Response(serializer.data)
 
     def perform_update(self, serializer):
