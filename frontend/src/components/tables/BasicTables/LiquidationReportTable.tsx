@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
+  EyeIcon,
 } from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
 import { useNavigate } from "react-router";
@@ -532,56 +533,30 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                       {liq.request?.user?.school?.schoolName || "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        onClick={() => handleView(liq)}
-                        className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline cursor-pointer font-medium"
-                        title={
-                          liq.status === "resubmit" ||
-                          liq.status === "liquidated" ||
-                          liq.status === "completed"
-                            ? "Viewing is disabled for approved or completed liquidations."
-                            : viewLoading === liq.LiquidationID
-                            ? "Loading..."
-                            : "View"
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        startIcon={
+                          viewLoading === liq.LiquidationID ? (
+                            <span className="animate-spin w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full inline-block"></span>
+                          ) : (
+                            <EyeIcon className="w-4 h-4" />
+                          )
                         }
-                        style={{
-                          opacity:
-                            liq.status === "resubmit" ||
-                            liq.status === "liquidated" ||
-                            liq.status === "completed" ||
-                            viewLoading === liq.LiquidationID
-                              ? 0.5
-                              : 1,
-                          pointerEvents:
-                            liq.status === "resubmit" ||
-                            liq.status === "liquidated" ||
-                            liq.status === "completed" ||
-                            viewLoading === liq.LiquidationID
-                              ? "none"
-                              : "auto",
-                        }}
-                        tabIndex={
+                        onClick={() => handleView(liq)}
+                        className="text-blue-600 p-0"
+                        disabled={
                           liq.status === "resubmit" ||
                           liq.status === "liquidated" ||
                           liq.status === "completed" ||
                           viewLoading === liq.LiquidationID
-                            ? -1
-                            : 0
                         }
-                        role="link"
+                        loading={viewLoading === liq.LiquidationID}
                       >
-                        {viewLoading === liq.LiquidationID ? (
-                          <>
-                            <span className="animate-spin mr-1 w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full inline-block align-middle"></span>
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            View
-                            <LucideEye className="w-4 h-4 ml-1" />
-                          </>
-                        )}
-                      </span>
+                        {viewLoading === liq.LiquidationID
+                          ? "Loading..."
+                          : "View"}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -917,7 +892,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                             reviewer_comment: viewDoc.reviewer_comment,
                           }
                         );
-                        toast.success("Document approved!");
+                        // toast.success("Document approved!");
                         // Refresh documents
                         const res = await api.get(
                           `/liquidations/${selected?.LiquidationID}/documents/`

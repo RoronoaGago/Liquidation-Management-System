@@ -279,7 +279,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
         });
         await refreshList(); // Refresh the list to show new status
       }
-      
+
       setSelected(liq);
       setExpandedExpense(null);
       setDocLoading(true);
@@ -296,7 +296,9 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
       }));
       setExpenseList(expenses);
 
-      const res = await api.get(`/liquidations/${liq.LiquidationID}/documents/`);
+      const res = await api.get(
+        `/liquidations/${liq.LiquidationID}/documents/`
+      );
       setDocuments(res.data);
       setDocLoading(false);
     } catch (err) {
@@ -1118,7 +1120,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                             reviewer_comment: viewDoc.reviewer_comment,
                           }
                         );
-                        toast.success("Document approved!");
+                        // toast.success("Document approved!");
                         const res = await api.get(
                           `/liquidations/${selected?.LiquidationID}/documents/`
                         );
