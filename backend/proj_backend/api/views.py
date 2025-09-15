@@ -2074,7 +2074,7 @@ def update_e_signature(request):
 @permission_classes([IsAuthenticated])
 def generate_liquidation_report(request, LiquidationID):
     """
-    Generate a liquidation report in Excel format matching the Appendix-44-LR-1 template
+    Generate a liquidation report in Excel format matching the Appendix-44 template
     with data automatically populated from the system
     """
     try:
@@ -2086,17 +2086,24 @@ def generate_liquidation_report(request, LiquidationID):
         # Create workbook and worksheet
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "LR"
+        ws.title = "Liquidation Report"
         
         # Set column widths to match the template
-        column_widths = {
-            'A': 30.71, 'B': 36.25, 'C': 33.39, 'D': 8.43, 'E': 8.43, 
-            'F': 8.43, 'G': 8.43, 'H': 8.43, 'I': 8.43, 'J': 8.43, 'K': 8.43
-        }
+        ws.column_dimensions['A'].width = 5  # Margin column
+        ws.column_dimensions['B'].width = 50  # Main content column
+        ws.column_dimensions['C'].width = 20  # Amount column
+        ws.column_dimensions['D'].width = 5  # Margin column
         
-        for col, width in column_widths.items():
-            ws.column_dimensions[col].width = width
-            
+        # Define fonts
+        base_font = Font(name='Times New Roman', size=10)
+        bold_font = Font(name='Times New Roman', size=10, bold=True)
+        title_font = Font(name='Times New Roman', size=14, bold=True)
+        
+        # Define alignment
+        center_alignment = Alignment(horizontal='center', vertical='center')
+        left_alignment = Alignment(horizontal='left', vertical='center')
+        right_alignment = Alignment(horizontal='right', vertical='center')
+        
         # Define border styles
         thin_border = Border(
             left=Side(style='thin'),
@@ -2105,75 +2112,73 @@ def generate_liquidation_report(request, LiquidationID):
             bottom=Side(style='thin')
         )
         
-        # Define fonts
-        base_font = Font(name='Times New Roman', size=10)
-        bold_font = Font(name='Times New Roman', size=10, bold=True)
+        # Appendix 49 in cell C2
+        ws['C2'] = "Appendix 49"
+        ws['C2'].font = base_font
+        ws['C2'].alignment = right_alignment
         
-        # Add template content (matching the provided Excel structure)
-        # Appendix 44 in cell C1
-        ws['C1'] = "Appendix 44"
-        ws['C1'].font = base_font
-        ws['C1'].alignment = Alignment(horizontal='right')
+        # Liquidation Report title (merged B4:C4)
+        ws['B4'] = "LIQUIDATION REPORT"
+        ws['B4'].font = title_font
+        ws.merge_cells('B4:C4')
+        ws['B4'].alignment = center_alignment
         
-        # Liquidation Report title
-        ws['A3'] = "LIQUIDATION REPORT"
-        ws['A3'].font = Font(name='Times New Roman', size=14, bold=True)
-        ws.merge_cells('A3:C3')
-        ws['A3'].alignment = Alignment(horizontal='center')
-        
-        # Serial number and date
-        ws['C4'] = f"Serial No.: {liquidation.LiquidationID}"
-        ws['C4'].font = base_font
-        
-        current_date = timezone.now().strftime("%Y-%m-%d")
-        ws['C5'] = f"Date: {current_date}"
-        ws['C5'].font = base_font
-        
-        # Period covered - use the request month/year
+        # Period covered
         if request_obj.request_monthyear:
             period_covered = request_obj.request_monthyear
         else:
             period_covered = timezone.now().strftime("%Y-%m")
-        ws['A5'] = f"Period Covered {period_covered}"
-        ws['A5'].font = base_font
+        ws['B5'] = f"Period Covered {period_covered}"
+        ws['B5'].font = base_font
+        
+        # Serial number and date
+        ws['C5'] = f"Serial No.: {liquidation.LiquidationID}"
+        ws['C5'].font = base_font
+        ws['C5'].alignment = left_alignment
+        
+        current_date = timezone.now().strftime("%Y-%m-%d")
+        ws['C6'] = f"Date: {current_date}"
+        ws['C6'].font = base_font
+        ws['C6'].alignment = left_alignment
         
         # Entity name and fund cluster
         entity_name = school.schoolName if school else "N/A"
-        ws['A7'] = f"Entity Name :  {entity_name}"
-        ws['A7'].font = base_font
+        ws['B7'] = f"Entity Name :  {entity_name}"
+        ws['B7'].font = base_font
         
-        # For fund cluster, we'll use a default value or leave it blank
-        ws['A8'] = "Fund Cluster :  _____________________________________________"
-        ws['A8'].font = base_font
+        ws['B8'] = "Fund Cluster :  _____________________________________________"
+        ws['B8'].font = base_font
         
-        # Responsibility center code - use district code if available
+        # Responsibility center code
         responsibility_center = school.district.districtId if school and school.district else "N/A"
         ws['C8'] = f"Responsibility Center Code: {responsibility_center}"
         ws['C8'].font = base_font
         
         # Table header
-        ws['A11'] = "PARTICULARS"
-        ws['A11'].font = bold_font
-        ws['A11'].border = thin_border
-        ws['A11'].alignment = Alignment(horizontal='center', vertical='center')
+        ws['B11'] = "PARTICULARS"
+        ws['B11'].font = bold_font
+        ws['B11'].border = thin_border
+        ws['B11'].alignment = center_alignment
         
         ws['C11'] = "AMOUNT"
         ws['C11'].font = bold_font
         ws['C11'].border = thin_border
-        ws['C11'].alignment = Alignment(horizontal='center', vertical='center')
+        ws['C11'].alignment = center_alignment
         
         # Add liquidation items
         row = 12
         total_amount = 0
         
         for lp in liquidation.liquidation_priorities.all():
-            ws[f'A{row}'] = lp.priority.expenseTitle
-            ws[f'A{row}'].font = base_font
-            ws[f'A{row}'].border = thin_border
+            ws[f'B{row}'] = lp.priority.expenseTitle
+            ws[f'B{row}'].font = base_font
+            ws[f'B{row}'].border = thin_border
+            ws[f'B{row}'].alignment = left_alignment
             
             ws[f'C{row}'] = float(lp.amount)
             ws[f'C{row}'].font = base_font
             ws[f'C{row}'].border = thin_border
+            ws[f'C{row}'].alignment = right_alignment
             ws[f'C{row}'].number_format = '#,##0.00'
             
             total_amount += float(lp.amount)
@@ -2181,20 +2186,23 @@ def generate_liquidation_report(request, LiquidationID):
         
         # Add total amount
         total_row = row + 2
-        ws[f'A{total_row}'] = "TOTAL AMOUNT SPENT"
-        ws[f'A{total_row}'].font = bold_font
-        ws[f'A{total_row}'].border = thin_border
+        ws[f'B{total_row}'] = "TOTAL AMOUNT SPENT"
+        ws[f'B{total_row}'].font = bold_font
+        ws[f'B{total_row}'].border = thin_border
+        ws[f'B{total_row}'].alignment = left_alignment
         
         ws[f'C{total_row}'] = float(total_amount)
         ws[f'C{total_row}'].font = bold_font
         ws[f'C{total_row}'].border = thin_border
+        ws[f'C{total_row}'].alignment = right_alignment
         ws[f'C{total_row}'].number_format = '#,##0.00'
         
         # Add cash advance information
         cash_advance_row = total_row + 2
-        ws[f'A{cash_advance_row}'] = "AMOUNT OF CASH ADVANCE PER DV NO.______DTD. ______"
-        ws[f'A{cash_advance_row}'].font = base_font
-        ws[f'A{cash_advance_row}'].border = thin_border
+        ws[f'B{cash_advance_row}'] = "AMOUNT OF CASH ADVANCE PER DV NO.______DTD. ______"
+        ws[f'B{cash_advance_row}'].font = base_font
+        ws[f'B{cash_advance_row}'].border = thin_border
+        ws[f'B{cash_advance_row}'].alignment = left_alignment
         
         # Calculate cash advance amount (sum of requested amounts)
         cash_advance_amount = sum(
@@ -2203,119 +2211,97 @@ def generate_liquidation_report(request, LiquidationID):
         ws[f'C{cash_advance_row}'] = float(cash_advance_amount)
         ws[f'C{cash_advance_row}'].font = base_font
         ws[f'C{cash_advance_row}'].border = thin_border
+        ws[f'C{cash_advance_row}'].alignment = right_alignment
         ws[f'C{cash_advance_row}'].number_format = '#,##0.00'
         
         # Add refund information
         refund_row = cash_advance_row + 2
-        ws[f'A{refund_row}'] = "AMOUNT REFUNDED PER OR NO. ________DTD. ___________"
-        ws[f'A{refund_row}'].font = base_font
-        ws[f'A{refund_row}'].border = thin_border
+        ws[f'B{refund_row}'] = "AMOUNT REFUNDED PER OR NO. ________DTD. ___________"
+        ws[f'B{refund_row}'].font = base_font
+        ws[f'B{refund_row}'].border = thin_border
+        ws[f'B{refund_row}'].alignment = left_alignment
         
         refund_amount = cash_advance_amount - total_amount
         ws[f'C{refund_row}'] = float(refund_amount) if refund_amount > 0 else 0
         ws[f'C{refund_row}'].font = base_font
         ws[f'C{refund_row}'].border = thin_border
+        ws[f'C{refund_row}'].alignment = right_alignment
         ws[f'C{refund_row}'].number_format = '#,##0.00'
         
         # Add amount to be reimbursed
         reimbursement_row = refund_row + 2
-        ws[f'A{reimbursement_row}'] = "AMOUNT TO BE REIMBURSED"
-        ws[f'A{reimbursement_row}'].font = base_font
-        ws[f'A{reimbursement_row}'].border = thin_border
+        ws[f'B{reimbursement_row}'] = "AMOUNT TO BE REIMBURSED"
+        ws[f'B{reimbursement_row}'].font = base_font
+        ws[f'B{reimbursement_row}'].border = thin_border
+        ws[f'B{reimbursement_row}'].alignment = left_alignment
         
         reimbursement_amount = total_amount - cash_advance_amount
         ws[f'C{reimbursement_row}'] = float(reimbursement_amount) if reimbursement_amount > 0 else 0
         ws[f'C{reimbursement_row}'].font = base_font
         ws[f'C{reimbursement_row}'].border = thin_border
+        ws[f'C{reimbursement_row}'].alignment = right_alignment
         ws[f'C{reimbursement_row}'].number_format = '#,##0.00'
         
         # Add certification section
         cert_row = reimbursement_row + 3
-        ws[f'A{cert_row}'] = "Certified: Correctness of the above data"
-        ws[f'A{cert_row}'].font = bold_font
-        ws[f'A{cert_row}'].border = thin_border
-        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
         
-        ws[f'B{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
+        # First certification statement
+        ws[f'B{cert_row}'] = "Certified: Correctness of the above data"
         ws[f'B{cert_row}'].font = bold_font
         ws[f'B{cert_row}'].border = thin_border
-        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+        ws[f'B{cert_row}'].alignment = center_alignment
+        ws.merge_cells(f'B{cert_row}:B{cert_row+1}')
         
-        ws[f'C{cert_row}'] = "Certified: Supporting documents complete and proper"
+        # Second certification statement
+        ws[f'C{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
         ws[f'C{cert_row}'].font = bold_font
         ws[f'C{cert_row}'].border = thin_border
-        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+        ws[f'C{cert_row}'].alignment = center_alignment
+        ws.merge_cells(f'C{cert_row}:C{cert_row+1}')
         
-        # Add signature lines with user names if available
-        cert_row += 2
+        # Add signature lines
+        signature_row = cert_row + 3
         
         # Claimant (the user who submitted the request)
         claimant_name = f"{user.first_name} {user.last_name}" if user else "________________________"
-        ws[f'A{cert_row}'] = claimant_name
-        ws[f'A{cert_row}'].font = base_font
-        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        ws[f'B{signature_row}'] = claimant_name
+        ws[f'B{signature_row}'].font = base_font
+        ws[f'B{signature_row}'].alignment = center_alignment
         
         # Immediate Supervisor (could be district admin or school head)
-        # For now, we'll leave it blank as it's not directly in the model
-        ws[f'B{cert_row}'] = "________________________"
-        ws[f'B{cert_row}'].font = base_font
-        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
-        
-        # Head, Accounting Division Unit (could be division accountant)
-        # For now, we'll leave it blank as it's not directly in the model
-        ws[f'C{cert_row}'] = "________________________"
-        ws[f'C{cert_row}'].font = base_font
-        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+        ws[f'C{signature_row}'] = "________________________"
+        ws[f'C{signature_row}'].font = base_font
+        ws[f'C{signature_row}'].alignment = center_alignment
         
         # Add position titles
-        cert_row += 1
-        ws[f'A{cert_row}'] = "Signature over Printed Name"
-        ws[f'A{cert_row}'].font = base_font
-        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        signature_row += 1
+        ws[f'B{signature_row}'] = "Signature over Printed Name"
+        ws[f'B{signature_row}'].font = base_font
+        ws[f'B{signature_row}'].alignment = center_alignment
         
-        ws[f'B{cert_row}'] = "Signature over Printed Name"
-        ws[f'B{cert_row}'].font = base_font
-        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
-        
-        ws[f'C{cert_row}'] = "Signature over Printed Name"
-        ws[f'C{cert_row}'].font = base_font
-        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+        ws[f'C{signature_row}'] = "Signature over Printed Name"
+        ws[f'C{signature_row}'].font = base_font
+        ws[f'C{signature_row}'].alignment = center_alignment
         
         # Add role titles
-        cert_row += 1
-        ws[f'A{cert_row}'] = "Claimant"
-        ws[f'A{cert_row}'].font = base_font
-        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        signature_row += 1
+        ws[f'B{signature_row}'] = "Claimant"
+        ws[f'B{signature_row}'].font = base_font
+        ws[f'B{signature_row}'].alignment = center_alignment
         
-        ws[f'B{cert_row}'] = "Immediate Supervisor"
-        ws[f'B{cert_row}'].font = base_font
-        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
-        
-        ws[f'C{cert_row}'] = "Head, Accounting Division Unit"
-        ws[f'C{cert_row}'].font = base_font
-        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
-        
-        # Add JEV number - we don't have this in the model, so leave blank
-        cert_row += 2
-        ws[f'C{cert_row}'] = "JEV No.: ___________________"
-        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{signature_row}'] = "Immediate Supervisor"
+        ws[f'C{signature_row}'].font = base_font
+        ws[f'C{signature_row}'].alignment = center_alignment
         
         # Add date lines
-        cert_row += 1
-        ws[f'A{cert_row}'] = "Date: ______________________"
-        ws[f'A{cert_row}'].font = base_font
+        signature_row += 1
+        ws[f'B{signature_row}'] = "Date: ______________________"
+        ws[f'B{signature_row}'].font = base_font
+        ws[f'B{signature_row}'].alignment = center_alignment
         
-        ws[f'B{cert_row}'] = "Date: _____________________"
-        ws[f'B{cert_row}'].font = base_font
-        
-        ws[f'C{cert_row}'] = "Date:  _____________________"
-        ws[f'C{cert_row}'].font = base_font
-        
-        # Apply borders to all relevant cells
-        for row in ws.iter_rows(min_row=1, max_row=cert_row, min_col=1, max_col=3):
-            for cell in row:
-                if cell.value:
-                    cell.border = thin_border
+        ws[f'C{signature_row}'] = "Date: _____________________"
+        ws[f'C{signature_row}'].font = base_font
+        ws[f'C{signature_row}'].alignment = center_alignment
         
         # Create HTTP response with Excel file
         response = HttpResponse(
