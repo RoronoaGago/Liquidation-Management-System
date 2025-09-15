@@ -37,6 +37,7 @@ import { format } from "date-fns";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import { formatDateTime } from "@/lib/helpers";
 
 dayjs.extend(customParseFormat);
 
@@ -501,17 +502,14 @@ const ApprovedRequestPage = () => {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Submitted at:{" "}
-                    {new Date(viewedSubmission.created_at).toLocaleString()}
+                    Submitted at: {formatDateTime(viewedSubmission.created_at)}
                   </span>
                   {/* Approved at under Submitted at */}
                   {viewedSubmission.status === "approved" &&
                     viewedSubmission.date_approved && (
                       <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Approved at:{" "}
-                        {new Date(
-                          viewedSubmission.date_approved
-                        ).toLocaleString()}
+                        {formatDateTime(viewedSubmission.date_approved)}
                       </span>
                     )}
                 </div>

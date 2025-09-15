@@ -135,7 +135,8 @@ export const formatDateTime = (dateString: string | undefined): string => {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: true,
   };
   return new Date(dateString).toLocaleDateString(undefined, options);
 };

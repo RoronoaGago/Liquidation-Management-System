@@ -827,7 +827,7 @@ const MOOERequestPage = () => {
 
       {/* Submit Confirmation Dialog */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-md rounded-lg flex flex-col max-h-[90vh]">
+        <DialogContent className="w-full max-w-[100vw] sm:max-w-md rounded-lg flex flex-col max-h-[90vh] xl:max-w-2xl">
           <div className="p-6 space-y-4 overflow-y-auto">
             {/* Header with icon */}
             <div className="flex items-center gap-3 mb-2">
