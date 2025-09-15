@@ -479,10 +479,12 @@ class RequestManagement(models.Model):
 
     def set_automatic_status(self):
         """Enhanced automatic status setting with business rules"""
+        if self.status in ['approved', 'downloaded', 'unliquidated', 'liquidated', 'rejected']:
+            return
         if (not hasattr(self, '_status_changed_by')
                 and not self._skip_auto_status
                 and self.request_monthyear
-                ):
+            ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -715,37 +717,39 @@ class LiquidationManagement(models.Model):
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
             self._old_status = old.status
-            self._old_remaining_days = old.remaining_days  # Store old value
+            self._old_remaining_days = old.remaining_days
 
         # Calculate fields BEFORE saving
         self.refund = self.calculate_refund()
         self.remaining_days = self.calculate_remaining_days()
 
-        # Automatically set dates based on status changes
-        if self.status == 'liquidated' and self.date_liquidated is None:
-            self.date_liquidated = timezone.now()
+        # Handle status-based date fields
+        now = timezone.now()
 
-            # Update the school's last liquidation date
-            if self.request and self.request.user and self.request.user.school:
-                school = self.request.user.school
-                if self.request.request_monthyear:  # Format: YYYY-MM
-                    year, month = map(
-                        int, self.request.request_monthyear.split('-'))
-                    school.last_liquidated_month = month
-                    school.last_liquidated_year = year
-                    school.save()
+        # District approval
+        if self.status == 'approved_district':
+            if self.date_districtApproved is None:
+                self.date_districtApproved = now.date()
+            if self.reviewed_at_district is None:
+                self.reviewed_at_district = now
 
-            # CRITICAL: Update the request status to 'liquidated'
-            if self.request and self.request.status != 'liquidated':
-                self.request.status = 'liquidated'
-                self.request.save(update_fields=['status'])
+        # Liquidator approval
+        if self.status == 'approved_liquidator':
+            if self.date_liquidatorApproved is None:
+                self.date_liquidatorApproved = now.date()
+            if self.reviewed_at_liquidator is None:
+                self.reviewed_at_liquidator = now
 
-        elif self.status != 'liquidated' and self.date_liquidated is not None:
-            self.date_liquidated = None
+        # Division approval
+        if self.status == 'liquidated':
+            if self.date_liquidated is None:
+                self.date_liquidated = now
+            if self.reviewed_at_division is None:
+                self.reviewed_at_division = now
 
         # Handle submitted status
         if self.status == 'submitted' and self.date_submitted is None:
-            self.date_submitted = timezone.now()
+            self.date_submitted = now
         elif self.status != 'submitted' and self.date_submitted is not None:
             self.date_submitted = None
 

@@ -52,15 +52,17 @@ const LiquidatorReviewPage = () => {
     let filtered = liquidations;
     console.log("All liquidations:", filtered);
     console.log("User role:", user?.role);
-    
+
     // Liquidators see liquidations approved by district admins
     if (user?.role === "liquidator") {
       filtered = filtered.filter(
-        (liq) => liq.status === "under_review_liquidator"
+        (liq) =>
+          liq.status === "approved_district" ||
+          liq.status === "under_review_liquidator"
       );
       console.log("Filtered liquidations for liquidator:", filtered);
     }
-    
+
     if (!searchTerm) return filtered;
     return filtered.filter((liq) => {
       const userObj = liq.request?.user;
