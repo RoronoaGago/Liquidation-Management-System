@@ -2247,19 +2247,24 @@ def generate_liquidation_report(request, LiquidationID):
         cert_row = reimbursement_row + 3
         
         # First certification statement
-        ws[f'B{cert_row}'] = "Certified: Correctness of the above data"
+        ws[f'A{cert_row}'] = "Certified: Correctness of the above data"
+        ws[f'A{cert_row}'].font = bold_font
+        ws[f'A{cert_row}'].border = thin_border
+        ws[f'A{cert_row}'].alignment = center_alignment
+        ws.merge_cells(f'A{cert_row}:A{cert_row+1}')
+        
+        # Second certification statement
+        ws[f'B{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
         ws[f'B{cert_row}'].font = bold_font
         ws[f'B{cert_row}'].border = thin_border
         ws[f'B{cert_row}'].alignment = center_alignment
         ws.merge_cells(f'B{cert_row}:B{cert_row+1}')
         
-        # Second certification statement
-        ws[f'C{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
+        ws[f'C{cert_row}'] = "Certified: Supporting documents complete and proper"
         ws[f'C{cert_row}'].font = bold_font
         ws[f'C{cert_row}'].border = thin_border
         ws[f'C{cert_row}'].alignment = center_alignment
         ws.merge_cells(f'C{cert_row}:C{cert_row+1}')
-        
         # Add signature lines
         signature_row = cert_row + 3
         
