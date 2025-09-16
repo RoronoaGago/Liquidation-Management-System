@@ -864,6 +864,13 @@ class SchoolDistrict(models.Model):
         choices=[("1st District", "1st District"),
                  ("2nd District", "2nd District")]
     )
+    logo = models.ImageField(
+        upload_to='district_logos/',
+        validators=[FileExtensionValidator(['jpg', 'jpeg', 'png', 'svg'])],
+        blank=True,
+        null=True,
+        help_text="District logo image"
+    )
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
