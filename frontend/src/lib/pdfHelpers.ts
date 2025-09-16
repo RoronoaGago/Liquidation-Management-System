@@ -3,6 +3,7 @@ import { depedLogoBase64 } from "@/lib/depedLogo";
 import { Submission } from "./types";
 import { getDistrictLogoFilename } from "./helpers";
 import api from "@/services/api"; // or your axios instance
+import { generateApprovedRequestPDF, canGeneratePDF } from "@/services/pdfService";
 
 // Usage in your code
 
@@ -10,6 +11,36 @@ import api from "@/services/api"; // or your axios instance
 
 //TODO - name ng file is pangalan ng school ex (TALLAOEN_LUNA_LA_UNION_LOP)
 
+/**
+ * NEW: Server-side PDF generation with actual e-signatures (RECOMMENDED)
+ * This function generates PDFs on the server with real signatures and timestamps
+ */
+export const handleServerSideExport = async (submission: Submission): Promise<{ success: boolean; message?: string; error?: string }> => {
+    // Check if request is approved
+    if (!canGeneratePDF(submission)) {
+        return {
+            success: false,
+            error: 'Request must be approved first to generate PDF'
+        };
+    }
+
+    try {
+        const result = await generateApprovedRequestPDF(submission.request_id);
+        return result;
+    } catch (error) {
+        console.error('Error in server-side PDF generation:', error);
+        return {
+            success: false,
+            error: 'Failed to generate PDF. Please try again.'
+        };
+    }
+};
+
+/**
+ * LEGACY: Client-side PDF generation (DEPRECATED)
+ * This function is kept for backward compatibility but should not be used for approved requests
+ * Use handleServerSideExport instead for approved requests
+ */
 export const handleExport = async (submission: Submission, first_name: string, last_name: string) => {
     // Fetch signatories
     const { data: signatories } = await api.get("/division-signatories/");

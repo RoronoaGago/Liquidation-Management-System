@@ -12,7 +12,7 @@ import {
 import Button from "@/components/ui/button/Button";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
 import Badge from "@/components/ui/badge/Badge";
-import { handleExport } from "@/lib/pdfHelpers";
+import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
   XCircle,
@@ -577,17 +577,28 @@ const ApprovedRequestPage = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() =>
-                    handleExport(
-                      viewedSubmission,
-                      user?.first_name || "user",
-                      user?.last_name || "name"
-                    )
-                  }
+                  onClick={async () => {
+                    if (viewedSubmission.status === "approved") {
+                      // Use server-side PDF generation for approved requests
+                      const result = await handleServerSideExport(viewedSubmission);
+                      if (result.success) {
+                        toast.success(result.message || "PDF generated successfully!");
+                      } else {
+                        toast.error(result.error || "Failed to generate PDF");
+                      }
+                    } else {
+                      // Use legacy client-side generation for non-approved requests
+                      handleExport(
+                        viewedSubmission,
+                        user?.first_name || "user",
+                        user?.last_name || "name"
+                      );
+                    }
+                  }}
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  Export PDF
+                  {viewedSubmission.status === "approved" ? "Download Official PDF" : "Export PDF"}
                 </Button>
 
                 {viewedSubmission.status === "approved" && (
