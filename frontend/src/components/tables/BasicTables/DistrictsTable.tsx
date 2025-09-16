@@ -15,6 +15,7 @@ import {
 import { toast } from "react-toastify";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
+import { PlusIcon } from "@/icons";
 import {
   ChevronUp,
   ChevronDown,
@@ -29,6 +30,7 @@ import {
   ArchiveRestore,
   Loader2Icon,
   Filter,
+  XIcon,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import {
@@ -48,6 +50,8 @@ interface District {
   districtName: string;
   municipality: string;
   legislativeDistrict: string;
+  logo?: string;
+  logo_url?: string;
   is_active: boolean;
 }
 
@@ -112,19 +116,25 @@ export default function DistrictsTable({
   );
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [districtToView, setDistrictToView] = useState<District | null>(null);
 
   const requiredFields = [
     "districtId",
     "districtName",
     "municipality",
     "legislativeDistrict",
+    "logo",
   ];
 
   const isFormValid = useMemo(() => {
     if (!selectedDistrict) return false;
-    const requiredValid = requiredFields.every(
-      (field) =>
-        selectedDistrict[field as keyof District]?.toString().trim() !== ""
+    const requiredValid = requiredFields.every((field) =>
+      // For logo, check both logo and logo_url
+      field === "logo"
+        ? selectedDistrict.logo?.toString().trim() !== "" ||
+          selectedDistrict.logo_url?.toString().trim() !== ""
+        : selectedDistrict[field as keyof District]?.toString().trim() !== ""
     );
     const noErrors = Object.keys(formErrors).length === 0;
     return requiredValid && noErrors;
@@ -217,6 +227,11 @@ export default function DistrictsTable({
     setIsArchiveDialogOpen(true);
   };
 
+  const handleViewDistrict = (district: District) => {
+    setDistrictToView(district);
+    setIsViewDialogOpen(true);
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -234,7 +249,34 @@ export default function DistrictsTable({
     } else {
       delete newErrors[name];
     }
+    // For logo, check both logo and logo_url
+    if (
+      requiredFields.includes("logo") &&
+      !selectedDistrict.logo &&
+      !selectedDistrict.logo_url
+    ) {
+      newErrors.logo = "This field is required";
+    } else {
+      delete newErrors.logo;
+    }
     setFormErrors(newErrors);
+  };
+
+  // Handle logo file upload for edit
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedDistrict) return;
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        setSelectedDistrict((prev) => ({
+          ...prev!,
+          logo: result,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -246,9 +288,16 @@ export default function DistrictsTable({
     }
     setIsSubmitting(true);
     try {
+      const submitData = {
+        districtName: selectedDistrict.districtName,
+        municipality: selectedDistrict.municipality,
+        legislativeDistrict: selectedDistrict.legislativeDistrict,
+        ...(selectedDistrict.logo && { logo_base64: selectedDistrict.logo }),
+      };
+
       await api.put(
         `school-districts/${selectedDistrict.districtId}/`,
-        selectedDistrict,
+        submitData,
         {
           headers: { "Content-Type": "application/json" },
         }
@@ -294,6 +343,8 @@ export default function DistrictsTable({
     setCurrentPage(1);
     // eslint-disable-next-line
   }, [filterLegislativeDistrict, filterMunicipality]);
+
+  const editLogoInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="space-y-4">
@@ -439,43 +490,6 @@ export default function DistrictsTable({
                     className="flex items-center gap-1 cursor-pointer"
                     onClick={() => {
                       const isAsc =
-                        currentSort?.key === "districtId" &&
-                        currentSort.direction === "asc";
-                      onRequestSort({
-                        key: "districtId",
-                        direction: isAsc ? "desc" : "asc",
-                      });
-                    }}
-                  >
-                    District ID
-                    <span className="inline-flex flex-col ml-1">
-                      <ChevronUp
-                        className={`h-3 w-3 transition-colors ${
-                          currentSort?.key === "districtId" &&
-                          currentSort.direction === "asc"
-                            ? "text-primary-500"
-                            : "text-gray-400"
-                        }`}
-                      />
-                      <ChevronDown
-                        className={`h-3 w-3 -mt-1 transition-colors ${
-                          currentSort?.key === "districtId" &&
-                          currentSort.direction === "desc"
-                            ? "text-primary-500"
-                            : "text-gray-400"
-                        }`}
-                      />
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell
-                  isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs uppercase"
-                >
-                  <div
-                    className="flex items-center gap-1 cursor-pointer"
-                    onClick={() => {
-                      const isAsc =
                         currentSort?.key === "districtName" &&
                         currentSort.direction === "asc";
                       onRequestSort({
@@ -484,7 +498,7 @@ export default function DistrictsTable({
                       });
                     }}
                   >
-                    District Name
+                    District
                     <span className="inline-flex flex-col ml-1">
                       <ChevronUp
                         className={`h-3 w-3 transition-colors ${
@@ -608,7 +622,11 @@ export default function DistrictsTable({
                 </TableRow>
               ) : districts.length > 0 ? (
                 districts.map((district) => (
-                  <TableRow key={district.districtId}>
+                  <TableRow
+                    key={district.districtId}
+                    onClick={() => handleViewDistrict(district)}
+                    className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
                     <TableCell className="px-6 py-4 text-start text-theme-sm">
                       <input
                         type="checkbox"
@@ -620,10 +638,29 @@ export default function DistrictsTable({
                       />
                     </TableCell>
                     <TableCell className="px-6 py-4 text-start text-theme-sm">
-                      {district.districtId}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-start text-theme-sm">
-                      {district.districtName}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 overflow-hidden rounded-full">
+                          {district.logo_url ? (
+                            <img
+                              src={district.logo_url}
+                              alt={`${district.districtName} logo`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="bg-gray-200 w-full h-full flex items-center justify-center">
+                              <PlusIcon className="w-5 h-5 text-gray-500" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <span className="block font-medium text-gray-800 text-theme-sm">
+                            {district.districtName}
+                          </span>
+                          <span className="block text-gray-500 text-theme-xs">
+                            ID: {district.districtId}
+                          </span>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell className="px-6 py-4 text-start text-theme-sm">
                       {district.municipality}
@@ -632,7 +669,7 @@ export default function DistrictsTable({
                       {district.legislativeDistrict}
                     </TableCell>
                     <TableCell className="px-6 py-4 text-start text-theme-sm">
-                     <Badge color={district.is_active ? "success" : "error"}>
+                      <Badge color={district.is_active ? "success" : "error"}>
                         {district.is_active ? "Active" : "Archived"}
                       </Badge>
                     </TableCell>
@@ -641,7 +678,10 @@ export default function DistrictsTable({
                         <button
                           className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
                           title="Edit School District"
-                          onClick={() => handleEditDistrict(district)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditDistrict(district);
+                          }}
                         >
                           Edit
                         </button>
@@ -651,7 +691,10 @@ export default function DistrictsTable({
                               ? "bg-red-500 hover:bg-red-600"
                               : "bg-green-500 hover:bg-green-600"
                           }`}
-                          onClick={() => handleArchiveClick(district)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchiveClick(district);
+                          }}
                         >
                           {district.is_active ? "Archive" : "Restore"}
                         </button>
@@ -842,6 +885,62 @@ export default function DistrictsTable({
                   </p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-logo" className="text-base">
+                  District Logo *
+                </Label>
+                <div className="flex items-center gap-4">
+                  {selectedDistrict.logo || selectedDistrict.logo_url ? (
+                    <div className="relative">
+                      <img
+                        src={selectedDistrict.logo || selectedDistrict.logo_url}
+                        className="w-16 h-16 rounded-full object-cover"
+                        alt="Preview"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDistrict((prev) => ({
+                            ...prev!,
+                            logo: "",
+                            logo_url: "",
+                          }));
+                          if (editLogoInputRef.current)
+                            editLogoInputRef.current.value = "";
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                        aria-label="Remove district logo"
+                      >
+                        <XIcon />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                      <PlusIcon className="w-8 h-8 text-gray-500" />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    id="edit-logo"
+                    name="logo"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                    ref={editLogoInputRef}
+                  />
+                  <Label
+                    htmlFor="edit-logo"
+                    className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  >
+                    {selectedDistrict.logo || selectedDistrict.logo_url
+                      ? "Change Logo"
+                      : "Upload Logo"}
+                  </Label>
+                </div>
+                {formErrors.logo && (
+                  <p className="text-red-500 text-sm">{formErrors.logo}</p>
+                )}
+              </div>
               <div className="flex justify-end gap-3 pt-4">
                 <Button
                   type="button"
@@ -922,6 +1021,116 @@ export default function DistrictsTable({
                     "Restore"
                   )}
                 </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* View District Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border-0 animate-in zoom-in-95">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700">
+            <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 text-blue-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                />
+              </svg>
+              School District Details
+            </DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-gray-400 mt-1">
+              Comprehensive information about this school district
+            </DialogDescription>
+          </DialogHeader>
+
+          {districtToView && (
+            <div className="space-y-6 px-6 pb-6 pt-4">
+              {/* Header with logo and name */}
+              <div className="flex items-start gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                <div className="flex-shrink-0">
+                  {districtToView.logo_url ? (
+                    <img
+                      src={districtToView.logo_url}
+                      className="w-16 h-16 rounded-xl object-cover border-2 border-white dark:border-gray-600 shadow-sm"
+                      alt="District Logo"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center shadow-sm">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-8 h-8 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-xl font-bold text-gray-800 dark:text-white truncate">
+                    {districtToView.districtName}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-mono">
+                    ID: {districtToView.districtId}
+                  </p>
+                </div>
+              </div>
+
+              {/* Details section */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Municipality
+                    </Label>
+                    <p className="text-gray-800 dark:text-gray-200 mt-1 font-medium">
+                      {districtToView.municipality || "Not specified"}
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Legislative District
+                    </Label>
+                    <p className="text-gray-800 dark:text-gray-200 mt-1 font-medium">
+                      {districtToView.legislativeDistrict || "Not specified"}
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Status
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1 font-medium">
+                        {districtToView.is_active ? "Active" : "Archived"}
+                      </p>
+                    </div>
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        districtToView.is_active
+                          ? "bg-green-500 animate-pulse"
+                          : "bg-red-500"
+                      }`}
+                    ></div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

@@ -18,9 +18,65 @@ DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
 
 
 class SchoolDistrictSerializer(serializers.ModelSerializer):
+    logo_base64 = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+    logo_url = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = SchoolDistrict
         fields = '__all__'
+
+    def get_logo_url(self, obj):
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
+
+    def validate(self, data):
+        if data.get('logo_base64') == "":
+            data.pop('logo_base64')
+        return data
+
+    def create(self, validated_data):
+        logo_base64 = validated_data.pop('logo_base64', None)
+        
+        instance = SchoolDistrict.objects.create(**validated_data)
+        
+        if logo_base64:
+            format, imgstr = logo_base64.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(
+                base64.b64decode(imgstr),
+                name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
+            )
+            instance.logo = data
+            instance.save()
+        
+        return instance
+
+    def update(self, instance, validated_data):
+        logo_base64 = validated_data.pop('logo_base64', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        if logo_base64:
+            format, imgstr = logo_base64.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(
+                base64.b64decode(imgstr),
+                name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
+            )
+            instance.logo = data
+        
+        instance.save()
+        return instance
 
 
 class SchoolSerializer(serializers.ModelSerializer):
