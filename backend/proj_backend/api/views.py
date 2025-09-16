@@ -2570,3 +2570,98 @@ def check_request_eligibility(request):
         'reason': reason,
         'active_requests': RequestManagementSerializer(active_requests, many=True).data
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def generate_approved_request_pdf(request, request_id):
+    """
+    Generate PDF with actual e-signatures after approval
+    This endpoint can only be accessed for approved requests
+    """
+    try:
+        from .pdf_utils import generate_request_pdf_with_signatures
+        from django.shortcuts import get_object_or_404
+
+        # Get the request object
+        req = get_object_or_404(RequestManagement, request_id=request_id)
+
+        # Check if user has permission to generate PDF
+        user = request.user
+
+        # Allow access if:
+        # 1. User is the request owner
+        # 2. User is a superintendent (who approved it)
+        # 3. User is an admin
+        # 4. User is an accountant
+        has_permission = (
+            req.user == user or
+            user.role in ['superintendent', 'admin', 'accountant'] or
+            (user.role == 'district_admin' and req.user.school and req.user.school.district ==
+             user.school_district)
+        )
+
+        if not has_permission:
+            return HttpResponse(
+                '{"error": "You don\'t have permission to generate this PDF"}',
+                content_type='application/json',
+                status=403
+            )
+
+        # Check if request is approved
+        if req.status != 'approved':
+            return HttpResponse(
+                '{"error": "Request must be approved first to generate PDF"}',
+                content_type='application/json',
+                status=400
+            )
+
+        # Generate PDF with actual signatures
+        pdf_content = generate_request_pdf_with_signatures(req)
+
+        # Store PDF for audit trail (optional - can be enabled for compliance)
+        from .models import GeneratedPDF
+        from django.core.files.base import ContentFile
+
+        try:
+            # Create a record of PDF generation
+            pdf_record = GeneratedPDF.objects.create(
+                request=req,
+                generated_by=user,
+                generation_method='server_side',
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[
+                    :500]  # Limit length
+            )
+
+            # Optionally store the PDF file (uncomment if you want to store PDFs)
+            # pdf_filename = f"approved_request_{request_id}_{pdf_record.id}.pdf"
+            # pdf_record.pdf_file.save(
+            #     pdf_filename,
+            #     ContentFile(pdf_content),
+            #     save=True
+            # )
+
+            logger.info(
+                f"PDF generated for approved request {request_id} by user {user.id} (PDF record ID: {pdf_record.id})")
+
+        except Exception as e:
+            logger.error(f"Error creating PDF record: {e}")
+            # Continue with PDF generation even if record creation fails
+
+        # Create HTTP response
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="approved_request_{request_id}.pdf"'
+        response['Content-Length'] = len(pdf_content)
+
+        return response
+
+    except Exception as e:
+        logger.error(
+            f"Error generating PDF for request {request_id}: {str(e)}")
+        # Return JSON error but with proper content type
+        return JsonResponse(
+            {'error': 'Failed to generate PDF. Please try again.'},
+            status=500,
+            content_type='application/json'  # Explicitly set JSON content type
+        )
