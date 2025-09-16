@@ -2146,7 +2146,8 @@ def generate_liquidation_report(request, LiquidationID):
         ws['B7'] = f"Entity Name :  {entity_name}"
         ws['B7'].font = base_font
         
-        ws['B8'] = "Fund Cluster :  _____________________________________________"
+        cluster_name= school.district if school else "N/A"
+        ws['B8'] = f"Fund Cluster : {cluster_name}"
         ws['B8'].font = base_font
         
         # Responsibility center code
@@ -2264,10 +2265,16 @@ def generate_liquidation_report(request, LiquidationID):
         
         # Claimant (the user who submitted the request)
         claimant_name = f"{user.first_name} {user.last_name}" if user else "________________________"
-        ws[f'B{signature_row}'] = claimant_name
+        claimant_sign = f"{user.e_signature.url if user and user.e_signature else '________________________'}"
+        ws[f'A{signature_row}'] = claimant_sign
+        ws[f'A{signature_row}'] = claimant_name
+        ws[f'A{signature_row}'].font = base_font
+        ws[f'A{signature_row}'].alignment = center_alignment
+        
+        ws[f'B{signature_row}'] = "________________________"
         ws[f'B{signature_row}'].font = base_font
         ws[f'B{signature_row}'].alignment = center_alignment
-        
+
         # Immediate Supervisor (could be district admin or school head)
         ws[f'C{signature_row}'] = "________________________"
         ws[f'C{signature_row}'].font = base_font
@@ -2275,6 +2282,11 @@ def generate_liquidation_report(request, LiquidationID):
         
         # Add position titles
         signature_row += 1
+
+        ws[f'A{signature_row}'] = "Signature over Printed Name"
+        ws[f'A{signature_row}'].font = base_font
+        ws[f'A{signature_row}'].alignment = center_alignment
+
         ws[f'B{signature_row}'] = "Signature over Printed Name"
         ws[f'B{signature_row}'].font = base_font
         ws[f'B{signature_row}'].alignment = center_alignment
@@ -2285,16 +2297,24 @@ def generate_liquidation_report(request, LiquidationID):
         
         # Add role titles
         signature_row += 1
-        ws[f'B{signature_row}'] = "Claimant"
+        ws[f'A{signature_row}'] = "Claimant"
+        ws[f'A{signature_row}'].font = base_font
+        ws[f'A{signature_row}'].alignment = center_alignment
+        
+        ws[f'B{signature_row}'] = "Immediate Supervisor"
         ws[f'B{signature_row}'].font = base_font
         ws[f'B{signature_row}'].alignment = center_alignment
-        
-        ws[f'C{signature_row}'] = "Immediate Supervisor"
+
+        ws[f'C{signature_row}'] = "Head, Accounting Division Unit"
         ws[f'C{signature_row}'].font = base_font
         ws[f'C{signature_row}'].alignment = center_alignment
         
         # Add date lines
         signature_row += 1
+        ws[f'A{signature_row}'] = "Date: ______________________"
+        ws[f'A{signature_row}'].font = base_font
+        ws[f'A{signature_row}'].alignment = center_alignment
+
         ws[f'B{signature_row}'] = "Date: ______________________"
         ws[f'B{signature_row}'].font = base_font
         ws[f'B{signature_row}'].alignment = center_alignment
