@@ -53,6 +53,7 @@ import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
 import {
   calculateAge,
+  formatDateTime,
   getAvatarColor,
   getUserInitials,
   validateDateOfBirth,
@@ -526,16 +527,16 @@ export default function UsersTable({
         } else if (error.response.data.password) {
           errorMessage = "Password doesn't meet requirements.";
         } else if (error.response.data.role) {
-          errorMessage = Array.isArray(error.response.data.role) 
-            ? error.response.data.role[0] 
+          errorMessage = Array.isArray(error.response.data.role)
+            ? error.response.data.role[0]
             : error.response.data.role;
         } else if (error.response.data.is_active) {
-          errorMessage = Array.isArray(error.response.data.is_active) 
-            ? error.response.data.is_active[0] 
+          errorMessage = Array.isArray(error.response.data.is_active)
+            ? error.response.data.is_active[0]
             : error.response.data.is_active;
         } else if (error.response.data.school_district) {
-          errorMessage = Array.isArray(error.response.data.school_district) 
-            ? error.response.data.school_district[0] 
+          errorMessage = Array.isArray(error.response.data.school_district)
+            ? error.response.data.school_district[0]
             : error.response.data.school_district;
         }
       }
@@ -576,15 +577,17 @@ export default function UsersTable({
       );
       await fetchUsers();
     } catch (error) {
-      let errorMessage = `Failed to ${userToArchive.is_active ? "archive" : "restore"} user`;
+      let errorMessage = `Failed to ${
+        userToArchive.is_active ? "archive" : "restore"
+      } user`;
       if (axios.isAxiosError(error) && error.response) {
         if (error.response.data.is_active) {
-          errorMessage = Array.isArray(error.response.data.is_active) 
-            ? error.response.data.is_active[0] 
+          errorMessage = Array.isArray(error.response.data.is_active)
+            ? error.response.data.is_active[0]
             : error.response.data.is_active;
         } else if (error.response.data.role) {
-          errorMessage = Array.isArray(error.response.data.role) 
-            ? error.response.data.role[0] 
+          errorMessage = Array.isArray(error.response.data.role)
+            ? error.response.data.role[0]
             : error.response.data.role;
         } else if (error.response.data.detail) {
           errorMessage = error.response.data.detail;
@@ -911,7 +914,9 @@ export default function UsersTable({
                   <TableRow
                     key={user.id}
                     className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                    onClick={() => setUserToView(user)}
+                    onClick={() => {
+                      handleViewUser(user);
+                    }}
                   >
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                       <input
@@ -1499,7 +1504,7 @@ export default function UsersTable({
       </Dialog>
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-w-2xl">
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl lg:max-w-3xl">
           <DialogHeader className="mb-6">
             <div className="flex items-center gap-4">
               {userToView?.profile_picture ? (
@@ -1636,7 +1641,15 @@ export default function UsersTable({
                       Date Joined
                     </Label>
                     <p className="text-gray-800 dark:text-gray-200 mt-1">
-                      {new Date(userToView.date_joined).toLocaleString()}
+                      {formatDateTime(userToView.date_joined)}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Last Login
+                    </Label>
+                    <p className="text-gray-800 dark:text-gray-200 mt-1">
+                      {formatDateTime(userToView.last_login)}
                     </p>
                   </div>
                 </div>

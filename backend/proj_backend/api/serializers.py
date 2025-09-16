@@ -81,7 +81,8 @@ class UserSerializer(serializers.ModelSerializer):
             "profile_picture_base64",
             "e_signature",  # <-- Add this line
             "is_active",
-            "date_joined"
+            "date_joined",
+            "last_login",
         ]
         extra_kwargs = {
             "password": {
@@ -119,12 +120,14 @@ class UserSerializer(serializers.ModelSerializer):
         if 'role' in data:
             role = data.get("role")
             school = data.get("school") or data.get("school_id")
-            school_district = data.get("school_district") or data.get("school_district_id")
-            
+            school_district = data.get(
+                "school_district") or data.get("school_district_id")
+
             # Validate school-level role uniqueness (only one active per school)
             if role in ["school_head", "school_admin"] and school:
                 user_id = self.instance.pk if self.instance else None
-                qs = User.objects.filter(role=role, school=school, is_active=True)
+                qs = User.objects.filter(
+                    role=role, school=school, is_active=True)
                 if user_id:
                     qs = qs.exclude(pk=user_id)
                 if qs.exists():
@@ -132,11 +135,12 @@ class UserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"role": f"There is already an active {role.replace('_', ' ')} assigned to this school ({existing_user.get_full_name()}). Only one active {role.replace('_', ' ')} is allowed per school."}
                     )
-            
+
             # Validate district-level role uniqueness (only one active per district)
             if role == "district_admin" and school_district:
                 user_id = self.instance.pk if self.instance else None
-                qs = User.objects.filter(role=role, school_district=school_district, is_active=True)
+                qs = User.objects.filter(
+                    role=role, school_district=school_district, is_active=True)
                 if user_id:
                     qs = qs.exclude(pk=user_id)
                 if qs.exists():
@@ -144,7 +148,7 @@ class UserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"role": f"There is already an active district administrative assistant assigned to this district ({existing_user.get_full_name()}). Only one active district administrative assistant is allowed per district."}
                     )
-            
+
             # Validate division-level role uniqueness (only one active per division)
             if role in ["superintendent", "accountant"]:
                 user_id = self.instance.pk if self.instance else None
@@ -156,7 +160,7 @@ class UserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"role": f"There is already an active {role.replace('_', ' ')} in the division ({existing_user.get_full_name()}). Only one active {role.replace('_', ' ')} is allowed per division."}
                     )
-        
+
         # Validate activation conflicts - check if activating this user would create a conflict
         is_being_activated = data.get('is_active', None)
         if self.instance and is_being_activated is True and not self.instance.is_active:
@@ -164,12 +168,12 @@ class UserSerializer(serializers.ModelSerializer):
             role = self.instance.role
             school = self.instance.school
             school_district = self.instance.school_district
-            
+
             # Check school-level role conflicts
             if role in ["school_head", "school_admin"] and school:
                 existing_active = User.objects.filter(
-                    role=role, 
-                    school=school, 
+                    role=role,
+                    school=school,
                     is_active=True
                 ).exclude(pk=self.instance.pk)
                 if existing_active.exists():
@@ -177,12 +181,12 @@ class UserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"is_active": f"Cannot activate this user. There is already an active {role.replace('_', ' ')} assigned to this school ({existing_user.get_full_name()}). Please deactivate the existing user first."}
                     )
-            
+
             # Check district-level role conflicts
             elif role == "district_admin" and school_district:
                 existing_active = User.objects.filter(
-                    role=role, 
-                    school_district=school_district, 
+                    role=role,
+                    school_district=school_district,
                     is_active=True
                 ).exclude(pk=self.instance.pk)
                 if existing_active.exists():
@@ -190,11 +194,11 @@ class UserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"is_active": f"Cannot activate this user. There is already an active district administrative assistant assigned to this district ({existing_user.get_full_name()}). Please deactivate the existing user first."}
                     )
-            
+
             # Check division-level role conflicts
             elif role in ["superintendent", "accountant"]:
                 existing_active = User.objects.filter(
-                    role=role, 
+                    role=role,
                     is_active=True
                 ).exclude(pk=self.instance.pk)
                 if existing_active.exists():
@@ -207,7 +211,7 @@ class UserSerializer(serializers.ModelSerializer):
             role = data.get("role")
             e_signature = data.get("e_signature")
             required_roles = ["school_head", "superintendent", "accountant"]
-            
+
             # Only require e-signature for updates (when instance exists), not for creation
             if self.instance and role in required_roles and not e_signature:
                 # Check if user already has an e-signature
@@ -302,6 +306,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Get user and request context
         user = self.user
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
         request = self.context.get('request')
         ip = request.META.get('REMOTE_ADDR') if request else None
 

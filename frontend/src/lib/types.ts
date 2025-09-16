@@ -8,6 +8,7 @@ export interface BaseUser {
   role: string;
   is_active: boolean;
   date_joined: string;
+  last_login: string;
   profile_picture?: string; // For stored profile pictures (URL or path)
 }
 
@@ -37,6 +38,7 @@ export type User = {
   email: string;
   date_of_birth: string;
   date_joined: string;
+  last_login: string;
   phone_number: string;
   role: string;
   profile_picture: string;
