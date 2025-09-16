@@ -886,7 +886,7 @@ const MOOERequestPage = () => {
 
       {/* Submit Confirmation Dialog */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-md rounded-lg flex flex-col max-h-[90vh]">
+        <DialogContent className="w-full max-w-[100vw] sm:max-w-md rounded-lg flex flex-col max-h-[90vh] xl:max-w-2xl">
           <div className="p-6 space-y-4 overflow-y-auto">
             {/* Header with icon */}
             <div className="flex items-center gap-3 mb-2">
@@ -1114,52 +1114,30 @@ const MOOERequestPage = () => {
             </Disclosure>
           </div>
         )}
-
-        {/* Backlog Warning */}
-        {isBehind && !isFormDisabled && (
-          <div className="mb-4 bg-amber-50/80 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20 p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="font-medium text-amber-800 dark:text-amber-200">
-                  Attention: You're behind schedule
-                </h3>
-                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                  {lastLiquidatedMonth && lastLiquidatedYear ? (
-                    <>
-                      Your last liquidated month was{" "}
-                      <span className="font-semibold">
-                        {new Date(
-                          lastLiquidatedYear,
-                          lastLiquidatedMonth - 1
-                        ).toLocaleString("default", { month: "long" })}{" "}
-                        {lastLiquidatedYear}
-                      </span>
-                      . You should request funds for{" "}
-                      <span className="font-semibold">
-                        {nextRequestMonth && nextRequestYear
-                          ? `${new Date(
-                              nextRequestYear,
-                              nextRequestMonth - 1
-                            ).toLocaleString("default", {
-                              month: "long",
-                            })} ${nextRequestYear}`
-                          : ""}
-                      </span>{" "}
-                      to stay on track.
-                    </>
-                  ) : (
-                    <>
-                      You have not yet liquidated any month. Please start with
-                      the current month.
-                    </>
-                  )}
-                </p>
-              </div>
+        {!isFormDisabled && targetMonth && (
+          <div className="mb-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20 p-3">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm text-blue-800 dark:text-blue-200">
+                {isAdvanceRequest ? (
+                  <>
+                    This will be an <strong>advance request</strong> for{" "}
+                    <strong>{targetMonth}</strong>
+                  </>
+                ) : (
+                  <>
+                    Requesting for <strong>{targetMonth}</strong>
+                  </>
+                )}
+              </span>
             </div>
+            {isAdvanceRequest && (
+              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                This request will become pending when {targetMonth} arrives.
+              </p>
+            )}
           </div>
         )}
-
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -1364,30 +1342,7 @@ const MOOERequestPage = () => {
                 )}
               </div>
             </div>
-            {!isFormDisabled && targetMonth && (
-              <div className="mb-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20 p-3">
-                <div className="flex items-center gap-2">
-                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm text-blue-800 dark:text-blue-200">
-                    {isAdvanceRequest ? (
-                      <>
-                        This will be an <strong>advance request</strong> for{" "}
-                        <strong>{targetMonth}</strong>
-                      </>
-                    ) : (
-                      <>
-                        Requesting for <strong>{targetMonth}</strong>
-                      </>
-                    )}
-                  </span>
-                </div>
-                {isAdvanceRequest && (
-                  <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                    This request will become pending when {targetMonth} arrives.
-                  </p>
-                )}
-              </div>
-            )}
+
             {/* Right Column - Summary Panel */}
             <div className="sticky top-4 h-fit">
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 overflow-hidden">

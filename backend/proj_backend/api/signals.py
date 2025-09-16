@@ -37,7 +37,8 @@ def handle_request_notifications(sender, instance, created, **kwargs):
 
 
 def create_new_request_notification(instance):
-    superintendent = User.objects.filter(role='superintendent').first()
+    superintendent = User.objects.filter(
+        role='superintendent', is_active=True).first()
     if superintendent:
         Notification.objects.create(
             notification_title=f"New Request from {instance.user.get_full_name()}",
@@ -48,7 +49,8 @@ def create_new_request_notification(instance):
 
 
 def send_notification_email(subject, message, recipient, template_name=None, context=None):
-    if recipient and getattr(recipient, 'email', None):
+    # Check if recipient is active and has an email
+    if recipient and recipient.is_active and getattr(recipient, 'email', None):
         html_message = None
         if template_name and context:
             # Render the email body from template
@@ -118,7 +120,8 @@ def handle_status_change_notification(instance):
 
             # If approved, also notify the division accountant
             if instance.status == 'approved':
-                accountant = User.objects.filter(role='accountant').first()
+                accountant = User.objects.filter(
+                    role='accountant', is_active=True).first()
                 if accountant:
                     Notification.objects.create(
                         notification_title=f"Request {instance.request_id} approved",
@@ -147,12 +150,12 @@ def handle_liquidation_notifications(sender, instance, created, **kwargs):
             if hasattr(instance, '_old_remaining_days'):
                 old_days = instance._old_remaining_days
                 new_days = instance.remaining_days
-                
+
                 # Send reminder only when crossing specific thresholds
-                if (old_days != new_days and new_days in [15, 5] and 
-                    instance.status not in ['liquidated', 'draft']):
+                if (old_days != new_days and new_days in [15, 5] and
+                        instance.status not in ['liquidated', 'draft']):
                     send_liquidation_reminder.delay(instance.pk, new_days)
-                elif (old_days != new_days and new_days == 0 and 
+                elif (old_days != new_days and new_days == 0 and
                       instance.status not in ['liquidated', 'draft']):
                     send_liquidation_demand_letter.delay(instance.pk)
 
@@ -171,7 +174,8 @@ def create_new_liquidation_notification(instance):
     # Notify only the district admin for the requestor's district
     district_admins = User.objects.filter(
         role='district_admin',
-        school_district=school.district
+        school_district=school.district,
+        is_active=True
     )
     for admin in district_admins:
         Notification.objects.create(
@@ -213,7 +217,7 @@ def handle_liquidation_status_change(instance):
             'title': "Liquidation Approved by District",
             'details': f"Your liquidation {instance.LiquidationID} has been approved by the district",
             'receivers': [instance.request.user],
-            'additional_receivers': User.objects.filter(role='liquidator')
+            'additional_receivers': User.objects.filter(role='liquidator', is_active=True)
         },
         'liquidated': {
             'title': "Liquidation Completed",
@@ -234,53 +238,55 @@ def handle_liquidation_status_change(instance):
 
         # Notify primary receivers
         for receiver in notification_info['receivers']:
-            Notification.objects.create(
-                notification_title=notification_info['title'],
-                details=notification_info['details'],
-                receiver=receiver,
-                sender=changed_by
-            )
-            # Prepare context for the email template
-            context = {
-                "user": receiver,
-                "object": instance,
-                "object_type": "liquidation",
-                "status": instance.status,
-            }
-            # Send email to the receiver using the liquidation template
-            send_notification_email(
-                subject=notification_info['title'],
-                message=notification_info['details'],
-                recipient=receiver,
-                template_name="emails/liquidation_status_change.html",
-                context=context
-            )
+            if receiver.is_active:
+                Notification.objects.create(
+                    notification_title=notification_info['title'],
+                    details=notification_info['details'],
+                    receiver=receiver,
+                    sender=changed_by
+                )
+                # Prepare context for the email template
+                context = {
+                    "user": receiver,
+                    "object": instance,
+                    "object_type": "liquidation",
+                    "status": instance.status,
+                }
+                # Send email to the receiver using the liquidation template
+                send_notification_email(
+                    subject=notification_info['title'],
+                    message=notification_info['details'],
+                    recipient=receiver,
+                    template_name="emails/liquidation_status_change.html",
+                    context=context
+                )
 
         # Notify additional receivers if any
         for receiver in notification_info['additional_receivers']:
-            subject = f"Liquidation {instance.status.replace('_', ' ').title()}"
-            message = f"Liquidation {instance.LiquidationID} for request {instance.request.request_id} is now {instance.status.replace('_', ' ')}"
-            Notification.objects.create(
-                notification_title=subject,
-                details=message,
-                receiver=receiver,
-                sender=changed_by
-            )
-            # Prepare context for the email template
-            context = {
-                "user": receiver,
-                "object": instance,
-                "object_type": "liquidation",
-                "status": instance.status,
-            }
-            # Send email to the additional receiver using the liquidation template
-            send_notification_email(
-                subject=subject,
-                message=message,
-                recipient=receiver,
-                template_name="emails/liquidation_status_change.html",
-                context=context
-            )
+            if receiver.is_active:
+                subject = f"Liquidation {instance.status.replace('_', ' ').title()}"
+                message = f"Liquidation {instance.LiquidationID} for request {instance.request.request_id} is now {instance.status.replace('_', ' ')}"
+                Notification.objects.create(
+                    notification_title=subject,
+                    details=message,
+                    receiver=receiver,
+                    sender=changed_by
+                )
+                # Prepare context for the email template
+                context = {
+                    "user": receiver,
+                    "object": instance,
+                    "object_type": "liquidation",
+                    "status": instance.status,
+                }
+                # Send email to the additional receiver using the liquidation template
+                send_notification_email(
+                    subject=subject,
+                    message=message,
+                    recipient=receiver,
+                    template_name="emails/liquidation_status_change.html",
+                    context=context
+                )
 
 
 # @receiver(user_logged_in)

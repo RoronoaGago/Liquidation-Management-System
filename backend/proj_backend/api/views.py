@@ -1,3 +1,5 @@
+from decimal import Decimal
+from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
 from django.http import HttpResponse
@@ -244,10 +246,13 @@ def user_detail(request, pk):
                     {'error': 'You cannot archive your own account'},
                     status=status.HTTP_403_FORBIDDEN
                 )
-            user.is_active = request.data['is_active']
-            user.save()
-            serializer = UserSerializer(user)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            # Use serializer to validate activation conflicts
+            serializer = UserSerializer(
+                user, data=request.data, partial=True, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # For other PATCH operations
         serializer = UserSerializer(
@@ -809,17 +814,34 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'liquidator':
-            # Show both approved_district and under_review_division for liquidators
+        if user.role == 'district_admin':
+            # District admins see submitted, under_review_district, and resubmit liquidations from their district
+            if user.school_district:
+                return LiquidationManagement.objects.filter(
+                    status__in=['submitted',
+                                'under_review_district', 'resubmit'],
+                    request__user__school__district=user.school_district
+                )
             return LiquidationManagement.objects.filter(
-                status__in=['approved_district', 'under_review_division']
+                status__in=['submitted', 'under_review_district', 'resubmit']
+            )
+        elif user.role == 'liquidator':
+            # Liquidators see liquidations approved by district and under their review
+            return LiquidationManagement.objects.filter(
+                status__in=['under_review_liquidator', 'approved_district']
+            )
+        elif user.role == 'accountant':
+            # Division accountants see liquidations approved by liquidators and under their review
+            return LiquidationManagement.objects.filter(
+                status__in=['under_review_division', 'approved_liquidator']
             )
         elif user.role == 'school_head':
-            # Only return the latest liquidation for the school_head's requests
-            qs = LiquidationManagement.objects.filter(
-                request__user=user).order_by('-created_at')
-            latest = qs.first()
-            return LiquidationManagement.objects.filter(pk=latest.pk) if latest else LiquidationManagement.objects.none()
+            # School heads see their liquidations in various states (except completed ones)
+            return LiquidationManagement.objects.filter(
+                request__user=user
+            ).exclude(
+                status__in=['liquidated']
+            ).order_by('-created_at')
         # All other users see all liquidations
         return LiquidationManagement.objects.all()
 
@@ -841,6 +863,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             'request__user',
             'request__user__school',
             'reviewed_by_district',
+            'reviewed_by_liquidator',
             'reviewed_by_division'
         ).prefetch_related(
             'documents',
@@ -853,17 +876,35 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance._old_status = instance.status  # Track previous status for signals
+        instance._old_status = instance.status
         partial = kwargs.pop('partial', False)
         data = request.data.copy()
+        new_status = data.get("status")
+        user_role = request.user.role
 
-        # If approving at district level, set reviewed_by_district
-        if data.get("status") == "approved_district":
-            data["reviewed_by_district"] = request.user.id
-            data["reviewed_at_district"] = timezone.now()
+        # Handle different approval levels
+        if new_status == "approved_district" and user_role == "district_admin":
+            instance.reviewed_by_district = request.user
+            instance.reviewed_at_district = timezone.now()
+            instance.date_districtApproved = timezone.now().date()
+
+        elif new_status == "approved_liquidator" and user_role == "liquidator":
+            instance.reviewed_by_liquidator = request.user
+            instance.reviewed_at_liquidator = timezone.now()
+            instance.date_liquidatorApproved = timezone.now().date()
+
+        elif new_status == "liquidated" and user_role == "accountant":
+            instance.reviewed_by_division = request.user
+            instance.reviewed_at_division = timezone.now()
+            instance.date_liquidated = timezone.now()
+
+            if instance.request:
+                instance.request._skip_auto_status = True
+                instance.request.status = 'liquidated'
+                instance.request.save(update_fields=['status'])
 
         # If rejecting (resubmit), capture rejection_comment
-        if data.get("status") == "resubmit":
+        if new_status == "resubmit":
             rejection_comment = data.get('rejection_comment', '').strip()
             if not rejection_comment:
                 return Response(
@@ -877,6 +918,8 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
+        instance.save()
         return Response(serializer.data)
 
     def perform_update(self, serializer):
@@ -885,29 +928,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         serializer.save()
 
 
-@api_view(['POST'])
-def approve_liquidation(request, LiquidationID):
-    try:
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=LiquidationID)
-        if liquidation.status not in ['submitted', 'under_review_district', 'under_review_division']:
-            return Response(
-                {'error': 'Liquidation is not in a reviewable state'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        # ... (other checks as needed) ...
-        liquidation._status_changed_by = request.user
-        liquidation.status = 'liquidated'
-        liquidation.reviewed_by = request.user
-        liquidation.reviewed_at = timezone.now()
-        liquidation.save()
-        serializer = LiquidationManagementSerializer(liquidation)
-        return Response(serializer.data)
-    except LiquidationManagement.DoesNotExist:
-        return Response(
-            {'error': 'Liquidation not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+# Removed old approve_liquidation function - now handled in update method
 
 
 class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
@@ -1090,6 +1111,7 @@ def submit_liquidation(request, LiquidationID):
             # Update status to submitted and track who changed it
             liquidation._status_changed_by = request.user
             liquidation.status = 'submitted'
+            liquidation.date_submitted = timezone.now()
             liquidation.save()
 
             # Create notification for the reviewer
@@ -1769,9 +1791,9 @@ def admin_dashboard(request):
         count = 0
 
         for liquidation in month_liquidations:
-            if liquidation.date_liquidated and liquidation.request.downloaded_at:
-                # Calculate time difference properly
-                time_diff = liquidation.date_liquidated - liquidation.request.downloaded_at
+            if liquidation.date_liquidated and liquidation.created_at:
+                # Calculate time difference properly - from liquidation creation to completion
+                time_diff = liquidation.date_liquidated - liquidation.created_at
                 total_seconds += time_diff.total_seconds()
                 count += 1
 
@@ -1816,8 +1838,8 @@ def admin_dashboard(request):
         count = 0
 
         for liquidation in school_liquidations:
-            if liquidation.date_liquidated and liquidation.request.downloaded_at:
-                time_diff = liquidation.date_liquidated - liquidation.request.downloaded_at
+            if liquidation.date_liquidated and liquidation.created_at:
+                time_diff = liquidation.date_liquidated - liquidation.created_at
                 total_seconds += time_diff.total_seconds()
                 count += 1
 
@@ -1961,20 +1983,38 @@ def admin_dashboard(request):
         priority_order[x['priority']], x['timestamp']))
 
     # 9. Additional Liquidation Metrics - NEW
+    # Debug: Check for liquidations with unrealistic dates
+    liquidated_liquidations = LiquidationManagement.objects.filter(
+        status='liquidated',
+        date_liquidated__isnull=False,
+        created_at__isnull=False
+    )
+
+    # Filter out liquidations with unrealistic processing times (more than 1 year)
+    realistic_liquidations = []
+    for liq in liquidated_liquidations:
+        if liq.date_liquidated and liq.created_at:
+            time_diff = liq.date_liquidated - liq.created_at
+            # Only include liquidations with processing time less than 365 days
+            if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                realistic_liquidations.append(liq)
+
+    # Calculate average from realistic liquidations only
+    if realistic_liquidations:
+        total_seconds = sum((liq.date_liquidated - liq.created_at).total_seconds()
+                            for liq in realistic_liquidations)
+        avg_seconds = total_seconds / len(realistic_liquidations)
+        avg_liquidation_time = avg_seconds
+    else:
+        avg_liquidation_time = 0
+
     liquidation_metrics = {
         'total_liquidations': LiquidationManagement.objects.count(),
         'completed_liquidations': LiquidationManagement.objects.filter(status='liquidated').count(),
         'pending_liquidations': LiquidationManagement.objects.exclude(status='liquidated').count(),
         'completion_rate': (LiquidationManagement.objects.filter(status='liquidated').count() /
                             LiquidationManagement.objects.count() * 100) if LiquidationManagement.objects.count() > 0 else 0,
-        'avg_liquidation_time': LiquidationManagement.objects.filter(
-            status='liquidated'
-        ).annotate(
-            processing_time=ExpressionWrapper(
-                F('date_liquidated') - F('created_at'),
-                output_field=FloatField()
-            )
-        ).aggregate(avg=Avg('processing_time'))['avg'] or 0
+        'avg_liquidation_time': avg_liquidation_time
     }
 
     # Convert avg_liquidation_time to days
@@ -1984,39 +2024,73 @@ def admin_dashboard(request):
         liquidation_metrics['avg_liquidation_time_days'] = float(
             liquidation_metrics['avg_liquidation_time']) / (24 * 60 * 60) if liquidation_metrics['avg_liquidation_time'] else 0
 
-    # 10. Top Schools by Liquidation Speed - NEW
+    # Debug information - show some sample data
+    sample_liquidations = []
+    for liq in liquidated_liquidations[:3]:  # Show first 3 liquidations
+        if liq.date_liquidated and liq.created_at:
+            time_diff = liq.date_liquidated - liq.created_at
+            sample_liquidations.append({
+                'liquidation_id': liq.LiquidationID,
+                'created_at': liq.created_at.isoformat(),
+                'date_liquidated': liq.date_liquidated.isoformat(),
+                'time_diff_seconds': time_diff.total_seconds(),
+                'time_diff_days': time_diff.total_seconds() / (24 * 60 * 60)
+            })
+
+    liquidation_metrics['debug_info'] = {
+        'total_liquidated_count': len(liquidated_liquidations),
+        'realistic_liquidations_count': len(realistic_liquidations),
+        'avg_seconds_raw': liquidation_metrics['avg_liquidation_time'],
+        'avg_days_calculated': liquidation_metrics['avg_liquidation_time_days'],
+        'sample_liquidations': sample_liquidations
+    }
+
+    # 10. Top Schools by Liquidation Speed - NEW (Fixed with realistic time filtering)
     top_schools_by_speed = []
-    schools_with_liquidations = School.objects.annotate(
-        avg_processing_time=Avg(
-            Case(
-                When(
-                    users__requestmanagement__liquidation__status='liquidated',
-                    then=ExpressionWrapper(
-                        F('users__requestmanagement__liquidation__date_liquidated') -
-                        F('users__requestmanagement__liquidation__created_at'),
-                        output_field=FloatField()
-                    )
-                ),
-                output_field=FloatField()
-            )
-        )
-    ).filter(avg_processing_time__isnull=False).order_by('avg_processing_time')[:5]
 
-    for school in schools_with_liquidations:
-        # Convert seconds to days
-        avg_days = school.avg_processing_time / \
-            (24 * 60 * 60) if school.avg_processing_time else 0
-        top_schools_by_speed.append({
-            'schoolId': school.schoolId,
-            'schoolName': school.schoolName,
-            'avgProcessingDays': float(avg_days)
-        })
-
-        # 11. School Document Compliance - NEW
-    school_document_compliance = []
+    # Get all schools and calculate realistic processing times manually
     all_schools = School.objects.all()
 
     for school in all_schools:
+        # Get liquidations for this school that are liquidated
+        school_liquidations = LiquidationManagement.objects.filter(
+            request__user__school=school,
+            status='liquidated',
+            date_liquidated__isnull=False,
+            created_at__isnull=False
+        )
+
+        # Filter out unrealistic processing times (more than 1 year)
+        realistic_processing_times = []
+        for liq in school_liquidations:
+            if liq.date_liquidated and liq.created_at:
+                time_diff = liq.date_liquidated - liq.created_at
+                # Only include liquidations with processing time less than 365 days
+                if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                    realistic_processing_times.append(
+                        time_diff.total_seconds())
+
+        # Calculate average from realistic times only
+        if realistic_processing_times:
+            avg_seconds = sum(realistic_processing_times) / \
+                len(realistic_processing_times)
+            avg_days = avg_seconds / (24 * 60 * 60)
+
+            top_schools_by_speed.append({
+                'schoolId': school.schoolId,
+                'schoolName': school.schoolName,
+                'avgProcessingDays': float(avg_days)
+            })
+
+    # Sort by processing time (ascending = fastest first) and take top 5
+    top_schools_by_speed.sort(key=lambda x: x['avgProcessingDays'])
+    top_schools_by_speed = top_schools_by_speed[:5]
+
+    # 11. School Document Compliance - NEW
+    school_document_compliance = []
+    all_schools_for_compliance = School.objects.all()
+
+    for school in all_schools_for_compliance:
         # Get all liquidations for this school
         school_liquidations = LiquidationManagement.objects.filter(
             request__user__school=school
@@ -2083,19 +2157,19 @@ def update_e_signature(request):
         return Response({"error": "No e-signature file provided."}, status=400)
     user.e_signature = e_signature
     user.save(update_fields=['e_signature'])
-    
+
     # Generate new token with updated e_signature
     from rest_framework_simplejwt.tokens import RefreshToken
     refresh = RefreshToken.for_user(user)
     access_token = refresh.access_token
-    
+
     # Add custom claims to the new token
     access_token['first_name'] = user.first_name
     access_token['last_name'] = user.last_name
     access_token['email'] = user.email
     access_token['role'] = user.role
     access_token['password_change_required'] = user.password_change_required
-    
+
     if user.school_district:
         access_token['school_district'] = {
             'id': user.school_district.districtId,
@@ -2105,106 +2179,274 @@ def update_e_signature(request):
         }
     else:
         access_token['school_district'] = None
-    
+
     # Add profile picture URL if available
     if user.profile_picture:
         access_token['profile_picture'] = user.profile_picture.url
     else:
         access_token['profile_picture'] = None
-    
+
     # Add e-signature URL (now available)
     access_token['e_signature'] = user.e_signature.url
-    
+
     return Response({
         "message": "E-signature updated successfully.",
         "access": str(access_token),
         "refresh": str(refresh)
     })
 
+
 # Add to views.py
 
+# Add to views.py
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def generate_liquidation_report(request, LiquidationID):
     """
-    Generate a detailed liquidation report in Excel format
+    Generate a liquidation report in Excel format matching the Appendix-44-LR-1 template
+    with data automatically populated from the system
     """
     try:
         liquidation = LiquidationManagement.objects.get(
             LiquidationID=LiquidationID)
+        request_obj = liquidation.request
+        user = request_obj.user
+        school = user.school
 
         # Create workbook and worksheet
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Liquidation Report"
+        ws.title = "LR"
 
-        # Set column widths as specified
-        ws.column_dimensions['A'].width = 30.71
-        ws.column_dimensions['B'].width = 36.25
-        ws.column_dimensions['C'].width = 33.39
+        # Set column widths to match the template
+        column_widths = {
+            'A': 30.71, 'B': 36.25, 'C': 33.39, 'D': 8.43, 'E': 8.43,
+            'F': 8.43, 'G': 8.43, 'H': 8.43, 'I': 8.43, 'J': 8.43, 'K': 8.43
+        }
 
-        # Format cell C1
-        cell_c1 = ws['C1']
-        cell_c1.value = "Appendix 44"
-        cell_c1.font = Font(name='Times New Roman', size=14)
-        cell_c1.alignment = Alignment(horizontal='right', vertical='top')
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
 
-        # Continue with the rest of the report structure
-        # Add more content based on your specific requirements
+        # Define border styles
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        # Define fonts
+        base_font = Font(name='Times New Roman', size=10)
+        bold_font = Font(name='Times New Roman', size=10, bold=True)
+
+        # Add template content (matching the provided Excel structure)
+        # Appendix 44 in cell C1
+        ws['C1'] = "Appendix 44"
+        ws['C1'].font = base_font
+        ws['C1'].alignment = Alignment(horizontal='right')
+
+        # Liquidation Report title
         ws['A3'] = "LIQUIDATION REPORT"
-        ws['A3'].font = Font(bold=True, size=14)
+        ws['A3'].font = Font(name='Times New Roman', size=14, bold=True)
         ws.merge_cells('A3:C3')
+        ws['A3'].alignment = Alignment(horizontal='center')
 
-        # Add liquidation details
-        ws['A5'] = "Liquidation ID:"
-        ws['B5'] = liquidation.LiquidationID
+        # Serial number and date
+        ws['C4'] = f"Serial No.: {liquidation.LiquidationID}"
+        ws['C4'].font = base_font
 
-        ws['A6'] = "Request ID:"
-        ws['B6'] = liquidation.request.request_id
+        current_date = timezone.now().strftime("%Y-%m-%d")
+        ws['C5'] = f"Date: {current_date}"
+        ws['C5'].font = base_font
 
-        ws['A7'] = "School:"
-        ws['B7'] = liquidation.request.user.school.schoolName if liquidation.request.user.school else "N/A"
+        # Period covered - use the request month/year
+        if request_obj.request_monthyear:
+            period_covered = request_obj.request_monthyear
+        else:
+            period_covered = timezone.now().strftime("%Y-%m")
+        ws['A5'] = f"Period Covered {period_covered}"
+        ws['A5'].font = base_font
 
-        ws['A8'] = "Submitted By:"
-        ws['B8'] = f"{liquidation.request.user.first_name} {liquidation.request.user.last_name}"
+        # Entity name and fund cluster
+        entity_name = school.schoolName if school else "N/A"
+        ws['A7'] = f"Entity Name :  {entity_name}"
+        ws['A7'].font = base_font
 
-        ws['A9'] = "Submission Date:"
-        ws['B9'] = localtime(liquidation.created_at).strftime(
-            "%Y-%m-%d %H:%M:%S")
+        # For fund cluster, we'll use a default value or leave it blank
+        ws['A8'] = "Fund Cluster :  _____________________________________________"
+        ws['A8'].font = base_font
 
-        # Add priorities and amounts
-        row = 11
-        ws['A11'] = "EXPENSE ITEM"
-        ws['B11'] = "REQUESTED AMOUNT"
-        ws['C11'] = "LIQUIDATED AMOUNT"
-        ws['A11'].font = ws['B11'].font = ws['C11'].font = Font(bold=True)
+        # Responsibility center code - use district code if available
+        responsibility_center = school.district.districtId if school and school.district else "N/A"
+        ws['C8'] = f"Responsibility Center Code: {responsibility_center}"
+        ws['C8'].font = base_font
 
-        row += 1
+        # Table header
+        ws['A11'] = "PARTICULARS"
+        ws['A11'].font = bold_font
+        ws['A11'].border = thin_border
+        ws['A11'].alignment = Alignment(horizontal='center', vertical='center')
+
+        ws['C11'] = "AMOUNT"
+        ws['C11'].font = bold_font
+        ws['C11'].border = thin_border
+        ws['C11'].alignment = Alignment(horizontal='center', vertical='center')
+
+        # Add liquidation items
+        row = 12
+        total_amount = Decimal('0.00')
         for lp in liquidation.liquidation_priorities.all():
             ws[f'A{row}'] = lp.priority.expenseTitle
-            # Get requested amount
-            requested_amount = RequestPriority.objects.filter(
-                request=liquidation.request,
-                priority=lp.priority
-            ).first()
-            ws[f'B{row}'] = float(
-                requested_amount.amount) if requested_amount else 0
+            ws[f'A{row}'].font = base_font
+            ws[f'A{row}'].border = thin_border
+
             ws[f'C{row}'] = float(lp.amount)
+            ws[f'C{row}'].font = base_font
+            ws[f'C{row}'].border = thin_border
+            ws[f'C{row}'].number_format = '#,##0.00'
+
+            total_amount += lp.amount  # Don't convert to float here
             row += 1
 
-        # Add total row
-        ws[f'A{row}'] = "TOTAL"
-        ws[f'A{row}'].font = Font(bold=True)
-        ws[f'B{row}'] = f"=SUM(B12:B{row-1})"
-        ws[f'C{row}'] = f"=SUM(C12:C{row-1})"
+        # Add total amount
+        total_row = row + 2
+        ws[f'A{total_row}'] = "TOTAL AMOUNT SPENT"
+        ws[f'A{total_row}'].font = bold_font
+        ws[f'A{total_row}'].border = thin_border
 
-        # Add refund amount if applicable
-        if liquidation.refund:
-            row += 2
-            ws[f'A{row}'] = "REFUND AMOUNT:"
-            ws[f'B{row}'] = float(liquidation.refund)
-            ws[f'A{row}'].font = ws[f'B{row}'].font = Font(bold=True)
+        ws[f'C{total_row}'] = float(total_amount)
+        ws[f'C{total_row}'].font = bold_font
+        ws[f'C{total_row}'].border = thin_border
+        ws[f'C{total_row}'].number_format = '#,##0.00'
+
+        # Add cash advance information
+        cash_advance_row = total_row + 2
+        ws[f'A{cash_advance_row}'] = "AMOUNT OF CASH ADVANCE PER DV NO.______DTD. ______"
+        ws[f'A{cash_advance_row}'].font = base_font
+        ws[f'A{cash_advance_row}'].border = thin_border
+
+        # Calculate cash advance amount (sum of requested amounts)
+        cash_advance_amount = sum(
+            rp.amount for rp in request_obj.requestpriority_set.all()
+        )
+        ws[f'C{cash_advance_row}'] = float(cash_advance_amount)
+        ws[f'C{cash_advance_row}'].font = base_font
+        ws[f'C{cash_advance_row}'].border = thin_border
+        ws[f'C{cash_advance_row}'].number_format = '#,##0.00'
+
+        # Add refund information
+        refund_row = cash_advance_row + 2
+        ws[f'A{refund_row}'] = "AMOUNT REFUNDED PER OR NO. ________DTD. ___________"
+        ws[f'A{refund_row}'].font = base_font
+        ws[f'A{refund_row}'].border = thin_border
+
+        refund_amount = cash_advance_amount - total_amount  # Both are Decimal now
+        ws[f'C{refund_row}'] = float(refund_amount) if refund_amount > 0 else 0
+        ws[f'C{refund_row}'].font = base_font
+        ws[f'C{refund_row}'].border = thin_border
+        ws[f'C{refund_row}'].number_format = '#,##0.00'
+
+        # Add amount to be reimbursed
+        reimbursement_row = refund_row + 2
+        ws[f'A{reimbursement_row}'] = "AMOUNT TO BE REIMBURSED"
+        ws[f'A{reimbursement_row}'].font = base_font
+        ws[f'A{reimbursement_row}'].border = thin_border
+
+        reimbursement_amount = total_amount - cash_advance_amount
+        ws[f'C{reimbursement_row}'] = float(
+            reimbursement_amount) if reimbursement_amount > 0 else 0
+        ws[f'C{reimbursement_row}'].font = base_font
+        ws[f'C{reimbursement_row}'].border = thin_border
+        ws[f'C{reimbursement_row}'].number_format = '#,##0.00'
+
+        # Add certification section
+        cert_row = reimbursement_row + 3
+        ws[f'A{cert_row}'] = "Certified: Correctness of the above data"
+        ws[f'A{cert_row}'].font = bold_font
+        ws[f'A{cert_row}'].border = thin_border
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'B{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
+        ws[f'B{cert_row}'].font = bold_font
+        ws[f'B{cert_row}'].border = thin_border
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'C{cert_row}'] = "Certified: Supporting documents complete and proper"
+        ws[f'C{cert_row}'].font = bold_font
+        ws[f'C{cert_row}'].border = thin_border
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add signature lines with user names if available
+        cert_row += 2
+
+        # Claimant (the user who submitted the request)
+        claimant_name = f"{user.first_name} {user.last_name}" if user else "________________________"
+        ws[f'A{cert_row}'] = claimant_name
+        ws[f'A{cert_row}'].font = base_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Immediate Supervisor (could be district admin or school head)
+        # For now, we'll leave it blank as it's not directly in the model
+        ws[f'B{cert_row}'] = "________________________"
+        ws[f'B{cert_row}'].font = base_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Head, Accounting Division Unit (could be division accountant)
+        # For now, we'll leave it blank as it's not directly in the model
+        ws[f'C{cert_row}'] = "________________________"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add position titles
+        cert_row += 1
+        ws[f'A{cert_row}'] = "Signature over Printed Name"
+        ws[f'A{cert_row}'].font = base_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'B{cert_row}'] = "Signature over Printed Name"
+        ws[f'B{cert_row}'].font = base_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'C{cert_row}'] = "Signature over Printed Name"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add role titles
+        cert_row += 1
+        ws[f'A{cert_row}'] = "Claimant"
+        ws[f'A{cert_row}'].font = base_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'B{cert_row}'] = "Immediate Supervisor"
+        ws[f'B{cert_row}'].font = base_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'C{cert_row}'] = "Head, Accounting Division Unit"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add JEV number - we don't have this in the model, so leave blank
+        cert_row += 2
+        ws[f'C{cert_row}'] = "JEV No.: ___________________"
+        ws[f'C{cert_row}'].font = base_font
+
+        # Add date lines
+        cert_row += 1
+        ws[f'A{cert_row}'] = "Date: ______________________"
+        ws[f'A{cert_row}'].font = base_font
+
+        ws[f'B{cert_row}'] = "Date: _____________________"
+        ws[f'B{cert_row}'].font = base_font
+
+        ws[f'C{cert_row}'] = "Date:  _____________________"
+        ws[f'C{cert_row}'].font = base_font
+
+        # Apply borders to all relevant cells
+        for row in ws.iter_rows(min_row=1, max_row=cert_row, min_col=1, max_col=3):
+            for cell in row:
+                if cell.value:
+                    cell.border = thin_border
 
         # Create HTTP response with Excel file
         response = HttpResponse(
@@ -2221,7 +2463,8 @@ def generate_liquidation_report(request, LiquidationID):
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
-        logger.error(f"Error generating liquidation report: {str(e)}")
+        logger.error(
+            f"Error generating liquidation report: {str(e)}", exc_info=True)
         return Response(
             {'error': 'Failed to generate report'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -2249,6 +2492,35 @@ def get_next_available_month(request):
         'next_available_month': next_month,
         'is_advance_request': is_advance,
         'can_submit': RequestManagement.can_user_request_for_month(user, next_month)
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def debug_liquidation_times(request):
+    """Debug endpoint to check liquidation time calculations"""
+    liquidated_liquidations = LiquidationManagement.objects.filter(
+        status='liquidated',
+        date_liquidated__isnull=False,
+        created_at__isnull=False
+    ).order_by('-created_at')[:10]  # Get last 10 liquidations
+
+    debug_data = []
+    for liq in liquidated_liquidations:
+        if liq.date_liquidated and liq.created_at:
+            time_diff = liq.date_liquidated - liq.created_at
+            debug_data.append({
+                'liquidation_id': liq.LiquidationID,
+                'created_at': liq.created_at.isoformat(),
+                'date_liquidated': liq.date_liquidated.isoformat(),
+                'time_diff_seconds': time_diff.total_seconds(),
+                'time_diff_days': time_diff.total_seconds() / (24 * 60 * 60),
+                'is_realistic': time_diff.total_seconds() < (365 * 24 * 60 * 60)
+            })
+
+    return Response({
+        'total_liquidated': liquidated_liquidations.count(),
+        'sample_data': debug_data
     })
 
 

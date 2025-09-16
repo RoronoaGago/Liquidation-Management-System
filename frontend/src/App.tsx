@@ -36,6 +36,8 @@ import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this impor
 import ManageDistricts from "./pages/ManageDistricts";
 import GenerateReport from "./pages/GenerateReport";
 import AdminDashboard from "./pages/AdminDashboard";
+import LiquidatorReviewPage from "./pages/LiquidatorReviewPage";
+import DivisionReviewPage from "./pages/DivisionReviewPage";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -72,13 +74,6 @@ const App = () => {
 
           <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
             <Route path="/pre-auditing" element={<LiquidationReportPage />} />
-          </Route>
-          {/* Add this route for liquidation details */}
-          <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
-            <Route
-              path="/liquidations/:liquidationId"
-              element={<LiquidationDetailsPage />}
-            />
           </Route>
 
           {/* School Head-only routes */}
@@ -117,19 +112,32 @@ const App = () => {
               />
             </Route> */}
           <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
-            <Route path="/liquidation-finalize" element={<LiquidatorsPage />} />
             <Route
-              path="/liquidation-finalize/:liquidationId"
-              element={<LiquidationDetailsPage />}
+              path="/liquidation-finalize"
+              element={<LiquidatorReviewPage />}
             />
           </Route>
 
-          {/* Teacher-only routes */}
+          {/* Division Accountant routes */}
           <Route element={<RequireAuth allowedRoles={["accountant"]} />}>
-            {/* <Route path="/classes" element={<MyClasses />} /> */}
             <Route
               path="/approved-requests"
               element={<ApprovedRequestPage />}
+            />
+            <Route path="/division-review" element={<DivisionReviewPage />} />
+          </Route>
+
+          {/* Shared route for liquidation details - accessible by multiple roles */}
+          <Route
+            element={
+              <RequireAuth
+                allowedRoles={["district_admin", "liquidator", "accountant"]}
+              />
+            }
+          >
+            <Route
+              path="/liquidations/:liquidationId"
+              element={<LiquidationDetailsPage />}
             />
           </Route>
 

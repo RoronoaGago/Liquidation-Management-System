@@ -43,6 +43,7 @@ urlpatterns = [
          views.RequirementRetrieveUpdateDestroyAPIView.as_view(), name='requirement-detail'),
      path('requests/next-available-month/', views.get_next_available_month, name='next-available-month'),
     path('requests/check-eligibility/', views.check_request_eligibility, name='check-request-eligibility'),
+    path('debug/liquidation-times/', views.debug_liquidation_times, name='debug-liquidation-times'),
 
     path('priorities/', views.ListOfPriorityListCreateAPIView.as_view(),
          name='priority-list-create'),
@@ -73,8 +74,7 @@ urlpatterns = [
          views.LiquidationDocumentListCreateAPIView.as_view(), name='liquidation-document-list'),
     path('liquidations/<str:LiquidationID>/documents/<int:pk>/',
          views.LiquidationDocumentRetrieveUpdateDestroyAPIView.as_view(), name='liquidation-document-detail'),
-    path('liquidations/<str:LiquidationID>/approve/',
-         views.approve_liquidation, name='approve-liquidation'),
+    # Removed approve_liquidation URL - now handled through PATCH on liquidation-detail
 
     # Additional custom endpoints
     path('user-requests/', views.UserRequestListAPIView.as_view(),

@@ -1,7 +1,7 @@
 // components/ESignatureModal.tsx
 import { useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { UploadIcon } from "lucide-react";
+import { UploadIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import Label from "../form/Label";
 import { toast } from "react-toastify";
 import api from "@/api/axios";
@@ -23,6 +23,7 @@ const ESignatureModal = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [isPrivacyExpanded, setIsPrivacyExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -51,7 +52,6 @@ const ESignatureModal = ({
       setPreviewUrl(URL.createObjectURL(file));
     }
   };
-
 
   const handleRemoveSignature = () => {
     setSignature(null);
@@ -103,14 +103,14 @@ const ESignatureModal = ({
       if (response.status === 200) {
         toast.success("E-signature uploaded successfully!");
         resetForm(); // Clear form after successful submission
-        
+
         // Update tokens if provided
         if (response.data.access) {
           localStorage.setItem("accessToken", response.data.access);
           if (response.data.refresh) {
             localStorage.setItem("refreshToken", response.data.refresh);
           }
-          
+
           // Update the user context with new token data
           if (user) {
             // Decode the new token to get updated user data
@@ -126,7 +126,7 @@ const ESignatureModal = ({
                 password_change_required?: boolean;
                 e_signature?: string;
               }>(response.data.access);
-              
+
               // Map JWT payload to UserData interface
               const updatedUserData = {
                 user_id: decodedToken.user_id || user.user_id,
@@ -134,10 +134,14 @@ const ESignatureModal = ({
                 first_name: decodedToken.first_name || user.first_name,
                 last_name: decodedToken.last_name || user.last_name,
                 email: decodedToken.email || user.email,
-                password_change_required: decodedToken.password_change_required ?? user.password_change_required,
+                password_change_required:
+                  decodedToken.password_change_required ??
+                  user.password_change_required,
                 phone_number: user.phone_number,
-                school_district: decodedToken.school_district || user.school_district,
-                profile_picture: decodedToken.profile_picture || user.profile_picture,
+                school_district:
+                  decodedToken.school_district || user.school_district,
+                profile_picture:
+                  decodedToken.profile_picture || user.profile_picture,
                 e_signature: decodedToken.e_signature || user.e_signature,
               };
               // Update the user context with the new token
@@ -147,7 +151,7 @@ const ESignatureModal = ({
             }
           }
         }
-        
+
         onSuccess();
       }
     } catch (error: any) {
@@ -158,6 +162,10 @@ const ESignatureModal = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const togglePrivacyExpansion = () => {
+    setIsPrivacyExpanded(!isPrivacyExpanded);
   };
 
   return (
@@ -259,19 +267,42 @@ const ESignatureModal = ({
                 className="mt-1 h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded"
                 required
               />
-              <label
-                htmlFor="privacy-agreement"
-                className="text-sm text-gray-700 dark:text-gray-300"
-              >
-                <span className="font-medium">Data Privacy Agreement:</span> I
-                understand that my electronic signature will be used for
-                official document authentication within the Liquidation
-                Management System. I consent to the storage and use of my
-                signature data in accordance with the system's privacy policy
-                and applicable data protection laws. I acknowledge that this
-                signature will be used to authorize financial transactions and
-                official documents on my behalf.
-              </label>
+              <div className="flex-1">
+                <div
+                  className="flex items-center cursor-pointer"
+                  onClick={togglePrivacyExpansion}
+                >
+                  <label
+                    htmlFor="privacy-agreement"
+                    className="text-sm text-gray-700 dark:text-gray-300 font-medium cursor-pointer"
+                  >
+                    Data Privacy Agreement
+                  </label>
+                  <button
+                    type="button"
+                    className="ml-2 text-gray-500 focus:outline-none"
+                    onClick={togglePrivacyExpansion}
+                  >
+                    {isPrivacyExpanded ? (
+                      <ChevronUpIcon className="h-4 w-4" />
+                    ) : (
+                      <ChevronDownIcon className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+
+                {isPrivacyExpanded && (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
+                    I understand that my electronic signature will be used for
+                    official document authentication within the Liquidation
+                    Management System. I consent to the storage and use of my
+                    signature data in accordance with the system's privacy
+                    policy and applicable data protection laws. I acknowledge
+                    that this signature will be used to authorize financial
+                    transactions and official documents on my behalf.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

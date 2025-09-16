@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
+  EyeIcon,
 } from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
 import { useNavigate } from "react-router";
@@ -48,6 +49,25 @@ type Liquidation = {
     };
     priorities?: any[]; // Add this line to include priorities
   };
+  // Approval fields
+  reviewed_by_district?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_district?: string;
+  reviewed_by_liquidator?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_liquidator?: string;
+  reviewed_by_division?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_division?: string;
+  date_districtApproved?: string;
+  date_liquidatorApproved?: string;
+  date_liquidated?: string;
   // Add other fields as needed
 };
 
@@ -181,10 +201,20 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     if (viewLoading) return;
     setViewLoading(liq.LiquidationID);
     try {
-      // Change status to under_review_district when district admin views
+      // Change status based on current status and user role
       if (liq.status === "submitted") {
         await api.patch(`/liquidations/${liq.LiquidationID}/`, {
           status: "under_review_district",
+        });
+        await refreshList(); // Refresh the list to show new status
+      } else if (liq.status === "approved_district") {
+        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+          status: "under_review_liquidator",
+        });
+        await refreshList(); // Refresh the list to show new status
+      } else if (liq.status === "approved_liquidator") {
+        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+          status: "under_review_division",
         });
         await refreshList(); // Refresh the list to show new status
       }
@@ -503,64 +533,30 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                       {liq.request?.user?.school?.schoolName || "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        onClick={() => handleView(liq)}
-                        className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline cursor-pointer font-medium"
-                        title={
-                          liq.status === "resubmit" ||
-                          liq.status === "approved" ||
-                          liq.status === "approved_district" ||
-                          liq.status === "approved_division" ||
-                          liq.status === "completed"
-                            ? "Viewing is disabled for approved or completed liquidations."
-                            : viewLoading === liq.LiquidationID
-                            ? "Loading..."
-                            : "View"
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        startIcon={
+                          viewLoading === liq.LiquidationID ? (
+                            <span className="animate-spin w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full inline-block"></span>
+                          ) : (
+                            <EyeIcon className="w-4 h-4" />
+                          )
                         }
-                        style={{
-                          opacity:
-                            liq.status === "resubmit" ||
-                            liq.status === "approved" ||
-                            liq.status === "approved_district" ||
-                            liq.status === "approved_division" ||
-                            liq.status === "completed" ||
-                            viewLoading === liq.LiquidationID
-                              ? 0.5
-                              : 1,
-                          pointerEvents:
-                            liq.status === "resubmit" ||
-                            liq.status === "approved" ||
-                            liq.status === "approved_district" ||
-                            liq.status === "approved_division" ||
-                            liq.status === "completed" ||
-                            viewLoading === liq.LiquidationID
-                              ? "none"
-                              : "auto",
-                        }}
-                        tabIndex={
+                        onClick={() => handleView(liq)}
+                        className="text-blue-600 p-0"
+                        disabled={
                           liq.status === "resubmit" ||
-                          liq.status === "approved" ||
-                          liq.status === "approved_district" ||
-                          liq.status === "approved_division" ||
+                          liq.status === "liquidated" ||
                           liq.status === "completed" ||
                           viewLoading === liq.LiquidationID
-                            ? -1
-                            : 0
                         }
-                        role="link"
+                        loading={viewLoading === liq.LiquidationID}
                       >
-                        {viewLoading === liq.LiquidationID ? (
-                          <>
-                            <span className="animate-spin mr-1 w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full inline-block align-middle"></span>
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            View
-                            <LucideEye className="w-4 h-4 ml-1" />
-                          </>
-                        )}
-                      </span>
+                        {viewLoading === liq.LiquidationID
+                          ? "Loading..."
+                          : "View"}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -896,7 +892,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                             reviewer_comment: viewDoc.reviewer_comment,
                           }
                         );
-                        toast.success("Document approved!");
+                        // toast.success("Document approved!");
                         // Refresh documents
                         const res = await api.get(
                           `/liquidations/${selected?.LiquidationID}/documents/`
@@ -964,11 +960,12 @@ const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   submitted: "Submitted",
   under_review_district: "Under Review (District)",
+  under_review_liquidator: "Under Review (Liquidator)",
   under_review_division: "Under Review (Division)",
   resubmit: "Needs Revision",
   approved_district: "Approved by District",
-  approved_division: "Approved by Division",
-  approved: "Fully Approved",
+  approved_liquidator: "Approved by Liquidator",
+  liquidated: "Liquidated",
   rejected: "Rejected",
   completed: "Completed",
   cancelled: "Cancelled",
@@ -982,10 +979,16 @@ const statusBadgeStyle = (status: string) => {
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
     case "under_review_district":
       return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+    case "under_review_liquidator":
+      return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
+    case "under_review_division":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
     case "approved_district":
-    case "approved_division":
-    case "approved":
       return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "approved_liquidator":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "liquidated":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
     case "resubmit":
       return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
     case "rejected":
