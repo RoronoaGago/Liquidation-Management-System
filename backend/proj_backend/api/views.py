@@ -2659,9 +2659,8 @@ def generate_approved_request_pdf(request, request_id):
     except Exception as e:
         logger.error(
             f"Error generating PDF for request {request_id}: {str(e)}")
-        # Return JSON error but with proper content type
-        return JsonResponse(
-            {'error': 'Failed to generate PDF. Please try again.'},
-            status=500,
-            content_type='application/json'  # Explicitly set JSON content type
+        return HttpResponse(
+            '{"error": "Failed to generate PDF. Please try again."}',
+            content_type='application/json',
+            status=500
         )
