@@ -40,7 +40,7 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 from .models import User
 import openpyxl
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Font, Alignment, Border, Side
 from django.http import HttpResponse
 from django.utils.timezone import localtime
 import random
@@ -1785,20 +1785,20 @@ def admin_dashboard(request):
             created_at__year=month[:4],
             created_at__month=month[5:7],
             status='liquidated'
+        ).annotate(
+            processing_days=ExpressionWrapper(
+    F('date_liquidated') - F('request__downloaded_at__date'),  # ← Remove __date
+    output_field=DurationField()
+)
         )
 
-        total_seconds = 0
-        count = 0
-
-        for liquidation in month_liquidations:
-            if liquidation.date_liquidated and liquidation.created_at:
-                # Calculate time difference properly - from liquidation creation to completion
-                time_diff = liquidation.date_liquidated - liquidation.created_at
-                total_seconds += time_diff.total_seconds()
-                count += 1
-
-        avg_seconds = total_seconds / count if count > 0 else 0
-        avg_days = avg_seconds / (24 * 60 * 60)  # Convert seconds to days
+        # Calculate average processing time in days
+        avg_seconds = month_liquidations.aggregate(
+            avg_seconds=Avg('processing_days')
+        )['avg_seconds'] or 0
+        
+        # Convert seconds to days
+        avg_days = avg_seconds.total_seconds() / (24 * 60 * 60) if avg_seconds else 0
 
         approved_count = month_liquidations.count()
         rejected_count = LiquidationManagement.objects.filter(
@@ -1833,18 +1833,16 @@ def admin_dashboard(request):
             request__user__school=school,
             status='liquidated'
         )
+        avg_processing = school_liquidations.annotate(
+        processing_days=ExpressionWrapper(
+            F('date_liquidated') - F('request__downloaded_at'),
+            output_field=DurationField()
+        )).aggregate(avg=Avg('processing_days'))['avg'] or 0
 
-        total_seconds = 0
-        count = 0
-
-        for liquidation in school_liquidations:
-            if liquidation.date_liquidated and liquidation.created_at:
-                time_diff = liquidation.date_liquidated - liquidation.created_at
-                total_seconds += time_diff.total_seconds()
-                count += 1
-
-        avg_processing_days = (
-            total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
+        if avg_processing:
+            avg_processing_days = avg_processing.total_seconds() / (24 * 60 * 60)
+        else:
+            avg_processing_days = 0
 
         # Calculate budget utilization for this school
         school_utilized = RequestPriority.objects.filter(
@@ -2204,30 +2202,36 @@ def update_e_signature(request):
 @permission_classes([IsAuthenticated])
 def generate_liquidation_report(request, LiquidationID):
     """
-    Generate a liquidation report in Excel format matching the Appendix-44-LR-1 template
+    Generate a liquidation report in Excel format matching the Appendix-44 template
     with data automatically populated from the system
     """
     try:
-        liquidation = LiquidationManagement.objects.get(
-            LiquidationID=LiquidationID)
+        liquidation = LiquidationManagement.objects.get(LiquidationID=LiquidationID)
         request_obj = liquidation.request
         user = request_obj.user
         school = user.school
-
+        
         # Create workbook and worksheet
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "LR"
-
+        ws.title = "Liquidation Report"
+        
         # Set column widths to match the template
-        column_widths = {
-            'A': 30.71, 'B': 36.25, 'C': 33.39, 'D': 8.43, 'E': 8.43,
-            'F': 8.43, 'G': 8.43, 'H': 8.43, 'I': 8.43, 'J': 8.43, 'K': 8.43
-        }
-
-        for col, width in column_widths.items():
-            ws.column_dimensions[col].width = width
-
+        ws.column_dimensions['A'].width = 5  # Margin column
+        ws.column_dimensions['B'].width = 50  # Main content column
+        ws.column_dimensions['C'].width = 20  # Amount column
+        ws.column_dimensions['D'].width = 5  # Margin column
+        
+        # Define fonts
+        base_font = Font(name='Times New Roman', size=10)
+        bold_font = Font(name='Times New Roman', size=10, bold=True)
+        title_font = Font(name='Times New Roman', size=14, bold=True)
+        
+        # Define alignment
+        center_alignment = Alignment(horizontal='center', vertical='center')
+        left_alignment = Alignment(horizontal='left', vertical='center')
+        right_alignment = Alignment(horizontal='right', vertical='center')
+        
         # Define border styles
         thin_border = Border(
             left=Side(style='thin'),
@@ -2235,97 +2239,100 @@ def generate_liquidation_report(request, LiquidationID):
             top=Side(style='thin'),
             bottom=Side(style='thin')
         )
-
-        # Define fonts
-        base_font = Font(name='Times New Roman', size=10)
-        bold_font = Font(name='Times New Roman', size=10, bold=True)
-
-        # Add template content (matching the provided Excel structure)
-        # Appendix 44 in cell C1
-        ws['C1'] = "Appendix 44"
-        ws['C1'].font = base_font
-        ws['C1'].alignment = Alignment(horizontal='right')
-
-        # Liquidation Report title
-        ws['A3'] = "LIQUIDATION REPORT"
-        ws['A3'].font = Font(name='Times New Roman', size=14, bold=True)
-        ws.merge_cells('A3:C3')
-        ws['A3'].alignment = Alignment(horizontal='center')
-
-        # Serial number and date
-        ws['C4'] = f"Serial No.: {liquidation.LiquidationID}"
-        ws['C4'].font = base_font
-
-        current_date = timezone.now().strftime("%Y-%m-%d")
-        ws['C5'] = f"Date: {current_date}"
-        ws['C5'].font = base_font
-
-        # Period covered - use the request month/year
+        
+        # Appendix 49 in cell C2
+        ws['C2'] = "Appendix 49"
+        ws['C2'].font = base_font
+        ws['C2'].alignment = right_alignment
+        
+        # Liquidation Report title (merged B4:C4)
+        ws['B4'] = "LIQUIDATION REPORT"
+        ws['B4'].font = title_font
+        ws.merge_cells('B4:C4')
+        ws['B4'].alignment = center_alignment
+        
+        # Period covered
         if request_obj.request_monthyear:
             period_covered = request_obj.request_monthyear
         else:
             period_covered = timezone.now().strftime("%Y-%m")
-        ws['A5'] = f"Period Covered {period_covered}"
-        ws['A5'].font = base_font
-
+        ws['B5'] = f"Period Covered {period_covered}"
+        ws['B5'].font = base_font
+        
+        # Serial number and date
+        ws['C5'] = f"Serial No.: {liquidation.LiquidationID}"
+        ws['C5'].font = base_font
+        ws['C5'].alignment = left_alignment
+        
+        current_date = timezone.now().strftime("%Y-%m-%d")
+        ws['C6'] = f"Date: {current_date}"
+        ws['C6'].font = base_font
+        ws['C6'].alignment = left_alignment
+        
         # Entity name and fund cluster
         entity_name = school.schoolName if school else "N/A"
-        ws['A7'] = f"Entity Name :  {entity_name}"
-        ws['A7'].font = base_font
-
-        # For fund cluster, we'll use a default value or leave it blank
-        ws['A8'] = "Fund Cluster :  _____________________________________________"
-        ws['A8'].font = base_font
-
-        # Responsibility center code - use district code if available
+        ws['B7'] = f"Entity Name :  {entity_name}"
+        ws['B7'].font = base_font
+        
+        cluster_name= school.district if school else "N/A"
+        ws['B8'] = f"Fund Cluster : {cluster_name}"
+        ws['B8'].font = base_font
+        
+        # Responsibility center code
         responsibility_center = school.district.districtId if school and school.district else "N/A"
         ws['C8'] = f"Responsibility Center Code: {responsibility_center}"
         ws['C8'].font = base_font
-
+        
         # Table header
-        ws['A11'] = "PARTICULARS"
-        ws['A11'].font = bold_font
-        ws['A11'].border = thin_border
-        ws['A11'].alignment = Alignment(horizontal='center', vertical='center')
-
+        ws['B11'] = "PARTICULARS"
+        ws['B11'].font = bold_font
+        ws['B11'].border = thin_border
+        ws['B11'].alignment = center_alignment
+        
         ws['C11'] = "AMOUNT"
         ws['C11'].font = bold_font
         ws['C11'].border = thin_border
-        ws['C11'].alignment = Alignment(horizontal='center', vertical='center')
-
+        ws['C11'].alignment = center_alignment
+        
         # Add liquidation items
         row = 12
-        total_amount = Decimal('0.00')
+        total_amount = 0
+        
         for lp in liquidation.liquidation_priorities.all():
-            ws[f'A{row}'] = lp.priority.expenseTitle
-            ws[f'A{row}'].font = base_font
-            ws[f'A{row}'].border = thin_border
-
+            ws[f'B{row}'] = lp.priority.expenseTitle
+            ws[f'B{row}'].font = base_font
+            ws[f'B{row}'].border = thin_border
+            ws[f'B{row}'].alignment = left_alignment
+            
             ws[f'C{row}'] = float(lp.amount)
             ws[f'C{row}'].font = base_font
             ws[f'C{row}'].border = thin_border
+            ws[f'C{row}'].alignment = right_alignment
             ws[f'C{row}'].number_format = '#,##0.00'
-
-            total_amount += lp.amount  # Don't convert to float here
+            
+            total_amount += float(lp.amount)
             row += 1
-
+        
         # Add total amount
         total_row = row + 2
-        ws[f'A{total_row}'] = "TOTAL AMOUNT SPENT"
-        ws[f'A{total_row}'].font = bold_font
-        ws[f'A{total_row}'].border = thin_border
-
+        ws[f'B{total_row}'] = "TOTAL AMOUNT SPENT"
+        ws[f'B{total_row}'].font = bold_font
+        ws[f'B{total_row}'].border = thin_border
+        ws[f'B{total_row}'].alignment = left_alignment
+        
         ws[f'C{total_row}'] = float(total_amount)
         ws[f'C{total_row}'].font = bold_font
         ws[f'C{total_row}'].border = thin_border
+        ws[f'C{total_row}'].alignment = right_alignment
         ws[f'C{total_row}'].number_format = '#,##0.00'
-
+        
         # Add cash advance information
         cash_advance_row = total_row + 2
-        ws[f'A{cash_advance_row}'] = "AMOUNT OF CASH ADVANCE PER DV NO.______DTD. ______"
-        ws[f'A{cash_advance_row}'].font = base_font
-        ws[f'A{cash_advance_row}'].border = thin_border
-
+        ws[f'B{cash_advance_row}'] = "AMOUNT OF CASH ADVANCE PER DV NO.______DTD. ______"
+        ws[f'B{cash_advance_row}'].font = base_font
+        ws[f'B{cash_advance_row}'].border = thin_border
+        ws[f'B{cash_advance_row}'].alignment = left_alignment
+        
         # Calculate cash advance amount (sum of requested amounts)
         cash_advance_amount = sum(
             rp.amount for rp in request_obj.requestpriority_set.all()
@@ -2333,121 +2340,117 @@ def generate_liquidation_report(request, LiquidationID):
         ws[f'C{cash_advance_row}'] = float(cash_advance_amount)
         ws[f'C{cash_advance_row}'].font = base_font
         ws[f'C{cash_advance_row}'].border = thin_border
+        ws[f'C{cash_advance_row}'].alignment = right_alignment
         ws[f'C{cash_advance_row}'].number_format = '#,##0.00'
-
+        
         # Add refund information
         refund_row = cash_advance_row + 2
-        ws[f'A{refund_row}'] = "AMOUNT REFUNDED PER OR NO. ________DTD. ___________"
-        ws[f'A{refund_row}'].font = base_font
-        ws[f'A{refund_row}'].border = thin_border
-
-        refund_amount = cash_advance_amount - total_amount  # Both are Decimal now
+        ws[f'B{refund_row}'] = "AMOUNT REFUNDED PER OR NO. ________DTD. ___________"
+        ws[f'B{refund_row}'].font = base_font
+        ws[f'B{refund_row}'].border = thin_border
+        ws[f'B{refund_row}'].alignment = left_alignment
+        
+        refund_amount = cash_advance_amount - total_amount
         ws[f'C{refund_row}'] = float(refund_amount) if refund_amount > 0 else 0
         ws[f'C{refund_row}'].font = base_font
         ws[f'C{refund_row}'].border = thin_border
+        ws[f'C{refund_row}'].alignment = right_alignment
         ws[f'C{refund_row}'].number_format = '#,##0.00'
-
+        
         # Add amount to be reimbursed
         reimbursement_row = refund_row + 2
-        ws[f'A{reimbursement_row}'] = "AMOUNT TO BE REIMBURSED"
-        ws[f'A{reimbursement_row}'].font = base_font
-        ws[f'A{reimbursement_row}'].border = thin_border
-
+        ws[f'B{reimbursement_row}'] = "AMOUNT TO BE REIMBURSED"
+        ws[f'B{reimbursement_row}'].font = base_font
+        ws[f'B{reimbursement_row}'].border = thin_border
+        ws[f'B{reimbursement_row}'].alignment = left_alignment
+        
         reimbursement_amount = total_amount - cash_advance_amount
-        ws[f'C{reimbursement_row}'] = float(
-            reimbursement_amount) if reimbursement_amount > 0 else 0
+        ws[f'C{reimbursement_row}'] = float(reimbursement_amount) if reimbursement_amount > 0 else 0
         ws[f'C{reimbursement_row}'].font = base_font
         ws[f'C{reimbursement_row}'].border = thin_border
+        ws[f'C{reimbursement_row}'].alignment = right_alignment
         ws[f'C{reimbursement_row}'].number_format = '#,##0.00'
-
+        
         # Add certification section
         cert_row = reimbursement_row + 3
-        ws[f'A{cert_row}'] = "Certified: Correctness of the above data"
-        ws[f'A{cert_row}'].font = bold_font
-        ws[f'A{cert_row}'].border = thin_border
-        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
-
-        ws[f'B{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
+        
+        # First certification statement
+        ws[f'B{cert_row}'] = "Certified: Correctness of the above data"
         ws[f'B{cert_row}'].font = bold_font
         ws[f'B{cert_row}'].border = thin_border
-        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
-
-        ws[f'C{cert_row}'] = "Certified: Supporting documents complete and proper"
+        ws[f'B{cert_row}'].alignment = center_alignment
+        ws.merge_cells(f'B{cert_row}:B{cert_row+1}')
+        
+        # Second certification statement
+        ws[f'C{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
         ws[f'C{cert_row}'].font = bold_font
         ws[f'C{cert_row}'].border = thin_border
-        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
-
-        # Add signature lines with user names if available
-        cert_row += 2
-
+        ws[f'C{cert_row}'].alignment = center_alignment
+        ws.merge_cells(f'C{cert_row}:C{cert_row+1}')
+        
+        # Add signature lines
+        signature_row = cert_row + 3
+        
         # Claimant (the user who submitted the request)
         claimant_name = f"{user.first_name} {user.last_name}" if user else "________________________"
-        ws[f'A{cert_row}'] = claimant_name
-        ws[f'A{cert_row}'].font = base_font
-        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        claimant_sign = f"{user.e_signature.url if user and user.e_signature else '________________________'}"
+        ws[f'A{signature_row}'] = claimant_sign
+        ws[f'A{signature_row}'] = claimant_name
+        ws[f'A{signature_row}'].font = base_font
+        ws[f'A{signature_row}'].alignment = center_alignment
+        
+        ws[f'B{signature_row}'] = "________________________"
+        ws[f'B{signature_row}'].font = base_font
+        ws[f'B{signature_row}'].alignment = center_alignment
 
         # Immediate Supervisor (could be district admin or school head)
-        # For now, we'll leave it blank as it's not directly in the model
-        ws[f'B{cert_row}'] = "________________________"
-        ws[f'B{cert_row}'].font = base_font
-        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
-
-        # Head, Accounting Division Unit (could be division accountant)
-        # For now, we'll leave it blank as it's not directly in the model
-        ws[f'C{cert_row}'] = "________________________"
-        ws[f'C{cert_row}'].font = base_font
-        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
-
+        ws[f'C{signature_row}'] = "________________________"
+        ws[f'C{signature_row}'].font = base_font
+        ws[f'C{signature_row}'].alignment = center_alignment
+        
         # Add position titles
-        cert_row += 1
-        ws[f'A{cert_row}'] = "Signature over Printed Name"
-        ws[f'A{cert_row}'].font = base_font
-        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        signature_row += 1
 
-        ws[f'B{cert_row}'] = "Signature over Printed Name"
-        ws[f'B{cert_row}'].font = base_font
-        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+        ws[f'A{signature_row}'] = "Signature over Printed Name"
+        ws[f'A{signature_row}'].font = base_font
+        ws[f'A{signature_row}'].alignment = center_alignment
 
-        ws[f'C{cert_row}'] = "Signature over Printed Name"
-        ws[f'C{cert_row}'].font = base_font
-        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
-
+        ws[f'B{signature_row}'] = "Signature over Printed Name"
+        ws[f'B{signature_row}'].font = base_font
+        ws[f'B{signature_row}'].alignment = center_alignment
+        
+        ws[f'C{signature_row}'] = "Signature over Printed Name"
+        ws[f'C{signature_row}'].font = base_font
+        ws[f'C{signature_row}'].alignment = center_alignment
+        
         # Add role titles
-        cert_row += 1
-        ws[f'A{cert_row}'] = "Claimant"
-        ws[f'A{cert_row}'].font = base_font
-        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        signature_row += 1
+        ws[f'A{signature_row}'] = "Claimant"
+        ws[f'A{signature_row}'].font = base_font
+        ws[f'A{signature_row}'].alignment = center_alignment
+        
+        ws[f'B{signature_row}'] = "Immediate Supervisor"
+        ws[f'B{signature_row}'].font = base_font
+        ws[f'B{signature_row}'].alignment = center_alignment
 
-        ws[f'B{cert_row}'] = "Immediate Supervisor"
-        ws[f'B{cert_row}'].font = base_font
-        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
-
-        ws[f'C{cert_row}'] = "Head, Accounting Division Unit"
-        ws[f'C{cert_row}'].font = base_font
-        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
-
-        # Add JEV number - we don't have this in the model, so leave blank
-        cert_row += 2
-        ws[f'C{cert_row}'] = "JEV No.: ___________________"
-        ws[f'C{cert_row}'].font = base_font
-
+        ws[f'C{signature_row}'] = "Head, Accounting Division Unit"
+        ws[f'C{signature_row}'].font = base_font
+        ws[f'C{signature_row}'].alignment = center_alignment
+        
         # Add date lines
-        cert_row += 1
-        ws[f'A{cert_row}'] = "Date: ______________________"
-        ws[f'A{cert_row}'].font = base_font
+        signature_row += 1
+        ws[f'A{signature_row}'] = "Date: ______________________"
+        ws[f'A{signature_row}'].font = base_font
+        ws[f'A{signature_row}'].alignment = center_alignment
 
-        ws[f'B{cert_row}'] = "Date: _____________________"
-        ws[f'B{cert_row}'].font = base_font
-
-        ws[f'C{cert_row}'] = "Date:  _____________________"
-        ws[f'C{cert_row}'].font = base_font
-
-        # Apply borders to all relevant cells
-        for row in ws.iter_rows(min_row=1, max_row=cert_row, min_col=1, max_col=3):
-            for cell in row:
-                if cell.value:
-                    cell.border = thin_border
-
+        ws[f'B{signature_row}'] = "Date: ______________________"
+        ws[f'B{signature_row}'].font = base_font
+        ws[f'B{signature_row}'].alignment = center_alignment
+        
+        ws[f'C{signature_row}'] = "Date: _____________________"
+        ws[f'C{signature_row}'].font = base_font
+        ws[f'C{signature_row}'].alignment = center_alignment
+        
         # Create HTTP response with Excel file
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -2463,110 +2466,8 @@ def generate_liquidation_report(request, LiquidationID):
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
-        logger.error(
-            f"Error generating liquidation report: {str(e)}", exc_info=True)
+        logger.error(f"Error generating liquidation report: {str(e)}", exc_info=True)
         return Response(
             {'error': 'Failed to generate report'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_next_available_month(request):
-    """Get the next available month for the user to submit a request"""
-    user = request.user
-
-    # Create a temporary request object to use the method
-    temp_request = RequestManagement(user=user)
-    next_month = temp_request.get_next_available_month()
-
-    today = date.today()
-    try:
-        req_year, req_month = map(int, next_month.split('-'))
-        is_advance = (req_year, req_month) > (today.year, today.month)
-    except (ValueError, AttributeError):
-        is_advance = False
-
-    return Response({
-        'next_available_month': next_month,
-        'is_advance_request': is_advance,
-        'can_submit': RequestManagement.can_user_request_for_month(user, next_month)
-    })
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def debug_liquidation_times(request):
-    """Debug endpoint to check liquidation time calculations"""
-    liquidated_liquidations = LiquidationManagement.objects.filter(
-        status='liquidated',
-        date_liquidated__isnull=False,
-        created_at__isnull=False
-    ).order_by('-created_at')[:10]  # Get last 10 liquidations
-
-    debug_data = []
-    for liq in liquidated_liquidations:
-        if liq.date_liquidated and liq.created_at:
-            time_diff = liq.date_liquidated - liq.created_at
-            debug_data.append({
-                'liquidation_id': liq.LiquidationID,
-                'created_at': liq.created_at.isoformat(),
-                'date_liquidated': liq.date_liquidated.isoformat(),
-                'time_diff_seconds': time_diff.total_seconds(),
-                'time_diff_days': time_diff.total_seconds() / (24 * 60 * 60),
-                'is_realistic': time_diff.total_seconds() < (365 * 24 * 60 * 60)
-            })
-
-    return Response({
-        'total_liquidated': liquidated_liquidations.count(),
-        'sample_data': debug_data
-    })
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def check_request_eligibility(request):
-    """Check if user is eligible to submit a new request"""
-    user = request.user
-    target_month = request.query_params.get('month')  # Format: YYYY-MM
-
-    if target_month:
-        can_request = RequestManagement.can_user_request_for_month(
-            user, target_month)
-    else:
-        # Check for next available month
-        temp_request = RequestManagement(user=user)
-        next_month = temp_request.get_next_available_month()
-        can_request = RequestManagement.can_user_request_for_month(
-            user, next_month)
-        target_month = next_month
-
-    # Get current active requests
-    active_requests = RequestManagement.objects.filter(
-        user=user
-    ).exclude(status__in=['liquidated', 'rejected']).order_by('-created_at')
-
-    # Get reason if cannot request
-    reason = None
-    if not can_request:
-        existing_same_month = RequestManagement.objects.filter(
-            user=user,
-            request_monthyear=target_month
-        ).exclude(status='rejected').first()
-
-        if existing_same_month:
-            reason = f"You already have a request for {target_month}"
-        else:
-            unliquidated = active_requests.first()
-            if unliquidated:
-                reason = f"Please liquidate your current request ({unliquidated.request_id}) before submitting a new one"
-            else:
-                reason = "Cannot determine eligibility"
-
-    return Response({
-        'can_submit_request': can_request,
-        'target_month': target_month,
-        'reason': reason,
-        'active_requests': RequestManagementSerializer(active_requests, many=True).data
-    })

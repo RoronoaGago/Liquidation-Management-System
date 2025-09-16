@@ -59,7 +59,7 @@ import {
 import api from "@/api/axios";
 import { Responsive, WidthProvider, Layout } from "react-grid-layout";
 import Badge from "@/components/ui/badge/Badge";
-import { Skeleton, Switch } from "antd";
+import { Skeleton } from "antd";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
 import { MoreDotIcon } from "@/icons";
@@ -1152,7 +1152,7 @@ const CategoriesWidget = ({
         </div>
       ) : (
         // List View
-        <div className="space-y-4 overflow-auto max-h-[360px] pr-1">
+        <div className="space-y-4 overflow-auto max-h-[360px] pr-1 custom-scrollbar">
           {topCategories.map((category, index) => (
             <div
               key={category.category}
