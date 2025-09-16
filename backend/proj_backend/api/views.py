@@ -1347,7 +1347,7 @@ def request_history(request, request_id):
                 "last_name": h.user.last_name if h.user else "",
                 "school": {
                     "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
-                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "",
+                    "schoolName": h.user.school.schoolName if h_user and h.user.school else "", # type: ignore
                 } if h.user and h.user.school else None,
             } if h.user else None,
             "request_id": h.request_id,
@@ -2471,3 +2471,47 @@ def generate_liquidation_report(request, LiquidationID):
             {'error': 'Failed to generate report'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_next_available_month(request):
+    """
+    Returns the next available month for the current user to submit a request.
+    """
+    user = request.user
+    next_month = RequestManagement(user=user).get_next_available_month()
+    return Response({'next_available_month': next_month})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_request_eligibility(request):
+    """
+    Check if the current user is eligible to submit a request for a given month.
+    Pass ?month=YYYY-MM as a query parameter.
+    """
+    user = request.user
+    month = request.GET.get('month')
+    if not month:
+        return Response({'error': 'Missing month parameter (YYYY-MM)'}, status=400)
+    eligible = RequestManagement.can_user_request_for_month(user, month)
+    return Response({'eligible': eligible})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def debug_liquidation_times(request):
+    """
+    Debug endpoint: Returns all liquidations with their creation and liquidation dates.
+    """
+    from .models import LiquidationManagement
+    data = []
+    for liq in LiquidationManagement.objects.all():
+        data.append({
+            "LiquidationID": liq.LiquidationID,
+            "created_at": liq.created_at.isoformat() if liq.created_at else None,
+            "date_liquidated": liq.date_liquidated.isoformat() if liq.date_liquidated else None,
+            "status": liq.status,
+        })
+    return Response(data)
