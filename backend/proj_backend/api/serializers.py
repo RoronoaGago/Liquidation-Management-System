@@ -219,6 +219,10 @@ class UserSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant."}
                     )
+        if data.get('school') == "":
+            data['school'] = None
+        if data.get('school_district') == "":
+            data['school_district'] = None
         return data
 
     def create(self, validated_data):

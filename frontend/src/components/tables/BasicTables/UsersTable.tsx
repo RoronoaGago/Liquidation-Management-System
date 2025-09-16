@@ -108,7 +108,6 @@ interface FormErrors {
 
 export default function UsersTable({
   users,
-  setUsers,
   showArchived,
   setShowArchived,
   fetchUsers,
@@ -171,6 +170,7 @@ export default function UsersTable({
         : true;
     const noErrors = Object.keys(formErrors).length === 0;
     return requiredValid && roleValid && districtValid && noErrors;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUser, formErrors]);
 
   useEffect(() => {
@@ -278,6 +278,7 @@ export default function UsersTable({
           }
           break;
         case "date_of_birth":
+          // eslint-disable-next-line no-case-declarations
           const dateError = validateDateOfBirth(value);
           if (dateError) {
             newErrors.date_of_birth = dateError;
@@ -423,11 +424,6 @@ export default function UsersTable({
     setIsDialogOpen(true);
   };
 
-  const handleDeleteClick = (user: User) => {
-    setUserToDelete(user);
-    setIsDeleteDialogOpen(true);
-  };
-
   const handleViewUser = (user: User) => {
     setUserToView(user);
     setIsViewDialogOpen(true);
@@ -484,22 +480,33 @@ export default function UsersTable({
       formData.append("last_name", selectedUser.last_name);
       formData.append("email", selectedUser.email);
       formData.append("date_of_birth", selectedUser.date_of_birth || "");
-      formData.append(
-        "school_district_id",
-        selectedUser.school_district?.districtId?.toString() || ""
-      );
+
+      if (
+        selectedUser.school_district &&
+        selectedUser.school_district.districtId
+      ) {
+        formData.append(
+          "school_district_id",
+          selectedUser.school_district.districtId.toString()
+        );
+      }
+      // else: do not append school_district_id at all
+
+      if (
+        selectedUser.school &&
+        "schoolId" in selectedUser.school &&
+        selectedUser.school.schoolId
+      ) {
+        formData.append("school_id", selectedUser.school.schoolId.toString());
+      }
+      // else: do not append school_id at all
+
       if (selectedUser.phone_number) {
         formData.append("phone_number", selectedUser.phone_number);
-      } else {
-        formData.append("phone_number", "");
       }
+
       formData.append("role", selectedUser.role);
-      formData.append(
-        "school_id",
-        selectedUser.school && "schoolId" in selectedUser.school
-          ? selectedUser.school.schoolId.toString()
-          : ""
-      );
+
       if (selectedUser.password) {
         formData.append("password", selectedUser.password);
       }
@@ -520,30 +527,23 @@ export default function UsersTable({
       setIsDialogOpen(false);
       setIsConfirmDialogOpen(false);
     } catch (error) {
-      let errorMessage = "Failed to update user. Please try again.";
       if (axios.isAxiosError(error) && error.response) {
-        if (error.response.data.email) {
-          errorMessage = "Email already exists.";
-        } else if (error.response.data.password) {
-          errorMessage = "Password doesn't meet requirements.";
-        } else if (error.response.data.role) {
-          errorMessage = Array.isArray(error.response.data.role)
-            ? error.response.data.role[0]
-            : error.response.data.role;
-        } else if (error.response.data.is_active) {
-          errorMessage = Array.isArray(error.response.data.is_active)
-            ? error.response.data.is_active[0]
-            : error.response.data.is_active;
-        } else if (error.response.data.school_district) {
-          errorMessage = Array.isArray(error.response.data.school_district)
-            ? error.response.data.school_district[0]
-            : error.response.data.school_district;
+        const serverError = error.response.data;
+        console.error("Server validation errors:", serverError);
+        let errorMessage = "Failed to update user. Please try again.";
+        if (serverError.detail) {
+          errorMessage = serverError.detail;
+        } else if (typeof serverError === "object") {
+          // Flatten all error messages
+          errorMessage = Object.values(serverError).flat().join(", ");
         }
+        toast.error(errorMessage);
+      } else {
+        toast.error("An unexpected error occurred");
       }
-      console.error(error);
-      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
+      setIsConfirmDialogOpen(false);
     }
   };
 
