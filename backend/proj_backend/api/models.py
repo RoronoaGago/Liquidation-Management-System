@@ -586,8 +586,10 @@ class LiquidationManagement(models.Model):
         ('submitted', 'Submitted'),
         ('under_review_district', 'Under Review (District)'),
         ('under_review_division', 'Under Review (Division)'),
+        ('under_review_accountant', 'Under Review (Accountant)'),  # <-- NEW
         ('resubmit', 'Needs Revision'),
         ('approved_district', 'Approved by District'),
+        ('approved_division', 'Approved by Division'),             # <-- NEW
         ('liquidated', 'Liquidated'),
     ]
 
@@ -617,6 +619,10 @@ class LiquidationManagement(models.Model):
         User, null=True, blank=True, related_name='division_reviewed_liquidations', on_delete=models.SET_NULL
     )
     reviewed_at_division = models.DateTimeField(null=True, blank=True)
+    reviewed_by_accountant = models.ForeignKey(  # <-- NEW
+        User, null=True, blank=True, related_name='accountant_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_accountant = models.DateTimeField(null=True, blank=True)  # <-- NEW
     created_at = models.DateTimeField(auto_now_add=True)
     date_districtApproved = models.DateField(null=True, blank=True)
     date_liquidated = models.DateField(null=True, blank=True)
