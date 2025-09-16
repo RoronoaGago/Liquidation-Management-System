@@ -477,6 +477,37 @@ class RequestManagement(models.Model):
 
         return True
 
+    @classmethod
+    def can_user_request_for_month_with_reason(cls, user, month_str):
+        """
+        Enhanced version of can_user_request_for_month that returns (eligible: bool, reason: str | None).
+        month_str: 'YYYY-MM' format.
+        """
+        try:
+            year, month = map(int, month_str.split('-'))
+            value = f"{year:04d}-{month:02d}"
+        except ValueError:
+            return False, "Invalid month format. Use YYYY-MM."
+
+        # Check for existing request in the same month
+        existing = cls.objects.filter(
+            user=user,
+            request_monthyear=value
+        ).exclude(status='rejected').first()
+
+        if existing:
+            return False, f"You already have a request for {value} (ID: {existing.request_id}). Please complete or liquidate it first."
+
+        # Check for unliquidated requests
+        unliquidated = cls.objects.filter(
+            user=user
+        ).exclude(status__in=['liquidated', 'rejected']).first()
+
+        if unliquidated:
+            return False, f"You have an unliquidated or pending request ({unliquidated.request_id}). Please liquidate it before submitting a new one."
+
+        return True, None
+
     def set_automatic_status(self):
         """Enhanced automatic status setting with business rules"""
         if self.status in ['approved', 'downloaded', 'unliquidated', 'liquidated', 'rejected']:

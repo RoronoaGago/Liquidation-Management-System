@@ -54,7 +54,15 @@ const App = () => {
           <Route element={<RequireAuth />}>
             <Route
               path="/"
-              element={user?.role === "admin" ? <AdminDashboard /> : <Home />}
+              element={
+                user?.role === "admin" ? (
+                  <AdminDashboard />
+                ) : user?.role === "school_head" ? (
+                  <SchoolHeadDashboard />
+                ) : (
+                  <Home />
+                )
+              }
             />
             <Route path="/profile" element={<UserProfile />} />
           </Route>

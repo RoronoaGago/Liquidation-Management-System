@@ -2490,13 +2490,14 @@ def check_request_eligibility(request):
     """
     Check if the current user is eligible to submit a request for a given month.
     Pass ?month=YYYY-MM as a query parameter.
+    Returns {'eligible': bool, 'reason': str | null}.
     """
     user = request.user
     month = request.GET.get('month')
     if not month:
         return Response({'error': 'Missing month parameter (YYYY-MM)'}, status=400)
-    eligible = RequestManagement.can_user_request_for_month(user, month)
-    return Response({'eligible': eligible})
+    eligible, reason = RequestManagement.can_user_request_for_month_with_reason(user, month)
+    return Response({'eligible': eligible, 'reason': reason})
 
 
 @api_view(['GET'])

@@ -31,6 +31,13 @@ import {
 } from "@/components/ui/dialog";
 import api from "@/api/axios";
 import DocumentTextIcon from "@heroicons/react/outline/DocumentTextIcon";
+// import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@radix-ui/react-tooltip";
 
 const CATEGORY_LABELS: Record<string, string> = {
   travel: "Travel Expenses",
@@ -104,6 +111,12 @@ const MOOERequestPage = () => {
   const [lastLiquidatedYear, setLastLiquidatedYear] = useState<number | null>(
     null
   );
+
+  // Eligibility state
+  const [eligibility, setEligibility] = useState<{
+    eligible: boolean;
+    reason?: string;
+  }>({ eligible: true });
 
   // Function to select all items in a category
   const doCategorySelectAll = (category: string) => {
@@ -387,12 +400,29 @@ const MOOERequestPage = () => {
     e.preventDefault();
     setActionLoading(true);
     setSubmitting(true);
-    // Check eligibility first
-    const canSubmit = await checkEligibility();
-    if (!canSubmit) {
-      toast.error("You are not eligible to submit a request at this time.");
+
+    // Re-check eligibility before submit
+    try {
+      const eligibilityRes = await api.get(
+        `requests/check-eligibility/?month=${targetMonth}`
+      );
+      setEligibility(eligibilityRes.data);
+      if (!eligibilityRes.data.eligible) {
+        toast.error(
+          eligibilityRes.data.reason ||
+            "You are not eligible to submit a request at this time."
+        );
+        setSubmitting(false);
+        setActionLoading(false);
+        return;
+      }
+    } catch (err) {
+      toast.error("Eligibility check failed. Please try again.");
+      setSubmitting(false);
+      setActionLoading(false);
       return;
     }
+
     try {
       // Get the next available month from the backend
       const nextMonthResponse = await api.get("requests/next-available-month/");
@@ -986,40 +1016,44 @@ const MOOERequestPage = () => {
               >
                 Cancel
               </Button>
-              <Button
-                variant="primary"
-                onClick={async () => {
-                  setShowSubmitDialog(false);
-                  await handleSubmit(new Event("submit") as any);
-                }}
-                disabled={
-                  actionLoading || submitting || totalAmount < allocatedBudget
-                }
-                className="px-4 py-2"
-              >
-                {actionLoading || submitting ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Submitting...
-                  </span>
-                ) : (
-                  "Confirm & Submit"
-                )}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={
+                        submitting || isFormDisabled || !eligibility.eligible
+                      }
+                      className="min-w-[180px]"
+                    >
+                      {isFormDisabled ? (
+                        hasPendingRequest ? (
+                          "Request Pending"
+                        ) : (
+                          "Liquidation in Progress"
+                        )
+                      ) : submitting ? (
+                        "Submitting..."
+                      ) : !eligibility.eligible ? (
+                        "Ineligible"
+                      ) : (
+                        <>
+                          Submit Request
+                          <span className="ml-2 font-normal">
+                            (₱{totalAmount.toLocaleString()})
+                          </span>
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  {!eligibility.eligible && (
+                    <TooltipContent>
+                      <p>{eligibility.reason}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </DialogContent>
@@ -1512,29 +1546,46 @@ const MOOERequestPage = () => {
                         >
                           Clear All
                         </Button>
-                        <Button
-                          type="submit"
-                          variant="primary"
-                          disabled={submitting || isFormDisabled}
-                          className="min-w-[180px]"
-                        >
-                          {isFormDisabled ? (
-                            hasPendingRequest ? (
-                              "Request Pending"
-                            ) : (
-                              "Liquidation in Progress"
-                            )
-                          ) : submitting ? (
-                            "Submitting..."
-                          ) : (
-                            <>
-                              Submit Request
-                              <span className="ml-2 font-normal">
-                                (₱{totalAmount.toLocaleString()})
-                              </span>
-                            </>
-                          )}
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="submit"
+                                variant="primary"
+                                disabled={
+                                  submitting ||
+                                  isFormDisabled ||
+                                  !eligibility.eligible
+                                }
+                                className="min-w-[180px]"
+                              >
+                                {isFormDisabled ? (
+                                  hasPendingRequest ? (
+                                    "Request Pending"
+                                  ) : (
+                                    "Liquidation in Progress"
+                                  )
+                                ) : submitting ? (
+                                  "Submitting..."
+                                ) : !eligibility.eligible ? (
+                                  "Ineligible"
+                                ) : (
+                                  <>
+                                    Submit Request
+                                    <span className="ml-2 font-normal">
+                                      (₱{totalAmount.toLocaleString()})
+                                    </span>
+                                  </>
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            {!eligibility.eligible && (
+                              <TooltipContent>
+                                <p>{eligibility.reason}</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     </div>
                   </>

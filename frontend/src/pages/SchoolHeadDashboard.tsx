@@ -1,490 +1,665 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import Button from "@/components/ui/button/Button";
 import {
-  PlusCircle,
-  Upload,
-  AlertTriangle,
-  Calendar,
-  ArrowRight,
-  ChevronRight,
+  DollarSign,
   FileText,
-  AlertCircle,
+  CheckCircle2,
+  Upload,
+  BarChart3,
+  Clock,
+  Download,
 } from "lucide-react";
+import { Card, Statistic, Progress, Table, Tag, Space } from "antd";
 import api from "@/api/axios";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/helpers";
 
-interface DashboardData {
-  allocatedBudget: number;
-  pendingRequests: any[];
-  activeLiquidations: any[];
-  recentActivity: any[];
-  liquidationDeadlines: {
-    requestId: string;
-    deadline: Date;
-    daysRemaining: number;
-    status: string;
-  }[];
+interface PrioritySummary {
+  id: string | number;
+  title: string;
+  downloadedAmount: number;
+  actualAmount: number;
+  uploadedCompletion: number; // Percentage of required docs uploaded
+  status: "completed" | "partial" | "pending";
 }
 
-const StatusBadge = ({ status }: { status: string }) => {
-  const statusClasses: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    approved: "bg-blue-100 text-blue-800",
-    downloaded: "bg-green-100 text-green-800",
-    unliquidated: "bg-orange-100 text-orange-800",
-    liquidated: "bg-purple-100 text-purple-800",
-    submitted: "bg-blue-100 text-blue-800",
-    under_review_district: "bg-yellow-100 text-yellow-800",
-    under_review_division: "bg-yellow-100 text-yellow-800",
-    approved_district: "bg-green-100 text-green-800",
-    resubmit: "bg-red-100 text-red-800",
-  };
+interface DashboardData {
+  totalDownloaded: number;
+  totalActual: number;
+  liquidatedPercentage: number;
+  uploadCompletion: number; // Overall % of priorities with full uploads
+  priorities: PrioritySummary[];
+  remainingDays?: number;
+}
 
-  const statusLabels: Record<string, string> = {
-    pending: "Pending",
-    approved: "Approved",
-    downloaded: "Downloaded",
-    unliquidated: "Unliquidated",
-    liquidated: "Liquidated",
-    submitted: "Submitted",
-    under_review_district: "Under Review (District)",
-    under_review_division: "Under Review (Division)",
-    approved_district: "Approved (District)",
-    resubmit: "Needs Revision",
-  };
+interface RequestPriority {
+  id: string | number;
+  title: string;
+  amount: number;
+}
 
-  return (
-    <span
-      className={`px-2 py-0.5 rounded text-xs font-semibold ${
-        statusClasses[status] || "bg-gray-100 text-gray-800"
-      }`}
-    >
-      {statusLabels[status] || status}
-    </span>
-  );
-};
+interface RequestData {
+  totalRequested: number;
+  numPriorities: number;
+  status: string;
+  nextAvailableMonth: string;
+  canSubmit: boolean;
+  priorities: RequestPriority[];
+  requestMonthyear: string;
+}
 
 const SchoolHeadDashboard = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<DashboardData>({
-    allocatedBudget: 0,
-    pendingRequests: [],
-    activeLiquidations: [],
-    recentActivity: [],
-    liquidationDeadlines: [],
-  });
-  const [showLiquidationAlert, setShowLiquidationAlert] = useState(false);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [requestData, setRequestData] = useState<RequestData | null>(null);
+  const [maxBudget, setMaxBudget] = useState(0);
+  const [mode, setMode] = useState<"request" | "liquidation" | "none">("none");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      setLoading(true);
+      setMode("none");
       try {
-        setLoading(true);
-        const [budgetRes, pendingRes, liquidationsRes, activityRes] =
-          await Promise.all([
-            api
-              .get("/users/me/")
-              .then((res) => api.get(`/schools/${res.data.school?.schoolId}/`)),
-            api.get("/user-requests/"), // <-- user-specific requests
-            api.get("/liquidation/"), // <-- user-specific liquidations
-            api.get("/requests/?limit=5"),
-          ]);
+        // Fetch user data to get school budget
+        const userRes = await api.get("/users/me/");
+        const userData = userRes.data;
+        const fetchedMaxBudget = userData.school?.max_budget || 0;
+        setMaxBudget(fetchedMaxBudget);
 
-        const allocatedBudget = Number(budgetRes.data.max_budget) || 0;
-        // Filter only pending/approved for active requests
-        const pendingRequests = (
-          pendingRes.data.results ||
-          pendingRes.data ||
-          []
-        ).filter((r: any) =>
-          ["pending", "approved", "downloaded"].includes(r.status)
-        );
-        // Filter out liquidated for active liquidations
-        const activeLiquidations = (
-          liquidationsRes.data.results ||
-          liquidationsRes.data ||
-          []
-        ).filter((l: any) => l.status !== "liquidated");
-        const recentActivity =
-          activityRes.data.results || activityRes.data || [];
+        // Fetch pending liquidation
+        const res = await api.get("/liquidation/");
+        const liquidationData = Array.isArray(res.data) ? res.data[0] : null;
 
-        // Calculate liquidation deadlines
-        const liquidationDeadlines = activeLiquidations
-          .filter((l: any) => l.request?.downloaded_at)
-          .map((l: any) => {
-            const deadline = new Date(l.request.downloaded_at);
-            deadline.setDate(deadline.getDate() + 30);
-            return {
-              requestId: l.request?.request_id,
-              deadline,
-              daysRemaining: Math.ceil(
-                (deadline.getTime() - new Date().getTime()) /
-                  (1000 * 60 * 60 * 24)
-              ),
-              status: l.status,
-            };
+        if (liquidationData) {
+          // Process liquidation data
+          const priorities = (liquidationData.request?.priorities || []).map(
+            (priority: any) => {
+              const expenseId = priority.id || priority.priority?.LOPID || "";
+              const downloadedAmount = Number(priority.amount) || 0;
+              const actualAmount =
+                liquidationData.actual_amounts?.find(
+                  (a: any) => a.expense_id === expenseId
+                )?.actual_amount || 0;
+
+              // Calculate upload completion for this priority
+              const requirements = priority.priority?.requirements || [];
+              const requiredReqs = requirements.filter(
+                (r: any) => r.is_required
+              );
+              const totalRequired = requiredReqs.length;
+              let uploadedRequired = 0;
+              (liquidationData.documents || []).forEach((doc: any) => {
+                if (String(doc.request_priority_id) === String(expenseId)) {
+                  const req = requiredReqs.find(
+                    (r: any) =>
+                      String(r.requirementID) === String(doc.requirement_id)
+                  );
+                  if (req && doc.is_approved !== false) {
+                    uploadedRequired++;
+                  }
+                }
+              });
+              const uploadedCompletion =
+                totalRequired > 0
+                  ? (uploadedRequired / totalRequired) * 100
+                  : 100;
+
+              const status =
+                uploadedCompletion === 100
+                  ? "completed"
+                  : uploadedCompletion > 0
+                  ? "partial"
+                  : "pending";
+
+              return {
+                id: expenseId,
+                title: priority.priority?.expenseTitle || "",
+                downloadedAmount,
+                actualAmount,
+                uploadedCompletion,
+                status,
+              };
+            }
+          );
+
+          const totalDownloaded = priorities.reduce(
+            (sum: any, p: { downloadedAmount: any }) =>
+              sum + p.downloadedAmount,
+            0
+          );
+          const totalActual = priorities.reduce(
+            (sum: any, p: { actualAmount: any }) => sum + p.actualAmount,
+            0
+          );
+          const liquidatedPercentage =
+            totalDownloaded > 0 ? (totalActual / totalDownloaded) * 100 : 0;
+          const completedPriorities = priorities.filter(
+            (p: { status: string }) => p.status === "completed"
+          ).length;
+          const totalPriorities = priorities.length;
+          const uploadCompletion =
+            totalPriorities > 0
+              ? (completedPriorities / totalPriorities) * 100
+              : 0;
+
+          setData({
+            totalDownloaded,
+            totalActual,
+            liquidatedPercentage,
+            uploadCompletion,
+            priorities,
+            remainingDays: liquidationData.remaining_days ?? null,
           });
-
-        setDashboardData({
-          allocatedBudget,
-          pendingRequests,
-          activeLiquidations,
-          recentActivity,
-          liquidationDeadlines,
-        });
-
-        // Show alert if any liquidation is due in <=5 days
-        if (
-          liquidationDeadlines.some(
-            (ld: { daysRemaining: number }) =>
-              ld.daysRemaining <= 5 && ld.daysRemaining > 0
-          )
-        ) {
-          setShowLiquidationAlert(true);
+          setMode("liquidation");
+          setLoading(false);
+          return;
         }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        toast.error("Failed to load dashboard data");
+
+        // No liquidation, fetch user requests
+        const reqRes = await api.get("/user-requests/");
+        const requests = reqRes.data || [];
+        // Find the current active request (not liquidated or rejected)
+        const currentRequest =
+          requests.find(
+            (r: any) => !["liquidated", "rejected"].includes(r.status)
+          ) || requests[0];
+
+        if (currentRequest) {
+          // Process request data
+          const priorities = currentRequest.priorities || [];
+          const processedPriorities = priorities.map((p: any) => ({
+            id: p.id || p.LOPID,
+            title: p.priority?.expenseTitle || p.expenseTitle || "",
+            amount: Number(p.amount),
+          }));
+
+          const totalRequested = processedPriorities.reduce(
+            (sum: number, p: RequestPriority) => sum + p.amount,
+            0
+          );
+
+          setRequestData({
+            totalRequested,
+            numPriorities: processedPriorities.length,
+            status: currentRequest.status,
+            nextAvailableMonth: currentRequest.next_available_month || "",
+            canSubmit: currentRequest.can_submit_for_month || false,
+            priorities: processedPriorities,
+            requestMonthyear: currentRequest.request_monthyear || "",
+          });
+        } else {
+          // Fetch next available month even if no requests exist
+          const monthRes = await api.get("/requests/next-available-month/");
+          setRequestData({
+            totalRequested: 0,
+            numPriorities: 0,
+            status: "none",
+            nextAvailableMonth: monthRes.data.next_available_month || "",
+            canSubmit: true,
+            priorities: [],
+            requestMonthyear: "",
+          });
+        }
+        setMode("request");
+      } catch (err) {
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
 
-  const getRequestProgress = (status: string): number => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending":
-        return 33;
       case "approved":
-        return 66;
       case "downloaded":
-        return 100;
+        return "#10b981";
+      case "pending":
+        return "#f59e0b";
+      case "rejected":
+        return "#ef4444";
+      default:
+        return "#6b7280";
+    }
+  };
+
+  const getTagColor = (status: string) => {
+    switch (status) {
+      case "approved":
+      case "downloaded":
+        return "green";
+      case "pending":
+        return "blue";
+      case "rejected":
+        return "red";
+      default:
+        return "default";
+    }
+  };
+
+  const getStatusPercent = (status: string) => {
+    switch (status) {
+      case "downloaded":
+        return 75;
+      case "approved":
+        return 50;
+      case "pending":
+        return 25;
+      case "rejected":
+      case "none":
+        return 0;
       default:
         return 0;
     }
   };
 
-  const getProgressColor = (status: string, daysRemaining?: number) => {
-    if (status === "pending") return "bg-yellow-500";
-    if (status === "approved") return "bg-blue-500";
-    if (status === "downloaded") return "bg-green-500";
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg">Loading dashboard...</div>
+      </div>
+    );
+  }
 
-    if (daysRemaining !== undefined) {
-      if (daysRemaining <= 5) return "bg-red-500";
-      if (daysRemaining <= 15) return "bg-yellow-500";
-      return "bg-green-500";
-    }
+  if (mode === "liquidation" && data) {
+    const columns = [
+      {
+        title: "Expense",
+        dataIndex: "title",
+        key: "title",
+        render: (text: string) => <span className="font-medium">{text}</span>,
+      },
+      {
+        title: "Downloaded Amount",
+        dataIndex: "downloadedAmount",
+        key: "downloadedAmount",
+        render: (amount: number) => formatCurrency(amount),
+      },
+      {
+        title: "Actual Amount",
+        dataIndex: "actualAmount",
+        key: "actualAmount",
+        render: (amount: number) => formatCurrency(amount),
+      },
+      {
+        title: "Liquidated %",
+        dataIndex: "downloadedAmount",
+        key: "liquidatedPct",
+        render: (_: any, record: PrioritySummary) => {
+          const pct =
+            record.downloadedAmount > 0
+              ? (record.actualAmount / record.downloadedAmount) * 100
+              : 0;
+          return (
+            <Progress
+              percent={pct}
+              size="small"
+              status="active"
+              strokeColor="#10b981"
+              className="w-20"
+            />
+          );
+        },
+      },
+      {
+        title: "Upload Completion",
+        dataIndex: "uploadedCompletion",
+        key: "uploadCompletion",
+        render: (pct: number) => (
+          <Progress
+            percent={pct}
+            size="small"
+            status={pct === 100 ? "success" : "active"}
+            strokeColor={pct === 100 ? "#10b981" : "#f59e0b"}
+            className="w-20"
+          />
+        ),
+      },
+      {
+        title: "Status",
+        key: "status",
+        render: (_: any, record: PrioritySummary) => {
+          const color =
+            record.status === "completed"
+              ? "green"
+              : record.status === "partial"
+              ? "orange"
+              : "gray";
+          return <Tag color={color}>{record.status.toUpperCase()}</Tag>;
+        },
+      },
+    ];
 
-    return "bg-gray-500";
-  };
+    return (
+      <div className="space-y-6">
+        <PageBreadcrumb pageTitle="School Head Dashboard" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Downloaded */}
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
+            <Statistic
+              title={
+                <Space>
+                  <Download className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Total Downloaded
+                </Space>
+              }
+              value={data.totalDownloaded}
+              precision={2}
+              valueStyle={{ color: "#3b82f6" }}
+              prefix={<DollarSign className="h-4 w-4 inline" />}
+              formatter={(value) => formatCurrency(Number(value))}
+            />
+          </Card>
+
+          {/* Total Liquidated */}
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20">
+            <Statistic
+              title={
+                <Space>
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  Total Liquidated
+                </Space>
+              }
+              value={data.totalActual}
+              precision={2}
+              valueStyle={{ color: "#10b981" }}
+              prefix={<DollarSign className="h-4 w-4 inline" />}
+              formatter={(value) => formatCurrency(Number(value))}
+            />
+          </Card>
+
+          {/* Liquidated Percentage */}
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
+            <Statistic
+              title={
+                <Space>
+                  <BarChart3 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  Liquidated %
+                </Space>
+              }
+              value={data.liquidatedPercentage}
+              precision={1}
+              suffix="%"
+              valueStyle={{
+                color:
+                  data.liquidatedPercentage > 80
+                    ? "#10b981"
+                    : data.liquidatedPercentage > 50
+                    ? "#f59e0b"
+                    : "#ef4444",
+              }}
+            />
+            <Progress
+              percent={data.liquidatedPercentage}
+              status="active"
+              strokeColor={
+                data.liquidatedPercentage > 80
+                  ? "#10b981"
+                  : data.liquidatedPercentage > 50
+                  ? "#f59e0b"
+                  : "#ef4444"
+              }
+              className="mt-2"
+            />
+          </Card>
+
+          {/* Upload Completion */}
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20">
+            <Statistic
+              title={
+                <Space>
+                  <Upload className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                  Upload Completion
+                </Space>
+              }
+              value={data.uploadCompletion}
+              precision={1}
+              suffix="%"
+              valueStyle={{
+                color:
+                  data.uploadCompletion > 80
+                    ? "#10b981"
+                    : data.uploadCompletion > 50
+                    ? "#f59e0b"
+                    : "#ef4444",
+              }}
+            />
+            <Progress
+              percent={data.uploadCompletion}
+              status="active"
+              strokeColor={
+                data.uploadCompletion > 80
+                  ? "#10b981"
+                  : data.uploadCompletion > 50
+                  ? "#f59e0b"
+                  : "#ef4444"
+              }
+              className="mt-2"
+            />
+            {data.remainingDays !== undefined && (
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                <Clock className="h-3 w-3 mr-1" />
+                {data.remainingDays} days remaining
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Priorities Table */}
+        <Card
+          title={
+            <Space>
+              <FileText className="h-5 w-5" />
+              List of Priorities (Expenses)
+            </Space>
+          }
+          className="shadow-sm"
+        >
+          <Table
+            columns={columns}
+            dataSource={data.priorities}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            loading={loading}
+            scroll={{ x: "max-content" }}
+            className="modern-table"
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  // Default to request mode even if no request data exists
+  const statusPercent = requestData ? getStatusPercent(requestData.status) : 0;
+  const eligiblePercent = requestData?.canSubmit ? 100 : 0;
+  const utilization =
+    maxBudget > 0 && requestData
+      ? (requestData.totalRequested / maxBudget) * 100
+      : 0;
+  const remainingBudget = maxBudget - (requestData?.totalRequested || 0);
+
+  const requestColumns = [
+    {
+      title: "Expense",
+      dataIndex: "title",
+      key: "title",
+      render: (text: string) => <span className="font-medium">{text}</span>,
+    },
+    {
+      title: "Requested Amount",
+      dataIndex: "amount",
+      key: "amount",
+      render: (amount: number) => formatCurrency(amount),
+    },
+    {
+      title: "Status",
+      key: "status",
+      render: () => (
+        <Tag color={getTagColor(requestData?.status || "none")}>
+          {(requestData?.status || "none").toUpperCase()}
+        </Tag>
+      ),
+    },
+  ];
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">School Head Dashboard</h1>
+    <div className="space-y-6">
+      <PageBreadcrumb pageTitle="School Head Dashboard" />
 
-      {/* Liquidation Alert Banner */}
-      {showLiquidationAlert && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-          <div>
-            <h3 className="font-medium text-red-800">
-              Urgent: Pending Liquidations
-            </h3>
-            <p className="text-sm text-red-700">
-              You have liquidations due soon. Please submit before the deadline
-              to avoid penalties.
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2 text-red-700 hover:bg-red-100"
-              onClick={() => navigate("/liquidation")}
-            >
-              View Liquidations <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Requested */}
+        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
+          <Statistic
+            title={
+              <Space>
+                <Download className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Total Requested
+              </Space>
+            }
+            value={requestData?.totalRequested || 0}
+            precision={2}
+            valueStyle={{ color: "#3b82f6" }}
+            prefix={<DollarSign className="h-4 w-4 inline" />}
+            formatter={(value) => formatCurrency(Number(value))}
+          />
+        </Card>
+
+        {/* Budget Utilization */}
+        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20">
+          <Statistic
+            title={
+              <Space>
+                <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                Budget Utilization
+              </Space>
+            }
+            value={utilization}
+            precision={1}
+            suffix="%"
+            valueStyle={{
+              color:
+                utilization > 80
+                  ? "#ef4444"
+                  : utilization > 50
+                  ? "#f59e0b"
+                  : "#10b981",
+            }}
+          />
+          <Progress
+            percent={utilization}
+            status="active"
+            strokeColor={
+              utilization > 80
+                ? "#ef4444"
+                : utilization > 50
+                ? "#f59e0b"
+                : "#10b981"
+            }
+            className="mt-2"
+          />
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Remaining: {formatCurrency(remainingBudget)}
           </div>
-        </div>
-      )}
+        </Card>
 
-      {/* Quick Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* Budget Allocation Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Monthly MOOE Allocation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ₱{dashboardData.allocatedBudget.toLocaleString()}
+        {/* Request Progress */}
+        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
+          <Statistic
+            title={
+              <Space>
+                <BarChart3 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                Request Progress
+              </Space>
+            }
+            value={statusPercent}
+            precision={0}
+            suffix="%"
+            valueStyle={{
+              color: getStatusColor(requestData?.status || "none"),
+            }}
+          />
+          <Progress
+            percent={statusPercent}
+            status="active"
+            strokeColor={getStatusColor(requestData?.status || "none")}
+            className="mt-2"
+          />
+        </Card>
+
+        {/* Eligible to Submit */}
+        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20">
+          <Statistic
+            title={
+              <Space>
+                <CheckCircle2 className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                Eligible to Submit
+              </Space>
+            }
+            value={eligiblePercent}
+            precision={0}
+            suffix="%"
+            valueStyle={{
+              color: requestData?.canSubmit ? "#10b981" : "#ef4444",
+            }}
+          />
+          <Progress
+            percent={eligiblePercent}
+            status={requestData?.canSubmit ? "success" : "exception"}
+            strokeColor={requestData?.canSubmit ? "#10b981" : "#ef4444"}
+            className="mt-2"
+          />
+          {requestData?.nextAvailableMonth && (
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Next: {requestData.nextAvailableMonth}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Based on school enrollment
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Active Requests Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Request
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dashboardData.pendingRequests.length > 0 ? (
-              dashboardData.pendingRequests.map((request: any) => (
-                <div key={request.request_id} className="mb-4">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-medium">
-                      Request {request.request_id}
-                    </span>
-                    <StatusBadge status={request.status} />
-                  </div>
-                  <Progress
-                    value={getRequestProgress(request.status)}
-                    className="h-2"
-                    indicatorClassName={getProgressColor(request.status)}
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Submitted</span>
-                    <span>Approved</span>
-                    <span>Downloaded</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center text-sm text-gray-500">
-                No active requests
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Active Liquidations Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Liquidation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dashboardData.activeLiquidations.filter(
-              (l: any) => l.status !== "liquidated"
-            ).length > 0 ? (
-              dashboardData.activeLiquidations
-                .filter((l: any) => l.status !== "liquidated")
-                .map((liquidation: any) => {
-                  const remaining_days = (() => {
-                    if (!liquidation.request?.downloaded_at) return null;
-                    const start = new Date(liquidation.request.downloaded_at);
-                    const deadline = new Date(start);
-                    deadline.setDate(deadline.getDate() + 30);
-                    return Math.ceil(
-                      (deadline.getTime() - new Date().getTime()) /
-                        (1000 * 60 * 60 * 24)
-                    );
-                  })();
-                  return (
-                    <div
-                      key={liquidation.LiquidationID || liquidation.id}
-                      className="mb-4"
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium">
-                          Request {liquidation.request?.request_id}
-                        </span>
-                        <StatusBadge status={liquidation.status} />
-                      </div>
-                      {liquidation.request?.downloaded_at && (
-                        <>
-                          <Progress
-                            value={
-                              remaining_days !== null
-                                ? ((30 - remaining_days) / 30) * 100
-                                : 0
-                            }
-                            className="h-2"
-                            indicatorClassName={getProgressColor(
-                              liquidation.status,
-                              remaining_days || 0
-                            )}
-                          />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>Start</span>
-                            {remaining_days !== null && (
-                              <span className="font-medium">
-                                {remaining_days} days left
-                              </span>
-                            )}
-                            <span>Deadline</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })
-            ) : (
-              <div className="text-center text-sm text-gray-500">
-                No active liquidations
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Create LOP Card */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <PlusCircle className="h-5 w-5 text-blue-600" />
-              Submit MOOE Request
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              Submit your monthly MOOE spending plan for approval
-            </p>
-            <Button
-              onClick={() => navigate("/prepare-list-of-priorities")}
-              disabled={dashboardData.pendingRequests.length > 0}
-              className="w-full"
-            >
-              {dashboardData.pendingRequests.length > 0
-                ? "Pending Request Exists"
-                : "Submit New Request"}
-            </Button>
-            {dashboardData.pendingRequests.length > 0 && (
-              <p className="text-xs text-red-600 mt-2">
-                Only one active request is allowed at a time.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Submit Liquidation Card */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Upload className="h-5 w-5 text-blue-600" />
-              Submit Liquidation Report
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              Upload supporting documents for your Liquidation Report
-            </p>
-            <Button
-              onClick={() => navigate("/liquidation")}
-              disabled={
-                !dashboardData.pendingRequests.some(
-                  (req: any) => req.status === "downloaded"
-                )
-              }
-              className="w-full"
-            >
-              {dashboardData.pendingRequests.some(
-                (req: any) => req.status === "downloaded"
-              )
-                ? "View Liquidations"
-                : "No Downloaded Requests"}
-            </Button>
-            {dashboardData.pendingRequests.length > 0 &&
-              !dashboardData.pendingRequests.some(
-                (req: any) => req.status === "downloaded"
-              ) && (
-                <p className="text-xs text-yellow-600 mt-2">
-                  You can only submit a liquidation after your request has been
-                  downloaded. Complete your current request first.
-                </p>
-              )}
-            {/* {dashboardData.pendingRequests.some(
-              (req: any) => req.status === "downloaded"
-            ) ? null : (
-              <p className="text-xs text-red-600 mt-2">
-                You can only submit a liquidation after your request has been
-                downloaded.
-              </p>
-            )} */}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-gray-500" />
-            Recent Activity
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/requests-history")}
-            className="text-blue-600 hover:text-blue-800"
-          >
-            View All <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-3">
-          {dashboardData.recentActivity.length > 0 ? (
-            dashboardData.recentActivity.map((activity, index) => (
-              <Card key={index} className="hover:shadow-sm transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-medium flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-gray-400" />
-                        Request {activity.request_id}
-                      </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {new Date(activity.created_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={activity.status} />
-                    </div>
-                  </div>
-                  {activity.rejection_comment && (
-                    <div className="mt-2 p-2 bg-red-50 rounded text-sm text-red-700 flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <span className="font-medium">Rejection Reason:</span>{" "}
-                        {activity.rejection_comment}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <CardContent className="p-4 text-center text-gray-500">
-                No recent activity found
-              </CardContent>
-            </Card>
           )}
-        </div>
+        </Card>
       </div>
+
+      {/* Priorities Table */}
+      <Card
+        title={
+          <Space>
+            <FileText className="h-5 w-5" />
+            List of Priorities (Expenses)
+            {requestData?.requestMonthyear &&
+              ` - ${requestData.requestMonthyear}`}
+          </Space>
+        }
+        extra={
+          <Button
+            type="button"
+            onClick={() => navigate("/requests/create")}
+            size="sm"
+            disabled={!requestData?.canSubmit}
+          >
+            Create New MOOE Request
+          </Button>
+        }
+        className="shadow-sm"
+      >
+        <Table
+          columns={requestColumns}
+          dataSource={requestData?.priorities || []}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+          loading={loading}
+          scroll={{ x: "max-content" }}
+          className="modern-table"
+        />
+      </Card>
     </div>
   );
 };
