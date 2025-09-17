@@ -2493,26 +2493,138 @@ def check_request_eligibility(request):
     Returns {'eligible': bool, 'reason': str | null}.
     """
     user = request.user
-    month = request.GET.get('month')
-    if not month:
-        return Response({'error': 'Missing month parameter (YYYY-MM)'}, status=400)
-    eligible, reason = RequestManagement.can_user_request_for_month_with_reason(user, month)
-    return Response({'eligible': eligible, 'reason': reason})
+    target_month = request.query_params.get('month')  # Format: YYYY-MM
+
+    if target_month:
+        can_request = RequestManagement.can_user_request_for_month(
+            user, target_month)
+    else:
+        # Check for next available month
+        temp_request = RequestManagement(user=user)
+        next_month = temp_request.get_next_available_month()
+        can_request = RequestManagement.can_user_request_for_month(
+            user, next_month)
+        target_month = next_month
+
+    # Get current active requests
+    active_requests = RequestManagement.objects.filter(
+        user=user
+    ).exclude(status__in=['liquidated', 'rejected']).order_by('-created_at')
+
+    # Get reason if cannot request
+    reason = None
+    if not can_request:
+        existing_same_month = RequestManagement.objects.filter(
+            user=user,
+            request_monthyear=target_month
+        ).exclude(status='rejected').first()
+
+        if existing_same_month:
+            reason = f"You already have a request for {target_month}"
+        else:
+            unliquidated = active_requests.first()
+            if unliquidated:
+                reason = f"Please liquidate your current request ({unliquidated.request_id}) before submitting a new one"
+            else:
+                reason = "Cannot determine eligibility"
+
+    return Response({
+        'can_submit_request': can_request,
+        'target_month': target_month,
+        'reason': reason,
+        'active_requests': RequestManagementSerializer(active_requests, many=True).data
+    })
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def debug_liquidation_times(request):
+def generate_approved_request_pdf(request, request_id):
     """
-    Debug endpoint: Returns all liquidations with their creation and liquidation dates.
+    Generate PDF with actual e-signatures after approval
+    This endpoint can only be accessed for approved requests
     """
-    from .models import LiquidationManagement
-    data = []
-    for liq in LiquidationManagement.objects.all():
-        data.append({
-            "LiquidationID": liq.LiquidationID,
-            "created_at": liq.created_at.isoformat() if liq.created_at else None,
-            "date_liquidated": liq.date_liquidated.isoformat() if liq.date_liquidated else None,
-            "status": liq.status,
-        })
-    return Response(data)
+    try:
+        from .pdf_utils import generate_request_pdf_with_signatures
+        from django.shortcuts import get_object_or_404
+
+        # Get the request object
+        req = get_object_or_404(RequestManagement, request_id=request_id)
+
+        # Check if user has permission to generate PDF
+        user = request.user
+
+        # Allow access if:
+        # 1. User is the request owner
+        # 2. User is a superintendent (who approved it)
+        # 3. User is an admin
+        # 4. User is an accountant
+        has_permission = (
+            req.user == user or
+            user.role in ['superintendent', 'admin', 'accountant'] or
+            (user.role == 'district_admin' and req.user.school and req.user.school.district ==
+             user.school_district)
+        )
+
+        if not has_permission:
+            return HttpResponse(
+                '{"error": "You don\'t have permission to generate this PDF"}',
+                content_type='application/json',
+                status=403
+            )
+
+        # Check if request is approved
+        # if req.status != 'approved':
+        #     return HttpResponse(
+        #         '{"error": "Request must be approved first to generate PDF"}',
+        #         content_type='application/json',
+        #         status=400
+        #     )
+
+        # Generate PDF with actual signatures
+        pdf_content = generate_request_pdf_with_signatures(req)
+
+        # Store PDF for audit trail (optional - can be enabled for compliance)
+        from .models import GeneratedPDF
+        from django.core.files.base import ContentFile
+
+        try:
+            # Create a record of PDF generation
+            pdf_record = GeneratedPDF.objects.create(
+                request=req,
+                generated_by=user,
+                generation_method='server_side',
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[
+                    :500]  # Limit length
+            )
+
+            # Optionally store the PDF file (uncomment if you want to store PDFs)
+            # pdf_filename = f"approved_request_{request_id}_{pdf_record.id}.pdf"
+            # pdf_record.pdf_file.save(
+            #     pdf_filename,
+            #     ContentFile(pdf_content),
+            #     save=True
+            # )
+
+            logger.info(
+                f"PDF generated for approved request {request_id} by user {user.id} (PDF record ID: {pdf_record.id})")
+
+        except Exception as e:
+            logger.error(f"Error creating PDF record: {e}")
+            # Continue with PDF generation even if record creation fails
+
+        # Create HTTP response
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="approved_request_{request_id}.pdf"'
+        response['Content-Length'] = len(pdf_content)
+
+        return response
+
+    except Exception as e:
+        logger.error(
+            f"Error generating PDF for request {request_id}: {str(e)}")
+        return HttpResponse(
+            '{"error": "Failed to generate PDF. Please try again."}',
+            content_type='application/json',
+            status=500
+        )

@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
-import { handleExport } from "@/lib/pdfHelpers";
+import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
   XCircle,
@@ -130,7 +130,7 @@ const getPriorityDiffs = (
 };
 
 const PriortySubmissionsPage = () => {
-  const [activeTab, setActiveTab] = useState<"pending" | "approved">("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
@@ -173,6 +173,7 @@ const PriortySubmissionsPage = () => {
     start_date: "",
     end_date: "",
   });
+  const [filterStatus, setFilterStatus] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   // Add these state variables near your other state declarations
 
@@ -202,13 +203,31 @@ const PriortySubmissionsPage = () => {
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
 
+  // In PriortySubmissionsPage.tsx - Update the fetchSubmissions function
+
   const fetchSubmissions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const status = activeTab === "pending" ? "pending" : "approved";
+      let statusParam: string;
+      let defaultOrdering = "-created_at"; // Default ordering
+
+      if (activeTab === "pending") {
+        statusParam = "pending";
+      } else if (activeTab === "history") {
+        // For history tab, get approved and later statuses, ordered by date_approved
+        statusParam = "approved,downloaded,unliquidated,liquidated";
+        // Order by date_approved descending to get latest approved at top
+        defaultOrdering = "-date_approved"; // Latest approved first
+      } else {
+        statusParam = "";
+      }
+
       const params: any = {
-        status,
+        status: statusParam,
+        ordering: sortConfig
+          ? `${sortConfig.direction === "desc" ? "-" : ""}${sortConfig.key}`
+          : defaultOrdering, // Use default ordering for history tab
       };
 
       // Add filters to params - backend will handle the complex filtering
@@ -235,6 +254,20 @@ const PriortySubmissionsPage = () => {
 
       const submissionsData = res.data.results || res.data || [];
       console.log("API response:", submissionsData); // Debug log
+
+      // For history tab, ensure it's sorted by date_approved descending
+      if (activeTab === "history") {
+        submissionsData.sort((a: any, b: any) => {
+          const aDate = a.date_approved
+            ? new Date(a.date_approved)
+            : new Date(0);
+          const bDate = b.date_approved
+            ? new Date(b.date_approved)
+            : new Date(0);
+          return bDate.getTime() - aDate.getTime(); // Latest first
+        });
+      }
+
       setSubmissionsState(submissionsData);
 
       // Fetch schools for display purposes (not filtering)
@@ -249,6 +282,13 @@ const PriortySubmissionsPage = () => {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    setFilterOptions((prev) => ({
+      ...prev,
+      status: filterStatus,
+    }));
+    setCurrentPage(1);
+  }, [filterStatus]);
   useEffect(() => {
     fetchSubmissions();
   }, [
@@ -385,6 +425,13 @@ const PriortySubmissionsPage = () => {
     }));
     setCurrentPage(1);
   }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
+  // Update sortConfig when activeTab changes
+  useEffect(() => {
+    setSortConfig({
+      key: activeTab === "history" ? "date_approved" : "created_at",
+      direction: "desc",
+    });
+  }, [activeTab]);
   // Approve handler
   const handleApprove = async (submission: Submission) => {
     setActionLoading("approve");
@@ -512,11 +559,15 @@ const PriortySubmissionsPage = () => {
   }, [filteredSubmissions, sortConfig]);
 
   const requestSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key) {
-      direction = sortConfig.direction === "asc" ? "desc" : "asc";
-    }
-    setSortConfig({ key, direction });
+    setSortConfig((prev) => {
+      if (prev && prev.key === key) {
+        return {
+          key,
+          direction: prev.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return { key, direction: "desc" };
+    });
   };
 
   // Pagination
@@ -746,14 +797,15 @@ const PriortySubmissionsPage = () => {
       status: "",
       school: "",
       district: "",
-      legislative_district: "", // Add this
-      municipality: "", // Add this
+      legislative_district: "",
+      municipality: "",
       start_date: "",
       end_date: "",
     });
     setFilterLegislativeDistrict("");
     setFilterMunicipality("");
     setFilterDistrict("");
+    setFilterStatus(""); // Add this line
     setCurrentPage(1);
   };
 
@@ -775,13 +827,13 @@ const PriortySubmissionsPage = () => {
         </button>
         <button
           className={`px-4 py-2 font-medium ${
-            activeTab === "approved"
+            activeTab === "history"
               ? "text-blue-600 border-b-2 border-blue-600"
               : "text-gray-500"
           }`}
-          onClick={() => setActiveTab("approved")}
+          onClick={() => setActiveTab("history")}
         >
-          Approved Requests
+          Request History
         </button>
       </div>
 
@@ -836,6 +888,27 @@ const PriortySubmissionsPage = () => {
         {/* School-based Filters - Similar to ManageSchools */}
         {showFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            {/* Status Filter - Only show in history tab */}
+            {activeTab === "history" && (
+              <div className="space-y-2">
+                <Label htmlFor="filter-status" className="text-sm font-medium">
+                  Status
+                </Label>
+                <select
+                  id="filter-status"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="approved">Approved</option>
+                  <option value="downloaded">Downloaded</option>
+                  <option value="unliquidated">Unliquidated</option>
+                  <option value="liquidated">Liquidated</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            )}
             {/* Legislative District Filter */}
             <div className="space-y-2">
               <Label
@@ -952,6 +1025,7 @@ const PriortySubmissionsPage = () => {
                     start_date: "",
                     end_date: "",
                   }));
+                  setFilterStatus(""); // Add this line
                 }}
                 startIcon={<X className="size-4" />}
               >
@@ -969,6 +1043,7 @@ const PriortySubmissionsPage = () => {
         loading={loading}
         error={error}
         sortConfig={sortConfig}
+        activeTab={activeTab}
         requestSort={requestSort}
         currentUserRole={user?.role}
       />
@@ -1294,17 +1369,25 @@ const PriortySubmissionsPage = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() =>
-                    handleExport(
-                      viewedSubmission,
-                      user?.first_name || "user",
-                      user?.last_name || "name"
-                    )
-                  }
+                  onClick={async () => {
+                    // Use server-side PDF generation for approved requests
+                    const result = await handleServerSideExport(
+                      viewedSubmission
+                    );
+                    if (result.success) {
+                      toast.success(
+                        result.message || "PDF generated successfully!"
+                      );
+                    } else {
+                      toast.error(result.error || "Failed to generate PDF");
+                    }
+                  }}
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  Export PDF
+                  {viewedSubmission.status === "pending"
+                    ? "Export PDF"
+                    : "Download Official PDF"}
                 </Button>
 
                 {viewedSubmission.status === "pending" && (

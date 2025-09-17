@@ -25,11 +25,13 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
 } from "lucide-react";
-import { handleExport } from "@/lib/pdfHelpers";
+import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
 import { Download } from "lucide-react";
 import { format } from "date-fns";
 import Button from "@/components/ui/button/Button";
 import MOOERequestTable from "@/components/tables/BasicTables/MOOEREquestTable";
+import { useToastState } from "react-stately";
+import { toast } from "react-toastify";
 
 type SubmissionStatus =
   | "pending"
@@ -329,23 +331,30 @@ const MOOERequestHistory = () => {
               )}
               {/* Action Buttons - Modified to check for superintendent role */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                {user?.role === "superintendent" ||
-                  (user?.role === "school_head" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        handleExport(
-                          viewedSubmission,
-                          user?.first_name || "user",
-                          user?.last_name || "name"
-                        )
-                      }
-                      startIcon={<Download className="w-4 h-4" />}
-                    >
-                      Export PDF
-                    </Button>
-                  ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    // Use server-side PDF generation for approved requests
+                    const result = await handleServerSideExport(
+                      viewedSubmission
+                    );
+                    if (result.success) {
+                      toast.success("PDF downloaded successfully.");
+                      console.log("PDF downloaded");
+                    } else {
+                      toast.error(
+                        "Failed to download PDF. Please try again later."
+                      );
+                      console.log(result);
+                    }
+                  }}
+                  startIcon={<Download className="w-4 h-4" />}
+                >
+                  {viewedSubmission.status === "approved"
+                    ? "Download Official PDF"
+                    : "Export PDF"}
+                </Button>
               </div>
             </div>
           )}

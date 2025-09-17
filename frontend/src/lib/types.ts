@@ -216,8 +216,6 @@ export interface ListOfPriority {
 }
 
 export type Submission = {
-  request_monthyear?: string; // <-- Fix: should be a string, not a function
-  date_approved: any;
   request_id: string;
   user: {
     role: string;
@@ -238,6 +236,7 @@ export type Submission = {
   created_at: string;
   rejection_comment: string; // Optional field for rejection reason
   rejection_date: string; // Optional field for when the rejection occurred
+  date_approved?: string | null;
   reviewed_by: User;
   reviewed_at?: string;
   is_resubmission?: boolean;
