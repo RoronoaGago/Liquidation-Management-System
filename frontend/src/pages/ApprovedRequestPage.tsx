@@ -27,6 +27,7 @@ import {
   RefreshCw,
   AlertCircle,
   ArrowDownCircle,
+  Filter,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
 import api from "@/api/axios";
@@ -140,7 +141,8 @@ const ApprovedRequestPage = () => {
     string[]
   >([]);
   const [districts, setDistricts] = useState<any[]>([]);
-  const [filterLegislativeDistrict, setFilterLegislativeDistrict] = useState("");
+  const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
+    useState("");
   const [filterMunicipality, setFilterMunicipality] = useState("");
   const [filterDistrict, setFilterDistrict] = useState("");
   const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
@@ -180,7 +182,8 @@ const ApprovedRequestPage = () => {
 
       if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
       if (filterOptions.school) params.school_ids = filterOptions.school;
-      if (filterOptions.start_date) params.start_date = filterOptions.start_date;
+      if (filterOptions.start_date)
+        params.start_date = filterOptions.start_date;
       if (filterOptions.end_date) params.end_date = filterOptions.end_date;
       if (filterOptions.legislative_district) {
         params.legislative_district = filterOptions.legislative_district;
@@ -210,7 +213,18 @@ const ApprovedRequestPage = () => {
 
   useEffect(() => {
     fetchSubmissions();
-  }, [activeTab, filterOptions.school, filterOptions.district, filterOptions.start_date, filterOptions.end_date, filterOptions.legislative_district, filterOptions.municipality, filterOptions.searchTerm, sortConfig?.key, sortConfig?.direction]);
+  }, [
+    activeTab,
+    filterOptions.school,
+    filterOptions.district,
+    filterOptions.start_date,
+    filterOptions.end_date,
+    filterOptions.legislative_district,
+    filterOptions.municipality,
+    filterOptions.searchTerm,
+    sortConfig?.key,
+    sortConfig?.direction,
+  ]);
 
   // Load legislative districts and districts for filters
   useEffect(() => {
@@ -224,7 +238,10 @@ const ApprovedRequestPage = () => {
         (legislativeDistrictsData || []).forEach((d: any) => {
           if (d.legislativeDistrict) {
             if (!map[d.legislativeDistrict]) map[d.legislativeDistrict] = [];
-            if (d.municipality && !map[d.legislativeDistrict].includes(d.municipality)) {
+            if (
+              d.municipality &&
+              !map[d.legislativeDistrict].includes(d.municipality)
+            ) {
               map[d.legislativeDistrict].push(d.municipality);
             }
           }
@@ -232,11 +249,17 @@ const ApprovedRequestPage = () => {
         setLegislativeDistricts(map);
         setLegislativeDistrictOptions(Object.keys(map));
 
-        const districtsResponse = await api.get("school-districts/?show_all=true");
-        const districtsData = districtsResponse.data.results || districtsResponse.data;
+        const districtsResponse = await api.get(
+          "school-districts/?show_all=true"
+        );
+        const districtsData =
+          districtsResponse.data.results || districtsResponse.data;
         setDistricts(Array.isArray(districtsData) ? districtsData : []);
       } catch (error) {
-        console.error("Failed to fetch legislative districts or districts:", error);
+        console.error(
+          "Failed to fetch legislative districts or districts:",
+          error
+        );
       }
     };
     fetchLegislativeDistrictsAndDistricts();
@@ -252,12 +275,22 @@ const ApprovedRequestPage = () => {
       status: filterStatus,
     }));
     setCurrentPage(1);
-  }, [filterLegislativeDistrict, filterMunicipality, filterDistrict, filterStatus]);
+  }, [
+    filterLegislativeDistrict,
+    filterMunicipality,
+    filterDistrict,
+    filterStatus,
+  ]);
 
   // Update municipality options when legislative district changes
   useEffect(() => {
-    if (filterLegislativeDistrict && legislativeDistricts[filterLegislativeDistrict]) {
-      setFilterMunicipalityOptions(legislativeDistricts[filterLegislativeDistrict]);
+    if (
+      filterLegislativeDistrict &&
+      legislativeDistricts[filterLegislativeDistrict]
+    ) {
+      setFilterMunicipalityOptions(
+        legislativeDistricts[filterLegislativeDistrict]
+      );
     } else {
       setFilterMunicipalityOptions([]);
     }
@@ -456,9 +489,11 @@ const ApprovedRequestPage = () => {
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
+            startIcon={<Filter className="size-4" />}
           >
             Filters
           </Button>
+
           <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
             Items per page:
           </label>
@@ -485,7 +520,9 @@ const ApprovedRequestPage = () => {
           {/* Status filter only on history tab */}
           {activeTab === "history" && (
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="filter-status">Status</label>
+              <label className="text-sm font-medium" htmlFor="filter-status">
+                Status
+              </label>
               <select
                 id="filter-status"
                 value={filterStatus}
@@ -502,7 +539,12 @@ const ApprovedRequestPage = () => {
 
           {/* Legislative District */}
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="filter-legislative-district">Legislative District</label>
+            <label
+              className="text-sm font-medium"
+              htmlFor="filter-legislative-district"
+            >
+              Legislative District
+            </label>
             <select
               id="filter-legislative-district"
               value={filterLegislativeDistrict}
@@ -511,14 +553,21 @@ const ApprovedRequestPage = () => {
             >
               <option value="">All</option>
               {legislativeDistrictOptions.map((ld) => (
-                <option key={ld} value={ld}>{ld}</option>
+                <option key={ld} value={ld}>
+                  {ld}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Municipality */}
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="filter-municipality">Municipality</label>
+            <label
+              className="text-sm font-medium"
+              htmlFor="filter-municipality"
+            >
+              Municipality
+            </label>
             <select
               id="filter-municipality"
               value={filterMunicipality}
@@ -528,14 +577,21 @@ const ApprovedRequestPage = () => {
             >
               <option value="">All</option>
               {filterMunicipalityOptions.map((mun) => (
-                <option key={mun} value={mun}>{mun}</option>
+                <option key={mun} value={mun}>
+                  {mun}
+                </option>
               ))}
             </select>
           </div>
 
           {/* District */}
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="filter-school-district">School District</label>
+            <label
+              className="text-sm font-medium"
+              htmlFor="filter-school-district"
+            >
+              School District
+            </label>
             <select
               id="filter-school-district"
               value={filterDistrict}
@@ -547,7 +603,9 @@ const ApprovedRequestPage = () => {
               {filterDistrictOptions.map((districtId) => {
                 const d = districts.find((dd) => dd.districtId === districtId);
                 return (
-                  <option key={districtId} value={districtId}>{d?.districtName}</option>
+                  <option key={districtId} value={districtId}>
+                    {d?.districtName}
+                  </option>
                 );
               })}
             </select>
@@ -560,7 +618,11 @@ const ApprovedRequestPage = () => {
               <RangePicker
                 onChange={(dates: any, dateStrings: [string, string]) => {
                   if (!dates || !dates[0] || !dates[1]) {
-                    setFilterOptions((prev) => ({ ...prev, start_date: "", end_date: "" }));
+                    setFilterOptions((prev) => ({
+                      ...prev,
+                      start_date: "",
+                      end_date: "",
+                    }));
                     return;
                   }
                   const [start, end] = dates;
@@ -573,14 +635,23 @@ const ApprovedRequestPage = () => {
                     toast.error(`Date range cannot exceed ${maxRange} days`);
                     return;
                   }
-                  setFilterOptions((prev) => ({ ...prev, start_date: dateStrings[0], end_date: dateStrings[1] }));
+                  setFilterOptions((prev) => ({
+                    ...prev,
+                    start_date: dateStrings[0],
+                    end_date: dateStrings[1],
+                  }));
                 }}
                 value={
                   filterOptions.start_date && filterOptions.end_date
-                    ? [dayjs(filterOptions.start_date), dayjs(filterOptions.end_date)]
+                    ? [
+                        dayjs(filterOptions.start_date),
+                        dayjs(filterOptions.end_date),
+                      ]
                     : null
                 }
-                disabledDate={(current) => current && current > dayjs().endOf("day")}
+                disabledDate={(current) =>
+                  current && current > dayjs().endOf("day")
+                }
                 format="YYYY-MM-DD"
                 style={{ width: "100%", maxWidth: "300px" }}
               />
@@ -877,9 +948,13 @@ const ApprovedRequestPage = () => {
                   onClick={async () => {
                     if (viewedSubmission.status === "approved") {
                       // Use server-side PDF generation for approved requests
-                      const result = await handleServerSideExport(viewedSubmission);
+                      const result = await handleServerSideExport(
+                        viewedSubmission
+                      );
                       if (result.success) {
-                        toast.success(result.message || "PDF generated successfully!");
+                        toast.success(
+                          result.message || "PDF generated successfully!"
+                        );
                       } else {
                         toast.error(result.error || "Failed to generate PDF");
                       }
@@ -895,7 +970,9 @@ const ApprovedRequestPage = () => {
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  {viewedSubmission.status === "approved" ? "Download Official PDF" : "Export PDF"}
+                  {viewedSubmission.status === "approved"
+                    ? "Download Official PDF"
+                    : "Export PDF"}
                 </Button>
 
                 {viewedSubmission.status === "approved" && (
