@@ -91,6 +91,8 @@ const statusIcons: Record<string, React.ReactNode> = {
   advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
 };
 
+const { RangePicker } = DatePicker;
+
 const ApprovedRequestPage = () => {
   // State for submissions and modal
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
@@ -106,6 +108,11 @@ const ApprovedRequestPage = () => {
   const [selectedDownloadDate, setSelectedDownloadDate] =
     useState<dayjs.Dayjs | null>(null);
 
+  // Tabs: Accountant view uses two tabs like superintendent
+  const [activeTab, setActiveTab] = useState<"approved" | "history">(
+    "approved"
+  );
+
   // Confirmation dialog state
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [submissionToApprove, setSubmissionToApprove] =
@@ -118,7 +125,30 @@ const ApprovedRequestPage = () => {
     searchTerm: "",
     status: "",
     school: "",
+    district: "",
+    legislative_district: "",
+    municipality: "",
+    start_date: "",
+    end_date: "",
   });
+  const [filterStatus, setFilterStatus] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [legislativeDistricts, setLegislativeDistricts] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
+    string[]
+  >([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [filterLegislativeDistrict, setFilterLegislativeDistrict] = useState("");
+  const [filterMunicipality, setFilterMunicipality] = useState("");
+  const [filterDistrict, setFilterDistrict] = useState("");
+  const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
+    string[]
+  >([]);
+  const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
+    []
+  );
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -130,11 +160,46 @@ const ApprovedRequestPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("requests/?status=approved");
-      setSubmissionsState(res.data);
+      // Determine statuses per active tab
+      let statusParam = "";
+      let defaultOrdering = "-created_at";
+      if (activeTab === "approved") {
+        statusParam = "approved";
+      } else {
+        // History for accountant: downloaded, unliquidated, liquidated
+        statusParam = "downloaded,unliquidated,liquidated";
+        defaultOrdering = "-created_at";
+      }
+
+      const params: any = {
+        status: statusParam,
+        ordering: sortConfig
+          ? `${sortConfig.direction === "desc" ? "-" : ""}${sortConfig.key}`
+          : defaultOrdering,
+      };
+
+      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+      if (filterOptions.school) params.school_ids = filterOptions.school;
+      if (filterOptions.start_date) params.start_date = filterOptions.start_date;
+      if (filterOptions.end_date) params.end_date = filterOptions.end_date;
+      if (filterOptions.legislative_district) {
+        params.legislative_district = filterOptions.legislative_district;
+      }
+      if (filterOptions.municipality) {
+        params.municipality = filterOptions.municipality;
+      }
+      if (filterOptions.district) {
+        params.district = filterOptions.district;
+      }
+
+      const res = await api.get(`requests/`, { params });
+
+      const submissionsData = res.data.results || res.data || [];
+      setSubmissionsState(submissionsData);
+
       // Fetch schools for filter dropdown
       const schoolRes = await api.get("schools/");
-      setSchools(schoolRes.data);
+      setSchools(schoolRes.data.results || schoolRes.data || []);
     } catch (err: any) {
       console.error("Failed to fetch submissions:", err);
       setError("Failed to fetch submissions");
@@ -145,7 +210,73 @@ const ApprovedRequestPage = () => {
 
   useEffect(() => {
     fetchSubmissions();
+  }, [activeTab, filterOptions.school, filterOptions.district, filterOptions.start_date, filterOptions.end_date, filterOptions.legislative_district, filterOptions.municipality, filterOptions.searchTerm, sortConfig?.key, sortConfig?.direction]);
+
+  // Load legislative districts and districts for filters
+  useEffect(() => {
+    const fetchLegislativeDistrictsAndDistricts = async () => {
+      try {
+        const legislativeResponse = await api.get("/school-districts/");
+        const legislativeDistrictsData =
+          legislativeResponse.data.results || legislativeResponse.data;
+
+        const map: { [key: string]: string[] } = {};
+        (legislativeDistrictsData || []).forEach((d: any) => {
+          if (d.legislativeDistrict) {
+            if (!map[d.legislativeDistrict]) map[d.legislativeDistrict] = [];
+            if (d.municipality && !map[d.legislativeDistrict].includes(d.municipality)) {
+              map[d.legislativeDistrict].push(d.municipality);
+            }
+          }
+        });
+        setLegislativeDistricts(map);
+        setLegislativeDistrictOptions(Object.keys(map));
+
+        const districtsResponse = await api.get("school-districts/?show_all=true");
+        const districtsData = districtsResponse.data.results || districtsResponse.data;
+        setDistricts(Array.isArray(districtsData) ? districtsData : []);
+      } catch (error) {
+        console.error("Failed to fetch legislative districts or districts:", error);
+      }
+    };
+    fetchLegislativeDistrictsAndDistricts();
   }, []);
+
+  // Sync derived filter option selections
+  useEffect(() => {
+    setFilterOptions((prev: any) => ({
+      ...prev,
+      legislative_district: filterLegislativeDistrict,
+      municipality: filterMunicipality,
+      district: filterDistrict,
+      status: filterStatus,
+    }));
+    setCurrentPage(1);
+  }, [filterLegislativeDistrict, filterMunicipality, filterDistrict, filterStatus]);
+
+  // Update municipality options when legislative district changes
+  useEffect(() => {
+    if (filterLegislativeDistrict && legislativeDistricts[filterLegislativeDistrict]) {
+      setFilterMunicipalityOptions(legislativeDistricts[filterLegislativeDistrict]);
+    } else {
+      setFilterMunicipalityOptions([]);
+    }
+    setFilterMunicipality("");
+    setFilterDistrict("");
+  }, [filterLegislativeDistrict, legislativeDistricts]);
+
+  // Update district options when municipality changes
+  useEffect(() => {
+    if (filterMunicipality) {
+      const districtsForMunicipality = districts
+        .filter((d) => d.municipality === filterMunicipality && d.is_active)
+        .map((d) => d.districtId);
+      setFilterDistrictOptions(districtsForMunicipality);
+    } else {
+      setFilterDistrictOptions([]);
+    }
+    setFilterDistrict("");
+  }, [filterMunicipality, districts]);
 
   // Approve handler (should call backend in real app)
   const handleApprove = async (
@@ -276,7 +407,32 @@ const ApprovedRequestPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <PageBreadcrumb pageTitle="School Heads' Priority Submissions" />
+      <PageBreadcrumb pageTitle="Division Accountant - Requests" />
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "approved"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("approved")}
+        >
+          Approved Requests
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "history"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("history")}
+        >
+          Request History
+        </button>
+      </div>
+
       {/* Search, Filters, and Items Per Page */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <div className="flex flex-col md:flex-row gap-2 w-full">
@@ -297,6 +453,12 @@ const ApprovedRequestPage = () => {
           </div>
         </div>
         <div className="flex gap-4 w-full md:w-auto items-center">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            Filters
+          </Button>
           <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
             Items per page:
           </label>
@@ -316,6 +478,139 @@ const ApprovedRequestPage = () => {
           </select>
         </div>
       </div>
+
+      {/* Filters Panel */}
+      {showFilters && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 mb-6">
+          {/* Status filter only on history tab */}
+          {activeTab === "history" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="filter-status">Status</label>
+              <select
+                id="filter-status"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              >
+                <option value="">All Statuses</option>
+                <option value="downloaded">Downloaded</option>
+                <option value="unliquidated">Unliquidated</option>
+                <option value="liquidated">Liquidated</option>
+              </select>
+            </div>
+          )}
+
+          {/* Legislative District */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="filter-legislative-district">Legislative District</label>
+            <select
+              id="filter-legislative-district"
+              value={filterLegislativeDistrict}
+              onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+            >
+              <option value="">All</option>
+              {legislativeDistrictOptions.map((ld) => (
+                <option key={ld} value={ld}>{ld}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Municipality */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="filter-municipality">Municipality</label>
+            <select
+              id="filter-municipality"
+              value={filterMunicipality}
+              onChange={(e) => setFilterMunicipality(e.target.value)}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              disabled={!filterLegislativeDistrict}
+            >
+              <option value="">All</option>
+              {filterMunicipalityOptions.map((mun) => (
+                <option key={mun} value={mun}>{mun}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* District */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="filter-school-district">School District</label>
+            <select
+              id="filter-school-district"
+              value={filterDistrict}
+              onChange={(e) => setFilterDistrict(e.target.value)}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              disabled={!filterMunicipality}
+            >
+              <option value="">All Districts</option>
+              {filterDistrictOptions.map((districtId) => {
+                const d = districts.find((dd) => dd.districtId === districtId);
+                return (
+                  <option key={districtId} value={districtId}>{d?.districtName}</option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Date Range */}
+          <div className="space-y-2 md:col-span-3">
+            <label className="text-sm font-medium">Date Range</label>
+            <div className="flex items-center gap-2">
+              <RangePicker
+                onChange={(dates: any, dateStrings: [string, string]) => {
+                  if (!dates || !dates[0] || !dates[1]) {
+                    setFilterOptions((prev) => ({ ...prev, start_date: "", end_date: "" }));
+                    return;
+                  }
+                  const [start, end] = dates;
+                  if (start.isAfter(end)) {
+                    toast.error("End date must be after start date");
+                    return;
+                  }
+                  const maxRange = 365;
+                  if (end.diff(start, "days") > maxRange) {
+                    toast.error(`Date range cannot exceed ${maxRange} days`);
+                    return;
+                  }
+                  setFilterOptions((prev) => ({ ...prev, start_date: dateStrings[0], end_date: dateStrings[1] }));
+                }}
+                value={
+                  filterOptions.start_date && filterOptions.end_date
+                    ? [dayjs(filterOptions.start_date), dayjs(filterOptions.end_date)]
+                    : null
+                }
+                disabledDate={(current) => current && current > dayjs().endOf("day")}
+                format="YYYY-MM-DD"
+                style={{ width: "100%", maxWidth: "300px" }}
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-3 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilterLegislativeDistrict("");
+                setFilterMunicipality("");
+                setFilterDistrict("");
+                setFilterStatus("");
+                setFilterOptions((prev: any) => ({
+                  ...prev,
+                  district: "",
+                  legislative_district: "",
+                  municipality: "",
+                  start_date: "",
+                  end_date: "",
+                }));
+              }}
+            >
+              Clear Filters
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Table */}
       <PrioritySubmissionsTable
         submissions={currentItems}
@@ -324,6 +619,8 @@ const ApprovedRequestPage = () => {
         error={error}
         sortConfig={sortConfig}
         requestSort={requestSort}
+        activeTab={activeTab === "approved" ? "pending" : "history"}
+        currentUserRole={user?.role}
       />
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
