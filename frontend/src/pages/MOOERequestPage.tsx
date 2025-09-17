@@ -31,13 +31,6 @@ import {
 } from "@/components/ui/dialog";
 import api from "@/api/axios";
 import DocumentTextIcon from "@heroicons/react/outline/DocumentTextIcon";
-// import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@radix-ui/react-tooltip";
 
 const CATEGORY_LABELS: Record<string, string> = {
   travel: "Travel Expenses",
@@ -100,23 +93,6 @@ const MOOERequestPage = () => {
 
   // State for selecting all in a category
   const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
-
-  // State for next request month and year
-  const [nextRequestMonth, setNextRequestMonth] = useState<number | null>(null);
-  const [nextRequestYear, setNextRequestYear] = useState<number | null>(null);
-  const [isBehind, setIsBehind] = useState(false);
-  const [lastLiquidatedMonth, setLastLiquidatedMonth] = useState<number | null>(
-    null
-  );
-  const [lastLiquidatedYear, setLastLiquidatedYear] = useState<number | null>(
-    null
-  );
-
-  // Eligibility state
-  const [eligibility, setEligibility] = useState<{
-    eligible: boolean;
-    reason?: string;
-  }>({ eligible: true });
 
   // Function to select all items in a category
   const doCategorySelectAll = (category: string) => {
@@ -226,35 +202,6 @@ const MOOERequestPage = () => {
         }
         const schoolRes = await api.get(`/schools/${schoolId}/`);
         setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
-
-        // Get last liquidated month and year
-        const lastMonth = schoolRes.data.last_liquidated_month;
-        const lastYear = schoolRes.data.last_liquidated_year;
-        setLastLiquidatedMonth(lastMonth);
-        setLastLiquidatedYear(lastYear);
-
-        // Calculate next month to request
-        let nextMonth, nextYear;
-        if (lastMonth && lastYear) {
-          nextMonth = lastMonth === 12 ? 1 : lastMonth + 1;
-          nextYear = lastMonth === 12 ? lastYear + 1 : lastYear;
-        } else {
-          // If no liquidation history, use current month
-          const now = new Date();
-          nextMonth = now.getMonth() + 1;
-          nextYear = now.getFullYear();
-        }
-        setNextRequestMonth(nextMonth);
-        setNextRequestYear(nextYear);
-
-        // Check if behind schedule
-        const currentDate = new Date();
-        const currentMonth = currentDate.getMonth() + 1;
-        const currentYear = currentDate.getFullYear();
-        const isBehindSchedule =
-          nextYear < currentYear ||
-          (nextYear === currentYear && nextMonth < currentMonth);
-        setIsBehind(isBehindSchedule);
       } catch (error) {
         setAllocatedBudget(0);
         console.error("Failed to fetch allocated budget:", error);
@@ -400,29 +347,12 @@ const MOOERequestPage = () => {
     e.preventDefault();
     setActionLoading(true);
     setSubmitting(true);
-
-    // Re-check eligibility before submit
-    try {
-      const eligibilityRes = await api.get(
-        `requests/check-eligibility/?month=${targetMonth}`
-      );
-      setEligibility(eligibilityRes.data);
-      if (!eligibilityRes.data.eligible) {
-        toast.error(
-          eligibilityRes.data.reason ||
-            "You are not eligible to submit a request at this time."
-        );
-        setSubmitting(false);
-        setActionLoading(false);
-        return;
-      }
-    } catch (err) {
-      toast.error("Eligibility check failed. Please try again.");
-      setSubmitting(false);
-      setActionLoading(false);
+    // Check eligibility first
+    const canSubmit = await checkEligibility();
+    if (!canSubmit) {
+      toast.error("You are not eligible to submit a request at this time.");
       return;
     }
-
     try {
       // Get the next available month from the backend
       const nextMonthResponse = await api.get("requests/next-available-month/");
@@ -440,16 +370,6 @@ const MOOERequestPage = () => {
         );
         requestId = res.data?.request_id || location.state.rejectedRequestId;
       } else {
-        // Use the calculated next month instead of current month
-        const monthName =
-          nextRequestMonth && nextRequestYear
-            ? new Date(nextRequestYear, nextRequestMonth - 1).toLocaleString(
-                "default",
-                { month: "long" }
-              )
-            : new Date().toLocaleString("default", { month: "long" });
-        const year = nextRequestYear || new Date().getFullYear();
-
         const res = await api.post("requests/", {
           priority_amounts: selectedPriorities,
           request_monthyear: next_available_month, // Use the backend-provided month
@@ -666,16 +586,7 @@ const MOOERequestPage = () => {
               Request Submitted!
             </DialogTitle>
             <DialogDescription className="text-center">
-              Your MOOE request for{" "}
-              {nextRequestMonth && nextRequestYear
-                ? `${new Date(
-                    nextRequestYear,
-                    nextRequestMonth - 1
-                  ).toLocaleString("default", {
-                    month: "long",
-                  })} ${nextRequestYear}`
-                : "the selected month"}{" "}
-              was submitted successfully.
+              Your MOOE request was submitted successfully.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center py-4">
@@ -1016,44 +927,40 @@ const MOOERequestPage = () => {
               >
                 Cancel
               </Button>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      disabled={
-                        submitting || isFormDisabled || !eligibility.eligible
-                      }
-                      className="min-w-[180px]"
-                    >
-                      {isFormDisabled ? (
-                        hasPendingRequest ? (
-                          "Request Pending"
-                        ) : (
-                          "Liquidation in Progress"
-                        )
-                      ) : submitting ? (
-                        "Submitting..."
-                      ) : !eligibility.eligible ? (
-                        "Ineligible"
-                      ) : (
-                        <>
-                          Submit Request
-                          <span className="ml-2 font-normal">
-                            (₱{totalAmount.toLocaleString()})
-                          </span>
-                        </>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  {!eligibility.eligible && (
-                    <TooltipContent>
-                      <p>{eligibility.reason}</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  setShowSubmitDialog(false);
+                  await handleSubmit(new Event("submit") as any);
+                }}
+                disabled={
+                  actionLoading || submitting || totalAmount < allocatedBudget
+                }
+                className="px-4 py-2"
+              >
+                {actionLoading || submitting ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Submitting...
+                  </span>
+                ) : (
+                  "Confirm & Submit"
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1546,46 +1453,29 @@ const MOOERequestPage = () => {
                         >
                           Clear All
                         </Button>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="submit"
-                                variant="primary"
-                                disabled={
-                                  submitting ||
-                                  isFormDisabled ||
-                                  !eligibility.eligible
-                                }
-                                className="min-w-[180px]"
-                              >
-                                {isFormDisabled ? (
-                                  hasPendingRequest ? (
-                                    "Request Pending"
-                                  ) : (
-                                    "Liquidation in Progress"
-                                  )
-                                ) : submitting ? (
-                                  "Submitting..."
-                                ) : !eligibility.eligible ? (
-                                  "Ineligible"
-                                ) : (
-                                  <>
-                                    Submit Request
-                                    <span className="ml-2 font-normal">
-                                      (₱{totalAmount.toLocaleString()})
-                                    </span>
-                                  </>
-                                )}
-                              </Button>
-                            </TooltipTrigger>
-                            {!eligibility.eligible && (
-                              <TooltipContent>
-                                <p>{eligibility.reason}</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Button
+                          type="submit"
+                          variant="primary"
+                          disabled={submitting || isFormDisabled}
+                          className="min-w-[180px]"
+                        >
+                          {isFormDisabled ? (
+                            hasPendingRequest ? (
+                              "Request Pending"
+                            ) : (
+                              "Liquidation in Progress"
+                            )
+                          ) : submitting ? (
+                            "Submitting..."
+                          ) : (
+                            <>
+                              Submit Request
+                              <span className="ml-2 font-normal">
+                                (₱{totalAmount.toLocaleString()})
+                              </span>
+                            </>
+                          )}
+                        </Button>
                       </div>
                     </div>
                   </>
