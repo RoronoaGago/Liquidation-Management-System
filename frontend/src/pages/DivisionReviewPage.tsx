@@ -271,6 +271,19 @@ const DivisionReviewPage = () => {
         liquidations={liquidations}
         loading={loading}
         refreshList={fetchLiquidations}
+        onView={async (liq) => {
+          try {
+            // Division: advance from approved_liquidator -> under_review_division only
+            if (liq.status === "approved_liquidator") {
+              await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+                status: "under_review_division",
+              });
+              await fetchLiquidations();
+            }
+          } catch (e) {
+            // ignore, handled by table toast
+          }
+        }}
       />
     </div>
   );

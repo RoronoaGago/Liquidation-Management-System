@@ -98,11 +98,13 @@ interface LiquidationReportTableProps {
   liquidations: Liquidation[];
   loading: boolean;
   refreshList: () => Promise<void>;
+  onView?: (liq: Liquidation) => Promise<void> | void;
 }
 
 const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   liquidations,
   refreshList,
+  onView,
 }) => {
   const [selected, setSelected] = useState<Liquidation | null>(null);
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
@@ -196,31 +198,17 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     return sortedLiquidations.slice(start, start + itemsPerPage);
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
-  // Replace the handleView function:
+  // View handler delegates to parent if provided; otherwise just navigate
   const handleView = async (liq: Liquidation) => {
     if (viewLoading) return;
     setViewLoading(liq.LiquidationID);
     try {
-      // Change status based on current status and user role
-      if (liq.status === "submitted") {
-        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-          status: "under_review_district",
-        });
-        await refreshList(); // Refresh the list to show new status
-      } else if (liq.status === "approved_district") {
-        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-          status: "under_review_liquidator",
-        });
-        await refreshList(); // Refresh the list to show new status
-      } else if (liq.status === "approved_liquidator") {
-        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-          status: "under_review_division",
-        });
-        await refreshList(); // Refresh the list to show new status
+      if (onView) {
+        await onView(liq);
       }
       navigate(`/liquidations/${liq.LiquidationID}`);
     } catch (err) {
-      toast.error("Failed to update status");
+      toast.error("Failed to open liquidation");
     } finally {
       setViewLoading(null);
     }

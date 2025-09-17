@@ -88,6 +88,19 @@ const LiquidationReportPage = () => {
         liquidations={liquidations}
         loading={loading}
         refreshList={fetchLiquidations}
+        onView={async (liq) => {
+          try {
+            // District: advance from submitted -> under_review_district only
+            if (liq.status === "submitted") {
+              await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+                status: "under_review_district",
+              });
+              await fetchLiquidations();
+            }
+          } catch (e) {
+            // ignore, handled by table toast
+          }
+        }}
       />
     </div>
   );
