@@ -814,36 +814,76 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        queryset = LiquidationManagement.objects.select_related(
+            'request', 'request__user', 'request__user__school', 'request__user__school__district'
+        )
+
+        # Optional status filtering (comma-separated)
+        status_param = self.request.query_params.get('status')
+        status_list = None
+        if status_param:
+            status_list = [s.strip() for s in status_param.split(',') if s.strip()]
+
+        # Role-scoped base queryset and default statuses when none provided
         if user.role == 'district_admin':
-            # District admins see submitted, under_review_district, and resubmit liquidations from their district
             if user.school_district:
-                return LiquidationManagement.objects.filter(
-                    status__in=['submitted',
-                                'under_review_district', 'resubmit'],
+                queryset = queryset.filter(
                     request__user__school__district=user.school_district
                 )
-            return LiquidationManagement.objects.filter(
-                status__in=['submitted', 'under_review_district', 'resubmit']
-            )
+            default_statuses = ['submitted', 'under_review_district', 'resubmit']
+            queryset = queryset.filter(status__in=(status_list or default_statuses))
+
         elif user.role == 'liquidator':
-            # Liquidators see liquidations approved by district and under their review
-            return LiquidationManagement.objects.filter(
-                status__in=['under_review_liquidator', 'approved_district']
-            )
+            default_statuses = ['under_review_liquidator', 'approved_district']
+            queryset = queryset.filter(status__in=(status_list or default_statuses))
+
         elif user.role == 'accountant':
-            # Division accountants see liquidations approved by liquidators and under their review
-            return LiquidationManagement.objects.filter(
-                status__in=['under_review_division', 'approved_liquidator']
-            )
+            default_statuses = ['under_review_division', 'approved_liquidator']
+            queryset = queryset.filter(status__in=(status_list or default_statuses))
+
         elif user.role == 'school_head':
-            # School heads see their liquidations in various states (except completed ones)
-            return LiquidationManagement.objects.filter(
-                request__user=user
-            ).exclude(
-                status__in=['liquidated']
-            ).order_by('-created_at')
-        # All other users see all liquidations
-        return LiquidationManagement.objects.all()
+            queryset = queryset.filter(request__user=user).exclude(status__in=['liquidated'])
+
+        # Other roles (admin etc.) - allow optional status filter
+        else:
+            if status_list:
+                queryset = queryset.filter(status__in=status_list)
+
+        # Additional optional filters similar to requests list
+        legislative_district = self.request.query_params.get('legislative_district')
+        if legislative_district:
+            queryset = queryset.filter(
+                request__user__school__district__legislativeDistrict=legislative_district
+            )
+
+        municipality = self.request.query_params.get('municipality')
+        if municipality:
+            queryset = queryset.filter(
+                request__user__school__district__municipality=municipality
+            )
+
+        district_param = self.request.query_params.get('district')
+        if district_param:
+            queryset = queryset.filter(
+                request__user__school__district__districtId=district_param
+            )
+
+        # Date range filter on created_at
+        start_date_param = self.request.query_params.get('start_date')
+        end_date_param = self.request.query_params.get('end_date')
+        if start_date_param and end_date_param:
+            queryset = queryset.filter(
+                created_at__date__gte=start_date_param,
+                created_at__date__lte=end_date_param
+            )
+
+        ordering = self.request.query_params.get('ordering')
+        if ordering:
+            queryset = queryset.order_by(ordering)
+        else:
+            queryset = queryset.order_by('-created_at')
+
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
