@@ -2609,12 +2609,12 @@ def generate_approved_request_pdf(request, request_id):
             )
 
         # Check if request is approved
-        if req.status != 'approved':
-            return HttpResponse(
-                '{"error": "Request must be approved first to generate PDF"}',
-                content_type='application/json',
-                status=400
-            )
+        # if req.status != 'approved':
+        #     return HttpResponse(
+        #         '{"error": "Request must be approved first to generate PDF"}',
+        #         content_type='application/json',
+        #         status=400
+        #     )
 
         # Generate PDF with actual signatures
         pdf_content = generate_request_pdf_with_signatures(req)
