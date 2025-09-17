@@ -27,99 +27,68 @@ const LiquidationReportPage = () => {
   const { user } = useAuth();
   const [liquidations, setLiquidations] = useState<Liquidation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm] = useState("");
-  const [itemsPerPage] = useState(10);
-  const [currentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
 
-  // Fetch liquidations from backend
-  useEffect(() => {
-    const fetchLiquidations = async () => {
-      setLoading(true);
-      try {
-        const res = await api.get("/liquidations/");
-        setLiquidations(res.data);
-        console.log(res.data);
-      } catch (err) {
-        // Optionally handle error
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLiquidations();
-  }, []);
+  const fetchLiquidations = async () => {
+    setLoading(true);
+    try {
+      // District admin: tab-based statuses
+      const statusParam =
+        activeTab === "pending"
+          ? "submitted,under_review_district,resubmit"
+          : "approved_district,under_review_liquidator,approved_liquidator,under_review_division,liquidated";
 
-  // Filtered and paginated data
-  const filteredLiquidations = useMemo(() => {
-    let filtered = liquidations;
-    console.log("All liquidations:", filtered);
-    console.log("User role:", user?.role);
-    console.log("User school_district:", user?.school_district);
-    
-    // Debug: Log each liquidation's structure
-    filtered.forEach((liq) => {
-      console.log(`Liquidation ${liq.LiquidationID}:`, {
-        status: liq.status,
-        school: liq.request?.user?.school?.schoolName,
-        district: liq.request?.user?.school?.district,
-        user: liq.request?.user?.first_name + ' ' + liq.request?.user?.last_name
+      const res = await api.get("/liquidations/", {
+        params: {
+          status: statusParam,
+          ordering: "-created_at",
+        },
       });
-    });
-    
-    // Backend already filters liquidations by role, so we don't need additional filtering here
-    // The backend LiquidationManagementListCreateAPIView.get_queryset() already handles:
-    // - district_admin: filters by status='submitted' and district
-    // - liquidator: filters by status='under_review_liquidator'  
-    // - accountant: filters by status='under_review_division'
-    // - school_head: shows only their latest liquidation
-    console.log("Backend should have already filtered liquidations by role and district");
-    if (!searchTerm) return filtered;
-    return filtered.filter((liq) => {
-      const userObj = liq.request?.user;
-      const school = userObj?.school?.schoolName || "";
-      return (
-        liq.LiquidationID.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        liq.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        liq.request?.request_id
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        (userObj &&
-          (`${userObj.first_name} ${userObj.last_name}`
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-            school.toLowerCase().includes(searchTerm.toLowerCase())))
-      );
-    });
-  }, [liquidations, searchTerm, user]);
+      setLiquidations(res.data);
+    } catch (err) {
+      setLiquidations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const paginatedLiquidations = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredLiquidations.slice(start, start + itemsPerPage);
-  }, [filteredLiquidations, currentPage, itemsPerPage]);
-
-  // Pagination helpers
+  useEffect(() => {
+    fetchLiquidations();
+  }, [activeTab]);
 
   return (
     <div className="container mx-auto px-5 py-10">
       <PageBreadcrumb pageTitle="District Liquidation Management" />
 
-      {/* Table */}
-      <LiquidationReportTable
-        liquidations={paginatedLiquidations}
-        loading={loading}
-        refreshList={async () => {
-          setLoading(true);
-          try {
-            const res = await api.get("/liquidations/");
-            setLiquidations(res.data);
-          } catch (err) {
-            // Optionally handle error
-          } finally {
-            setLoading(false);
-          }
-        }}
-      />
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "pending"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("pending")}
+        >
+          Pending Liquidations
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "history"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("history")}
+        >
+          Liquidation History
+        </button>
+      </div>
 
-      {/* Pagination */}
+      <LiquidationReportTable
+        liquidations={liquidations}
+        loading={loading}
+        refreshList={fetchLiquidations}
+      />
     </div>
   );
 };
