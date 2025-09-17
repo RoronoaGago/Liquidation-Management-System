@@ -533,12 +533,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                         }
                         onClick={() => handleView(liq)}
                         className="text-blue-600 p-0"
-                        disabled={
-                          liq.status === "resubmit" ||
-                          liq.status === "liquidated" ||
-                          liq.status === "completed" ||
-                          viewLoading === liq.LiquidationID
-                        }
+                        disabled={viewLoading === liq.LiquidationID}
                         loading={viewLoading === liq.LiquidationID}
                       >
                         {viewLoading === liq.LiquidationID
