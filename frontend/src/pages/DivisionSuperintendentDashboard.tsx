@@ -1,537 +1,706 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/prefer-as-const */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import Button from "@/components/ui/button/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Download, Calendar, Clock, AlertCircle, TrendingDown, Eye, CheckSquare, X, RefreshCw } from "lucide-react";
 import {
-  AlertTriangle,
-  FileText,
-  TrendingUp,
-  Download,
-  Eye,
-  BarChart3,
-} from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
-  Card,
-  Table,
-  Tag,
-  Row,
-  Col,
-  Skeleton,
-  Tooltip,
-  Empty,
-  Progress,
-  Statistic,
-} from "antd";
-import { Pie } from "@ant-design/charts";
-import { formatCurrency } from "@/lib/helpers";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+// Using dummy data for now; backend calls are disabled in this view
+import Badge from "@/components/ui/badge/Badge";
+import { Skeleton } from "antd";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "../components/ui/breadcrumb";
 
-interface UnliquidatedSchool {
-  id: string;
+// Types for our data
+interface UnliquidatedAccount {
   schoolId: string;
   schoolName: string;
-  district: string;
-  liquidationId: string;
-  daysElapsed: number;
-  agingPeriod: string;
+  requestId: string;
+  daysOverdue: number;
   amount: number;
+  agingPeriod: string;
+  downloadedAt: string;
 }
 
 interface MOOERequest {
-  id: string;
   requestId: string;
   schoolId: string;
   schoolName: string;
-  district: string;
-  submittedDate: string;
+  submittedAt: string;
+  status: "pending" | "approved" | "rejected";
   totalAmount: number;
-  status: "pending" | "approved" | "rejected" | "downloaded" | "unliquidated";
-  priorities: { title: string; amount: number }[];
-}
-
-interface DashboardStats {
-  totalPendingRequests: number;
-  totalUnliquidatedSchools: number;
-  requestStatusBreakdown: {
-    pending: number;
-    approved: number;
-    rejected: number;
+  priorities: {
+    expenseTitle: string;
+    amount: number;
+  }[];
+  user: {
+    firstName: string;
+    lastName: string;
   };
 }
 
-const DivisionSuperintendentDashboard = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [data, setData] = useState<{
-    unliquidatedSchools: UnliquidatedSchool[];
-    mooeRequests: MOOERequest[];
-    stats: DashboardStats;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
+interface DashboardData {
+  unliquidatedAccounts: UnliquidatedAccount[];
+  mooeRequests: MOOERequest[];
+  agingDistribution: {
+    period: string;
+    count: number;
+  }[];
+  requestStatusDistribution: {
+    status: string;
+    count: number;
+  }[];
+  metrics: {
+    totalPendingRequests: number;
+    totalUnliquidatedAccounts: number;
+    totalOverdueAmount: number;
+    averageAgingDays: number;
+  };
+}
 
-  // Dummy data for demonstration
-  const dummyData = {
-    unliquidatedSchools: [
-      {
-        id: "1",
-        schoolId: "SCH001",
-        schoolName: "Central Elementary School",
-        district: "North District",
-        liquidationId: "LQN-2023-001",
-        daysElapsed: 45,
-        agingPeriod: "45 days (15 days overdue)",
-        amount: 25000,
-      },
-      {
-        id: "2",
-        schoolId: "SCH002",
-        schoolName: "West High School",
-        district: "West District",
-        liquidationId: "LQN-2023-002",
-        daysElapsed: 35,
-        agingPeriod: "35 days (5 days overdue)",
-        amount: 35000,
-      },
-      {
-        id: "3",
-        schoolId: "SCH003",
-        schoolName: "East Primary School",
-        district: "East District",
-        liquidationId: "LQN-2023-003",
-        daysElapsed: 65,
-        agingPeriod: "65 days (35 days overdue)",
-        amount: 18000,
-      },
-    ],
-    mooeRequests: [
-      {
-        id: "1",
-        requestId: "REQ-2023-004",
-        schoolId: "SCH004",
-        schoolName: "South Elementary School",
-        district: "South District",
-        submittedDate: "2023-10-15",
-        totalAmount: 42000,
-        status: "pending" as "pending",
-        priorities: [
-          { title: "Instructional Materials", amount: 15000 },
-          { title: "Repair and Maintenance", amount: 12000 },
-          { title: "Office Supplies", amount: 10000 },
-          { title: "Training Expenses", amount: 5000 },
-        ],
-      },
-      {
-        id: "2",
-        requestId: "REQ-2023-005",
-        schoolId: "SCH005",
-        schoolName: "North High School",
-        district: "North District",
-        submittedDate: "2023-10-12",
-        totalAmount: 38000,
-        status: "pending" as "pending",
-        priorities: [
-          { title: "Laboratory Equipment", amount: 20000 },
-          { title: "Sports Facilities", amount: 10000 },
-          { title: "Utility Expenses", amount: 8000 },
-        ],
-      },
-      {
-        id: "3",
-        requestId: "REQ-2023-006",
-        schoolId: "SCH006",
-        schoolName: "Central Integrated School",
-        district: "Central District",
-        submittedDate: "2023-10-10",
-        totalAmount: 55000,
-        status: "approved" as "approved",
-        priorities: [
-          { title: "Classroom Furniture", amount: 25000 },
-          { title: "Audio-Visual Equipment", amount: 20000 },
-          { title: "Library Books", amount: 10000 },
-        ],
-      },
-    ],
-    stats: {
-      totalPendingRequests: 12,
-      totalUnliquidatedSchools: 8,
-      requestStatusBreakdown: {
-        pending: 5,
-        approved: 15,
-        rejected: 2,
-      },
+const COLORS = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"];
+
+// Dummy dataset to showcase dashboard functionality
+const MOCK_DATA: DashboardData = {
+  unliquidatedAccounts: [
+    {
+      schoolId: "SCH-001",
+      schoolName: "Central Elementary School",
+      requestId: "REQ-2025-0001",
+      daysOverdue: 45,
+      amount: 125000,
+      agingPeriod: "31-60 days",
+      downloadedAt: new Date().toISOString(),
     },
+    {
+      schoolId: "SCH-002",
+      schoolName: "North High School",
+      requestId: "REQ-2025-0002",
+      daysOverdue: 12,
+      amount: 54000,
+      agingPeriod: "0-30 days",
+      downloadedAt: new Date().toISOString(),
+    },
+    {
+      schoolId: "SCH-003",
+      schoolName: "West Integrated School",
+      requestId: "REQ-2025-0003",
+      daysOverdue: 78,
+      amount: 210500,
+      agingPeriod: "61-90 days",
+      downloadedAt: new Date().toISOString(),
+    },
+    {
+      schoolId: "SCH-004",
+      schoolName: "South Elementary School",
+      requestId: "REQ-2025-0004",
+      daysOverdue: 102,
+      amount: 90500,
+      agingPeriod: ">90 days",
+      downloadedAt: new Date().toISOString(),
+    },
+  ],
+  mooeRequests: [
+    {
+      requestId: "REQ-2025-0101",
+      schoolId: "SCH-001",
+      schoolName: "Central Elementary School",
+      submittedAt: new Date().toISOString(),
+      status: "pending",
+      totalAmount: 150000,
+      priorities: [
+        { expenseTitle: "Learning Materials", amount: 60000 },
+        { expenseTitle: "Utilities", amount: 90000 },
+      ],
+      user: { firstName: "Ana", lastName: "Santos" },
+    },
+    {
+      requestId: "REQ-2025-0102",
+      schoolId: "SCH-002",
+      schoolName: "North High School",
+      submittedAt: new Date().toISOString(),
+      status: "pending",
+      totalAmount: 98000,
+      priorities: [
+        { expenseTitle: "Maintenance", amount: 30000 },
+        { expenseTitle: "ICT", amount: 68000 },
+      ],
+      user: { firstName: "Brian", lastName: "Lopez" },
+    },
+    {
+      requestId: "REQ-2025-0103",
+      schoolId: "SCH-003",
+      schoolName: "West Integrated School",
+      submittedAt: new Date().toISOString(),
+      status: "approved",
+      totalAmount: 120000,
+      priorities: [
+        { expenseTitle: "Repairs", amount: 50000 },
+        { expenseTitle: "Security", amount: 70000 },
+      ],
+      user: { firstName: "Carla", lastName: "Reyes" },
+    },
+    {
+      requestId: "REQ-2025-0104",
+      schoolId: "SCH-004",
+      schoolName: "South Elementary School",
+      submittedAt: new Date().toISOString(),
+      status: "rejected",
+      totalAmount: 75000,
+      priorities: [
+        { expenseTitle: "Travel", amount: 30000 },
+        { expenseTitle: "Supplies", amount: 45000 },
+      ],
+      user: { firstName: "Daryl", lastName: "Cruz" },
+    },
+  ],
+  agingDistribution: [
+    { period: "0-30 days", count: 8 },
+    { period: "31-60 days", count: 5 },
+    { period: "61-90 days", count: 3 },
+    { period: ">90 days", count: 2 },
+  ],
+  requestStatusDistribution: [
+    { status: "pending", count: 2 },
+    { status: "approved", count: 1 },
+    { status: "rejected", count: 1 },
+  ],
+  metrics: {
+    totalPendingRequests: 2,
+    totalUnliquidatedAccounts: 4,
+    totalOverdueAmount: 125000 + 54000 + 210500 + 90500,
+    averageAgingDays: Math.round((45 + 12 + 78 + 102) / 4),
+  },
+};
+
+// Widget components
+const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    {[
+      {
+        title: "Pending Requests",
+        icon: <AlertCircle className="h-4 w-4 text-muted-foreground" />,
+        value: `${data?.metrics?.totalPendingRequests || 0}`,
+        description: "Awaiting your approval",
+      },
+      {
+        title: "Unliquidated Accounts",
+        icon: <Clock className="h-4 w-4 text-muted-foreground" />,
+        value: `${data?.metrics?.totalUnliquidatedAccounts || 0}`,
+        description: "Beyond 30-day period",
+      },
+      {
+        title: "Total Overdue Amount",
+        icon: <TrendingDown className="h-4 w-4 text-muted-foreground" />,
+        value: `₱${(data?.metrics?.totalOverdueAmount || 0).toLocaleString()}`,
+        description: "Across all schools",
+      },
+      {
+        title: "Average Aging",
+        icon: <Calendar className="h-4 w-4 text-muted-foreground" />,
+        value: `${data?.metrics?.averageAgingDays || 0} days`,
+        description: "Across all accounts",
+      },
+    ].map((metric, index) => (
+      <Card key={index}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">{metric.title}</CardTitle>
+          {metric.icon}
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{metric.value}</div>
+          <p className="text-xs text-muted-foreground">{metric.description}</p>
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+);
+
+const UnliquidatedAccountsWidget = ({
+  data,
+  onViewDetails,
+}: {
+  data: DashboardData | null;
+  onViewDetails: (account: UnliquidatedAccount) => void;
+}) => {
+  const accounts = data?.unliquidatedAccounts || [];
+
+  const getAgingColor = (days: number) => {
+    if (days <= 30) return "text-green-600 dark:text-green-400";
+    if (days <= 60) return "text-yellow-600 dark:text-yellow-400";
+    if (days <= 90) return "text-orange-600 dark:text-orange-400";
+    return "text-red-600 dark:text-red-400";
   };
+
+  return (
+    <Card className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-2 h-full">
+      <CardHeader className="px-0 pt-0">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
+            Unliquidated Accounts
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="px-0">
+        <div className="rounded-md border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="p-3 text-left font-medium">School</th>
+                <th className="p-3 text-left font-medium">Request ID</th>
+                <th className="p-3 text-left font-medium">Days Overdue</th>
+                <th className="p-3 text-left font-medium">Amount</th>
+                <th className="p-3 text-left font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((account) => (
+                <tr key={account.requestId} className="border-b">
+                  <td className="p-3 font-medium">{account.schoolName}</td>
+                  <td className="p-3">{account.requestId}</td>
+                  <td className="p-3">
+                    <span className={`font-semibold ${getAgingColor(account.daysOverdue)}`}>
+                      {account.daysOverdue} days
+                    </span>
+                  </td>
+                  <td className="p-3">₱{account.amount.toLocaleString()}</td>
+                  <td className="p-3">
+                    <Button variant="ghost" size="sm" onClick={() => onViewDetails(account)}>
+                      <Eye className="h-4 w-4 mr-1" />
+                      View
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {accounts.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-3 text-center">
+                    No unliquidated accounts found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const AgingDistributionWidget = ({ data }: { data: DashboardData | null }) => {
+  const distribution = data?.agingDistribution || [];
+
+  return (
+    <Card className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full">
+      <CardHeader className="px-0 pt-0">
+        <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
+          Aging Distribution
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-0 h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={distribution}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
+            <XAxis
+              dataKey="period"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: "#6B7280" }}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: "#6B7280" }}
+            />
+            <Tooltip
+              formatter={(value) => [`${value} accounts`, "Count"]}
+              contentStyle={{
+                backgroundColor: "#fff",
+                border: "1px solid #E4E7EC",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              }}
+            />
+            <Bar dataKey="count" fill="#465FFF" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+};
+
+const MOOERequestsWidget = ({
+  data,
+  onApprove,
+  onReject,
+}: {
+  data: DashboardData | null;
+  onApprove: (request: MOOERequest) => void;
+  onReject: (request: MOOERequest) => void;
+}) => {
+  const requests = data?.mooeRequests || [];
+
+  return (
+    <Card className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-1 h-full">
+      <CardHeader className="px-0 pt-0">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
+            MOOE Requests
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            
+            <a href="/schools-priorities-submissions">
+              <Button className="mb-4" size="sm" variant="outline">View Details</Button>
+            </a>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="px-0">
+        <div className="rounded-md border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="p-3 text-left font-medium">School</th>
+                <th className="p-3 text-left font-medium">Request ID</th>
+                <th className="p-3 text-left font-medium">Submitted By</th>
+                <th className="p-3 text-left font-medium">Amount</th>
+                <th className="p-3 text-left font-medium">Status</th>
+                <th className="p-3 text-left font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((request) => (
+                <tr key={request.requestId} className="border-b">
+                  <td className="p-3 font-medium">{request.schoolName}</td>
+                  <td className="p-3">{request.requestId}</td>
+                  <td className="p-3">{request.user.firstName} {request.user.lastName}</td>
+                  <td className="p-3">₱{request.totalAmount.toLocaleString()}</td>
+                  <td className="p-3">
+                    <Badge
+                      color={
+                        request.status === "approved"
+                          ? "success"
+                          : request.status === "rejected"
+                          ? "error"
+                          : "warning"
+                      }
+                    >
+                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                    </Badge>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      {request.status === "pending" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onApprove(request)}
+                            className="text-green-600 border-green-200 hover:bg-green-50"
+                          >
+                            <CheckSquare className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onReject(request)}
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {requests.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-3 text-center">
+                    No MOOE requests found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
+  const distribution = data?.requestStatusDistribution || [];
+
+  return (
+    <Card className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full">
+      <CardHeader className="px-0 pt-0">
+        <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
+          Request Status Distribution
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-0 h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={distribution}
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              fill="#8884d8"
+              dataKey="count"
+              label={({ status, value }) => `${status} (${value as number})`}
+            >
+              {distribution.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value, name) => [`${value} requests`, name]}
+              contentStyle={{
+                backgroundColor: "#fff",
+                border: "1px solid #E4E7EC",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+};
+
+const DivisionSuperintendent = () => {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<UnliquidatedAccount | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
-    // Simulate API call with dummy data
-    setTimeout(() => {
-      setData(dummyData);
-      setLoading(false);
-    }, 1000);
-  }, [user]);
+    fetchDashboardData();
+  }, []);
 
-  const handleViewRequest = (requestId: string) => {
-    navigate(`/requests/${requestId}`);
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    // Simulate network latency
+    setTimeout(() => {
+      setData(MOCK_DATA);
+      setLoading(false);
+      setRefreshing(false);
+    }, 600);
   };
 
-  const handleExportReport = () => {
-    console.log("Exporting report");
-    // Implement export functionality
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardData();
+  };
+
+  const handleViewDetails = (account: UnliquidatedAccount) => {
+    setSelectedAccount(account);
+    setIsDetailsOpen(true);
+  };
+
+  const handleApproveRequest = async (request: MOOERequest) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      const updatedRequests: MOOERequest[] = prev.mooeRequests.map((r) =>
+        r.requestId === request.requestId ? { ...r, status: "approved" as const } : r
+      );
+      const statusDist = prev.requestStatusDistribution.map((d) => ({ ...d }));
+      const pendingIdx = statusDist.findIndex((d) => d.status === "pending");
+      const approvedIdx = statusDist.findIndex((d) => d.status === "approved");
+      if (pendingIdx !== -1 && statusDist[pendingIdx].count > 0) statusDist[pendingIdx].count -= 1;
+      if (approvedIdx !== -1) statusDist[approvedIdx].count += 1;
+      return {
+        ...prev,
+        mooeRequests: updatedRequests,
+        requestStatusDistribution: statusDist,
+        metrics: {
+          ...prev.metrics,
+          totalPendingRequests: Math.max(0, prev.metrics.totalPendingRequests - 1),
+        },
+      };
+    });
+  };
+
+  const handleRejectRequest = async (request: MOOERequest) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      const updatedRequests: MOOERequest[] = prev.mooeRequests.map((r) =>
+        r.requestId === request.requestId ? { ...r, status: "rejected" as const } : r
+      );
+      const statusDist = prev.requestStatusDistribution.map((d) => ({ ...d }));
+      const pendingIdx = statusDist.findIndex((d) => d.status === "pending");
+      const rejectedIdx = statusDist.findIndex((d) => d.status === "rejected");
+      if (pendingIdx !== -1 && statusDist[pendingIdx].count > 0) statusDist[pendingIdx].count -= 1;
+      if (rejectedIdx !== -1) statusDist[rejectedIdx].count += 1;
+      return {
+        ...prev,
+        mooeRequests: updatedRequests,
+        requestStatusDistribution: statusDist,
+        metrics: {
+          ...prev.metrics,
+          totalPendingRequests: Math.max(0, prev.metrics.totalPendingRequests - 1),
+        },
+      };
+    });
   };
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton active paragraph={{ rows: 1 }} />
-        <Row gutter={16}>
-          {[1, 2, 3].map((item) => (
-            <Col xs={24} sm={12} md={8} key={item}>
-              <Skeleton active paragraph={{ rows: 2 }} />
-            </Col>
+      <div className="p-4 md:p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">
+              Division Superintendent Dashboard
+            </h1>
+            <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
+              Manage unliquidated accounts and MOOE requests
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+          {[1, 2, 3, 4].map((item) => (
+            <Skeleton key={item} active paragraph={{ rows: 3 }} />
           ))}
-        </Row>
-        <Skeleton active paragraph={{ rows: 8 }} />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map((item) => (
+            <Skeleton key={item} active paragraph={{ rows: 6 }} />
+          ))}
+        </div>
       </div>
     );
   }
-
-  if (!data) {
-    return (
-      <div className="text-center py-8">
-        <FileText className="mx-auto h-12 w-12 text-gray-400 mb-2" />
-        <p className="text-gray-500">No data available</p>
-      </div>
-    );
-  }
-
-  const { unliquidatedSchools, mooeRequests, stats } = data;
-
-  // Prepare data for pie chart
-  const pieChartData = [
-    {
-      type: "Pending",
-      value: stats.requestStatusBreakdown.pending,
-      color: "#3f51b5",
-    },
-    {
-      type: "Approved",
-      value: stats.requestStatusBreakdown.approved,
-      color: "#4caf50",
-    },
-    {
-      type: "Rejected",
-      value: stats.requestStatusBreakdown.rejected,
-      color: "#f44336",
-    },
-  ];
-
-  const pieConfig = {
-    data: pieChartData,
-    angleField: "value",
-    colorField: "type",
-    color: ["#3f51b5", "#4caf50", "#f44336"],
-    radius: 0.95,
-    label: {
-      type: "outer",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      content: (data: any) => `${data.type}: ${data.value}`,
-    },
-    interactions: [{ type: "element-active" }],
-    height: 280,
-    legend: {
-      position: "bottom",
-    },
-  };
-
-  // Update the table columns to ensure consistent sizing
-  const unliquidatedColumns = [
-    {
-      title: "School",
-      dataIndex: "schoolName",
-      key: "schoolName",
-      width: "30%",
-      render: (text: string, record: UnliquidatedSchool) => (
-        <div>
-          <div className="font-medium">{text}</div>
-          <div className="text-xs text-gray-500">{record.schoolId}</div>
-        </div>
-      ),
-    },
-    {
-      title: "Liquidation ID",
-      dataIndex: "liquidationId",
-      key: "liquidationId",
-      width: "20%",
-      render: (text: string) => (
-        <span className="font-mono text-sm">{text}</span>
-      ),
-    },
-    {
-      title: "Aging",
-      dataIndex: "agingPeriod",
-      key: "agingPeriod",
-      width: "25%",
-      render: (text: string, record: UnliquidatedSchool) => (
-        <Tag
-          color={
-            record.daysElapsed > 60
-              ? "red"
-              : record.daysElapsed > 30
-              ? "orange"
-              : "gold"
-          }
-          className="text-xs"
-        >
-          {text}
-        </Tag>
-      ),
-    },
-    {
-      title: "Amount",
-      dataIndex: "amount",
-      key: "amount",
-      width: "25%",
-      render: (amount: number) => (
-        <span className="font-medium">{formatCurrency(amount)}</span>
-      ),
-    },
-  ];
-
-  const mooeRequestColumns = [
-    {
-      title: "Request ID",
-      dataIndex: "requestId",
-      key: "requestId",
-      width: "20%",
-      render: (text: string) => (
-        <span className="font-mono text-sm">{text}</span>
-      ),
-    },
-    {
-      title: "School",
-      dataIndex: "schoolName",
-      key: "schoolName",
-      width: "30%",
-      render: (text: string, record: MOOERequest) => (
-        <div>
-          <div className="font-medium">{text}</div>
-          <div className="text-xs text-gray-500">{record.district}</div>
-        </div>
-      ),
-    },
-    {
-      title: "Submitted",
-      dataIndex: "submittedDate",
-      key: "submittedDate",
-      width: "15%",
-      render: (text: string) => (
-        <span className="text-sm">{new Date(text).toLocaleDateString()}</span>
-      ),
-    },
-    {
-      title: "Amount",
-      dataIndex: "totalAmount",
-      key: "totalAmount",
-      width: "15%",
-      render: (amount: number) => (
-        <span className="font-medium">{formatCurrency(amount)}</span>
-      ),
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      width: "10%",
-      render: (status: string) => {
-        const statusConfig: Record<string, { color: string; text: string }> = {
-          pending: { color: "gold", text: "Pending" },
-          approved: { color: "green", text: "Approved" },
-          rejected: { color: "red", text: "Rejected" },
-          downloaded: { color: "blue", text: "Downloaded" },
-          unliquidated: { color: "orange", text: "Unliquidated" },
-        };
-        const config = statusConfig[status] || {
-          color: "default",
-          text: status,
-        };
-        return <Tag color={config.color}>{config.text}</Tag>;
-      },
-    },
-    {
-      title: "Action",
-      key: "action",
-      width: "10%",
-      render: (record: MOOERequest) => (
-        <Tooltip title="View Details">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleViewRequest(record.requestId)}
-          >
-            <Eye size={14} />
-          </Button>
-        </Tooltip>
-      ),
-    },
-  ];
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <div className="p-6 min-h-screen">
+      <Breadcrumb className="mb-6">
+        
+      </Breadcrumb>
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">
             Division Superintendent Dashboard
-          </h2>
+          </h1>
+          <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
+            Manage unliquidated accounts and MOOE requests
+          </p>
         </div>
-        <Button onClick={handleExportReport}>
-          <Download size={16} className="mr-2" />
-          Export
-        </Button>
+        <div className="flex items-center gap-3 mt-4 md:mt-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+        </div>
       </div>
 
-      {/* Main Overview Section */}
-      <Row gutter={[16, 16]}>
-        {/* Pie Chart */}
-        <Col xs={24} md={16} lg={17}>
-          <Card
-            className="border-0 shadow-sm rounded-lg h-full"
-            title={
-              <div className="flex items-center">
-                <BarChart3 size={18} className="text-indigo-500 mr-2" />
-                <span>Request Status Overview</span>
-              </div>
-            }
-            bodyStyle={{ padding: "10px" }}
-          >
-            <Pie {...pieConfig} />
-          </Card>
-        </Col>
+      {/* Metrics */}
+      <div className="mb-6">
+        <MetricsWidget data={data} />
+      </div>
 
-        {/* Stats Cards */}
-        <Col xs={24} md={8} lg={7}>
-          <div className="flex flex-col gap-4 h-full">
-            <Card className="border-0 shadow-sm rounded-lg flex-1">
-              <Statistic
-                title="Pending Requests"
-                value={stats.totalPendingRequests}
-                prefix={<FileText className="text-blue-500" />}
-                valueStyle={{ color: "#3f51b5" }}
-              />
-              <Progress
-                percent={Math.round(
-                  (stats.requestStatusBreakdown.pending /
-                    (stats.requestStatusBreakdown.pending +
-                      stats.requestStatusBreakdown.approved +
-                      stats.requestStatusBreakdown.rejected)) *
-                    100
-                )}
-                size="small"
-                status="active"
-                strokeColor="#3f51b5"
-              />
-            </Card>
-            <Card className="border-0 shadow-sm rounded-lg flex-1">
-              <Statistic
-                title="Approval Rate"
-                value={Math.round(
-                  (stats.requestStatusBreakdown.approved /
-                    (stats.requestStatusBreakdown.pending +
-                      stats.requestStatusBreakdown.approved +
-                      stats.requestStatusBreakdown.rejected)) *
-                    100
-                )}
-                suffix="%"
-                prefix={<TrendingUp className="text-green-500" />}
-                valueStyle={{ color: "#4caf50" }}
-              />
-              <div className="mt-2 text-xs text-gray-500">
-                {stats.requestStatusBreakdown.approved} approved,{" "}
-                {stats.requestStatusBreakdown.rejected} rejected
-              </div>
-            </Card>
-          </div>
-        </Col>
-      </Row>
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <AgingDistributionWidget data={data} />
+        <RequestStatusWidget data={data} />
+      </div>
 
-      {/* Tables Section */}
-      <Row gutter={[16, 16]}>
-        {/* MOOE Requests */}
-        <Col xs={24} lg={12}>
-          <Card
-            className="border-0 shadow-sm rounded-lg h-full"
-            title={
-              <div className="flex items-center">
-                <FileText size={18} className="text-blue-500 mr-2" />
-                <span>MOOE Requests for Approval</span>
-              </div>
-            }
-            bodyStyle={{ padding: "10px" }}
-          >
-            {mooeRequests.length > 0 ? (
-              <Table
-                columns={mooeRequestColumns}
-                dataSource={mooeRequests.filter((r) => r.status === "pending")}
-                rowKey="id"
-                pagination={{
-                  pageSize: 3,
-                  hideOnSinglePage: true,
-                  total: mooeRequests.filter((r) => r.status === "pending")
-                    .length,
-                  showSizeChanger: false,
-                }}
-                scroll={{ x: "max-content" }}
-                size="middle"
-                className="rounded-lg"
-              />
-            ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No pending requests"
-              />
-            )}
-          </Card>
-        </Col>
+      {/* MOOE Requests - full width */}
+      <div className="grid grid-cols-1 mb-6">
+        <MOOERequestsWidget
+          data={data}
+          onApprove={handleApproveRequest}
+          onReject={handleRejectRequest}
+        />
+      </div>
 
-        {/* Unliquidated Accounts */}
-        <Col xs={24} lg={12}>
-          <Card
-            className="border-0 shadow-sm rounded-lg h-full"
-            title={
-              <div className="flex items-center">
-                <AlertTriangle size={18} className="text-amber-500 mr-2" />
-                <span>Schools with Unliquidated Accounts</span>
+      {/* Unliquidated Accounts - full width */}
+      <div className="grid grid-cols-1">
+        <UnliquidatedAccountsWidget
+          data={data}
+          onViewDetails={handleViewDetails}
+        />
+      </div>
+
+      {/* Details Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Unliquidated Account Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the selected unliquidated account.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAccount && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-gray-500 dark:text-gray-400">School</h4>
+                  <p className="text-gray-800 dark:text-white/90">{selectedAccount.schoolName}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-500 dark:text-gray-400">Request ID</h4>
+                  <p className="text-gray-800 dark:text-white/90">{selectedAccount.requestId}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-500 dark:text-gray-400">Days Overdue</h4>
+                  <p className="text-gray-800 dark:text-white/90">{selectedAccount.daysOverdue} days</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-500 dark:text-gray-400">Amount</h4>
+                  <p className="text-gray-800 dark:text-white/90">₱{selectedAccount.amount.toLocaleString()}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-500 dark:text-gray-400">Downloaded At</h4>
+                  <p className="text-gray-800 dark:text-white/90">
+                    {new Date(selectedAccount.downloadedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-500 dark:text-gray-400">Aging Period</h4>
+                  <p className="text-gray-800 dark:text-white/90">{selectedAccount.agingPeriod}</p>
+                </div>
               </div>
-            }
-            bodyStyle={{ padding: "10px" }}
-          >
-            {unliquidatedSchools.length > 0 ? (
-              <Table
-                columns={unliquidatedColumns}
-                dataSource={unliquidatedSchools}
-                rowKey="id"
-                pagination={{
-                  pageSize: 3,
-                  hideOnSinglePage: true,
-                  total: unliquidatedSchools.length,
-                  showSizeChanger: false,
-                }}
-                scroll={{ x: "max-content" }}
-                size="middle"
-                className="rounded-lg"
-              />
-            ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No unliquidated schools"
-              />
-            )}
-          </Card>
-        </Col>
-      </Row>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
+                  Close
+                </Button>
+                <Button>Send Reminder</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default DivisionSuperintendentDashboard;
+export default DivisionSuperintendent;
