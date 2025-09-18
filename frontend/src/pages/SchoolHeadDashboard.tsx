@@ -1,12 +1,25 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadialBarChart, RadialBar } from "recharts";
-import { Download, AlertCircle, CheckCircle, DollarSign, RefreshCw } from "lucide-react";
+import {
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  RadialBarChart,
+  RadialBar,
+} from "recharts";
+import {
+  Download,
+  AlertCircle,
+  CheckCircle,
+  DollarSign,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Badge from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
- 
 
 // Types for our data
 interface SchoolHeadDashboardData {
@@ -155,7 +168,8 @@ const SchoolHeadDashboard = () => {
     const index = data?.liquidationProgress.priorities.findIndex(
       (p) => p.priorityName === priorityName
     );
-    const colorIndex = index !== undefined && index !== -1 ? index : fallbackIndex;
+    const colorIndex =
+      index !== undefined && index !== -1 ? index : fallbackIndex;
     return COLORS[colorIndex % COLORS.length];
   };
 
@@ -348,7 +362,10 @@ const SchoolHeadDashboard = () => {
                     }
                   >
                     {data?.priorityBreakdown?.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={getPriorityColor(entry.priority, index)} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={getPriorityColor(entry.priority, index)}
+                      />
                     ))}
                   </Pie>
                   <Tooltip
@@ -385,7 +402,12 @@ const SchoolHeadDashboard = () => {
                   <RadialBar background dataKey="value" />
                   <Tooltip
                     formatter={(value) => [`${value}%`, "Completion"]}
-                    contentStyle={{ backgroundColor: "#111827", border: "none", borderRadius: 6, color: "#FFFFFF" }}
+                    contentStyle={{
+                      backgroundColor: "#111827",
+                      border: "none",
+                      borderRadius: 6,
+                      color: "#FFFFFF",
+                    }}
                     labelStyle={{ color: "#FFFFFF" }}
                     itemStyle={{ color: "#FFFFFF" }}
                   />
@@ -399,10 +421,14 @@ const SchoolHeadDashboard = () => {
                 <div key={p.priorityId} className="flex items-center gap-2">
                   <span
                     className="inline-block h-3 w-3 rounded-sm"
-                    style={{ backgroundColor: getPriorityColor(p.priorityName, index) }}
+                    style={{
+                      backgroundColor: getPriorityColor(p.priorityName, index),
+                    }}
                   />
                   <span className="font-semibold">{p.priorityName}</span>
-                  <span className="text-slate-500">- {p.completionPercentage}%</span>
+                  <span className="text-slate-500">
+                    - {p.completionPercentage}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -415,7 +441,9 @@ const SchoolHeadDashboard = () => {
         <CardHeader className="flex items-center justify-between">
           <CardTitle>List of Priority Document Progress</CardTitle>
           <a href="/liquidation">
-            <Button className="mb-4"size="sm" variant="outline">View Details</Button>
+            <Button className="mb-4" size="sm" variant="outline">
+              View Details
+            </Button>
           </a>
         </CardHeader>
         <CardContent>
@@ -444,7 +472,9 @@ const SchoolHeadDashboard = () => {
                           className="h-2.5 rounded-full"
                           style={{
                             width: `${priority.completionPercentage}%`,
-                            backgroundColor: getPriorityColor(priority.priorityName),
+                            backgroundColor: getPriorityColor(
+                              priority.priorityName
+                            ),
                           }}
                         ></div>
                       </div>
@@ -459,8 +489,6 @@ const SchoolHeadDashboard = () => {
           </div>
         </CardContent>
       </Card>
-
-      
     </div>
   );
 };
