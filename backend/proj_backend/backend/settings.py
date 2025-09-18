@@ -276,3 +276,12 @@ LOGGING = {
         },
     },
 }
+
+# Backup/Restore settings
+# Server-managed defaults to avoid trusting client-supplied filesystem paths
+BACKUP_SETTINGS = {
+    'DEFAULT_BACKUP_DIR': os.path.join(BASE_DIR, 'Backups'),
+    'MAX_BACKUP_AGE_DAYS': 30,
+    'ALLOW_CUSTOM_PATHS': False,
+    'COMPRESSION_LEVEL': 6,
+}
