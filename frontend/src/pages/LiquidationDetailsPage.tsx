@@ -404,9 +404,9 @@ const LiquidationDetailsPage = () => {
         ? { ...prev, is_approved: newStatus, reviewer_comment: comment }
         : prev
     );
-    toast[action === "approve" ? "success" : "error"](
-      `Document ${action === "approve" ? "approved" : "rejected"}!`
-    );
+    // toast[action === "approve" ? "success" : "error"](
+    //   `Document ${action === "approve" ? "approved" : "rejected"}!`
+    // );
     setActionLoading(false);
     setShowApproveConfirm(false);
     setShowRejectConfirm(false);

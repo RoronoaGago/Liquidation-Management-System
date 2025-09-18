@@ -35,6 +35,7 @@ const LiquidatorReviewPage = () => {
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [filterOptions, setFilterOptions] = useState({
     searchTerm: "",
     district: "",
@@ -135,7 +136,7 @@ const LiquidatorReviewPage = () => {
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           </div>
-          <div className="flex gap-4 w-full md:w-auto">
+          <div className="flex gap-4 w-full md:w-auto items-center">
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
@@ -143,6 +144,21 @@ const LiquidatorReviewPage = () => {
             >
               Filters
             </Button>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">
+                Items per page:
+              </label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md"
+              >
+                <option value={5}>Show 5</option>
+                <option value={10}>Show 10</option>
+                <option value={20}>Show 20</option>
+                <option value={50}>Show 50</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -256,6 +272,10 @@ const LiquidatorReviewPage = () => {
         liquidations={liquidations}
         loading={loading}
         refreshList={fetchLiquidations}
+        showSearchBar={false}
+        showPageSizeControl={false}
+        itemsPerPage={itemsPerPage}
+        onItemsPerPageChange={setItemsPerPage}
         onView={async (liq) => {
           try {
             if (liq.status === "approved_district") {
