@@ -32,7 +32,7 @@ export async function listBackups() {
   return data;
 }
 
-export async function initiateRestore(params: { archive_path: string; }) {
+export async function initiateRestore(params: { archive_path?: string; backup_id?: number; }) {
   const { data } = await api.post<{ detail: string }>('restore/', params);
   return data;
 }

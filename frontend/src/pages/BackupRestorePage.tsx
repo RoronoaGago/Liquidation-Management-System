@@ -74,6 +74,21 @@ const BackupRestorePage = () => {
     }
   }
 
+  async function onRestoreFromRow(id: number) {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await initiateRestore({ backup_id: id });
+      setMessage(res.detail);
+      setMessageType('success');
+    } catch (e: any) {
+      setMessage(e?.response?.data?.detail || 'Restore failed');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function pickDestinationFolder() {
     // Prefer native directory picker if available
     // @ts-expect-error: Not in all TS DOM lib versions
@@ -406,11 +421,18 @@ const BackupRestorePage = () => {
                         {b.file_size ? `${(b.file_size/1024/1024).toFixed(2)} MB` : '-'}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-start text-sm">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(b.status)}
-                          <Badge color={b.status === 'success' ? 'success' : b.status === 'pending' ? 'warning' : 'error'}>
-                            {b.status}
-                          </Badge>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(b.status)}
+                            <Badge color={b.status === 'success' ? 'success' : b.status === 'pending' ? 'warning' : 'error'}>
+                              {b.status}
+                            </Badge>
+                          </div>
+                          {b.status === 'success' && (
+                            <Button variant="outline" onClick={() => onRestoreFromRow(b.id)} disabled={loading}>
+                              <UploadIcon /> Restore
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
