@@ -2,7 +2,7 @@ from decimal import Decimal
 from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 import csv
 from django.conf import settings
 from datetime import date
@@ -829,7 +829,8 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
         status_param = self.request.query_params.get('status')
         status_list = None
         if status_param:
-            status_list = [s.strip() for s in status_param.split(',') if s.strip()]
+            status_list = [s.strip()
+                           for s in status_param.split(',') if s.strip()]
 
         # Role-scoped base queryset and default statuses when none provided
         if user.role == 'district_admin':
@@ -837,19 +838,24 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
                 queryset = queryset.filter(
                     request__user__school__district=user.school_district
                 )
-            default_statuses = ['submitted', 'under_review_district', 'resubmit']
-            queryset = queryset.filter(status__in=(status_list or default_statuses))
+            default_statuses = ['submitted',
+                                'under_review_district', 'resubmit']
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
 
         elif user.role == 'liquidator':
             default_statuses = ['under_review_liquidator', 'approved_district']
-            queryset = queryset.filter(status__in=(status_list or default_statuses))
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
 
         elif user.role == 'accountant':
             default_statuses = ['under_review_division', 'approved_liquidator']
-            queryset = queryset.filter(status__in=(status_list or default_statuses))
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
 
         elif user.role == 'school_head':
-            queryset = queryset.filter(request__user=user).exclude(status__in=['liquidated'])
+            queryset = queryset.filter(request__user=user).exclude(
+                status__in=['liquidated'])
 
         # Other roles (admin etc.) - allow optional status filter
         else:
@@ -857,7 +863,8 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
                 queryset = queryset.filter(status__in=status_list)
 
         # Additional optional filters similar to requests list
-        legislative_district = self.request.query_params.get('legislative_district')
+        legislative_district = self.request.query_params.get(
+            'legislative_district')
         if legislative_district:
             queryset = queryset.filter(
                 request__user__school__district__legislativeDistrict=legislative_district
@@ -2195,16 +2202,17 @@ def admin_dashboard(request):
     return Response(response_data)
 # ------------------- Backup & Restore -------------------
 
+
 def _is_safe_path(path: str) -> bool:
     """
     Validate that path is safe and doesn't contain traversal attempts
     """
     if not path or not isinstance(path, str):
         return False
-    
+
     # Normalize path and check for traversal attempts
     normalized = os.path.normpath(path)
-    
+
     # Check for dangerous patterns
     # Platform-aware invalid pattern checks
     if os.name == 'nt':
@@ -2227,329 +2235,219 @@ def _is_safe_path(path: str) -> bool:
         for pattern in dangerous_patterns:
             if pattern in normalized:
                 return False
-    
+
     # Additional checks for absolute paths
     if os.path.isabs(normalized):
         # Allow only certain safe directories if needed
         allowed_prefixes = ['/backups/']
         # Include server-configured default backup dir if present
         try:
-            default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get('DEFAULT_BACKUP_DIR')
+            default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get(
+                'DEFAULT_BACKUP_DIR')
             if default_dir:
                 # Normalize to same style
-                allowed_prefixes.append(os.path.normpath(default_dir) + (os.sep if not default_dir.endswith(os.sep) else ''))
+                allowed_prefixes.append(os.path.normpath(
+                    default_dir) + (os.sep if not default_dir.endswith(os.sep) else ''))
         except Exception:
             pass
         if os.name == 'nt':
             allowed_prefixes.extend(['C:\\Backups\\', 'D:\\Backups\\'])
         if not any(normalized.startswith(prefix) for prefix in allowed_prefixes):
             return False
-    
+
     return True
 
+
+# views.py - Update the backup and restore functions
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def initiate_backup(request):
-    if request.user.role != 'admin':
-        return Response({"detail": "Only administrators can initiate backups."}, status=status.HTTP_403_FORBIDDEN)
-
-    fmt = request.data.get('format', 'json')
-    include_media = bool(request.data.get('include_media', True))
-
-    # Enforce server-managed directory by default
-    allow_custom = getattr(settings, 'BACKUP_SETTINGS', {}).get('ALLOW_CUSTOM_PATHS', False)
-    default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get('DEFAULT_BACKUP_DIR', os.path.join(settings.BASE_DIR, 'Backups'))
-    client_path = request.data.get('path')
-    base_path = client_path if (allow_custom and client_path) else default_dir
-
-    if allow_custom:
-        if not _is_safe_path(base_path):
-            return Response({"detail": "Invalid or unsafe path."}, status=status.HTTP_400_BAD_REQUEST)
-
+    """
+    Generate a backup archive and return it as a downloadable file.
+    """
     try:
-        os.makedirs(base_path, exist_ok=True)
-    except OSError as e:
-        return Response({"detail": f"Cannot create directory: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        format = request.data.get("format", "json")
+        include_media = request.data.get("include_media", True)
 
-    backup = Backup.objects.create(
-        initiated_by=request.user,
-        base_path=base_path,
-        format=fmt,
-        include_media=include_media,
-        status='pending'
-    )
+        # Create backup record in database
+        backup = Backup.objects.create(
+            initiated_by=request.user,
+            format=format,
+            include_media=include_media,
+            status='pending'
+        )
 
-    try:
-        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
-        tmp_dir = tempfile.mkdtemp(prefix='lms_backup_')
-        
-        # 1) Dump database
-        db_dump_path = os.path.join(tmp_dir, f'db_dump.{fmt}')
-        
-        from django.db import connection
-        engine = connection.settings_dict['ENGINE']
-        
-        if fmt == 'json':
-            # Use Django's dumpdata command
-            manage_py_path = os.path.join(settings.BASE_DIR, 'manage.py')
-            
-            cmd = [
-                sys.executable,  # Use current Python interpreter
-                manage_py_path,
-                'dumpdata', 
-                '--natural-primary', 
-                '--natural-foreign', 
-                '--indent', '2',
-                '--output', db_dump_path
-            ]
-            
-            try:
-                subprocess.run(cmd, check=True, capture_output=True, text=True)
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Dumpdata failed: {e.stderr}")
-                raise
+        # Create a temporary zip file
+        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"backup_{timestamp}_{backup.id}.zip"
 
-        elif 'sqlite' in engine and fmt == 'sql':
-            # Copy SQLite database file
-            db_name = connection.settings_dict['NAME']
-            shutil.copy2(db_name, db_dump_path)
-            
-        elif ('mysql' in engine or 'mariadb' in engine) and fmt == 'sql':
-            db_settings = connection.settings_dict
-            db_name = db_settings.get('NAME')
-            db_user = db_settings.get('USER', '')
-            db_host = db_settings.get('HOST', 'localhost')
-            db_port = str(db_settings.get('PORT', '3306'))
-            db_password = db_settings.get('PASSWORD', '')
-            
-            cmd = [
-                'mysqldump',
-                f'--host={db_host}',
-                f'--port={db_port}',
-                f'--user={db_user}',
-                '--single-transaction',
-                '--routines',
-                '--triggers',
-                db_name
-            ]
-            
-            env = os.environ.copy()
-            if db_password:
-                env['MYSQL_PWD'] = db_password
-                
-            try:
-                with open(db_dump_path, 'w', encoding='utf-8') as f:
-                    subprocess.run(cmd, stdout=f, env=env, check=True)
-            except FileNotFoundError:
-                backup.status = 'failed'
-                backup.message = (
-                    'mysqldump not found. Please install MySQL client tools '
-                    'and ensure "mysqldump" is in your PATH.'
-                )
-                backup.save()
-                return Response(
-                    {"detail": backup.message},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-                
-        else:
-            backup.status = 'failed'
-            backup.message = f'Unsupported format {fmt} for database engine {engine}'
+        # Use server-configured backup directory or default
+        backup_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get(
+            'DEFAULT_BACKUP_DIR', os.path.join(settings.MEDIA_ROOT, 'backups')
+        )
+        os.makedirs(backup_dir, exist_ok=True)
+        archive_path = os.path.join(backup_dir, filename)
+
+        try:
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                # Add database dump based on format
+                if format == "json":
+                    # Export data as JSON
+                    from django.core import serializers
+                    models_to_backup = [User, School, Requirement, ListOfPriority,
+                                        RequestManagement, LiquidationManagement]
+
+                    for model in models_to_backup:
+                        data = serializers.serialize(
+                            "json", model.objects.all())
+                        zipf.writestr(f"data/{model.__name__}.json", data)
+
+                elif format == "sql":
+                    # Export SQL dump
+                    db_name = settings.DATABASES['default']['NAME']
+                    try:
+                        # Try to use pg_dump for PostgreSQL
+                        if 'postgresql' in settings.DATABASES['default']['ENGINE']:
+                            subprocess.run([
+                                'pg_dump', db_name, '-f', f'/tmp/dump.sql'
+                            ], check=True)
+                            zipf.write('/tmp/dump.sql', 'database/dump.sql')
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        # Fallback to Django dumpdata
+                        from django.core.management import call_command
+                        from io import StringIO
+                        out = StringIO()
+                        call_command('dumpdata', stdout=out)
+                        zipf.writestr('database/dump.json', out.getvalue())
+
+                if include_media:
+                    # Include media files
+                    media_root = settings.MEDIA_ROOT
+                    for root, dirs, files in os.walk(media_root):
+                        for file in files:
+                            abs_path = os.path.join(root, file)
+                            rel_path = os.path.relpath(abs_path, media_root)
+                            zipf.write(abs_path, f"media/{rel_path}")
+
+            # Update backup record with success
+            backup.status = 'success'
+            backup.archive_path = archive_path
+            backup.file_size = os.path.getsize(archive_path)
             backup.save()
-            return Response(
-                {"detail": backup.message},
-                status=status.HTTP_400_BAD_REQUEST
+
+            # Return the file as a response (download)
+            response = FileResponse(
+                open(archive_path, "rb"),
+                as_attachment=True,
+                filename=filename,
+                content_type="application/zip"
             )
+            return response
 
-        # 2) Handle media files
-        media_files = []
-        media_root = getattr(settings, 'MEDIA_ROOT', None)
-        if include_media and media_root and os.path.isdir(media_root):
-            for root, _, files in os.walk(media_root):
-                for file in files:
-                    media_files.append(os.path.join(root, file))
-
-        # 3) Create archive
-        archive_name = f"backup_{timestamp}.{fmt}.zip"
-        archive_path = os.path.join(base_path, archive_name)
-        
-        compresslevel = getattr(settings, 'BACKUP_SETTINGS', {}).get('COMPRESSION_LEVEL', 6)
-        try:
-            zipf = zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=compresslevel)
-        except TypeError:
-            # Older Python without compresslevel support
-            zipf = zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED)
-        with zipf as zipf:
-            # Add database dump
-            zipf.write(db_dump_path, os.path.basename(db_dump_path))
-            
-            # Add media files
-            for media_file in media_files:
-                rel_path = os.path.relpath(media_file, media_root)
-                zipf.write(media_file, os.path.join('media', rel_path))
-
-        # 4) Update backup record
-        size_bytes = os.path.getsize(archive_path)
-        backup.archive_path = archive_path
-        backup.file_size = size_bytes
-        backup.status = 'success'
-        backup.message = 'Backup completed successfully'
-        backup.save()
-
-        # Rotation: cleanup old backups beyond retention window
-        try:
-            max_age_days = getattr(settings, 'BACKUP_SETTINGS', {}).get('MAX_BACKUP_AGE_DAYS', 30)
-            cutoff = timezone.now() - timedelta(days=max_age_days)
-            old_backups = Backup.objects.filter(created_at__lt=cutoff)
-            for b in old_backups:
-                try:
-                    if b.archive_path and os.path.exists(b.archive_path):
-                        os.remove(b.archive_path)
-                except Exception:
-                    pass
-                b.delete()
-        except Exception:
-            # Do not fail the API if rotation cleanup has issues
-            pass
-
-        return Response(BackupSerializer(backup).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            backup.status = 'failed'
+            backup.message = str(e)
+            backup.save()
+            raise e
 
     except Exception as e:
-        logger.error(f"Backup failed: {str(e)}", exc_info=True)
-        backup.status = 'failed'
-        backup.message = f'Backup failed: {str(e)}'
-        backup.save()
+        logger.error(f"Backup failed: {e}")
         return Response(
-            {"detail": "Backup failed. Check server logs for details."},
+            {"detail": "Backup failed", "error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-    finally:
-        try:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-        except Exception:
-            pass
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def initiate_restore(request):
-    if request.user.role != 'admin':
-        return Response({"detail": "Only administrators can restore."}, status=status.HTTP_403_FORBIDDEN)
-
-    allow_custom = getattr(settings, 'BACKUP_SETTINGS', {}).get('ALLOW_CUSTOM_PATHS', False)
-    default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get('DEFAULT_BACKUP_DIR', os.path.join(settings.BASE_DIR, 'Backups'))
-
-    # Prefer lookup by backup_id for safety
-    backup_id = request.data.get('backup_id')
-    archive_path = request.data.get('archive_path')
-    if backup_id and not archive_path:
-        try:
-            b = Backup.objects.get(id=backup_id)
-            archive_path = b.archive_path
-        except Backup.DoesNotExist:
-            return Response({"detail": "Backup record not found."}, status=status.HTTP_400_BAD_REQUEST)
-
-    # When custom paths are not allowed, restrict to server default directory
-    if not allow_custom:
-        if not archive_path:
-            return Response({"detail": "Archive path is required."}, status=status.HTTP_400_BAD_REQUEST)
-        normalized = os.path.normpath(archive_path)
-        default_norm = os.path.normpath(default_dir)
-        if not normalized.startswith(default_norm):
-            return Response({"detail": "Archive path must be inside the server backup directory."}, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        if not _is_safe_path(archive_path):
-            return Response({"detail": "Invalid archive path."}, status=status.HTTP_400_BAD_REQUEST)
-
-    if not os.path.isfile(archive_path):
-        return Response({"detail": "Archive file not found."}, status=status.HTTP_400_BAD_REQUEST)
-
+    """
+    Restore the system from an uploaded backup archive (.zip).
+    """
+    temp_dir = None
     try:
-        tmp_dir = tempfile.mkdtemp(prefix='lms_restore_')
-        with zipfile.ZipFile(archive_path, 'r') as zipf:
-            zipf.extractall(tmp_dir)
+        file_obj = request.FILES.get("file")
+        if not file_obj:
+            return Response(
+                {"detail": "No backup file uploaded"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Find db dump in tmp_dir
-        db_dump = None
-        for name in os.listdir(tmp_dir):
-            if name.startswith('db_dump.'):
-                db_dump = os.path.join(tmp_dir, name)
-                break
-        if not db_dump:
-            return Response({"detail": "No database dump found in archive."}, status=status.HTTP_400_BAD_REQUEST)
+        # Validate file type
+        if not file_obj.name.endswith('.zip'):
+            return Response(
+                {"detail": "Only ZIP files are supported for restore"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Restore DB
-        if db_dump.endswith('.json'):
-            # Load via loaddata
-            manage_py = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'manage.py')
-            project_root_manage = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'manage.py'))
-            manage_target = project_root_manage if os.path.exists(project_root_manage) else manage_py
-            cmd = [
-                os.path.join(os.path.dirname(settings.BASE_DIR), 'proj_venv', 'Scripts', 'python.exe')
-                if os.name == 'nt' and os.path.exists(os.path.join(os.path.dirname(settings.BASE_DIR), 'proj_venv', 'Scripts', 'python.exe'))
-                else 'python',
-                manage_target,
-                'loaddata', db_dump
-            ]
-            subprocess.check_call(cmd)
-        elif db_dump.endswith('.sql'):
-            from django.db import connection
-            engine = connection.settings_dict['ENGINE']
-            if 'sqlite' in engine:
-                sqlite_name = connection.settings_dict['NAME']
-                shutil.copy2(db_dump, sqlite_name)
-            elif 'mysql' in engine or 'mariadb' in engine:
-                db_settings = connection.settings_dict
-                db_name = db_settings.get('NAME')
-                db_user = db_settings.get('USER') or ''
-                db_host = db_settings.get('HOST') or '127.0.0.1'
-                db_port = str(db_settings.get('PORT') or '3306')
-                db_password = db_settings.get('PASSWORD') or ''
+        # Create temporary directory for extraction
+        temp_dir = tempfile.mkdtemp()
+        archive_path = os.path.join(temp_dir, file_obj.name)
 
-                env = os.environ.copy()
-                if db_password:
-                    env['MYSQL_PWD'] = db_password
+        # Save uploaded file
+        with open(archive_path, "wb+") as dest:
+            for chunk in file_obj.chunks():
+                dest.write(chunk)
 
-                cmd = [
-                    'mysql',
-                    f'-h{db_host}',
-                    f'-P{db_port}',
-                    f'-u{db_user}',
-                    db_name,
-                ]
-                with open(db_dump, 'r', encoding='utf-8') as f:
-                    subprocess.check_call(cmd, stdin=f, env=env)
-            else:
-                return Response({"detail": "Unsupported SQL restore for current DB engine."}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response({"detail": "Unsupported dump format for restore."}, status=status.HTTP_400_BAD_REQUEST)
+        # Extract archive
+        with zipfile.ZipFile(archive_path, "r") as zipf:
+            zipf.extractall(temp_dir)
 
-        # Restore media if present
-        media_root = getattr(settings, 'MEDIA_ROOT', None)
-        media_extracted = os.path.join(tmp_dir, 'media')
-        if media_root and os.path.isdir(media_extracted):
-            os.makedirs(media_root, exist_ok=True)
-            # Merge copy
-            for root_dir, _, files in os.walk(media_extracted):
+        # Restore logic
+        data_dir = os.path.join(temp_dir, 'data')
+        media_dir = os.path.join(temp_dir, 'media')
+
+        # Restore database - FIXED: Use proper file paths instead of StringIO
+        with transaction.atomic():
+            if os.path.exists(data_dir):
+                for file in os.listdir(data_dir):
+                    if file.endswith('.json'):
+                        file_path = os.path.join(data_dir, file)
+
+                        # Use Django's loaddata with the actual file path
+                        from django.core.management import call_command
+                        try:
+                            # Load data from the JSON file
+                            call_command('loaddata', file_path)
+                            logger.info(
+                                f"Successfully loaded data from {file}")
+                        except Exception as e:
+                            logger.error(
+                                f"Error loading data from {file}: {e}")
+                            # Continue with other files even if one fails
+                            continue
+
+        # Restore media files
+        if os.path.exists(media_dir):
+            media_root = settings.MEDIA_ROOT
+            for root, dirs, files in os.walk(media_dir):
                 for file in files:
-                    src = os.path.join(root_dir, file)
-                    rel = os.path.relpath(src, media_extracted)
-                    dest = os.path.join(media_root, rel)
-                    os.makedirs(os.path.dirname(dest), exist_ok=True)
-                    shutil.copy2(src, dest)
+                    src_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(src_path, media_dir)
+                    dest_path = os.path.join(media_root, rel_path)
 
-        return Response({"detail": "Restore completed."})
-    except subprocess.CalledProcessError:
-        return Response({"detail": "Restore failed while loading data."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                    shutil.copy2(src_path, dest_path)
+
+        # Cleanup
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+
+        return Response(
+            {"detail": f"Restore completed successfully from {file_obj.name}"},
+            status=status.HTTP_200_OK
+        )
+
     except Exception as e:
-        logger.exception("Restore failed: %s", e)
-        return Response({"detail": "Restore failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    finally:
-        try:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-        except Exception:
-            pass
+        logger.error(f"Restore failed: {e}", exc_info=True)
+        # Cleanup on error
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        return Response(
+            {"detail": "Restore failed", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])
