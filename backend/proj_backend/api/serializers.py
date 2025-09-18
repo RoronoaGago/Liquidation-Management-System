@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
@@ -808,3 +808,10 @@ class UnliquidatedSchoolReportSerializer(serializers.Serializer):
     schoolId = serializers.CharField()
     schoolName = serializers.CharField()
     unliquidated_count = serializers.IntegerField()
+
+
+class BackupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Backup
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'initiated_by', 'archive_path', 'status', 'file_size', 'message']
