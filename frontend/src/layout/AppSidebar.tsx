@@ -166,6 +166,12 @@ const allNavItems: NavItem[] = [
     roles: ["admin"], // Only admin
   },
   {
+    icon: <FileText />,
+    name: "Backup & Restore",
+    path: "/backup-restore",
+    roles: ["admin"],
+  },
+  {
     icon: <UserRoundPenIcon />,
     name: "User Profile",
     path: "/profile",
