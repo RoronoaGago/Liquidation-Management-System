@@ -2439,7 +2439,16 @@ def initiate_restore(request):
 
     allow_custom = getattr(settings, 'BACKUP_SETTINGS', {}).get('ALLOW_CUSTOM_PATHS', False)
     default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get('DEFAULT_BACKUP_DIR', os.path.join(settings.BASE_DIR, 'Backups'))
+
+    # Prefer lookup by backup_id for safety
+    backup_id = request.data.get('backup_id')
     archive_path = request.data.get('archive_path')
+    if backup_id and not archive_path:
+        try:
+            b = Backup.objects.get(id=backup_id)
+            archive_path = b.archive_path
+        except Backup.DoesNotExist:
+            return Response({"detail": "Backup record not found."}, status=status.HTTP_400_BAD_REQUEST)
 
     # When custom paths are not allowed, restrict to server default directory
     if not allow_custom:
