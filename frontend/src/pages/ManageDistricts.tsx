@@ -10,6 +10,7 @@ import { Bounce, toast } from "react-toastify";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import Button from "../components/ui/button/Button";
 import { PlusIcon } from "../icons";
+import { XIcon } from "lucide-react";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import { useState, useEffect, useRef } from "react";
@@ -21,14 +22,21 @@ interface DistrictFormData {
   districtName: string;
   municipality: string;
   legislativeDistrict: string;
+  logo: string;
 }
 
-const requiredFields = ["districtName", "municipality", "legislativeDistrict"];
+const requiredFields = [
+  "districtName",
+  "municipality",
+  "legislativeDistrict",
+  "logo",
+];
 
 const ManageDistricts = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [districts, setDistricts] = useState<any[]>([]);
   const [totalDistricts, setTotalDistricts] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -49,6 +57,7 @@ const ManageDistricts = () => {
     districtName: "",
     municipality: "",
     legislativeDistrict: "",
+    logo: "",
   });
   const [legislativeDistricts, setLegislativeDistricts] = useState<{
     [key: string]: string[];
@@ -151,6 +160,22 @@ const ManageDistricts = () => {
     setErrors(newErrors);
   };
 
+  // Handle logo file upload
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        setFormData((prevData) => ({
+          ...prevData,
+          logo: result,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -171,7 +196,14 @@ const ManageDistricts = () => {
     setIsSubmitting(true);
 
     try {
-      await api.post("school-districts/", formData, {
+      const submitData = {
+        districtName: formData.districtName,
+        municipality: formData.municipality,
+        legislativeDistrict: formData.legislativeDistrict,
+        ...(formData.logo && { logo_base64: formData.logo }),
+      };
+
+      await api.post("school-districts/", submitData, {
         headers: { "Content-Type": "application/json" },
       });
       await fetchDistricts();
@@ -191,6 +223,7 @@ const ManageDistricts = () => {
         districtName: "",
         municipality: "",
         legislativeDistrict: "",
+        logo: "",
       });
       setErrors({});
       setIsDialogOpen(false);
@@ -237,6 +270,60 @@ const ManageDistricts = () => {
                 </DialogDescription>
               </DialogHeader>
               <form className="space-y-4" onSubmit={handleSubmit}>
+                <div className="space-y-2">
+                  <Label htmlFor="logo" className="text-base">
+                    District Logo *
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    {formData.logo ? (
+                      <div className="relative">
+                        <img
+                          src={formData.logo}
+                          className="w-16 h-16 rounded-full object-cover"
+                          alt="Preview"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              logo: "",
+                            }));
+                            const fileInput = document.getElementById(
+                              "logo"
+                            ) as HTMLInputElement;
+                            if (fileInput) fileInput.value = "";
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                          aria-label="Remove district logo"
+                        >
+                          <XIcon />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                        <PlusIcon className="w-8 h-8 text-gray-500" />
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      id="logo"
+                      name="logo"
+                      accept="image/*"
+                      onChange={handleLogoChange}
+                      className="hidden"
+                    />
+                    <Label
+                      htmlFor="logo"
+                      className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                    >
+                      {formData.logo ? "Change Logo" : "Upload Logo"}
+                    </Label>
+                  </div>
+                </div>
+                {errors.logo && (
+                  <p className="text-red-500 text-sm">{errors.logo}</p>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="districtName" className="text-base">
                     School District Name *
@@ -305,6 +392,7 @@ const ManageDistricts = () => {
                     </p>
                   )}
                 </div>
+
                 <div className="flex justify-end gap-3 pt-4">
                   <Button
                     type="button"
@@ -316,6 +404,7 @@ const ManageDistricts = () => {
                         districtName: "",
                         municipality: "",
                         legislativeDistrict: "",
+                        logo: "",
                       });
                     }}
                     disabled={isSubmitting}

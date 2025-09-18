@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
-import { handleExport } from "@/lib/pdfHelpers";
+import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
   XCircle,
@@ -49,6 +49,7 @@ import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import { statusColors, statusLabels } from "@/lib/constants";
 import Label from "@/components/form/Label";
+import { formatDateTime } from "@/lib/helpers";
 
 const { RangePicker } = DatePicker;
 
@@ -200,63 +201,64 @@ const PriortySubmissionsPage = () => {
   };
 
   const fetchSubmissions = async () => {
-  setLoading(true);
-  setError(null);
-  try {
-    const status = activeTab === "pending" ? "pending" : "approved";
-    const params: any = {
-      status,
-    };
+    setLoading(true);
+    setError(null);
+    try {
+      const status = activeTab === "pending" ? "pending" : "approved";
+      const params: any = {
+        status,
+      };
 
-    // Add filters to params - backend will handle the complex filtering
-    if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
-    if (filterOptions.school) params.school_ids = filterOptions.school;
-    if (filterOptions.start_date) params.start_date = filterOptions.start_date;
-    if (filterOptions.end_date) params.end_date = filterOptions.end_date;
-    
-    // FIXED: Ensure proper parameter names match your backend
-    if (filterOptions.legislative_district) {
-      params.legislative_district = filterOptions.legislative_district;
+      // Add filters to params - backend will handle the complex filtering
+      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+      if (filterOptions.school) params.school_ids = filterOptions.school;
+      if (filterOptions.start_date)
+        params.start_date = filterOptions.start_date;
+      if (filterOptions.end_date) params.end_date = filterOptions.end_date;
+
+      // FIXED: Ensure proper parameter names match your backend
+      if (filterOptions.legislative_district) {
+        params.legislative_district = filterOptions.legislative_district;
+      }
+      if (filterOptions.municipality) {
+        params.municipality = filterOptions.municipality;
+      }
+      if (filterOptions.district) {
+        params.district = filterOptions.district;
+      }
+
+      console.log("API params being sent:", params); // Debug log
+
+      const res = await api.get(`requests/`, { params });
+
+      const submissionsData = res.data.results || res.data || [];
+      console.log("API response:", submissionsData); // Debug log
+      setSubmissionsState(submissionsData);
+
+      // Fetch schools for display purposes (not filtering)
+      const schoolRes = await api.get("schools/");
+      setSchools(schoolRes.data.results || schoolRes.data || []);
+    } catch (err: any) {
+      console.error("Failed to fetch submissions:", err);
+      console.error("Error response:", err.response?.data); // Debug log
+      setError("Failed to fetch submissions");
+      setSubmissionsState([]);
+    } finally {
+      setLoading(false);
     }
-    if (filterOptions.municipality) {
-      params.municipality = filterOptions.municipality;
-    }
-    if (filterOptions.district) {
-      params.district = filterOptions.district;
-    }
-
-    console.log('API params being sent:', params); // Debug log
-
-    const res = await api.get(`requests/`, { params });
-
-    const submissionsData = res.data.results || res.data || [];
-    console.log('API response:', submissionsData); // Debug log
-    setSubmissionsState(submissionsData);
-
-    // Fetch schools for display purposes (not filtering)
-    const schoolRes = await api.get("schools/");
-    setSchools(schoolRes.data.results || schoolRes.data || []);
-  } catch (err: any) {
-    console.error("Failed to fetch submissions:", err);
-    console.error("Error response:", err.response?.data); // Debug log
-    setError("Failed to fetch submissions");
-    setSubmissionsState([]);
-  } finally {
-    setLoading(false);
-  }
-};
-useEffect(() => {
-  fetchSubmissions();
-}, [
-  activeTab,
-  filterOptions.school,
-  filterOptions.district,
-  filterOptions.start_date,
-  filterOptions.end_date,
-  filterOptions.legislative_district,
-  filterOptions.municipality,
-  filterOptions.searchTerm, // Add this since it's backend filtered now
-]);
+  };
+  useEffect(() => {
+    fetchSubmissions();
+  }, [
+    activeTab,
+    filterOptions.school,
+    filterOptions.district,
+    filterOptions.start_date,
+    filterOptions.end_date,
+    filterOptions.legislative_district,
+    filterOptions.municipality,
+    filterOptions.searchTerm, // Add this since it's backend filtered now
+  ]);
   useEffect(() => {
     // Update municipality options when legislative district changes
     if (
@@ -428,39 +430,38 @@ useEffect(() => {
     setIsRejectDialogOpen(true);
   };
 
- const filteredSubmissions = useMemo(() => {
-  let filtered = Array.isArray(submissionsState) ? submissionsState : [];
+  const filteredSubmissions = useMemo(() => {
+    let filtered = Array.isArray(submissionsState) ? submissionsState : [];
 
-  // Search term filter - keep this as it's working
-  if (filterOptions.searchTerm) {
-    const term = filterOptions.searchTerm.toLowerCase();
-    filtered = filtered.filter((submission) => {
-      const userName =
-        `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
-      const school = (submission.user.school?.schoolName || "").toLowerCase();
-      return (
-        userName.includes(term) ||
-        school.includes(term) ||
-        submission.priorities.some((p: Priority) =>
-          p.priority.expenseTitle.toLowerCase().includes(term)
-        ) ||
-        submission.status.toLowerCase().includes(term) ||
-        submission.request_id.toLowerCase().includes(term)
-      );
-    });
-  }
+    // Search term filter - keep this as it's working
+    if (filterOptions.searchTerm) {
+      const term = filterOptions.searchTerm.toLowerCase();
+      filtered = filtered.filter((submission) => {
+        const userName =
+          `${submission.user.first_name} ${submission.user.last_name}`.toLowerCase();
+        const school = (submission.user.school?.schoolName || "").toLowerCase();
+        return (
+          userName.includes(term) ||
+          school.includes(term) ||
+          submission.priorities.some((p: Priority) =>
+            p.priority.expenseTitle.toLowerCase().includes(term)
+          ) ||
+          submission.status.toLowerCase().includes(term) ||
+          submission.request_id.toLowerCase().includes(term)
+        );
+      });
+    }
 
-  // Status filter - keep this as it's working
-  if (filterOptions.status) {
-    filtered = filtered.filter((s) => s.status === filterOptions.status);
-  }
+    // Status filter - keep this as it's working
+    if (filterOptions.status) {
+      filtered = filtered.filter((s) => s.status === filterOptions.status);
+    }
 
-  // REMOVE ALL OTHER FILTERS since backend handles them
-  // The issue is you're double-filtering - backend + frontend
-  
-  return filtered;
-}, [submissionsState, filterOptions.searchTerm, filterOptions.status]);
+    // REMOVE ALL OTHER FILTERS since backend handles them
+    // The issue is you're double-filtering - backend + frontend
 
+    return filtered;
+  }, [submissionsState, filterOptions.searchTerm, filterOptions.status]);
 
   console.log(filteredSubmissions);
   // Sorting logic - add proper null checks
@@ -1123,8 +1124,7 @@ useEffect(() => {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Submitted at:{" "}
-                    {new Date(viewedSubmission.created_at).toLocaleString()}
+                    Submitted at: {formatDateTime(viewedSubmission.created_at)}
                   </span>
                 </div>
               </div>
@@ -1292,17 +1292,28 @@ useEffect(() => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() =>
-                    handleExport(
-                      viewedSubmission,
-                      user?.first_name || "user",
-                      user?.last_name || "name"
-                    )
-                  }
+                  onClick={async () => {
+                    if (viewedSubmission.status === "approved") {
+                      // Use server-side PDF generation for approved requests
+                      const result = await handleServerSideExport(viewedSubmission);
+                      if (result.success) {
+                        toast.success(result.message || "PDF generated successfully!");
+                      } else {
+                        toast.error(result.error || "Failed to generate PDF");
+                      }
+                    } else {
+                      // Use legacy client-side generation for non-approved requests
+                      handleExport(
+                        viewedSubmission,
+                        user?.first_name || "user",
+                        user?.last_name || "name"
+                      );
+                    }
+                  }}
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  Export PDF
+                  {viewedSubmission.status === "approved" ? "Download Official PDF" : "Export PDF"}
                 </Button>
 
                 {viewedSubmission.status === "pending" && (

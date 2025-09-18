@@ -31,15 +31,16 @@ import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
-import PasswordChangeModal from "./components/common/PasswordChangeModal";
+import SetupModal from "./components/common/SetupModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
 import ManageDistricts from "./pages/ManageDistricts";
 import GenerateReport from "./pages/GenerateReport";
 import AdminDashboard from "./pages/AdminDashboard";
+import LiquidatorReviewPage from "./pages/LiquidatorReviewPage";
+import DivisionReviewPage from "./pages/DivisionReviewPage";
 
 const App = () => {
-  const { passwordChangeRequired, user } = useAuth();
-  console.log("Password change required:", passwordChangeRequired);
+  const { setupFlowActive, user } = useAuth();
   return (
     <>
       {/* Main application routes */}
@@ -73,13 +74,6 @@ const App = () => {
 
           <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
             <Route path="/pre-auditing" element={<LiquidationReportPage />} />
-          </Route>
-          {/* Add this route for liquidation details */}
-          <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>
-            <Route
-              path="/liquidations/:liquidationId"
-              element={<LiquidationDetailsPage />}
-            />
           </Route>
 
           {/* School Head-only routes */}
@@ -118,19 +112,32 @@ const App = () => {
               />
             </Route> */}
           <Route element={<RequireAuth allowedRoles={["liquidator"]} />}>
-            <Route path="/liquidation-finalize" element={<LiquidatorsPage />} />
             <Route
-              path="/liquidation-finalize/:liquidationId"
-              element={<LiquidationDetailsPage />}
+              path="/liquidation-finalize"
+              element={<LiquidatorReviewPage />}
             />
           </Route>
 
-          {/* Teacher-only routes */}
+          {/* Division Accountant routes */}
           <Route element={<RequireAuth allowedRoles={["accountant"]} />}>
-            {/* <Route path="/classes" element={<MyClasses />} /> */}
             <Route
               path="/approved-requests"
               element={<ApprovedRequestPage />}
+            />
+            <Route path="/division-review" element={<DivisionReviewPage />} />
+          </Route>
+
+          {/* Shared route for liquidation details - accessible by multiple roles */}
+          <Route
+            element={
+              <RequireAuth
+                allowedRoles={["district_admin", "liquidator", "accountant"]}
+              />
+            }
+          >
+            <Route
+              path="/liquidations/:liquidationId"
+              element={<LiquidationDetailsPage />}
             />
           </Route>
 
@@ -162,9 +169,9 @@ const App = () => {
           </Route>
         </Route>
         {/* Catch-all route */}
-        <Route path="*" element={<Navigate to="/" replace />} />-
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      {passwordChangeRequired && <PasswordChangeModal />}
+      <SetupModal />
       <LiquidationReminder />
     </>
   );

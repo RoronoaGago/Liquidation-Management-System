@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf
 
 
 from rest_framework_simplejwt.views import (
@@ -26,7 +26,8 @@ urlpatterns = [
     path('request-otp/', request_otp, name='request-otp'),
     path('verify-otp/', verify_otp, name='verify-otp'),
     path('resend-otp/', resend_otp, name='resend-otp'),
-    path("users/update-e-signature/", update_e_signature, name="update-e-signature"),
+    path("users/update-e-signature/",
+         update_e_signature, name="update-e-signature"),
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
@@ -41,8 +42,12 @@ urlpatterns = [
          name='requirement-list-create'),
     path('requirements/<int:requirementID>/',
          views.RequirementRetrieveUpdateDestroyAPIView.as_view(), name='requirement-detail'),
-     path('requests/next-available-month/', views.get_next_available_month, name='next-available-month'),
-    path('requests/check-eligibility/', views.check_request_eligibility, name='check-request-eligibility'),
+    path('requests/next-available-month/',
+         views.get_next_available_month, name='next-available-month'),
+    path('requests/check-eligibility/', views.check_request_eligibility,
+         name='check-request-eligibility'),
+    path('debug/liquidation-times/', views.debug_liquidation_times,
+         name='debug-liquidation-times'),
 
     path('priorities/', views.ListOfPriorityListCreateAPIView.as_view(),
          name='priority-list-create'),
@@ -62,6 +67,7 @@ urlpatterns = [
          views.ApproveRequestView.as_view(), name='approve-request'),
     path('requests/<str:pk>/reject/',
          views.RejectRequestView.as_view(), name='reject-request'),
+
     # Liquidation Management URLs
     path('liquidations/', views.LiquidationManagementListCreateAPIView.as_view(),
          name='liquidation-list-create'),
@@ -73,8 +79,7 @@ urlpatterns = [
          views.LiquidationDocumentListCreateAPIView.as_view(), name='liquidation-document-list'),
     path('liquidations/<str:LiquidationID>/documents/<int:pk>/',
          views.LiquidationDocumentRetrieveUpdateDestroyAPIView.as_view(), name='liquidation-document-detail'),
-    path('liquidations/<str:LiquidationID>/approve/',
-         views.approve_liquidation, name='approve-liquidation'),
+    # Removed approve_liquidation URL - now handled through PATCH on liquidation-detail
 
     # Additional custom endpoints
     path('user-requests/', views.UserRequestListAPIView.as_view(),
@@ -104,7 +109,12 @@ urlpatterns = [
          views.last_liquidated_request, name='last_liquidated_request'),
 
     # Report URLs
-    path('reports/unliquidated-schools/', schools_with_unliquidated_requests,name='unliquidated-schools-report'),
+    path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
+         name='unliquidated-schools-report'),
     path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
-    path('liquidations/<str:LiquidationID>/generate-report/', views.generate_liquidation_report, name='generate-liquidation-report'),
+    path('liquidations/<str:LiquidationID>/generate-report/',
+         views.generate_liquidation_report, name='generate-liquidation-report'),
+    path('requests/<str:request_id>/generate-pdf/',
+         generate_approved_request_pdf, name='generate-approved-request-pdf'),
+
 ]

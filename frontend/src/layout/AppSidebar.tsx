@@ -27,7 +27,8 @@ import {
   FileUserIcon,
   StampIcon,
   LandPlotIcon,
-  FileChartColumnIcon, // <-- Add this
+  FileChartColumnIcon,
+  ClipboardCheckIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -50,6 +51,12 @@ const allNavItems: NavItem[] = [
     name: "Manage Schools",
     path: "/schools",
     roles: ["admin"], // Only admin
+  },
+  {
+    icon: <ClipboardCheckIcon />,
+    name: "Finalize Liquidation Report",
+    path: "/division-review",
+    roles: ["accountant"], // Only for division accountant
   },
   {
     icon: <FileCheck2Icon />,
@@ -84,13 +91,13 @@ const allNavItems: NavItem[] = [
   },
   {
     icon: <StampIcon />,
-    name: "Finalize Liquidation Report",
+    name: "Liquidator Review",
     path: "/liquidation-finalize",
     roles: ["liquidator"], // Only liquidator
   },
   {
     icon: <FileSearch />, // <-- Use FileSearch or any icon you prefer
-    name: "Pre Audit",
+    name: "District Review",
     path: "/pre-auditing",
     roles: ["district_admin"], // Only for district_admin
   },

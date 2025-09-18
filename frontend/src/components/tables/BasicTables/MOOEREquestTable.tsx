@@ -18,6 +18,7 @@ import {
   AlertCircle,
   ArrowDownCircle,
 } from "lucide-react";
+import Button from "@/components/ui/button/Button";
 
 interface MOOERequestTableProps {
   submissions: Submission[];
@@ -241,13 +242,15 @@ const MOOERequestTable: React.FC<
                     {formatDateTime(submission.created_at)}
                   </TableCell>
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    <button
-                      className="flex items-center gap-2 text-blue-600 hover:underline"
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      startIcon={<EyeIcon className="w-4 h-4" />}
                       onClick={() => onView(submission)}
+                      className="text-blue-600 p-0"
                     >
                       View
-                      <EyeIcon className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

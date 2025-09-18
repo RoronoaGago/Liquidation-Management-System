@@ -39,6 +39,13 @@ const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 type Liquidation = {
   reviewed_at_district?: any;
   reviewed_by_district?: any;
+  reviewed_at_liquidator?: any;
+  reviewed_by_liquidator?: any;
+  reviewed_at_division?: any;
+  reviewed_by_division?: any;
+  date_districtApproved?: string;
+  date_liquidatorApproved?: string;
+  date_liquidated?: string;
   created_at?: any;
   LiquidationID: string;
   status: string;
@@ -264,25 +271,40 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
   const handleView = async (liq: Liquidation) => {
-    setSelected(liq);
-    setExpandedExpense(null);
-    setDocLoading(true);
-    const priorities = liq.request?.priorities || [];
-    const expenses: Expense[] = priorities.map((p: any) => ({
-      id: p.id || p.priority?.LOPID || "",
-      title: p.priority?.expenseTitle || "",
-      amount: Number(p.amount) || 0,
-      requirements: (p.priority?.requirements || []).map((req: any) => ({
-        requirementID: req.requirementID,
-        requirementTitle: req.requirementTitle,
-        is_required: req.is_required,
-      })),
-    }));
-    setExpenseList(expenses);
+    try {
+      // Change status to under_review_liquidator when liquidator views
+      if (liq.status === "approved_district") {
+        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+          status: "under_review_liquidator",
+        });
+        await refreshList(); // Refresh the list to show new status
+      }
 
-    const res = await api.get(`/liquidations/${liq.LiquidationID}/documents/`);
-    setDocuments(res.data);
-    setDocLoading(false);
+      setSelected(liq);
+      setExpandedExpense(null);
+      setDocLoading(true);
+      const priorities = liq.request?.priorities || [];
+      const expenses: Expense[] = priorities.map((p: any) => ({
+        id: p.id || p.priority?.LOPID || "",
+        title: p.priority?.expenseTitle || "",
+        amount: Number(p.amount) || 0,
+        requirements: (p.priority?.requirements || []).map((req: any) => ({
+          requirementID: req.requirementID,
+          requirementTitle: req.requirementTitle,
+          is_required: req.is_required,
+        })),
+      }));
+      setExpenseList(expenses);
+
+      const res = await api.get(
+        `/liquidations/${liq.LiquidationID}/documents/`
+      );
+      setDocuments(res.data);
+      setDocLoading(false);
+    } catch (err) {
+      toast.error("Failed to update status");
+      setDocLoading(false);
+    }
   };
 
   const getCompletion = () => {
@@ -1098,7 +1120,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                             reviewer_comment: viewDoc.reviewer_comment,
                           }
                         );
-                        toast.success("Document approved!");
+                        // toast.success("Document approved!");
                         const res = await api.get(
                           `/liquidations/${selected?.LiquidationID}/documents/`
                         );

@@ -18,9 +18,65 @@ DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
 
 
 class SchoolDistrictSerializer(serializers.ModelSerializer):
+    logo_base64 = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+    logo_url = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = SchoolDistrict
         fields = '__all__'
+
+    def get_logo_url(self, obj):
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
+
+    def validate(self, data):
+        if data.get('logo_base64') == "":
+            data.pop('logo_base64')
+        return data
+
+    def create(self, validated_data):
+        logo_base64 = validated_data.pop('logo_base64', None)
+        
+        instance = SchoolDistrict.objects.create(**validated_data)
+        
+        if logo_base64:
+            format, imgstr = logo_base64.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(
+                base64.b64decode(imgstr),
+                name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
+            )
+            instance.logo = data
+            instance.save()
+        
+        return instance
+
+    def update(self, instance, validated_data):
+        logo_base64 = validated_data.pop('logo_base64', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        if logo_base64:
+            format, imgstr = logo_base64.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(
+                base64.b64decode(imgstr),
+                name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
+            )
+            instance.logo = data
+        
+        instance.save()
+        return instance
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -81,7 +137,8 @@ class UserSerializer(serializers.ModelSerializer):
             "profile_picture_base64",
             "e_signature",  # <-- Add this line
             "is_active",
-            "date_joined"
+            "date_joined",
+            "last_login",
         ]
         extra_kwargs = {
             "password": {
@@ -100,37 +157,124 @@ class UserSerializer(serializers.ModelSerializer):
         return representation
 
     def validate(self, data):
-        if 'email' not in data:
+        # Only require email for creation, not for updates
+        if not self.instance and 'email' not in data:
             raise serializers.ValidationError("Email is required")
-        if data.get('role') in ['school_head', 'school_admin'] and not data.get('school'):
-            raise serializers.ValidationError(
-                "School is required for this role")
-        if data.get('role') == 'district_admin' and not data.get('school_district'):
-            raise serializers.ValidationError(
-                {"school_district": "School district is required for district administrators"}
-            )
+        # Only validate role requirements if role is being updated
+        if 'role' in data:
+            if data.get('role') in ['school_head', 'school_admin'] and not data.get('school'):
+                raise serializers.ValidationError(
+                    "School is required for this role")
+            if data.get('role') == 'district_admin' and not data.get('school_district'):
+                raise serializers.ValidationError(
+                    {"school_district": "School district is required for district administrators"}
+                )
         if data.get('profile_picture_base64') == "":
             data.pop('profile_picture_base64')
 
-        role = data.get("role")
-        school = data.get("school") or data.get("school_id")
-        if role in ["school_head", "school_admin"] and school:
-            user_id = self.instance.pk if self.instance else None
-            qs = User.objects.filter(role=role, school=school)
-            if user_id:
-                qs = qs.exclude(pk=user_id)
-            if qs.exists():
-                raise serializers.ValidationError(
-                    {"role": f"There is already a {role.replace('_', ' ')} assigned to this school."}
-                )
-        # E-signature required for specific roles
-        role = data.get("role")
-        e_signature = data.get("e_signature")
-        required_roles = ["school_head", "superintendent", "accountant"]
-        if role in required_roles and not e_signature:
-            raise serializers.ValidationError(
-                {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant."}
-            )
+        # Only validate role uniqueness if role is being updated
+        if 'role' in data:
+            role = data.get("role")
+            school = data.get("school") or data.get("school_id")
+            school_district = data.get(
+                "school_district") or data.get("school_district_id")
+
+            # Validate school-level role uniqueness (only one active per school)
+            if role in ["school_head", "school_admin"] and school:
+                user_id = self.instance.pk if self.instance else None
+                qs = User.objects.filter(
+                    role=role, school=school, is_active=True)
+                if user_id:
+                    qs = qs.exclude(pk=user_id)
+                if qs.exists():
+                    existing_user = qs.first()
+                    raise serializers.ValidationError(
+                        {"role": f"There is already an active {role.replace('_', ' ')} assigned to this school ({existing_user.get_full_name()}). Only one active {role.replace('_', ' ')} is allowed per school."}
+                    )
+
+            # Validate district-level role uniqueness (only one active per district)
+            if role == "district_admin" and school_district:
+                user_id = self.instance.pk if self.instance else None
+                qs = User.objects.filter(
+                    role=role, school_district=school_district, is_active=True)
+                if user_id:
+                    qs = qs.exclude(pk=user_id)
+                if qs.exists():
+                    existing_user = qs.first()
+                    raise serializers.ValidationError(
+                        {"role": f"There is already an active district administrative assistant assigned to this district ({existing_user.get_full_name()}). Only one active district administrative assistant is allowed per district."}
+                    )
+
+            # Validate division-level role uniqueness (only one active per division)
+            if role in ["superintendent", "accountant"]:
+                user_id = self.instance.pk if self.instance else None
+                qs = User.objects.filter(role=role, is_active=True)
+                if user_id:
+                    qs = qs.exclude(pk=user_id)
+                if qs.exists():
+                    existing_user = qs.first()
+                    raise serializers.ValidationError(
+                        {"role": f"There is already an active {role.replace('_', ' ')} in the division ({existing_user.get_full_name()}). Only one active {role.replace('_', ' ')} is allowed per division."}
+                    )
+
+        # Validate activation conflicts - check if activating this user would create a conflict
+        is_being_activated = data.get('is_active', None)
+        if self.instance and is_being_activated is True and not self.instance.is_active:
+            # User is being activated, check for conflicts using instance data
+            role = self.instance.role
+            school = self.instance.school
+            school_district = self.instance.school_district
+
+            # Check school-level role conflicts
+            if role in ["school_head", "school_admin"] and school:
+                existing_active = User.objects.filter(
+                    role=role,
+                    school=school,
+                    is_active=True
+                ).exclude(pk=self.instance.pk)
+                if existing_active.exists():
+                    existing_user = existing_active.first()
+                    raise serializers.ValidationError(
+                        {"is_active": f"Cannot activate this user. There is already an active {role.replace('_', ' ')} assigned to this school ({existing_user.get_full_name()}). Please deactivate the existing user first."}
+                    )
+
+            # Check district-level role conflicts
+            elif role == "district_admin" and school_district:
+                existing_active = User.objects.filter(
+                    role=role,
+                    school_district=school_district,
+                    is_active=True
+                ).exclude(pk=self.instance.pk)
+                if existing_active.exists():
+                    existing_user = existing_active.first()
+                    raise serializers.ValidationError(
+                        {"is_active": f"Cannot activate this user. There is already an active district administrative assistant assigned to this district ({existing_user.get_full_name()}). Please deactivate the existing user first."}
+                    )
+
+            # Check division-level role conflicts
+            elif role in ["superintendent", "accountant"]:
+                existing_active = User.objects.filter(
+                    role=role,
+                    is_active=True
+                ).exclude(pk=self.instance.pk)
+                if existing_active.exists():
+                    existing_user = existing_active.first()
+                    raise serializers.ValidationError(
+                        {"is_active": f"Cannot activate this user. There is already an active {role.replace('_', ' ')} in the division ({existing_user.get_full_name()}). Please deactivate the existing user first."}
+                    )
+        # E-signature required for specific roles (only when role is being updated)
+        if 'role' in data:
+            role = data.get("role")
+            e_signature = data.get("e_signature")
+            required_roles = ["school_head", "superintendent", "accountant"]
+
+            # Only require e-signature for updates (when instance exists), not for creation
+            if self.instance and role in required_roles and not e_signature:
+                # Check if user already has an e-signature
+                if not self.instance.e_signature:
+                    raise serializers.ValidationError(
+                        {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant."}
+                    )
         return data
 
     def create(self, validated_data):
@@ -218,6 +362,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Get user and request context
         user = self.user
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
         request = self.context.get('request')
         ip = request.META.get('REMOTE_ADDR') if request else None
 
@@ -252,6 +398,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email  # Now the primary identifier
         token['role'] = user.role
         token['password_change_required'] = user.password_change_required
+
         if user.school_district:
             token['school_district'] = {
                 'id': user.school_district.districtId,
@@ -267,6 +414,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['profile_picture'] = user.profile_picture.url
         else:
             token['profile_picture'] = None
+
+        # Add e-signature URL if available
+        if user.e_signature:
+            token['e_signature'] = user.e_signature.url
+        else:
+            token['e_signature'] = None
 
         return token
 
@@ -378,7 +531,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
             'reviewed_by',
             'reviewed_at',
             'next_available_month',
-            'is_advance_request', 
+            'is_advance_request',
             'can_submit_for_month',
         ]
         read_only_fields = ['request_id', 'created_at',
@@ -409,6 +562,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                 except ListOfPriority.DoesNotExist:
                     continue
         return request_obj
+
     def get_next_available_month(self, obj):
         """Get next available month for this user"""
         if hasattr(obj, 'user') and obj.user:
@@ -420,7 +574,7 @@ class RequestManagementSerializer(serializers.ModelSerializer):
         """Check if this is an advance request"""
         if not obj.request_monthyear:
             return False
-        
+
         from datetime import date
         today = date.today()
         try:
@@ -440,14 +594,14 @@ class RequestManagementSerializer(serializers.ModelSerializer):
     def validate_request_monthyear(self, value):
         """Validate the requested month against business rules"""
         user = self.context['request'].user if 'request' in self.context else None
-        
+
         if user and value:
             if not RequestManagement.can_user_request_for_month(user, value):
                 existing = RequestManagement.objects.filter(
                     user=user,
                     request_monthyear=value
                 ).exclude(status='rejected').first()
-                
+
                 if existing:
                     raise serializers.ValidationError(
                         f"You already have a request for {value}. "
@@ -457,13 +611,13 @@ class RequestManagementSerializer(serializers.ModelSerializer):
                     unliquidated = RequestManagement.objects.filter(
                         user=user
                     ).exclude(status__in=['liquidated', 'rejected']).first()
-                    
+
                     if unliquidated:
                         raise serializers.ValidationError(
                             f"Please liquidate your current request "
                             f"({unliquidated.request_id}) before submitting a new one."
                         )
-        
+
         return value
 
 
@@ -534,6 +688,8 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
         source='created_at', read_only=True)
     reviewer_comments = serializers.SerializerMethodField()
     reviewed_by_district = UserSerializer(read_only=True)
+    reviewed_by_liquidator = UserSerializer(read_only=True)
+    reviewed_by_division = UserSerializer(read_only=True)
     liquidation_priorities = LiquidationPrioritySerializer(many=True)
 
     class Meta:
@@ -545,9 +701,15 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
             'status',
             'reviewed_by_district',
             'reviewed_at_district',
+            'reviewed_by_liquidator',
+            'reviewed_at_liquidator',
             'reviewed_by_division',
             'reviewed_at_division',
             'submitted_at',
+            'date_submitted',
+            'date_districtApproved',
+            'date_liquidatorApproved',
+            'date_liquidated',
             'reviewer_comments',
             'documents',
             'created_at',
@@ -577,7 +739,6 @@ class LiquidationManagementSerializer(serializers.ModelSerializer):
                 for lp in instance.liquidation_priorities.all()
             ]
         return data
-
 
 
 class NotificationSerializer(serializers.ModelSerializer):

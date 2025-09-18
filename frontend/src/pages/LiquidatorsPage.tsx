@@ -14,8 +14,21 @@ type Liquidation = {
     first_name: string;
     last_name: string;
   };
-  reviewed_at_district?: string; // Add this property
-  created_at?: string; // Add this property
+  reviewed_at_district?: string;
+  reviewed_by_liquidator?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_liquidator?: string;
+  reviewed_by_division?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_division?: string;
+  date_districtApproved?: string;
+  date_liquidatorApproved?: string;
+  date_liquidated?: string;
+  created_at?: string;
   request?: {
     request_id?: string;
     user?: {
@@ -53,20 +66,8 @@ const LiquidatorsPage = () => {
   }, []);
 
   const handleView = async (liq: Liquidation) => {
-    try {
-      setLoading(true);
-      // Change status to under_review_division when division admin views
-      if (liq.status === "approved_district") {
-        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-          status: "under_review_division",
-        });
-      }
-      navigate(`/liquidation-finalize/${liq.LiquidationID}`);
-    } catch (err) {
-      toast.error("Failed to update status");
-    } finally {
-      setLoading(false);
-    }
+    // Navigate to the liquidation finalize page
+    navigate(`/liquidation-finalize/${liq.LiquidationID}`);
   };
 
   // Filtered and paginated data

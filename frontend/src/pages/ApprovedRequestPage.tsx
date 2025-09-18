@@ -12,7 +12,7 @@ import {
 import Button from "@/components/ui/button/Button";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
 import Badge from "@/components/ui/badge/Badge";
-import { handleExport } from "@/lib/pdfHelpers";
+import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
   XCircle,
@@ -37,6 +37,7 @@ import { format } from "date-fns";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import { formatDateTime } from "@/lib/helpers";
 
 dayjs.extend(customParseFormat);
 
@@ -501,17 +502,14 @@ const ApprovedRequestPage = () => {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Submitted at:{" "}
-                    {new Date(viewedSubmission.created_at).toLocaleString()}
+                    Submitted at: {formatDateTime(viewedSubmission.created_at)}
                   </span>
                   {/* Approved at under Submitted at */}
                   {viewedSubmission.status === "approved" &&
                     viewedSubmission.date_approved && (
                       <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Approved at:{" "}
-                        {new Date(
-                          viewedSubmission.date_approved
-                        ).toLocaleString()}
+                        {formatDateTime(viewedSubmission.date_approved)}
                       </span>
                     )}
                 </div>
@@ -579,17 +577,28 @@ const ApprovedRequestPage = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() =>
-                    handleExport(
-                      viewedSubmission,
-                      user?.first_name || "user",
-                      user?.last_name || "name"
-                    )
-                  }
+                  onClick={async () => {
+                    if (viewedSubmission.status === "approved") {
+                      // Use server-side PDF generation for approved requests
+                      const result = await handleServerSideExport(viewedSubmission);
+                      if (result.success) {
+                        toast.success(result.message || "PDF generated successfully!");
+                      } else {
+                        toast.error(result.error || "Failed to generate PDF");
+                      }
+                    } else {
+                      // Use legacy client-side generation for non-approved requests
+                      handleExport(
+                        viewedSubmission,
+                        user?.first_name || "user",
+                        user?.last_name || "name"
+                      );
+                    }
+                  }}
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  Export PDF
+                  {viewedSubmission.status === "approved" ? "Download Official PDF" : "Export PDF"}
                 </Button>
 
                 {viewedSubmission.status === "approved" && (

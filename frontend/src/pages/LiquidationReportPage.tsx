@@ -51,13 +51,27 @@ const LiquidationReportPage = () => {
   // Filtered and paginated data
   const filteredLiquidations = useMemo(() => {
     let filtered = liquidations;
-    console.log(filtered);
-    // If user is district_admin and has a school_district, filter by district
-    if (user?.role === "district_admin" && user.school_district) {
-      filtered = filtered.filter(
-        (liq) => liq.request?.user?.school?.district === user.school_district
-      );
-    }
+    console.log("All liquidations:", filtered);
+    console.log("User role:", user?.role);
+    console.log("User school_district:", user?.school_district);
+    
+    // Debug: Log each liquidation's structure
+    filtered.forEach((liq) => {
+      console.log(`Liquidation ${liq.LiquidationID}:`, {
+        status: liq.status,
+        school: liq.request?.user?.school?.schoolName,
+        district: liq.request?.user?.school?.district,
+        user: liq.request?.user?.first_name + ' ' + liq.request?.user?.last_name
+      });
+    });
+    
+    // Backend already filters liquidations by role, so we don't need additional filtering here
+    // The backend LiquidationManagementListCreateAPIView.get_queryset() already handles:
+    // - district_admin: filters by status='submitted' and district
+    // - liquidator: filters by status='under_review_liquidator'  
+    // - accountant: filters by status='under_review_division'
+    // - school_head: shows only their latest liquidation
+    console.log("Backend should have already filtered liquidations by role and district");
     if (!searchTerm) return filtered;
     return filtered.filter((liq) => {
       const userObj = liq.request?.user;
