@@ -67,3 +67,15 @@ Verify backup file integrity before restoration
 Confirmations for destructive operations
 
 Proposed Implementation Details
+
+
+Short answer: No. With your current settings, backups are saved under the project folder: BACKUP_SETTINGS['DEFAULT_BACKUP_DIR'] = BASE_DIR/Backups, i.e., inside your backend project, not your Desktop.
+If you want them on your Desktop, set a full absolute path in settings and restart the server, for example on Windows:
+In backend/proj_backend/backend/settings.py, set:
+BACKUP_SETTINGS = {
+'DEFAULT_BACKUP_DIR': r'C:\Users\johnrick\Desktop\Backups',
+'MAX_BACKUP_AGE_DAYS': 30,
+'ALLOW_CUSTOM_PATHS': False,
+'COMPRESSION_LEVEL': 6,
+}
+Make sure the folder exists (the code will create it if it can).
