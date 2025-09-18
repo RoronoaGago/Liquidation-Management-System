@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ant-design/charts": "^2.2.7",
+    "@ant-design/charts": "^2.6.4",
     "@ant-design/icons": "^6.0.0",
     "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",

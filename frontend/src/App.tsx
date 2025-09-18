@@ -38,6 +38,7 @@ import GenerateReport from "./pages/GenerateReport";
 import AdminDashboard from "./pages/AdminDashboard";
 import LiquidatorReviewPage from "./pages/LiquidatorReviewPage";
 import DivisionReviewPage from "./pages/DivisionReviewPage";
+import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashboard";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -59,6 +60,8 @@ const App = () => {
                   <AdminDashboard />
                 ) : user?.role === "school_head" ? (
                   <SchoolHeadDashboard />
+                ) : user?.role === "superintendent" ? (
+                  <DivisionSuperintendentDashboard />
                 ) : (
                   <Home />
                 )
