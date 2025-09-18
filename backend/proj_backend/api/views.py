@@ -2232,6 +2232,14 @@ def _is_safe_path(path: str) -> bool:
     if os.path.isabs(normalized):
         # Allow only certain safe directories if needed
         allowed_prefixes = ['/backups/']
+        # Include server-configured default backup dir if present
+        try:
+            default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get('DEFAULT_BACKUP_DIR')
+            if default_dir:
+                # Normalize to same style
+                allowed_prefixes.append(os.path.normpath(default_dir) + (os.sep if not default_dir.endswith(os.sep) else ''))
+        except Exception:
+            pass
         if os.name == 'nt':
             allowed_prefixes.extend(['C:\\Backups\\', 'D:\\Backups\\'])
         if not any(normalized.startswith(prefix) for prefix in allowed_prefixes):
@@ -2246,12 +2254,18 @@ def initiate_backup(request):
     if request.user.role != 'admin':
         return Response({"detail": "Only administrators can initiate backups."}, status=status.HTTP_403_FORBIDDEN)
 
-    base_path = request.data.get('path')
     fmt = request.data.get('format', 'json')
     include_media = bool(request.data.get('include_media', True))
 
-    if not _is_safe_path(base_path):
-        return Response({"detail": "Invalid or unsafe path."}, status=status.HTTP_400_BAD_REQUEST)
+    # Enforce server-managed directory by default
+    allow_custom = getattr(settings, 'BACKUP_SETTINGS', {}).get('ALLOW_CUSTOM_PATHS', False)
+    default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get('DEFAULT_BACKUP_DIR', os.path.join(settings.BASE_DIR, 'Backups'))
+    client_path = request.data.get('path')
+    base_path = client_path if (allow_custom and client_path) else default_dir
+
+    if allow_custom:
+        if not _is_safe_path(base_path):
+            return Response({"detail": "Invalid or unsafe path."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         os.makedirs(base_path, exist_ok=True)
@@ -2360,7 +2374,13 @@ def initiate_backup(request):
         archive_name = f"backup_{timestamp}.{fmt}.zip"
         archive_path = os.path.join(base_path, archive_name)
         
-        with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        compresslevel = getattr(settings, 'BACKUP_SETTINGS', {}).get('COMPRESSION_LEVEL', 6)
+        try:
+            zipf = zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=compresslevel)
+        except TypeError:
+            # Older Python without compresslevel support
+            zipf = zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED)
+        with zipf as zipf:
             # Add database dump
             zipf.write(db_dump_path, os.path.basename(db_dump_path))
             
@@ -2376,6 +2396,22 @@ def initiate_backup(request):
         backup.status = 'success'
         backup.message = 'Backup completed successfully'
         backup.save()
+
+        # Rotation: cleanup old backups beyond retention window
+        try:
+            max_age_days = getattr(settings, 'BACKUP_SETTINGS', {}).get('MAX_BACKUP_AGE_DAYS', 30)
+            cutoff = timezone.now() - timedelta(days=max_age_days)
+            old_backups = Backup.objects.filter(created_at__lt=cutoff)
+            for b in old_backups:
+                try:
+                    if b.archive_path and os.path.exists(b.archive_path):
+                        os.remove(b.archive_path)
+                except Exception:
+                    pass
+                b.delete()
+        except Exception:
+            # Do not fail the API if rotation cleanup has issues
+            pass
 
         return Response(BackupSerializer(backup).data, status=status.HTTP_201_CREATED)
 
@@ -2401,9 +2437,24 @@ def initiate_restore(request):
     if request.user.role != 'admin':
         return Response({"detail": "Only administrators can restore."}, status=status.HTTP_403_FORBIDDEN)
 
+    allow_custom = getattr(settings, 'BACKUP_SETTINGS', {}).get('ALLOW_CUSTOM_PATHS', False)
+    default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get('DEFAULT_BACKUP_DIR', os.path.join(settings.BASE_DIR, 'Backups'))
     archive_path = request.data.get('archive_path')
-    if not _is_safe_path(archive_path) or not os.path.isfile(archive_path):
-        return Response({"detail": "Invalid archive path."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # When custom paths are not allowed, restrict to server default directory
+    if not allow_custom:
+        if not archive_path:
+            return Response({"detail": "Archive path is required."}, status=status.HTTP_400_BAD_REQUEST)
+        normalized = os.path.normpath(archive_path)
+        default_norm = os.path.normpath(default_dir)
+        if not normalized.startswith(default_norm):
+            return Response({"detail": "Archive path must be inside the server backup directory."}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        if not _is_safe_path(archive_path):
+            return Response({"detail": "Invalid archive path."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not os.path.isfile(archive_path):
+        return Response({"detail": "Archive file not found."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         tmp_dir = tempfile.mkdtemp(prefix='lms_restore_')

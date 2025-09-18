@@ -45,7 +45,9 @@ const BackupRestorePage = () => {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await initiateBackup({ path, format, include_media: includeMedia });
+      const payload: any = { format, include_media: includeMedia };
+      if (path) payload.path = path;
+      const res = await initiateBackup(payload);
       setMessage(res.message ?? 'Backup created successfully');
       setMessageType('success');
       await refresh();
@@ -235,12 +237,12 @@ const BackupRestorePage = () => {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Destination Path</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Destination Path (optional)</label>
               <div className="flex gap-2">
                 <input
                   value={path}
                   onChange={(e) => setPath(e.target.value)}
-                  placeholder="e.g. C:\\Backups\\LMS"
+                  placeholder="Server default used if empty"
                   className="flex-1 rounded-lg border border-gray-300 px-3 py-2 dark:bg-gray-800 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <Button variant="outline" onClick={pickDestinationFolder} className="whitespace-nowrap">
@@ -248,7 +250,7 @@ const BackupRestorePage = () => {
                   Browse
                 </Button>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Use folder picker (if supported)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank to use the server-configured backup directory.</p>
             </div>
 
             <div>
@@ -284,7 +286,7 @@ const BackupRestorePage = () => {
 
             <Button 
               onClick={onBackup} 
-              disabled={loading || !path}
+              disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors"
             >
               {loading ? (
