@@ -73,20 +73,27 @@ const BackupRestorePage = () => {
   }
 
   async function pickDestinationFolder() {
-    try {
-      // @ts-expect-error: Not in all TS DOM lib versions
-      if (window.showDirectoryPicker) {
+    // Prefer native directory picker if available
+    // @ts-expect-error: Not in all TS DOM lib versions
+    if (window.showDirectoryPicker) {
+      try {
         // @ts-expect-error: Not in all TS DOM lib versions
         const handle = await window.showDirectoryPicker();
         if (handle?.name) {
           // Browsers do not expose absolute filesystem paths; use name for display
-          setPath((prev) => (prev ? prev : handle.name));
+          setPath(handle.name);
         }
-        return;
+      } catch (err: any) {
+        // If user cancels, do nothing and do not trigger fallback
+        if (err && (err.name === 'AbortError' || err.code === 20)) {
+          return;
+        }
+        // For other errors (e.g., NotAllowedError), fall back
+        folderInputRef.current?.click();
       }
-    } catch {
-      // fall back
+      return;
     }
+    // Fallback for browsers without directory picker support
     folderInputRef.current?.click();
   }
 
@@ -96,14 +103,15 @@ const BackupRestorePage = () => {
     const first: File & { webkitRelativePath?: string } = files[0] as any;
     const rel = first.webkitRelativePath || '';
     const folderName = rel.split('/')[0] || '';
-    if (folderName) setPath((prev) => (prev ? prev : folderName));
+    if (folderName) setPath(folderName);
     e.target.value = '';
   }
 
   async function pickArchiveFile() {
-    try {
-      // @ts-expect-error: Not in all TS DOM lib versions
-      if (window.showOpenFilePicker) {
+    // Prefer native file picker if available
+    // @ts-expect-error: Not in all TS DOM lib versions
+    if (window.showOpenFilePicker) {
+      try {
         // @ts-expect-error: Not in all TS DOM lib versions
         const [handle] = await window.showOpenFilePicker({
           multiple: false,
@@ -119,19 +127,25 @@ const BackupRestorePage = () => {
             }
           ]
         });
-        if (handle?.name) setArchivePath((prev) => (prev ? prev : handle.name));
-        return;
+        if (handle?.name) setArchivePath(handle.name);
+      } catch (err: any) {
+        // If user cancels, do nothing and do not trigger fallback
+        if (err && (err.name === 'AbortError' || err.code === 20)) {
+          return;
+        }
+        // For other errors (e.g., NotAllowedError), fall back
+        fileInputRef.current?.click();
       }
-    } catch {
-      // fall back
+      return;
     }
+    // Fallback for browsers without File System Access API support
     fileInputRef.current?.click();
   }
 
   function onFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setArchivePath((prev) => (prev ? prev : file.name));
+    setArchivePath(file.name);
     e.target.value = '';
   }
 
