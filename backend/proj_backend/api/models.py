@@ -940,3 +940,38 @@ class GeneratedPDF(models.Model):
             except (OSError, ValueError):
                 pass
         super().save(*args, **kwargs)
+
+
+class Backup(models.Model):
+    """
+    Track backup and restore operations.
+    Stores metadata about where artifacts are saved and their sizes.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    initiated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backups'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    base_path = models.CharField(max_length=1024, help_text="Base directory chosen by admin")
+    archive_path = models.CharField(max_length=1024, help_text="Path to produced archive", blank=True)
+    format = models.CharField(max_length=20, choices=[('json', 'JSON'), ('sql', 'SQL'), ('csv', 'CSV')], default='json')
+    include_media = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    file_size = models.BigIntegerField(null=True, blank=True, help_text="Size in bytes of the main archive")
+    message = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Backup {self.id} ({self.status})"

@@ -4,6 +4,7 @@ from django.db.models.functions import TruncMonth, ExtractDay
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
 from django.http import HttpResponse
 import csv
+from django.conf import settings
 from datetime import date
 from .serializers import UnliquidatedSchoolReportSerializer
 from .models import School, RequestManagement
@@ -21,8 +22,8 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer, BackupSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -44,6 +45,12 @@ from openpyxl.styles import Font, Alignment
 from django.http import HttpResponse
 from django.utils.timezone import localtime
 import random
+import os
+import shutil
+import tempfile
+import subprocess
+import zipfile
+import sys
 
 
 logger = logging.getLogger(__name__)
@@ -2186,6 +2193,313 @@ def admin_dashboard(request):
     }
 
     return Response(response_data)
+# ------------------- Backup & Restore -------------------
+
+def _is_safe_path(path: str) -> bool:
+    """
+    Validate that path is safe and doesn't contain traversal attempts
+    """
+    if not path or not isinstance(path, str):
+        return False
+    
+    # Normalize path and check for traversal attempts
+    normalized = os.path.normpath(path)
+    
+    # Check for dangerous patterns
+    # Platform-aware invalid pattern checks
+    if os.name == 'nt':
+        # On Windows, allow drive letter colon (e.g., C:\), but disallow reserved characters
+        invalid_chars = ['|', '<', '>', '"']
+        if any(ch in normalized for ch in invalid_chars):
+            return False
+        # Reject device paths
+        if ('\\\\.\\' in normalized) or ('\\\\?\\' in normalized):
+            return False
+        # Basic traversal check
+        if '..' in normalized or '~' in normalized:
+            return False
+    else:
+        dangerous_patterns = [
+            '..', '~',  # Directory traversal
+            '/dev/', '/proc/', '/sys/',  # Linux system paths
+            '|', '<', '>', '"',  # Invalid characters
+        ]
+        for pattern in dangerous_patterns:
+            if pattern in normalized:
+                return False
+    
+    # Additional checks for absolute paths
+    if os.path.isabs(normalized):
+        # Allow only certain safe directories if needed
+        allowed_prefixes = ['/backups/']
+        if os.name == 'nt':
+            allowed_prefixes.extend(['C:\\Backups\\', 'D:\\Backups\\'])
+        if not any(normalized.startswith(prefix) for prefix in allowed_prefixes):
+            return False
+    
+    return True
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def initiate_backup(request):
+    if request.user.role != 'admin':
+        return Response({"detail": "Only administrators can initiate backups."}, status=status.HTTP_403_FORBIDDEN)
+
+    base_path = request.data.get('path')
+    fmt = request.data.get('format', 'json')
+    include_media = bool(request.data.get('include_media', True))
+
+    if not _is_safe_path(base_path):
+        return Response({"detail": "Invalid or unsafe path."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        os.makedirs(base_path, exist_ok=True)
+    except OSError as e:
+        return Response({"detail": f"Cannot create directory: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    backup = Backup.objects.create(
+        initiated_by=request.user,
+        base_path=base_path,
+        format=fmt,
+        include_media=include_media,
+        status='pending'
+    )
+
+    try:
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        tmp_dir = tempfile.mkdtemp(prefix='lms_backup_')
+        
+        # 1) Dump database
+        db_dump_path = os.path.join(tmp_dir, f'db_dump.{fmt}')
+        
+        from django.db import connection
+        engine = connection.settings_dict['ENGINE']
+        
+        if fmt == 'json':
+            # Use Django's dumpdata command
+            manage_py_path = os.path.join(settings.BASE_DIR, 'manage.py')
+            
+            cmd = [
+                sys.executable,  # Use current Python interpreter
+                manage_py_path,
+                'dumpdata', 
+                '--natural-primary', 
+                '--natural-foreign', 
+                '--indent', '2',
+                '--output', db_dump_path
+            ]
+            
+            try:
+                subprocess.run(cmd, check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Dumpdata failed: {e.stderr}")
+                raise
+
+        elif 'sqlite' in engine and fmt == 'sql':
+            # Copy SQLite database file
+            db_name = connection.settings_dict['NAME']
+            shutil.copy2(db_name, db_dump_path)
+            
+        elif ('mysql' in engine or 'mariadb' in engine) and fmt == 'sql':
+            db_settings = connection.settings_dict
+            db_name = db_settings.get('NAME')
+            db_user = db_settings.get('USER', '')
+            db_host = db_settings.get('HOST', 'localhost')
+            db_port = str(db_settings.get('PORT', '3306'))
+            db_password = db_settings.get('PASSWORD', '')
+            
+            cmd = [
+                'mysqldump',
+                f'--host={db_host}',
+                f'--port={db_port}',
+                f'--user={db_user}',
+                '--single-transaction',
+                '--routines',
+                '--triggers',
+                db_name
+            ]
+            
+            env = os.environ.copy()
+            if db_password:
+                env['MYSQL_PWD'] = db_password
+                
+            try:
+                with open(db_dump_path, 'w', encoding='utf-8') as f:
+                    subprocess.run(cmd, stdout=f, env=env, check=True)
+            except FileNotFoundError:
+                backup.status = 'failed'
+                backup.message = (
+                    'mysqldump not found. Please install MySQL client tools '
+                    'and ensure "mysqldump" is in your PATH.'
+                )
+                backup.save()
+                return Response(
+                    {"detail": backup.message},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+                
+        else:
+            backup.status = 'failed'
+            backup.message = f'Unsupported format {fmt} for database engine {engine}'
+            backup.save()
+            return Response(
+                {"detail": backup.message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2) Handle media files
+        media_files = []
+        media_root = getattr(settings, 'MEDIA_ROOT', None)
+        if include_media and media_root and os.path.isdir(media_root):
+            for root, _, files in os.walk(media_root):
+                for file in files:
+                    media_files.append(os.path.join(root, file))
+
+        # 3) Create archive
+        archive_name = f"backup_{timestamp}.{fmt}.zip"
+        archive_path = os.path.join(base_path, archive_name)
+        
+        with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add database dump
+            zipf.write(db_dump_path, os.path.basename(db_dump_path))
+            
+            # Add media files
+            for media_file in media_files:
+                rel_path = os.path.relpath(media_file, media_root)
+                zipf.write(media_file, os.path.join('media', rel_path))
+
+        # 4) Update backup record
+        size_bytes = os.path.getsize(archive_path)
+        backup.archive_path = archive_path
+        backup.file_size = size_bytes
+        backup.status = 'success'
+        backup.message = 'Backup completed successfully'
+        backup.save()
+
+        return Response(BackupSerializer(backup).data, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        logger.error(f"Backup failed: {str(e)}", exc_info=True)
+        backup.status = 'failed'
+        backup.message = f'Backup failed: {str(e)}'
+        backup.save()
+        return Response(
+            {"detail": "Backup failed. Check server logs for details."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    finally:
+        try:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def initiate_restore(request):
+    if request.user.role != 'admin':
+        return Response({"detail": "Only administrators can restore."}, status=status.HTTP_403_FORBIDDEN)
+
+    archive_path = request.data.get('archive_path')
+    if not _is_safe_path(archive_path) or not os.path.isfile(archive_path):
+        return Response({"detail": "Invalid archive path."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        tmp_dir = tempfile.mkdtemp(prefix='lms_restore_')
+        with zipfile.ZipFile(archive_path, 'r') as zipf:
+            zipf.extractall(tmp_dir)
+
+        # Find db dump in tmp_dir
+        db_dump = None
+        for name in os.listdir(tmp_dir):
+            if name.startswith('db_dump.'):
+                db_dump = os.path.join(tmp_dir, name)
+                break
+        if not db_dump:
+            return Response({"detail": "No database dump found in archive."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Restore DB
+        if db_dump.endswith('.json'):
+            # Load via loaddata
+            manage_py = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'manage.py')
+            project_root_manage = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'manage.py'))
+            manage_target = project_root_manage if os.path.exists(project_root_manage) else manage_py
+            cmd = [
+                os.path.join(os.path.dirname(settings.BASE_DIR), 'proj_venv', 'Scripts', 'python.exe')
+                if os.name == 'nt' and os.path.exists(os.path.join(os.path.dirname(settings.BASE_DIR), 'proj_venv', 'Scripts', 'python.exe'))
+                else 'python',
+                manage_target,
+                'loaddata', db_dump
+            ]
+            subprocess.check_call(cmd)
+        elif db_dump.endswith('.sql'):
+            from django.db import connection
+            engine = connection.settings_dict['ENGINE']
+            if 'sqlite' in engine:
+                sqlite_name = connection.settings_dict['NAME']
+                shutil.copy2(db_dump, sqlite_name)
+            elif 'mysql' in engine or 'mariadb' in engine:
+                db_settings = connection.settings_dict
+                db_name = db_settings.get('NAME')
+                db_user = db_settings.get('USER') or ''
+                db_host = db_settings.get('HOST') or '127.0.0.1'
+                db_port = str(db_settings.get('PORT') or '3306')
+                db_password = db_settings.get('PASSWORD') or ''
+
+                env = os.environ.copy()
+                if db_password:
+                    env['MYSQL_PWD'] = db_password
+
+                cmd = [
+                    'mysql',
+                    f'-h{db_host}',
+                    f'-P{db_port}',
+                    f'-u{db_user}',
+                    db_name,
+                ]
+                with open(db_dump, 'r', encoding='utf-8') as f:
+                    subprocess.check_call(cmd, stdin=f, env=env)
+            else:
+                return Response({"detail": "Unsupported SQL restore for current DB engine."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"detail": "Unsupported dump format for restore."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Restore media if present
+        media_root = getattr(settings, 'MEDIA_ROOT', None)
+        media_extracted = os.path.join(tmp_dir, 'media')
+        if media_root and os.path.isdir(media_extracted):
+            os.makedirs(media_root, exist_ok=True)
+            # Merge copy
+            for root_dir, _, files in os.walk(media_extracted):
+                for file in files:
+                    src = os.path.join(root_dir, file)
+                    rel = os.path.relpath(src, media_extracted)
+                    dest = os.path.join(media_root, rel)
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    shutil.copy2(src, dest)
+
+        return Response({"detail": "Restore completed."})
+    except subprocess.CalledProcessError:
+        return Response({"detail": "Restore failed while loading data."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.exception("Restore failed: %s", e)
+        return Response({"detail": "Restore failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    finally:
+        try:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_backups(request):
+    if request.user.role != 'admin':
+        return Response({"detail": "Only administrators can view backups."}, status=status.HTTP_403_FORBIDDEN)
+    qs = Backup.objects.all()
+    serializer = BackupSerializer(qs, many=True)
+    return Response(serializer.data)
 
 
 @api_view(['PATCH'])
