@@ -482,9 +482,9 @@ class RequestManagement(models.Model):
         if self.status in ['approved', 'downloaded', 'unliquidated', 'liquidated', 'rejected']:
             return
         if (not hasattr(self, '_status_changed_by')
-                and not self._skip_auto_status
-                and self.request_monthyear
-            ):
+                    and not self._skip_auto_status
+                    and self.request_monthyear
+                ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -962,12 +962,13 @@ class Backup(models.Model):
         related_name='backups'
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    base_path = models.CharField(max_length=1024, help_text="Base directory chosen by admin")
-    archive_path = models.CharField(max_length=1024, help_text="Path to produced archive", blank=True)
-    format = models.CharField(max_length=20, choices=[('json', 'JSON'), ('sql', 'SQL'), ('csv', 'CSV')], default='json')
+    format = models.CharField(max_length=20, choices=[(
+        'json', 'JSON'), ('sql', 'SQL'), ('csv', 'CSV')], default='json')
     include_media = models.BooleanField(default=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    file_size = models.BigIntegerField(null=True, blank=True, help_text="Size in bytes of the main archive")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='pending')
+    file_size = models.BigIntegerField(
+        null=True, blank=True, help_text="Size in bytes of the main archive")
     message = models.TextField(blank=True, null=True)
 
     class Meta:

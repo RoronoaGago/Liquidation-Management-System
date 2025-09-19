@@ -2260,13 +2260,13 @@ def _is_safe_path(path: str) -> bool:
 @permission_classes([IsAuthenticated])
 def initiate_backup(request):
     """
-    Generate a backup archive and return it as a downloadable file.
+    Generate a backup archive and return it as a downloadable file without storing on server.
     """
     try:
         format = request.data.get("format", "json")
         include_media = request.data.get("include_media", True)
 
-        # Create backup record in database
+        # Create backup record in database (without file path storage)
         backup = Backup.objects.create(
             initiated_by=request.user,
             format=format,
@@ -2274,81 +2274,100 @@ def initiate_backup(request):
             status='pending'
         )
 
-        # Create a temporary zip file
-        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"backup_{timestamp}_{backup.id}.zip"
-
-        # Use server-configured backup directory or default
-        backup_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get(
-            'DEFAULT_BACKUP_DIR', os.path.join(settings.MEDIA_ROOT, 'backups')
+        # Create HTTP response with Excel file
+        response = HttpResponse(
+            content_type='application/zip'
         )
-        os.makedirs(backup_dir, exist_ok=True)
-        archive_path = os.path.join(backup_dir, filename)
+        filename = f"backup_{backup.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
-        try:
-            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                # Add database dump based on format
-                if format == "json":
-                    # Export data as JSON
-                    from django.core import serializers
-                    models_to_backup = [User, School, Requirement, ListOfPriority,
-                                        RequestManagement, LiquidationManagement]
+        # Create zip file in memory and write directly to response
+        with zipfile.ZipFile(response, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add database dump based on format
+            if format == "json":
+                # Export data as JSON
+                from django.core import serializers
+                from io import StringIO
 
-                    for model in models_to_backup:
+                models_to_backup = [User, School, Requirement, ListOfPriority,
+                                    RequestManagement, LiquidationManagement,
+                                    SchoolDistrict, Notification, Backup]
+
+                for model in models_to_backup:
+                    try:
                         data = serializers.serialize(
                             "json", model.objects.all())
                         zipf.writestr(f"data/{model.__name__}.json", data)
+                    except Exception as e:
+                        logger.error(f"Failed to backup {model.__name__}: {e}")
+                        continue
 
-                elif format == "sql":
-                    # Export SQL dump
-                    db_name = settings.DATABASES['default']['NAME']
-                    try:
-                        # Try to use pg_dump for PostgreSQL
-                        if 'postgresql' in settings.DATABASES['default']['ENGINE']:
-                            subprocess.run([
-                                'pg_dump', db_name, '-f', f'/tmp/dump.sql'
-                            ], check=True)
-                            zipf.write('/tmp/dump.sql', 'database/dump.sql')
-                    except (subprocess.CalledProcessError, FileNotFoundError):
-                        # Fallback to Django dumpdata
-                        from django.core.management import call_command
-                        from io import StringIO
-                        out = StringIO()
-                        call_command('dumpdata', stdout=out)
-                        zipf.writestr('database/dump.json', out.getvalue())
+            elif format == "sql":
+                # Export SQL dump using Django dumpdata
+                from django.core.management import call_command
+                from io import StringIO
 
-                if include_media:
-                    # Include media files
+                try:
+                    out = StringIO()
+                    call_command('dumpdata', stdout=out)
+                    zipf.writestr('database/dump.json', out.getvalue())
+                except Exception as e:
+                    logger.error(f"SQL dump failed: {e}")
+                    # Fallback to JSON
+                    from django.core import serializers
+                    out = StringIO()
+                    serializers.serialize(
+                        "json", User.objects.all(), stream=out)
+                    zipf.writestr('database/fallback_dump.json',
+                                  out.getvalue())
+
+            if include_media:
+                # Include media files
+                try:
                     media_root = settings.MEDIA_ROOT
-                    for root, dirs, files in os.walk(media_root):
-                        for file in files:
-                            abs_path = os.path.join(root, file)
-                            rel_path = os.path.relpath(abs_path, media_root)
-                            zipf.write(abs_path, f"media/{rel_path}")
+                    if os.path.exists(media_root):
+                        for root, dirs, files in os.walk(media_root):
+                            for file in files:
+                                abs_path = os.path.join(root, file)
+                                rel_path = os.path.relpath(
+                                    abs_path, media_root)
 
-            # Update backup record with success
-            backup.status = 'success'
-            backup.archive_path = archive_path
-            backup.file_size = os.path.getsize(archive_path)
-            backup.save()
+                                # Skip temporary files and hidden files
+                                if file.startswith('.') or file.startswith('~'):
+                                    continue
 
-            # Return the file as a response (download)
-            response = FileResponse(
-                open(archive_path, "rb"),
-                as_attachment=True,
-                filename=filename,
-                content_type="application/zip"
-            )
-            return response
+                                # Read file content and add to zip
+                                try:
+                                    with open(abs_path, 'rb') as f:
+                                        file_content = f.read()
+                                    zipf.writestr(
+                                        f"media/{rel_path}", file_content)
+                                except (IOError, OSError) as e:
+                                    logger.warning(
+                                        f"Could not read media file {abs_path}: {e}")
+                                    continue
+                    else:
+                        logger.warning(
+                            f"Media root {media_root} does not exist")
+                except Exception as e:
+                    logger.error(f"Media backup failed: {e}")
 
-        except Exception as e:
+        # Update backup record with success
+        backup.status = 'success'
+        backup.file_size = len(response.content)
+        backup.save()
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Backup failed: {e}", exc_info=True)
+
+        # Update backup record with failure
+        if 'backup' in locals():
             backup.status = 'failed'
             backup.message = str(e)
             backup.save()
-            raise e
 
-    except Exception as e:
-        logger.error(f"Backup failed: {e}")
         return Response(
             {"detail": "Backup failed", "error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

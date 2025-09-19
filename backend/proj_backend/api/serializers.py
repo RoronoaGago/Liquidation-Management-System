@@ -45,9 +45,9 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         logo_base64 = validated_data.pop('logo_base64', None)
-        
+
         instance = SchoolDistrict.objects.create(**validated_data)
-        
+
         if logo_base64:
             format, imgstr = logo_base64.split(';base64,')
             ext = format.split('/')[-1]
@@ -57,15 +57,15 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
             )
             instance.logo = data
             instance.save()
-        
+
         return instance
 
     def update(self, instance, validated_data):
         logo_base64 = validated_data.pop('logo_base64', None)
-        
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        
+
         if logo_base64:
             format, imgstr = logo_base64.split(';base64,')
             ext = format.split('/')[-1]
@@ -74,7 +74,7 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
                 name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
             )
             instance.logo = data
-        
+
         instance.save()
         return instance
 
@@ -814,4 +814,5 @@ class BackupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Backup
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'initiated_by', 'archive_path', 'status', 'file_size', 'message']
+        read_only_fields = ['id', 'created_at',
+                            'initiated_by', 'status', 'file_size', 'message']
