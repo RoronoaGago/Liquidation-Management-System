@@ -162,7 +162,7 @@ const dummyData: SchoolHeadDashboardData = {
 const SchoolHeadDashboard = () => {
   const [data, setData] = useState<SchoolHeadDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [, setRefreshing] = useState(false);
 
   const getPriorityColor = (priorityName: string, fallbackIndex = 0) => {
     const index = data?.liquidationProgress.priorities.findIndex(
@@ -183,14 +183,6 @@ const SchoolHeadDashboard = () => {
     }, 800);
   }, []);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setData(dummyData);
-      setLoading(false);
-      setRefreshing(false);
-    }, 800);
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -257,12 +249,7 @@ const SchoolHeadDashboard = () => {
             Liquidation progress and financial metrics
           </p>
         </div>
-        <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
-          <RefreshCw
-            className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
-          />
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </Button>
+        
       </div>
 
       {/* Key Metrics */}
@@ -280,7 +267,7 @@ const SchoolHeadDashboard = () => {
             </div>
             <p className="text-xs text-muted-foreground">
               {data?.liquidationProgress.completedPriorities} of{" "}
-              {data?.liquidationProgress.totalPriorities} priorities
+              {data?.liquidationProgress.totalPriorities} list of priorities
             </p>
           </CardContent>
         </Card>
@@ -338,10 +325,10 @@ const SchoolHeadDashboard = () => {
 
       {/* Charts and Detailed Information */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
-        {/* Financial Breakdown (moved left) */}
+        {/* Expense Breakdown (moved left) */}
         <Card>
           <CardHeader>
-            <CardTitle>Financial Breakdown</CardTitle>
+            <CardTitle>Month Expense Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -380,10 +367,10 @@ const SchoolHeadDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Priority Completion Chart (moved right) */}
+        {/* List of Priority Completion Chart (moved right) */}
         <Card>
           <CardHeader>
-            <CardTitle>Priority Completion Status</CardTitle>
+            <CardTitle>List of Priority Completion Status</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">

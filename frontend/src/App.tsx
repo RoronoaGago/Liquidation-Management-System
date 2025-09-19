@@ -1,23 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { Routes, Route, Navigate } from "react-router";
+import { useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import AppLayout from "./layout/AppLayout";
-// import NotAuthorized from "./pages/NotAuthorized";
 import SignIn from "./pages/AuthPages/SignIn";
 
-// Pages
 import Home from "./pages/Dashboard/Home";
 import ManageUsers from "./pages/ManageUsers";
 
 import RequestDetailPage from "./pages/RequestDetailPage";
-// import Liquidation from "./pages/Liquidation";
-// import StudentPerformanceReport from "./pages/StudentPerformanceReport";
 import UserProfile from "./pages/UserProfiles";
-// import MyClasses from "./pages/MyClasses";
 import ManageListOfPrioritiesPage from "./pages/ManageListOfPrioritiesPage";
 import NotAuthorized from "./pages/NotAuthorized";
-import FundRequestApproval from "./pages/FundRequestApproval";
 import ListOfPrioritiesPage from "./pages/MOOERequestPage";
 import ManageSchools from "./pages/ManageSchools";
 import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
@@ -27,18 +21,18 @@ import ManageRequirementsPage from "./pages/ManageRequirementsPage";
 import MOOERequestPage from "./pages/MOOERequestPage";
 import MOOERequestHistory from "./pages/MOOERequestHistory";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
-import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
 import SetupModal from "./components/common/SetupModal";
-import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
+import SchoolHeadDashboard from "./pages/SchoolHeadDashboard";
 import ManageDistricts from "./pages/ManageDistricts";
 import GenerateReport from "./pages/GenerateReport";
 import AdminDashboard from "./pages/AdminDashboard";
 import LiquidatorReviewPage from "./pages/LiquidatorReviewPage";
 import DivisionReviewPage from "./pages/DivisionReviewPage";
 import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashboard";
+import DivisionDistrictAdaDashboard from "./pages/DivisionDistrictAdaDashboard";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -62,6 +56,8 @@ const App = () => {
                   <SchoolHeadDashboard />
                 ) : user?.role === "superintendent" ? (
                   <DivisionSuperintendentDashboard />
+                ) : user?.role === "district_admin" ? (
+                  <DivisionDistrictAdaDashboard />
                 ) : (
                   <Home />
                 )

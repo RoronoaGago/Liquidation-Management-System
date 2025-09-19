@@ -24,7 +24,6 @@ import {
   FileSearch,
   UserRoundPenIcon,
   HandCoinsIcon,
-  FileUserIcon,
   StampIcon,
   LandPlotIcon,
   FileChartColumnIcon,
@@ -38,7 +37,7 @@ const allNavItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
-    roles: ["admin", "school_head", "teacher", "superintendent"], // All roles can access
+    roles: ["admin", "school_head", "teacher", "superintendent", "district_admin"], // All roles can access
   },
   {
     icon: <UserCircleIcon />,

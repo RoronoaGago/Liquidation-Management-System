@@ -1,14 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Download, Calendar, Clock, AlertCircle, TrendingDown, Eye, CheckSquare, X, RefreshCw } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Calendar, Clock, AlertCircle, TrendingDown, Eye, CheckSquare, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,7 +13,7 @@ import {
 // Using dummy data for now; backend calls are disabled in this view
 import Badge from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "../components/ui/breadcrumb";
+// Breadcrumb removed to match SchoolHead header layout
 
 // Types for our data
 interface UnliquidatedAccount {
@@ -237,17 +230,17 @@ const UnliquidatedAccountsWidget = ({
   const accounts = data?.unliquidatedAccounts || [];
 
   const getAgingColor = (days: number) => {
-    if (days <= 30) return "text-green-600 dark:text-green-400";
-    if (days <= 60) return "text-yellow-600 dark:text-yellow-400";
-    if (days <= 90) return "text-orange-600 dark:text-orange-400";
-    return "text-red-600 dark:text-red-400";
+    if (days <= 30) return "text-green-600";
+    if (days <= 60) return "text-yellow-600";
+    if (days <= 90) return "text-orange-600";
+    return "text-red-600";
   };
 
   return (
-    <Card className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-2 h-full">
-      <CardHeader className="px-0 pt-0">
+    <Card>
+      <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
+          <CardTitle className="text-lg font-semibold text-gray-800">
             Unliquidated Accounts
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -255,7 +248,7 @@ const UnliquidatedAccountsWidget = ({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-0">
+      <CardContent>
         <div className="rounded-md border">
           <table className="w-full text-sm">
             <thead>
@@ -305,39 +298,41 @@ const AgingDistributionWidget = ({ data }: { data: DashboardData | null }) => {
   const distribution = data?.agingDistribution || [];
 
   return (
-    <Card className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full">
-      <CardHeader className="px-0 pt-0">
-        <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold text-gray-800">
           Aging Distribution
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-0 h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={distribution}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
-            <XAxis
-              dataKey="period"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-            />
-            <Tooltip
-              formatter={(value) => [`${value} accounts`, "Count"]}
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #E4E7EC",
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              }}
-            />
-            <Bar dataKey="count" fill="#465FFF" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      <CardContent>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={distribution}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
+              <XAxis
+                dataKey="period"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#6B7280" }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#6B7280" }}
+              />
+              <Tooltip
+                formatter={(value) => [`${value} accounts`, "Count"]}
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  border: "1px solid #E4E7EC",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                }}
+              />
+              <Bar dataKey="count" fill="#465FFF" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );
@@ -355,10 +350,10 @@ const MOOERequestsWidget = ({
   const requests = data?.mooeRequests || [];
 
   return (
-    <Card className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-1 h-full">
-      <CardHeader className="px-0 pt-0">
+    <Card>
+      <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
+          <CardTitle className="text-lg font-semibold text-gray-800">
             MOOE Requests
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -369,7 +364,7 @@ const MOOERequestsWidget = ({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-0">
+      <CardContent>
         <div className="rounded-md border">
           <table className="w-full text-sm">
             <thead>
@@ -452,39 +447,41 @@ const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
   const distribution = data?.requestStatusDistribution || [];
 
   return (
-    <Card className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full">
-      <CardHeader className="px-0 pt-0">
-        <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold text-gray-800">
           Request Status Distribution
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-0 h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={distribution}
-              cx="50%"
-              cy="50%"
-              outerRadius={80}
-              fill="#8884d8"
-              dataKey="count"
-              label={({ status, value }) => `${status} (${value as number})`}
-            >
-              {distribution.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value, name) => [`${value} requests`, name]}
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #E4E7EC",
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+      <CardContent>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={distribution}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="count"
+                label={({ status, value }) => `${status} (${value as number})`}
+              >
+                {distribution.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value, name) => [`${value} requests`, name]}
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  border: "1px solid #E4E7EC",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );
@@ -493,7 +490,7 @@ const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
 const DivisionSuperintendent = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  
   const [selectedAccount, setSelectedAccount] = useState<UnliquidatedAccount | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
@@ -507,14 +504,11 @@ const DivisionSuperintendent = () => {
     setTimeout(() => {
       setData(MOCK_DATA);
       setLoading(false);
-      setRefreshing(false);
+      
     }, 600);
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
-  };
+  
 
   const handleViewDetails = (account: UnliquidatedAccount) => {
     setSelectedAccount(account);
@@ -569,13 +563,13 @@ const DivisionSuperintendent = () => {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-6">
+      <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">
+            <h1 className="text-2xl font-bold text-gray-800">
               Division Superintendent Dashboard
             </h1>
-            <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
+            <p className="mt-1 text-gray-500 text-theme-sm">
               Manage unliquidated accounts and MOOE requests
             </p>
           </div>
@@ -586,7 +580,7 @@ const DivisionSuperintendent = () => {
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((item) => (
+          {[1, 2].map((item) => (
             <Skeleton key={item} active paragraph={{ rows: 6 }} />
           ))}
         </div>
@@ -596,29 +590,17 @@ const DivisionSuperintendent = () => {
 
   return (
     <div className="p-6 min-h-screen">
-      <Breadcrumb className="mb-6">
-        
-      </Breadcrumb>
-
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">
+          <h1 className="text-2xl font-bold text-gray-800">
             Division Superintendent Dashboard
           </h1>
-          <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
+          <p className="mt-1 text-gray-500 text-theme-sm">
             Manage unliquidated accounts and MOOE requests
           </p>
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </Button>
+          
         </div>
       </div>
 
