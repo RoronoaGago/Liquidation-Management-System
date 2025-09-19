@@ -28,7 +28,8 @@ import {
   StampIcon,
   LandPlotIcon,
   FileChartColumnIcon,
-  ClipboardCheckIcon, // <-- Add this
+  ClipboardCheckIcon,
+  DatabaseBackupIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -166,7 +167,7 @@ const allNavItems: NavItem[] = [
     roles: ["admin"], // Only admin
   },
   {
-    icon: <FileText />,
+    icon: <DatabaseBackupIcon />,
     name: "Backup & Restore",
     path: "/backup-restore",
     roles: ["admin"],

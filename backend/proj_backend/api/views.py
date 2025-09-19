@@ -2,7 +2,11 @@ from decimal import Decimal
 from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
+<<<<<<< HEAD
 from django.http import HttpResponse
+=======
+from django.http import HttpResponse, FileResponse
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
 import csv
 from django.conf import settings
 from datetime import date
@@ -829,7 +833,12 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
         status_param = self.request.query_params.get('status')
         status_list = None
         if status_param:
+<<<<<<< HEAD
             status_list = [s.strip() for s in status_param.split(',') if s.strip()]
+=======
+            status_list = [s.strip()
+                           for s in status_param.split(',') if s.strip()]
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
 
         # Role-scoped base queryset and default statuses when none provided
         if user.role == 'district_admin':
@@ -837,6 +846,7 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
                 queryset = queryset.filter(
                     request__user__school__district=user.school_district
                 )
+<<<<<<< HEAD
             default_statuses = ['submitted', 'under_review_district', 'resubmit']
             queryset = queryset.filter(status__in=(status_list or default_statuses))
 
@@ -850,6 +860,26 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
         elif user.role == 'school_head':
             queryset = queryset.filter(request__user=user).exclude(status__in=['liquidated'])
+=======
+            default_statuses = ['submitted',
+                                'under_review_district', 'resubmit']
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
+
+        elif user.role == 'liquidator':
+            default_statuses = ['under_review_liquidator', 'approved_district']
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
+
+        elif user.role == 'accountant':
+            default_statuses = ['under_review_division', 'approved_liquidator']
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
+
+        elif user.role == 'school_head':
+            queryset = queryset.filter(request__user=user).exclude(
+                status__in=['liquidated'])
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
 
         # Other roles (admin etc.) - allow optional status filter
         else:
@@ -857,7 +887,12 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
                 queryset = queryset.filter(status__in=status_list)
 
         # Additional optional filters similar to requests list
+<<<<<<< HEAD
         legislative_district = self.request.query_params.get('legislative_district')
+=======
+        legislative_district = self.request.query_params.get(
+            'legislative_district')
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
         if legislative_district:
             queryset = queryset.filter(
                 request__user__school__district__legislativeDistrict=legislative_district
@@ -2195,16 +2230,27 @@ def admin_dashboard(request):
     return Response(response_data)
 # ------------------- Backup & Restore -------------------
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
 def _is_safe_path(path: str) -> bool:
     """
     Validate that path is safe and doesn't contain traversal attempts
     """
     if not path or not isinstance(path, str):
         return False
+<<<<<<< HEAD
     
     # Normalize path and check for traversal attempts
     normalized = os.path.normpath(path)
     
+=======
+
+    # Normalize path and check for traversal attempts
+    normalized = os.path.normpath(path)
+
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
     # Check for dangerous patterns
     # Platform-aware invalid pattern checks
     if os.name == 'nt':
@@ -2227,23 +2273,37 @@ def _is_safe_path(path: str) -> bool:
         for pattern in dangerous_patterns:
             if pattern in normalized:
                 return False
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
     # Additional checks for absolute paths
     if os.path.isabs(normalized):
         # Allow only certain safe directories if needed
         allowed_prefixes = ['/backups/']
         # Include server-configured default backup dir if present
         try:
+<<<<<<< HEAD
             default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get('DEFAULT_BACKUP_DIR')
             if default_dir:
                 # Normalize to same style
                 allowed_prefixes.append(os.path.normpath(default_dir) + (os.sep if not default_dir.endswith(os.sep) else ''))
+=======
+            default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get(
+                'DEFAULT_BACKUP_DIR')
+            if default_dir:
+                # Normalize to same style
+                allowed_prefixes.append(os.path.normpath(
+                    default_dir) + (os.sep if not default_dir.endswith(os.sep) else ''))
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
         except Exception:
             pass
         if os.name == 'nt':
             allowed_prefixes.extend(['C:\\Backups\\', 'D:\\Backups\\'])
         if not any(normalized.startswith(prefix) for prefix in allowed_prefixes):
             return False
+<<<<<<< HEAD
     
     return True
 
@@ -2429,11 +2489,117 @@ def initiate_backup(request):
             shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception:
             pass
+=======
+
+    return True
+
+
+# views.py - Update the backup and restore functions
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def initiate_backup(request):
+    """
+    Generate a backup archive and return it as a downloadable file.
+    """
+    try:
+        format = request.data.get("format", "json")
+        include_media = request.data.get("include_media", True)
+
+        # Create backup record in database
+        backup = Backup.objects.create(
+            initiated_by=request.user,
+            format=format,
+            include_media=include_media,
+            status='pending'
+        )
+
+        # Create a temporary zip file
+        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"backup_{timestamp}_{backup.id}.zip"
+
+        # Use server-configured backup directory or default
+        backup_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get(
+            'DEFAULT_BACKUP_DIR', os.path.join(settings.MEDIA_ROOT, 'backups')
+        )
+        os.makedirs(backup_dir, exist_ok=True)
+        archive_path = os.path.join(backup_dir, filename)
+
+        try:
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                # Add database dump based on format
+                if format == "json":
+                    # Export data as JSON
+                    from django.core import serializers
+                    models_to_backup = [User, School, Requirement, ListOfPriority,
+                                        RequestManagement, LiquidationManagement]
+
+                    for model in models_to_backup:
+                        data = serializers.serialize(
+                            "json", model.objects.all())
+                        zipf.writestr(f"data/{model.__name__}.json", data)
+
+                elif format == "sql":
+                    # Export SQL dump
+                    db_name = settings.DATABASES['default']['NAME']
+                    try:
+                        # Try to use pg_dump for PostgreSQL
+                        if 'postgresql' in settings.DATABASES['default']['ENGINE']:
+                            subprocess.run([
+                                'pg_dump', db_name, '-f', f'/tmp/dump.sql'
+                            ], check=True)
+                            zipf.write('/tmp/dump.sql', 'database/dump.sql')
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        # Fallback to Django dumpdata
+                        from django.core.management import call_command
+                        from io import StringIO
+                        out = StringIO()
+                        call_command('dumpdata', stdout=out)
+                        zipf.writestr('database/dump.json', out.getvalue())
+
+                if include_media:
+                    # Include media files
+                    media_root = settings.MEDIA_ROOT
+                    for root, dirs, files in os.walk(media_root):
+                        for file in files:
+                            abs_path = os.path.join(root, file)
+                            rel_path = os.path.relpath(abs_path, media_root)
+                            zipf.write(abs_path, f"media/{rel_path}")
+
+            # Update backup record with success
+            backup.status = 'success'
+            backup.archive_path = archive_path
+            backup.file_size = os.path.getsize(archive_path)
+            backup.save()
+
+            # Return the file as a response (download)
+            response = FileResponse(
+                open(archive_path, "rb"),
+                as_attachment=True,
+                filename=filename,
+                content_type="application/zip"
+            )
+            return response
+
+        except Exception as e:
+            backup.status = 'failed'
+            backup.message = str(e)
+            backup.save()
+            raise e
+
+    except Exception as e:
+        logger.error(f"Backup failed: {e}")
+        return Response(
+            {"detail": "Backup failed", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def initiate_restore(request):
+<<<<<<< HEAD
     if request.user.role != 'admin':
         return Response({"detail": "Only administrators can restore."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -2550,6 +2716,94 @@ def initiate_restore(request):
             shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception:
             pass
+=======
+    """
+    Restore the system from an uploaded backup archive (.zip).
+    """
+    temp_dir = None
+    try:
+        file_obj = request.FILES.get("file")
+        if not file_obj:
+            return Response(
+                {"detail": "No backup file uploaded"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate file type
+        if not file_obj.name.endswith('.zip'):
+            return Response(
+                {"detail": "Only ZIP files are supported for restore"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create temporary directory for extraction
+        temp_dir = tempfile.mkdtemp()
+        archive_path = os.path.join(temp_dir, file_obj.name)
+
+        # Save uploaded file
+        with open(archive_path, "wb+") as dest:
+            for chunk in file_obj.chunks():
+                dest.write(chunk)
+
+        # Extract archive
+        with zipfile.ZipFile(archive_path, "r") as zipf:
+            zipf.extractall(temp_dir)
+
+        # Restore logic
+        data_dir = os.path.join(temp_dir, 'data')
+        media_dir = os.path.join(temp_dir, 'media')
+
+        # Restore database - FIXED: Use proper file paths instead of StringIO
+        with transaction.atomic():
+            if os.path.exists(data_dir):
+                for file in os.listdir(data_dir):
+                    if file.endswith('.json'):
+                        file_path = os.path.join(data_dir, file)
+
+                        # Use Django's loaddata with the actual file path
+                        from django.core.management import call_command
+                        try:
+                            # Load data from the JSON file
+                            call_command('loaddata', file_path)
+                            logger.info(
+                                f"Successfully loaded data from {file}")
+                        except Exception as e:
+                            logger.error(
+                                f"Error loading data from {file}: {e}")
+                            # Continue with other files even if one fails
+                            continue
+
+        # Restore media files
+        if os.path.exists(media_dir):
+            media_root = settings.MEDIA_ROOT
+            for root, dirs, files in os.walk(media_dir):
+                for file in files:
+                    src_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(src_path, media_dir)
+                    dest_path = os.path.join(media_root, rel_path)
+
+                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                    shutil.copy2(src_path, dest_path)
+
+        # Cleanup
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+
+        return Response(
+            {"detail": f"Restore completed successfully from {file_obj.name}"},
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        logger.error(f"Restore failed: {e}", exc_info=True)
+        # Cleanup on error
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        return Response(
+            {"detail": "Restore failed", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+>>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
 
 
 @api_view(['GET'])
