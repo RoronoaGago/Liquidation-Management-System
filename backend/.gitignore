@@ -4,13 +4,10 @@ __pycache__/
 *.pyc
 *.pyo
 
-<<<<<<< HEAD
-=======
 /backups/
 *.zip
 media/backups/
 
->>>>>>> faeea8c2c0f1294d7140681e25884100552f54ac
 # Virtual environment
 .venv/
 venv/
