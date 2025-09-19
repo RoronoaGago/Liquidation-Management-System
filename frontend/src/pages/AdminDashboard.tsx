@@ -198,15 +198,16 @@ const COLORS = [
 // In the defaultLayouts object, update the compliance widget position and size
 const defaultLayouts: DashboardLayout = {
   lg: [
-    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 }, // Increased from h:2 to h:4
-    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 4 }, // y starts at 4 instead of
-    { i: "budget", x: 0, y: 8, w: 6, h: 6, minW: 4, minH: 4 }, // rows 8-13
-    { i: "status", x: 6, y: 8, w: 6, h: 6, minW: 4, minH: 4 }, // rows 8-13
-    { i: "performance", x: 0, y: 14, w: 12, h: 8, minW: 6, minH: 6 }, // rows 14-21
-    { i: "categories", x: 0, y: 22, w: 6, h: 6, minW: 4, minH: 6 }, // rows 22-29
-    { i: "topSchools", x: 6, y: 22, w: 6, h: 6, minW: 4, minH: 6 }, // rows 22-29
-    { i: "actions", x: 8, y: 22, w: 6, h: 8, minW: 4, minH: 6 }, // rows 22-29
-    { i: "compliance", x: 0, y: 30, w: 6, h: 8, minW: 6, minH: 6 }, // rows 30-37
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 4 },
+    { i: "budget", x: 0, y: 9, w: 6, h: 9, minW: 6, minH: 4 }, // Increased height to h:20 and moved to left half
+    { i: "activeRequests", x: 6, y: 9, w: 6, h: 5, minW: 4, minH: 4 }, // New widget with same height as budget
+    { i: "status", x: 0, y: 23, w: 6, h: 6, minW: 4, minH: 4 }, // Moved down to row 23
+    { i: "performance", x: 0, y: 29, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 37, w: 6, h: 6, minW: 4, minH: 6 },
+    { i: "topSchools", x: 6, y: 37, w: 6, h: 6, minW: 4, minH: 6 },
+    { i: "actions", x: 0, y: 43, w: 6, h: 8, minW: 4, minH: 6 },
+    { i: "compliance", x: 6, y: 43, w: 6, h: 8, minW: 6, minH: 6 },
   ],
   md: [
     { i: "metrics", x: 0, y: 0, w: 8, h: 2, minW: 4, minH: 2 },
@@ -458,12 +459,12 @@ const BudgetWidget = ({
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"utilization" | "categories">(
     "utilization"
-  ); // NEW
+  );
 
   const toggleDropdown = () => setIsOpen(!isOpen);
   const closeDropdown = () => setIsOpen(false);
 
-  // NEW: Prepare data for the category stacked bar chart
+  // Prepare data for the category stacked bar chart
   const getCategoryChartData = () => {
     if (!data?.categoryBreakdown) return [];
 
@@ -488,14 +489,37 @@ const BudgetWidget = ({
     });
   };
 
+  // Get top 5 categories, sorted by amount
+  const topCategories = useMemo(() => {
+    const items = data?.categorySpending ?? [];
+    return items
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, 5)
+      .map((category, index) => ({
+        ...category,
+        rank: index + 1,
+      }));
+  }, [data?.categorySpending]);
+
+  const renderTrendIcon = (trend: "up" | "down" | "stable") => {
+    switch (trend) {
+      case "up":
+        return <TrendingUp className="h-4 w-4 text-green-500" />;
+      case "down":
+        return <TrendingDown className="h-4 w-4 text-red-500" />;
+      default:
+        return <span className="h-4 w-4 text-gray-500">─</span>;
+    }
+  };
+
   return (
     <WidgetContainer
       title="Budget Analysis"
-      subtitle="Planned vs. actual spending over time"
+      subtitle="Planned vs. actual spending and category breakdown"
       editMode={editMode}
       actions={
         <div className="flex items-center gap-2">
-          {/* NEW: View mode toggle */}
+          {/* View mode toggle */}
           <div className="flex rounded-lg border border-gray-200 p-1 dark:border-gray-700">
             <button
               onClick={() => setViewMode("utilization")}
@@ -548,9 +572,9 @@ const BudgetWidget = ({
         </div>
       }
     >
-      <div className="h-[300px]">
-        {viewMode === "utilization" ? (
-          // Utilization View (Line Chart)
+      {viewMode === "utilization" ? (
+        // Utilization View (Line Chart)
+        <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data?.budgetUtilization || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
@@ -606,69 +630,102 @@ const BudgetWidget = ({
                 name="Actual Amount"
                 dot={{ r: 4 }}
               />
-              {/* Utilization Rates (on a second Y-axis if needed) */}
             </LineChart>
           </ResponsiveContainer>
-        ) : (
-          // Category View (Stacked Bar Chart)
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={getCategoryChartData()}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#6B7280" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#6B7280" }}
-                tickFormatter={(value) => `₱${value / 1000}k`}
-              />
-              <Tooltip
-                formatter={(value, name) => [
-                  `₱${Number(value).toLocaleString()}`,
-                  name,
-                ]}
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #E4E7EC",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                }}
-              />
-              <Legend />
-              {/* You would dynamically generate these based on your categories */}
-              <Bar
-                dataKey="Total Planned"
-                stackId="a"
-                fill="#465FFF"
-                name="Total Planned"
-              />
-              <Bar
-                dataKey="Total Actual"
-                stackId="a"
-                fill="#9CB9FF"
-                name="Total Actual"
-              />
-              {/* Example for one category - you'd need to generate these dynamically */}
-              <Bar
-                dataKey="Travel Expenses (Planned)"
-                stackId="a"
-                fill="#8884D8"
-                name="Travel (Planned)"
-              />
-              <Bar
-                dataKey="Travel Expenses (Actual)"
-                stackId="a"
-                fill="#82CA9D"
-                name="Travel (Actual)"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+        </div>
+      ) : (
+        // Category View (Dual view: Chart + List)
+        <div className="h-[300px] flex flex-col">
+          <div className="h-[180px] mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={getCategoryChartData()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#6B7280" }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#6B7280" }}
+                  tickFormatter={(value) => `₱${value / 1000}k`}
+                />
+                <Tooltip
+                  formatter={(value, name) => [
+                    `₱${Number(value).toLocaleString()}`,
+                    name,
+                  ]}
+                  contentStyle={{
+                    backgroundColor: "#fff",
+                    border: "1px solid #E4E7EC",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  }}
+                />
+                <Legend />
+                <Bar
+                  dataKey="Total Planned"
+                  stackId="a"
+                  fill="#465FFF"
+                  name="Total Planned"
+                />
+                <Bar
+                  dataKey="Total Actual"
+                  stackId="a"
+                  fill="#9CB9FF"
+                  name="Total Actual"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Top Categories List */}
+          <div className="flex-1 overflow-auto">
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+              Top Spending Categories
+            </div>
+            <div className="space-y-2">
+              {topCategories.map((category, index) => (
+                <div
+                  key={category.category}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center min-w-0 gap-2">
+                    <div className="w-4 h-4 flex items-center justify-center bg-blue-100 rounded-full mr-2 dark:bg-blue-900/20 shrink-0">
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                        #{category.rank}
+                      </span>
+                    </div>
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <span className="font-medium text-gray-800 text-theme-xs dark:text-white/90 truncate max-w-[100px]">
+                      {category.category}
+                    </span>
+                    {renderTrendIcon(category.trend)}
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-gray-800 text-theme-xs dark:text-white/90">
+                      ₱{category.totalAmount.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {category.percentage}% of total
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {topCategories.length === 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  No category data available.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </WidgetContainer>
   );
 };
@@ -862,7 +919,7 @@ const TimelineWidget = ({
   );
 };
 
-const PerformanceWidget = ({
+const SchoolPerformanceWidget = ({
   data,
   editMode,
 }: {
@@ -870,19 +927,85 @@ const PerformanceWidget = ({
   editMode: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"overview" | "speed" | "compliance">(
+    "overview"
+  );
 
   const toggleDropdown = () => setIsOpen(!isOpen);
   const closeDropdown = () => setIsOpen(false);
 
-  const rows = data?.schoolPerformance ?? [];
+  const performanceRows = data?.schoolPerformance ?? [];
+  const fastestSchools = data?.topSchoolsBySpeed ?? [];
+  const complianceData = data?.schoolDocumentCompliance ?? [];
+
+  // Get top 5 fastest schools
+  const topFastestSchools = useMemo(() => {
+    return fastestSchools
+      .sort((a, b) => a.avgProcessingDays - b.avgProcessingDays)
+      .slice(0, 5)
+      .map((school, index) => ({
+        ...school,
+        rank: index + 1,
+      }));
+  }, [fastestSchools]);
+
+  const getComplianceColor = (rate: number) => {
+    if (rate >= 90) return "text-green-600 dark:text-green-400";
+    if (rate >= 70) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  const getComplianceStatus = (rate: number) => {
+    if (rate >= 90) return "Excellent";
+    if (rate >= 70) return "Good";
+    if (rate >= 50) return "Fair";
+    return "Poor";
+  };
 
   return (
     <WidgetContainer
-      title="School Performance Metrics"
-      subtitle="Performance metrics across different schools"
+      title="School Performance"
+      subtitle="Comprehensive school performance metrics"
       editMode={editMode}
       actions={
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* View mode toggle */}
+          <div className="flex rounded-lg border border-gray-200 p-1 dark:border-gray-700">
+            <button
+              onClick={() => setViewMode("overview")}
+              className={`rounded-md px-2 py-1 text-sm ${
+                viewMode === "overview"
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+              title="Overview"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("speed")}
+              className={`rounded-md px-2 py-1 text-sm ${
+                viewMode === "speed"
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+              title="Processing Speed"
+            >
+              <Clock className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("compliance")}
+              className={`rounded-md px-2 py-1 text-sm ${
+                viewMode === "compliance"
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+              title="Document Compliance"
+            >
+              <FileText className="h-4 w-4" />
+            </button>
+          </div>
+
           <Button
             variant="outline"
             size="sm"
@@ -891,6 +1014,7 @@ const PerformanceWidget = ({
             <Download className="mr-2 h-4 w-4" />
             Export CSV
           </Button>
+
           <div className="relative inline-block">
             <button
               className="dropdown-toggle no-drag"
@@ -920,85 +1044,177 @@ const PerformanceWidget = ({
         </div>
       }
     >
-      <div className="overflow-auto max-h-[400px] rounded-md border border-gray-200 dark:border-gray-800">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50 sticky top-0 z-10">
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                School
-              </th>
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                Total Requests
-              </th>
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                Approval Rate
-              </th>
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                Avg. Liquidation Time
-              </th>
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                Budget Utilization
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows?.map((school, index) => (
-              <tr
-                key={school.schoolId}
-                className={index % 2 === 0 ? "bg-muted/30" : ""}
-              >
-                <td className="p-3 font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                  <span className="inline-block max-w-[220px] truncate">
-                    {school.schoolName}
-                  </span>
-                </td>
-                <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {school.totalRequests}
-                </td>
-                <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  <div className="flex items-center">
-                    {(
-                      (school.approvedRequests /
-                        Math.max(school.totalRequests, 1)) *
-                      100
-                    ).toFixed(1)}
-                    %
-                    {school.rejectionRate > 20 ? (
-                      <TrendingDown className="ml-2 h-4 w-4 text-red-500" />
-                    ) : (
-                      <TrendingUp className="ml-2 h-4 w-4 text-green-500" />
-                    )}
-                  </div>
-                </td>
-                <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {school.avgProcessingTime.toFixed(1)} days
-                </td>
-                <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  <div className="flex items-center">
-                    {school.budgetUtilization}%
-                    <div className="ml-2 w-24 bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full"
-                        style={{ width: `${school.budgetUtilization}%` }}
-                      />
-                    </div>
-                  </div>
-                </td>
+      {viewMode === "overview" ? (
+        // Overview Table View
+        <div className="overflow-auto max-h-[400px] rounded-md border border-gray-200 dark:border-gray-800">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50 sticky top-0 z-10">
+                <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
+                  School
+                </th>
+                <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
+                  Total Requests
+                </th>
+                <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
+                  Approval Rate
+                </th>
+                <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
+                  Avg. Processing Time
+                </th>
+                <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
+                  Budget Utilization
+                </th>
               </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td
-                  className="p-3 text-gray-500 dark:text-gray-400"
-                  colSpan={5}
+            </thead>
+            <tbody>
+              {performanceRows?.map((school, index) => (
+                <tr
+                  key={school.schoolId}
+                  className={index % 2 === 0 ? "bg-muted/30" : ""}
                 >
-                  No data available.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  <td className="p-3 font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                    <span className="inline-block max-w-[220px] truncate">
+                      {school.schoolName}
+                    </span>
+                  </td>
+                  <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    {school.totalRequests}
+                  </td>
+                  <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    <div className="flex items-center">
+                      {(
+                        (school.approvedRequests /
+                          Math.max(school.totalRequests, 1)) *
+                        100
+                      ).toFixed(1)}
+                      %
+                      {school.rejectionRate > 20 ? (
+                        <TrendingDown className="ml-2 h-4 w-4 text-red-500" />
+                      ) : (
+                        <TrendingUp className="ml-2 h-4 w-4 text-green-500" />
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    {school.avgProcessingTime.toFixed(1)} days
+                  </td>
+                  <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    <div className="flex items-center">
+                      {school.budgetUtilization}%
+                      <div className="ml-2 w-24 bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                        <div
+                          className="bg-blue-500 h-2 rounded-full"
+                          style={{ width: `${school.budgetUtilization}%` }}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {performanceRows.length === 0 && (
+                <tr>
+                  <td
+                    className="p-3 text-gray-500 dark:text-gray-400"
+                    colSpan={5}
+                  >
+                    No performance data available.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : viewMode === "speed" ? (
+        // Fastest Processing Schools View
+        <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+            Top 5 schools by average liquidation time
+          </div>
+          {topFastestSchools.map((school, index) => (
+            <div
+              key={school.schoolId}
+              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800"
+            >
+              <div className="flex items-center min-w-0">
+                <div className="w-8 h-8 flex items-center justify-center bg-blue-100 rounded-full mr-3 dark:bg-blue-900/20 shrink-0">
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                    #{school.rank}
+                  </span>
+                </div>
+                <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90 truncate">
+                  {school.schoolName}
+                </span>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="font-semibold text-green-600 text-theme-sm dark:text-green-400">
+                  {school.avgProcessingDays.toFixed(1)} days
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  avg. processing
+                </div>
+              </div>
+            </div>
+          ))}
+          {topFastestSchools.length === 0 && (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              No processing speed data available.
+            </div>
+          )}
+        </div>
+      ) : (
+        // Document Compliance View
+        <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+            Document compliance by school
+          </div>
+          {complianceData.slice(0, 8).map((school) => (
+            <div
+              key={school.schoolId}
+              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800"
+            >
+              <div className="flex items-center min-w-0 flex-1">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90 truncate">
+                    {school.schoolName}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {school.uploadedDocuments}/{school.requiredDocuments}{" "}
+                    documents
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right shrink-0 ml-3">
+                <div
+                  className={`font-semibold text-theme-sm ${getComplianceColor(
+                    school.complianceRate
+                  )}`}
+                >
+                  {school.complianceRate.toFixed(1)}%
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {getComplianceStatus(school.complianceRate)}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {complianceData.length === 0 && (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              No document compliance data available.
+            </div>
+          )}
+
+          {complianceData.length > 8 && (
+            <div className="text-center pt-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                +{complianceData.length - 8} more schools
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </WidgetContainer>
   );
 };
@@ -1376,7 +1592,7 @@ const ActiveRequestsWidget = ({
         </div>
       }
     >
-      <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
+      <div className="space-y-3 overflow-auto max-h-[500px] pr-1 custom-scrollbar">
         {items.slice(0, 5).map((request) => (
           <div
             key={request.id}
@@ -1535,16 +1751,13 @@ const AdminDashboard = () => {
         return <StatusWidget data={data} editMode={editMode} />;
       case "timeline":
         return <TimelineWidget data={data} editMode={editMode} />;
-      case "performance":
-        return <PerformanceWidget data={data} editMode={editMode} />;
+      case "performance": // This now includes both performance and fastest schools
+        return <SchoolPerformanceWidget data={data} editMode={editMode} />;
       case "categories":
         return <CategoriesWidget data={data} editMode={editMode} />;
       case "actions":
         return <ActiveRequestsWidget data={data} editMode={editMode} />;
-      case "compliance":
-        return <SchoolComplianceWidget data={data} editMode={editMode} />;
-      case "topSchools":
-        return <TopSchoolsWidget data={data} editMode={editMode} />;
+      // Remove the "topSchools" case since it's now merged
       default:
         return null;
     }
@@ -1728,9 +1941,9 @@ const AdminDashboard = () => {
         <div key="actions" className="rounded-2xl">
           {renderWidget("actions")}
         </div>
-        <div key="compliance" className="rounded-2xl">
+        {/* <div key="compliance" className="rounded-2xl">
           {renderWidget("compliance")}
-        </div>
+        </div> */}
         <div key="topSchools" className="rounded-2xl">
           {renderWidget("topSchools")}
         </div>
