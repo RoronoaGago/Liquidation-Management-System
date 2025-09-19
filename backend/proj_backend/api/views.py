@@ -2665,7 +2665,7 @@ def generate_approved_request_pdf(request, request_id):
             status=500
         )
 
-        @api_view(['POST'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_demand_letter(request, request_id):
     """
