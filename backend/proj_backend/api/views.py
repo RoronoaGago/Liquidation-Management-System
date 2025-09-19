@@ -2664,3 +2664,50 @@ def generate_approved_request_pdf(request, request_id):
             content_type='application/json',
             status=500
         )
+
+        @api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_demand_letter(request, request_id):
+    """
+    Generate Demand Letter PDF for unliquidated cash advances
+    """
+    try:
+        from .pdf_utils import generate_demand_letter_pdf
+        from django.shortcuts import get_object_or_404
+        
+        # Get the request object
+        req = get_object_or_404(RequestManagement, request_id=request_id)
+        
+        # Check permission
+        if request.user.role not in ['admin', 'superintendent', 'accountant']:
+            return Response(
+                {"error": "You don't have permission to generate demand letters"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get data from request
+        unliquidated_data = request.data.get('unliquidated_data', [])
+        due_date = request.data.get('due_date', '')
+        
+        if not unliquidated_data or not due_date:
+            return Response(
+                {"error": "Missing required data: unliquidated_data and due_date"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Generate PDF
+        pdf_content = generate_demand_letter_pdf(req, unliquidated_data, due_date)
+        
+        # Create HTTP response
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="demand_letter_{request_id}.pdf"'
+        response['Content-Length'] = len(pdf_content)
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating demand letter for request {request_id}: {str(e)}")
+        return Response(
+            {"error": "Failed to generate demand letter. Please try again."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
