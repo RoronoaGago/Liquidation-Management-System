@@ -22,6 +22,7 @@ from reportlab.pdfgen import canvas
 from PIL import Image as PILImage
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.graphics.shapes import Drawing, Rect, String
 import logging
 
 
@@ -859,47 +860,6 @@ def generate_request_pdf_with_signatures(request_obj):
         logger.error(f"Full traceback: {traceback.format_exc()}")
         raise
 
-
-
-class NumberedCanvas(canvas.Canvas):
-    """Custom canvas for adding header and footer to each page"""
-    def __init__(self, *args, **kwargs):
-        canvas.Canvas.__init__(self, *args, **kwargs)
-        self._saved_page_states = []
-
-    def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
-
-    def save(self):
-        """Add page numbering to each page"""
-        num_pages = len(self._saved_page_states)
-        for state in self._saved_page_states:
-            self.__dict__.update(state)
-            self.draw_header_footer(num_pages)
-            canvas.Canvas.showPage(self)
-        canvas.Canvas.save(self)
-
-    def draw_header_footer(self, page_count):
-        """Draw header and footer on each page"""
-        # Draw header
-        self.setFont("Helvetica-Bold", 10)
-        self.drawString(72, 800, "Republic of the Philippines")
-        self.setFont("Helvetica-Bold", 12)
-        self.drawString(72, 785, "Department of Education")
-        self.setFont("Helvetica", 10)
-        self.drawString(72, 770, "Region I")
-        self.drawString(72, 755, "Schools Division of La Union")
-        
-        # Draw horizontal line
-        self.line(72, 745, 540, 745)
-        
-        # Draw footer with page number if needed
-        if page_count > 1:
-            self.setFont("Helvetica", 8)
-            self.drawRightString(540, 30, f"Page {self._pageNumber} of {page_count}")
-
-
 class DemandLetterGenerator:
     """Handles Demand Letter PDF generation matching the template exactly"""
     
@@ -978,10 +938,28 @@ class DemandLetterGenerator:
         self.styles.add(ParagraphStyle(
             name='DemandFooter',
             parent=self.styles['Normal'],
-            fontSize=10,
+            fontSize=8,
             spaceAfter=3,
             alignment=TA_LEFT,
-            fontName='Helvetica'
+            fontName='Helvetica',
+            textColor=colors.gray
+        ))
+        
+        # Footer center style
+        self.styles.add(ParagraphStyle(
+            name='DemandFooterCenter',
+            parent=self.styles['DemandFooter'],
+            alignment=TA_CENTER
+        ))
+        
+        # Footer tagline style
+        self.styles.add(ParagraphStyle(
+            name='DemandFooterTagline',
+            parent=self.styles['DemandFooter'],
+            fontSize=9,
+            alignment=TA_CENTER,
+            fontName='Helvetica-BoldItalic',
+            textColor=colors.HexColor('#E91E63')  # Pinkish-red color
         ))
         
         # Signature style
@@ -1011,32 +989,95 @@ class DemandLetterGenerator:
             fontName='Helvetica-Bold'
         ))
 
-    def _create_header(self):
-        """Create the header content"""
-        header_content = []
+    def _create_deped_logo(self):
+        """Create a simplified DepED MATATAG logo drawing"""
+        d = Drawing(100, 60)
         
-        # Republic of the Philippines
-        header_content.append(Paragraph("Republic of the Philippines", self.styles['HeaderBold']))
+        # Create a simple representation of the DepED logo
+        # Blue-gray "Dep"
+        d.add(Rect(5, 35, 20, 15, fillColor=colors.HexColor('#607D8B'), strokeColor=None))
+        d.add(String(10, 38, "Dep", fontSize=10, fillColor=colors.white))
         
-        # Department of Education
-        header_content.append(Paragraph("Department of Education", self.styles['HeaderBold']))
-        header_content.append(Spacer(1, 6))
+        # Red "ED" with flame
+        d.add(Rect(30, 35, 20, 15, fillColor=colors.HexColor('#F44336'), strokeColor=None))
+        d.add(String(35, 38, "ED", fontSize=10, fillColor=colors.white))
         
-        # Region and Division
-        header_content.append(Paragraph("Region I", self.styles['Header']))
-        header_content.append(Paragraph("Schools Division of La Union", self.styles['Header']))
-        header_content.append(Spacer(1, 6))
+        # MATATAG text
+        d.add(String(10, 25, "MATATAG", fontSize=8, fillColor=colors.HexColor('#F44336')))
         
-        # Horizontal line
-        header_content.append(Spacer(1, 1))
-        header_content.append(self._create_horizontal_line())
+        # Blue line
+        d.add(Rect(10, 20, 40, 1, fillColor=colors.HexColor('#2196F3'), strokeColor=None))
         
-        return header_content
+        # Slogan
+        d.add(String(10, 15, "Building a Resilient Education", fontSize=6, fillColor=colors.gray))
+        
+        return d
 
-    def _create_horizontal_line(self):
-        """Create a horizontal line element"""
-        from reportlab.platypus.flowables import HRFlowable
-        return HRFlowable(width="100%", thickness=1, color=colors.black)
+    def _create_bagong_pilipinas_logo(self):
+        """Create a simplified Bagong Pilipinas logo drawing"""
+        d = Drawing(80, 60)
+        
+        # Heart shape (simplified)
+        d.add(Rect(30, 30, 20, 20, fillColor=colors.HexColor('#FFC107'), strokeColor=None))
+        
+        # Stars (simplified)
+        d.add(Rect(25, 45, 5, 5, fillColor=colors.yellow, strokeColor=None))
+        d.add(Rect(35, 45, 5, 5, fillColor=colors.yellow, strokeColor=None))
+        d.add(Rect(45, 45, 5, 5, fillColor=colors.yellow, strokeColor=None))
+        
+        # Text
+        d.add(String(20, 20, "BAGONG", fontSize=7, fillColor=colors.HexColor('#2196F3')))
+        d.add(String(20, 12, "PILIPINAS", fontSize=7, fillColor=colors.HexColor('#2196F3')))
+        
+        return d
+
+    def _create_deped_seal(self):
+        """Create a simplified DepED seal drawing"""
+        d = Drawing(60, 60)
+        
+        # Circle
+        d.add(Rect(10, 10, 40, 40, fillColor=colors.white, strokeColor=colors.HexColor('#F44336'), strokeWidth=2))
+        
+        # Book and torch (simplified)
+        d.add(Rect(25, 25, 10, 15, fillColor=colors.lightgrey, strokeColor=colors.black))
+        d.add(Rect(28, 35, 4, 8, fillColor=colors.yellow, strokeColor=None))
+        
+        return d
+
+    def _create_footer_content(self):
+        """Create the footer content with logos and contact information"""
+        story = []
+        
+        # Create a table for the footer with 4 columns
+        footer_data = [
+            [
+                self._create_deped_logo(),
+                self._create_bagong_pilipinas_logo(),
+                self._create_deped_seal(),
+                Paragraph("Address: Flores St. Catbangen, City of San Fernando, La Union 2500.<br/>"
+                         "Telephone Number: (072)607-6801.<br/>"
+                         "<font color='#2196F3'>■</font> DepEd Tayo - La Union SDO<br/>"
+                         "<font color='#F44336'>■</font> la.union@deped.gov.ph", 
+                         self.styles['DemandFooter'])
+            ]
+        ]
+        
+        footer_table = Table(footer_data, colWidths=[1.2*inch, 1.2*inch, 1.0*inch, 2.6*inch])
+        footer_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 2),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        
+        story.append(footer_table)
+        
+        # Add the tagline
+        tagline = "Excellence We Profess, Care We Cultivate, Love We Share, Kindness We Embrace, Humility We Live."
+        story.append(Paragraph(tagline, self.styles['DemandFooterTagline']))
+        
+        return story
 
     def generate_demand_letter_pdf(self, request_obj, unliquidated_data, due_date):
         """
@@ -1054,21 +1095,14 @@ class DemandLetterGenerator:
         buffer = io.BytesIO()
 
         # Create the PDF document with appropriate margins
-        doc = BaseDocTemplate(
+        doc = SimpleDocTemplate(
             buffer,
             pagesize=letter,
             rightMargin=72,
             leftMargin=72,
-            topMargin=100,  # Extra space for header
-            bottomMargin=72
+            topMargin=72,
+            bottomMargin=120  # Extra space for footer
         )
-        
-        # Create a frame with the correct dimensions
-        frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id='normal')
-        
-        # Create page template with header
-        template = PageTemplate(id='test', frames=frame, onPage=self._add_header_footer)
-        doc.addPageTemplates([template])
 
         # Build the PDF content
         story = []
@@ -1201,9 +1235,13 @@ class DemandLetterGenerator:
         story.append(Paragraph("Regional Office I, Government Center", self.styles['DemandBody']))
         story.append(Paragraph("Sevilla, San Fernando City", self.styles['DemandBody']))
         story.append(Paragraph("2500, La Union", self.styles['DemandBody']))
+        
+        # Add footer
+        story.append(PageBreak())
+        story.extend(self._create_footer_content())
 
         # Build the PDF
-        doc.build(story, canvasmaker=NumberedCanvas)
+        doc.build(story)
 
         # Get the PDF content
         pdf_content = buffer.getvalue()
@@ -1211,31 +1249,27 @@ class DemandLetterGenerator:
 
         return pdf_content
 
-    def _add_header_footer(self, canvas, doc):
-        """Add header and footer to each page"""
-        # Save the current state of the canvas
-        canvas.saveState()
+    def _create_header(self):
+        """Create the header content"""
+        header_content = []
         
-        # Draw header
-        canvas.setFont("Helvetica-Bold", 10)
-        canvas.drawString(72, 800, "Republic of the Philippines")
-        canvas.setFont("Helvetica-Bold", 12)
-        canvas.drawString(72, 785, "Department of Education")
-        canvas.setFont("Helvetica", 10)
-        canvas.drawString(72, 770, "Region I")
-        canvas.drawString(72, 755, "Schools Division of La Union")
+        # Republic of the Philippines
+        header_content.append(Paragraph("Republic of the Philippines", self.styles['HeaderBold']))
         
-        # Draw horizontal line
-        canvas.line(72, 745, 540, 745)
+        # Department of Education
+        header_content.append(Paragraph("Department of Education", self.styles['HeaderBold']))
+        header_content.append(Spacer(1, 6))
         
-        # Draw footer with page number if needed
-        page_num = canvas.getPageNumber()
-        if page_num > 1:
-            canvas.setFont("Helvetica", 8)
-            canvas.drawRightString(540, 30, f"Page {page_num}")
+        # Region and Division
+        header_content.append(Paragraph("Region I", self.styles['Header']))
+        header_content.append(Paragraph("Schools Division of La Union", self.styles['Header']))
+        header_content.append(Spacer(1, 6))
         
-        # Restore the canvas state
-        canvas.restoreState()
+        # Horizontal line
+        from reportlab.platypus.flowables import HRFlowable
+        header_content.append(HRFlowable(width="100%", thickness=1, color=colors.black))
+        
+        return header_content
 
     def _create_unliquidated_table(self, unliquidated_data):
         """Create table for unliquidated items matching the template"""
