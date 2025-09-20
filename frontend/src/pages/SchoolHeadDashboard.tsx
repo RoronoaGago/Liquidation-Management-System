@@ -18,7 +18,6 @@ import {
   RefreshCw,
   Plus,
   FileText,
-  TrendingUp,
   Clock,
   Eye,
   X,
@@ -28,6 +27,15 @@ import Badge from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
 // import api from "@/api/api";
 import { useNavigate } from "react-router-dom";
+import {
+  MetricCard,
+  PriorityProgressTable,
+  RequestStatusCard,
+  LiquidationProgressCard,
+  FrequentlyUsedPriorities,
+  QuickActions,
+  DownloadedRequestPopup,
+} from "@/components/ui/dashboard";
 
 // Types for our data
 interface SchoolHeadDashboardData {
@@ -573,329 +581,90 @@ const SchoolHeadDashboard = () => {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Liquidation Completion
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.liquidationProgress.completionPercentage.toFixed(1)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {data?.liquidationProgress.completedPriorities} of{" "}
-              {data?.liquidationProgress.totalPriorities} list of priorities
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Amount Liquidated
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ₱{data?.financialMetrics.totalLiquidatedAmount.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {data?.financialMetrics.liquidationPercentage.toFixed(1)}% of
-              downloaded amount
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Remaining Amount
-            </CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ₱{data?.financialMetrics.remainingAmount.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">To be liquidated</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Downloaded
-            </CardTitle>
-            <Download className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ₱{data?.financialMetrics.totalDownloadedAmount.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Initial cash advance
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Liquidation Completion"
+          value={`${data?.liquidationProgress.completionPercentage.toFixed(1)}%`}
+          description={`${data?.liquidationProgress.completedPriorities} of ${data?.liquidationProgress.totalPriorities} list of priorities`}
+          icon={CheckCircle}
+        />
+        <MetricCard
+          title="Amount Liquidated"
+          value={`₱${data?.financialMetrics.totalLiquidatedAmount.toLocaleString()}`}
+          description={`${data?.financialMetrics.liquidationPercentage.toFixed(1)}% of downloaded amount`}
+          icon={DollarSign}
+        />
+        <MetricCard
+          title="Remaining Amount"
+          value={`₱${data?.financialMetrics.remainingAmount.toLocaleString()}`}
+          description="To be liquidated"
+          icon={AlertCircle}
+        />
+        <MetricCard
+          title="Total Downloaded"
+          value={`₱${data?.financialMetrics.totalDownloadedAmount.toLocaleString()}`}
+          description="Initial cash advance"
+          icon={Download}
+        />
       </div>
 
       {/* Request View */}
+      {showRequestView && data?.requestStatus?.pendingRequest && (
+        <RequestStatusCard
+          request={data.requestStatus.pendingRequest}
+          getStatusBadge={getStatusBadge}
+          getPriorityColor={getPriorityColor}
+          onClose={handleToggleRequestView}
+        />
+      )}
+
+      {/* Active Liquidation Status in Request View */}
+      {showRequestView && data?.requestStatus?.activeLiquidation && (
+        <LiquidationProgressCard
+          liquidationId={data.requestStatus.activeLiquidation.LiquidationID}
+          completionPercentage={data.liquidationProgress.completionPercentage}
+          totalLiquidatedAmount={data.financialMetrics.totalLiquidatedAmount}
+          completedPriorities={data.liquidationProgress.completedPriorities}
+          totalPriorities={data.liquidationProgress.totalPriorities}
+          onContinueLiquidation={handleGoToLiquidation}
+        />
+      )}
+
+      {/* Frequently Used Priorities in Request View */}
+      {showRequestView && data?.frequentlyUsedPriorities && data.frequentlyUsedPriorities.length > 0 && (
+        <FrequentlyUsedPriorities
+          priorities={data.frequentlyUsedPriorities}
+          className="mb-6"
+        />
+      )}
+
+      {/* Quick Actions in Request View */}
       {showRequestView && (
-        <Card className="mb-6">
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Request Overview
-            </CardTitle>
-            <Button 
-              onClick={handleToggleRequestView}
-              variant="ghost"
-              size="sm"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {/* Current Request Status */}
-              {data?.requestStatus?.pendingRequest ? (
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-blue-800">Current MOOE Request</h3>
-                    {getStatusBadge(data.requestStatus.pendingRequest.status)}
-                  </div>
-                  
-                  {/* School Information */}
-                  <div className="mb-4 p-3 bg-white rounded-lg border">
-                    <div className="text-sm text-gray-600 font-medium mb-2">School Information</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <div className="text-xs text-gray-500">School Name</div>
-                        <div className="font-semibold text-gray-800">{data.requestStatus.pendingRequest.school_name || "San Jose Elementary School"}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">School ID</div>
-                        <div className="font-semibold text-gray-800">{data.requestStatus.pendingRequest.school_id || "SJES-001"}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">Division</div>
-                        <div className="font-semibold text-gray-800">{data.requestStatus.pendingRequest.division || "Division of City Schools - Manila"}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">Request Period</div>
-                        <div className="font-semibold text-gray-800">{data.requestStatus.pendingRequest.request_monthyear}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <div className="text-sm text-blue-600 font-medium">Request ID</div>
-                      <div className="text-lg font-semibold text-blue-800">
-                        {data.requestStatus.pendingRequest.request_id}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-blue-600 font-medium">Total Amount</div>
-                      <div className="text-lg font-semibold text-blue-800">
-                        ₱{data.requestStatus.pendingRequest.total_amount?.toLocaleString() || data.financialMetrics.totalDownloadedAmount.toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-blue-600 font-medium">Created</div>
-                      <div className="text-lg font-semibold text-blue-800">
-                        {new Date(data.requestStatus.pendingRequest.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Request Priorities and Amounts */}
-                  <div className="mt-4 p-4 bg-white rounded-lg border">
-                    <div className="text-sm text-gray-600 font-medium mb-3">Request Priorities & Amounts</div>
-                    <div className="space-y-3">
-                      {data.requestStatus.pendingRequest.priorities?.map((priority, index) => (
-                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <div 
-                                className="w-3 h-3 rounded-sm"
-                                style={{ backgroundColor: getPriorityColor(priority.expenseTitle, index) }}
-                              ></div>
-                              <span className="font-medium text-gray-800">{priority.expenseTitle}</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-semibold text-gray-800">₱{priority.amount.toLocaleString()}</div>
-                              <div className="text-xs text-gray-500">
-                                {((priority.amount / (data.requestStatus?.pendingRequest?.total_amount || data?.financialMetrics?.totalDownloadedAmount || 1)) * 100).toFixed(1)}%
-                              </div>
-                            </div>
-                          </div>
-                          {priority.description && (
-                            <div className="text-xs text-gray-600 mt-1">
-                              {priority.description}
-                            </div>
-                          )}
-                        </div>
-                      )) || data.priorityBreakdown.map((priority, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-sm"
-                              style={{ backgroundColor: priority.color }}
-                            ></div>
-                            <span className="font-medium text-gray-800">{priority.priority}</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-semibold text-gray-800">₱{priority.amount.toLocaleString()}</div>
-                            <div className="text-xs text-gray-500">{priority.percentage}%</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-gray-800">Total Amount</span>
-                        <span className="text-lg font-bold text-blue-800">₱{data.requestStatus.pendingRequest.total_amount?.toLocaleString() || data.financialMetrics.totalDownloadedAmount.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 p-3 bg-white rounded border">
-                    <div className="text-sm text-gray-600">
-                      <strong>Status:</strong> {data.requestStatus.pendingRequest.status === 'pending' 
-                        ? 'Your request is currently being reviewed by the Division Superintendent.'
-                        : data.requestStatus.pendingRequest.status === 'approved'
-                        ? 'Your request has been approved and is ready for download.'
-                        : data.requestStatus.pendingRequest.status === 'downloaded'
-                        ? 'Your request has been downloaded by the Division Accountant. You can now proceed to liquidation.'
-                        : 'Your request status: ' + data.requestStatus.pendingRequest.status}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 bg-gray-50 rounded-lg text-center">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No Active Request</h3>
-                  <p className="text-gray-500 mb-4">
-                    You don't have any pending requests at the moment.
-                  </p>
-                  <Button 
-                    onClick={handleCreateMOOERequest}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New Request
-                  </Button>
-                </div>
-              )}
-
-              {/* Active Liquidation Status */}
-              {data?.requestStatus?.activeLiquidation && (
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-green-800">Active Liquidation</h3>
-                    <Badge className="bg-green-100 text-green-800">In Progress</Badge>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-sm text-green-600 font-medium">Liquidation ID</div>
-                      <div className="text-lg font-semibold text-green-800">
-                        {data.requestStatus.activeLiquidation.LiquidationID}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-green-600 font-medium">Created</div>
-                      <div className="text-lg font-semibold text-green-800">
-                        {new Date(data.requestStatus.activeLiquidation.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4 p-3 bg-white rounded border">
-                    <div className="text-sm text-gray-600">
-                      <strong>Status:</strong> Your liquidation is currently in progress. 
-                      You can continue working on it or view the details.
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button 
-                      onClick={handleGoToLiquidation}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Continue Liquidation
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Frequently Used Priorities */}
-              {data?.frequentlyUsedPriorities && data.frequentlyUsedPriorities.length > 0 && (
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Frequently Used Priorities
-                  </h3>
-                  <div className="space-y-3">
-                    {data.frequentlyUsedPriorities.map((priority, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-800">{priority.priority}</div>
-                          <div className="text-sm text-gray-500">
-                            Used {priority.frequency} times • Last used: {priority.lastUsed}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-gray-800">
-                            ₱{priority.totalAmount.toLocaleString()}
-                          </div>
-                          <div className="text-xs text-gray-500">Total amount</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Actions */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <Button 
-                    onClick={handleCreateMOOERequest}
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-center gap-2"
-                  >
-                    <Plus className="h-6 w-6" />
-                    <span className="font-medium">New Request</span>
-                    <span className="text-xs text-gray-500">Create MOOE request</span>
-                  </Button>
-                  <Button 
-                    onClick={() => navigate("/requests-history")}
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-center gap-2"
-                  >
-                    <Clock className="h-6 w-6" />
-                    <span className="font-medium">Request History</span>
-                    <span className="text-xs text-gray-500">View past requests</span>
-                  </Button>
-                  <Button 
-                    onClick={handleGoToLiquidation}
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-center gap-2"
-                  >
-                    <FileText className="h-6 w-6" />
-                    <span className="font-medium">Liquidation</span>
-                    <span className="text-xs text-gray-500">Manage liquidations</span>
-                  </Button>
-                </div>
-              </div>
-
-            </div>
-          </CardContent>
-        </Card>
+        <QuickActions
+          actions={[
+            {
+              id: "new-request",
+              label: "New Request",
+              description: "Create MOOE request",
+              icon: Plus,
+              onClick: handleCreateMOOERequest,
+            },
+            {
+              id: "request-history",
+              label: "Request History",
+              description: "View past requests",
+              icon: Clock,
+              onClick: () => navigate("/requests-history"),
+            },
+            {
+              id: "liquidation",
+              label: "Liquidation",
+              description: "Manage liquidations",
+              icon: FileText,
+              onClick: handleGoToLiquidation,
+            },
+          ]}
+          className="mb-6"
+        />
       )}
 
       {/* Charts and Detailed Information */}
@@ -1053,157 +822,20 @@ const SchoolHeadDashboard = () => {
 
 
       {/* Priority Progress Details */}
-      <Card className="mb-6">
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>List of Priority Document Progress</CardTitle>
-          <a href="/liquidation">
-            <Button className="mb-4" size="sm" variant="outline">
-              View Details
-            </Button>
-          </a>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="p-3 text-left font-medium">Priority</th>
-                  <th className="p-3 text-left font-medium">Status</th>
-                  <th className="p-3 text-left font-medium">Documents</th>
-                  <th className="p-3 text-left font-medium">Completion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.liquidationProgress.priorities.map((priority) => (
-                  <tr key={priority.priorityId} className="border-b">
-                    <td className="p-3 font-medium">{priority.priorityName}</td>
-                    <td className="p-3">{getStatusBadge(priority.status)}</td>
-                    <td className="p-3">
-                      {priority.documentsUploaded} of{" "}
-                      {priority.documentsRequired}
-                    </td>
-                    <td className="p-3">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className="h-2.5 rounded-full"
-                          style={{
-                            width: `${priority.completionPercentage}%`,
-                            backgroundColor: getPriorityColor(
-                              priority.priorityName
-                            ),
-                          }}
-                        ></div>
-                      </div>
-                      <span className="text-xs text-muted-foreground mt-1">
-                        {priority.completionPercentage}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <PriorityProgressTable
+        priorities={data?.liquidationProgress.priorities || []}
+        getPriorityColor={getPriorityColor}
+        getStatusBadge={getStatusBadge}
+        onViewDetails={() => window.open("/liquidation", "_blank")}
+      />
 
       {/* Downloaded Request Popup */}
-      {showDownloadedPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">
-                MOOE Request Downloaded
-              </h3>
-              <Button 
-                onClick={handleCloseDownloadedPopup}
-                variant="ghost"
-                size="sm"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="space-y-4">
-              {/* School Information */}
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="text-sm text-blue-600 font-medium mb-2">School Information</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs text-blue-500">School Name</div>
-                    <div className="font-semibold text-blue-800">San Jose Elementary School</div>
-                </div>
-                  <div>
-                    <div className="text-xs text-blue-500">Request ID</div>
-                    <div className="font-semibold text-blue-800">{requestStatusData?.request_id}</div>
-              </div>
-                  <div>
-                    <div className="text-xs text-blue-500">Period</div>
-                    <div className="font-semibold text-blue-800">January 2025</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-blue-500">Total Amount</div>
-                    <div className="font-semibold text-blue-800">₱250,000</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="text-sm text-green-600 font-medium">Status</div>
-                <div className="text-lg font-semibold text-green-800">
-                  Downloaded by Division Accountant
-                </div>
-              </div>
-
-              {/* Quick Priority Overview */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-600 font-medium mb-2">Request Priorities</div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>School Supplies</span>
-                    <span className="font-semibold">₱75,000</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Facility Repairs</span>
-                    <span className="font-semibold">₱90,000</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Office Supplies</span>
-                    <span className="font-semibold">₱40,000</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Teacher Training</span>
-                    <span className="font-semibold">₱30,000</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Maintenance</span>
-                    <span className="font-semibold">₱15,000</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-sm text-gray-600">
-                Your MOOE request has been downloaded by the Division Accountant. 
-                You can now proceed to the liquidation process to upload supporting documents and complete the liquidation.
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  onClick={handleGoToLiquidation}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Go to Liquidation
-                </Button>
-                <Button 
-                  onClick={handleCloseDownloadedPopup}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <DownloadedRequestPopup
+        isOpen={showDownloadedPopup}
+        requestId={requestStatusData?.request_id || ""}
+        onClose={handleCloseDownloadedPopup}
+        onGoToLiquidation={handleGoToLiquidation}
+      />
     </div>
   );
 };
