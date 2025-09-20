@@ -255,28 +255,27 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'console': {
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'INFO',  # Show all logs, including debug
+        'level': 'DEBUG',
     },
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',  # You can set this to 'DEBUG' if you want more Django internals
+            'level': 'INFO',
             'propagate': False,
         },
-        # Your app logger
-        'api': {
+        'api': {  # Replace with your actual app name
             'handlers': ['console'],
-            'level': 'WARNING',
-            'propagate': False
+            'level': 'DEBUG',
+            'propagate': False,
         },
     },
 }
-
 # Backup/Restore settings
 # Server-managed defaults to avoid trusting client-supplied filesystem paths
 BACKUP_SETTINGS = {

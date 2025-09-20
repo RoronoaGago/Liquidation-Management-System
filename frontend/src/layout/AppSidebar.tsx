@@ -29,7 +29,8 @@ import {
   LandPlotIcon,
   FileChartColumnIcon,
   ClipboardCheckIcon,
-  DatabaseBackupIcon, // <-- Add this
+  DatabaseBackupIcon,
+  CalendarIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -163,8 +164,22 @@ const allNavItems: NavItem[] = [
   {
     icon: <FileChartColumnIcon />,
     name: "Generate Report",
-    path: "/generate-report",
-    roles: ["admin"], // Only admin
+    roles: ["admin"], // Only for admin
+
+    subItems: [
+      {
+        icon: <CalendarIcon />, // <-- Add icon here
+        name: "Aging",
+        path: "/report/aging", // Make sure this route exists in your App.tsx
+        roles: ["admin"],
+      },
+      {
+        icon: <HandCoinsIcon />, // <-- Add icon here
+        name: "Liquidation",
+        path: "/report/liquidation", // Make sure this route exists in your App.tsx
+        roles: ["admin"],
+      },
+    ],
   },
   {
     icon: <DatabaseBackupIcon />,

@@ -70,7 +70,7 @@ const App = () => {
             />
             <Route path="/requirements" element={<ManageRequirementsPage />} />
             <Route path="/school-districts" element={<ManageDistricts />} />
-            <Route path="/generate-report" element={<GenerateReport />} />
+            <Route path="/report/aging" element={<GenerateReport />} />
             <Route path="/backup-restore" element={<BackupRestorePage />} />
           </Route>
 

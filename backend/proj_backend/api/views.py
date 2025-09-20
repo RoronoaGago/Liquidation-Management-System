@@ -1,3 +1,7 @@
+from .models import RequestManagement
+import io
+from openpyxl.drawing.image import Image
+from openpyxl import Workbook
 import sys
 import zipfile
 import subprocess
@@ -50,6 +54,13 @@ from decimal import Decimal
 from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
+from .unliquidated_requests_report_utils import (
+    AgingReportPagination,
+    generate_aging_report_data,
+    generate_aging_csv_report,
+    generate_aging_excel_report,
+    get_aging_period
+)
 
 
 logger = logging.getLogger(__name__)
@@ -1400,7 +1411,7 @@ def request_history(request, request_id):
                 "last_name": h.user.last_name if h.user else "",
                 "school": {
                     "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
-                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "",
+                    "schoolName": h.user.school.schoolName if h_user and h.user.school else "",
                 } if h.user and h.user.school else None,
             } if h.user else None,
             "request_id": h.request_id,
@@ -1606,71 +1617,19 @@ def resend_otp(request):
         return Response({'message': 'User not found'}, status=404)
 
 
-# views.py
-# views.py
-
-
-class AgingReportPagination(PageNumberPagination):
-    page_size = 50
-    page_size_query_param = 'page_size'
-    max_page_size = 1000
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def schools_with_unliquidated_requests(request):
-    days_threshold = request.GET.get('days', '30')  # Get days threshold
-    export_format = request.GET.get('export')  # Check if export requested
-    page_size = request.GET.get('page_size', 50)  # Get page size
+    days_threshold = request.GET.get('days', '30')
+    export_format = request.GET.get('export')
+    page_size = request.GET.get('page_size', 50)
 
-    # Get all unliquidated requests
-    unliquidated_requests = RequestManagement.objects.filter(
-        status='unliquidated')
+    aging_data = generate_aging_report_data(days_threshold)
 
-    # Calculate aging for each request
-    today = timezone.now().date()
-    aging_data = []
-
-    for req in unliquidated_requests:
-        if req.downloaded_at:
-            days_elapsed = (today - req.downloaded_at.date()).days
-        else:
-            # Fallback to created_at if downloaded_at is not available
-            days_elapsed = (today - req.created_at.date()).days
-
-        # Apply threshold filter
-        if days_threshold == 'all' or int(days_threshold) <= days_elapsed:
-            aging_data.append({
-                'request_id': req.request_id,
-                'school_id': req.user.school.schoolId if req.user and req.user.school else '',
-                'school_name': req.user.school.schoolName if req.user and req.user.school else '',
-                'downloaded_at': req.downloaded_at.date() if req.downloaded_at else req.created_at.date(),
-                'days_elapsed': days_elapsed,
-                'aging_period': get_aging_period(days_elapsed),
-                'amount': sum(rp.amount for rp in req.requestpriority_set.all())
-            })
-
-    # Handle CSV export - return all data without pagination
     if export_format == 'csv':
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="aging_report_{days_threshold}_days.csv"'
-
-        writer = csv.writer(response)
-        writer.writerow(['School ID', 'School Name', 'Request ID', 'Downloaded At',
-                         'Days Elapsed', 'Aging Period', 'Amount'])
-
-        for item in aging_data:
-            writer.writerow([
-                item['school_id'],
-                item['school_name'],
-                item['request_id'],
-                item['downloaded_at'],
-                item['days_elapsed'],
-                item['aging_period'],
-                item['amount']
-            ])
-
-        return response
+        return generate_aging_csv_report(aging_data, days_threshold)
+    elif export_format == 'excel':
+        return generate_aging_excel_report(aging_data, days_threshold)
 
     # Apply pagination for regular API response
     paginator = AgingReportPagination()
@@ -1692,21 +1651,6 @@ def schools_with_unliquidated_requests(request):
             }
         }
     })
-
-
-def get_aging_period(days):
-    if days <= 30:
-        return "0-30 days"
-    elif days <= 60:
-        return "31-60 days"
-    elif days <= 90:
-        return "61-90 days"
-    elif days <= 120:
-        return "91-120 days"
-    elif days <= 180:
-        return "121-180 days"
-    else:
-        return "180+ days"
 
 
 @api_view(['GET'])
@@ -2141,6 +2085,7 @@ def admin_dashboard(request):
         'total_liquidations': LiquidationManagement.objects.count(),
         'completed_liquidations': LiquidationManagement.objects.filter(status='liquidated').count(),
         'pending_liquidations': LiquidationManagement.objects.exclude(status='liquidated').count(),
+
         'completion_rate': (LiquidationManagement.objects.filter(status='liquidated').count() /
                             LiquidationManagement.objects.count() * 100) if LiquidationManagement.objects.count() > 0 else 0,
         'avg_liquidation_time': avg_liquidation_time
@@ -2600,8 +2545,6 @@ def update_e_signature(request):
         "refresh": str(refresh)
     })
 
-
-# Add to views.py
 
 # Add to views.py
 
