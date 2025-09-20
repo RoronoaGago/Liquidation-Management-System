@@ -34,11 +34,12 @@ import LiquidationReminder from "./components/LiquidationReminder";
 import SetupModal from "./components/common/SetupModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
 import ManageDistricts from "./pages/ManageDistricts";
-import GenerateReport from "./pages/GenerateReport";
 import AdminDashboard from "./pages/AdminDashboard";
 import LiquidatorReviewPage from "./pages/LiquidatorReviewPage";
 import DivisionReviewPage from "./pages/DivisionReviewPage";
 import BackupRestorePage from "./pages/BackupRestorePage";
+import GenerateAgeingReport from "./pages/GenerateAgeingReport";
+import GenerateLiquidationReport from "./pages/GenerateLiquidationReport";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -70,7 +71,11 @@ const App = () => {
             />
             <Route path="/requirements" element={<ManageRequirementsPage />} />
             <Route path="/school-districts" element={<ManageDistricts />} />
-            <Route path="/report/aging" element={<GenerateReport />} />
+            <Route path="/report/aging" element={<GenerateAgeingReport />} />
+            <Route
+              path="/report/liquidation"
+              element={<GenerateLiquidationReport />}
+            />
             <Route path="/backup-restore" element={<BackupRestorePage />} />
           </Route>
 

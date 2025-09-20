@@ -1,4 +1,4 @@
-// GenerateReport.tsx
+// GenerateAgeingReport.tsx
 import React, { useState, useEffect } from "react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
@@ -38,7 +38,7 @@ interface AgingReportResponse {
   };
 }
 
-export default function GenerateReport() {
+export default function GenerateAgeingReport() {
   const [daysThreshold, setDaysThreshold] = useState<string>("30");
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<AgingReportResponse | null>(
