@@ -100,7 +100,7 @@ export default function GenerateLiquidationReport() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
-  
+
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
   const [legislativeDistricts, setLegislativeDistricts] = useState<{
@@ -172,7 +172,7 @@ export default function GenerateLiquidationReport() {
       }
 
       const res = await api.get("reports/liquidation/", { params });
-      setReportData(res.data);
+      setReportData(res.data.results);
       console.log(res.data);
       setCurrentPage(page);
       setPageSize(size);
@@ -548,7 +548,9 @@ export default function GenerateLiquidationReport() {
                 >
                   <option value="">All Districts</option>
                   {filterDistrictOptions.map((districtId) => {
-                    const d = districts.find((dd) => dd.districtId === districtId);
+                    const d = districts.find(
+                      (dd) => dd.districtId === districtId
+                    );
                     return (
                       <option key={districtId} value={districtId}>
                         {d?.districtName}
