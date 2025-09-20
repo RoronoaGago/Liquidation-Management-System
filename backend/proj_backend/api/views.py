@@ -5,12 +5,14 @@ import tempfile
 import shutil
 import os
 import random
+from django.db.models import Sum
 from django.utils.timezone import localtime
 from openpyxl.styles import Font, Alignment
 import openpyxl
 from .models import User
 from django.contrib.auth import authenticate
 from rest_framework.permissions import AllowAny
+from dateutil.relativedelta import relativedelta
 from .utils import generate_otp, send_otp_email
 from django.utils.crypto import get_random_string
 from django.contrib.auth import update_session_auth_hash
@@ -1728,24 +1730,64 @@ def admin_dashboard(request):
     elif time_range == 'last_year':
         start_date = end_date - timedelta(days=365)
     else:
-        start_date = end_date - timedelta(days=90)  # Default to last quarter
+        # Default to last quarter
+        start_date = end_date - timedelta(days=90)
+
+    # DEBUG: Print actual date range
+    # print(f"DEBUG: Actual date range - Start: {start_date}, End: {end_date}")
 
     budget_utilization = []
-    category_breakdown = []  # NEW: For stacked bar chart
+    category_breakdown = []
     months = []
-    current = start_date
+    current = start_date.replace(day=1)  # Start at beginning of month
 
     while current <= end_date:
         month_str = current.strftime('%Y-%m')
         months.append(month_str)
-        current = current + timedelta(days=30)  # Approximate month
+        current = current + relativedelta(months=1)
 
+    # DEBUG: Show what months we're processing
+    # print(f"DEBUG: Processing months: {months}")
+
+    # DEBUG: Show all requests and liquidations in the system
+    all_requests = RequestManagement.objects.all()
+    # print(f"DEBUG: Total requests in system: {all_requests.count()}")
+    for req in all_requests:
+        print(
+            f"  Request {req.request_id}: created={req.created_at}, month={req.request_monthyear}, status={req.status}")
+
+    all_liquidations = LiquidationManagement.objects.filter(
+        status='liquidated')
+    # print(
+    #     f"DEBUG: Total liquidated liquidations in system: {all_liquidations.count()}")
+    for liq in all_liquidations:
+        print(f"  Liquidation {liq.LiquidationID}: created={liq.created_at}, liquidated={liq.date_liquidated}, request_month={liq.request.request_monthyear if liq.request else 'None'}")
+
+    # Fixed budget utilization calculation
     for month in months:
-        # Get all requests for this month
-        month_requests = RequestManagement.objects.filter(
-            created_at__year=month[:4],
-            created_at__month=month[5:7]
+        year, month_num = map(int, month.split('-'))
+
+        print(
+            f"\n=== PROCESSING MONTH: {month} (Year: {year}, Month: {month_num}) ===")
+
+        # METHOD 1: Get requests CREATED in this month
+        month_requests_created = RequestManagement.objects.filter(
+            created_at__year=year,
+            created_at__month=month_num
         )
+        print(
+            f"DEBUG: Requests CREATED in {month}: {month_requests_created.count()}")
+
+        # METHOD 2: Get requests FOR this month (request_monthyear)
+        month_requests_for_period = RequestManagement.objects.filter(
+            request_monthyear=month
+        )
+        print(
+            f"DEBUG: Requests FOR period {month}: {month_requests_for_period.count()}")
+
+        # Use the appropriate method based on what you want to track
+        # For budget utilization, you probably want requests FOR the period
+        month_requests = month_requests_for_period
 
         # --- 1. Planned (Requested) Amounts ---
         total_allocated = School.objects.aggregate(
@@ -1754,17 +1796,46 @@ def admin_dashboard(request):
             request__in=month_requests
         ).aggregate(total=Sum('amount'))['total'] or 0
 
+        print(f"DEBUG: Total allocated budget: {total_allocated}")
+        print(f"DEBUG: Total planned spending for {month}: {total_planned}")
+
         # --- 2. Actual (Liquidated) Amounts ---
-        # Find liquidations that were submitted for requests made in this month
-        month_liquidations = LiquidationManagement.objects.filter(
-            request__in=month_requests,
-            status='liquidated'  # Only count completed liquidations
+        # METHOD 1: Liquidations COMPLETED in this month
+        month_liquidations_completed = LiquidationManagement.objects.filter(
+            date_liquidated__year=year,
+            date_liquidated__month=month_num,
+            status='liquidated'
         )
+        print(
+            f"DEBUG: Liquidations COMPLETED in {month}: {month_liquidations_completed.count()}")
+
+        # METHOD 2: Liquidations for requests OF this month
+        month_liquidations_for_period = LiquidationManagement.objects.filter(
+            request__request_monthyear=month,
+            status='liquidated'
+        )
+        print(
+            f"DEBUG: Liquidations FOR period {month}: {month_liquidations_for_period.count()}")
+
+        # Use the appropriate method
+        month_liquidations = month_liquidations_for_period
+
         total_actual = 0
+        liquidation_details = []
         for liquidation in month_liquidations:
-            # Sum the amounts from the LiquidationPriority records
-            total_actual += liquidation.liquidation_priorities.aggregate(total=Sum('amount'))[
-                'total'] or 0
+            liquidation_amount = liquidation.liquidation_priorities.aggregate(
+                total=Sum('amount'))['total'] or 0
+            total_actual += liquidation_amount
+            liquidation_details.append({
+                'id': liquidation.LiquidationID,
+                'amount': liquidation_amount,
+                'created': liquidation.created_at,
+                'completed': liquidation.date_liquidated
+            })
+
+        # print(
+        #     f"DEBUG: Liquidations details for {month}: {liquidation_details}")
+        # print(f"DEBUG: Total actual spending for {month}: {total_actual}")
 
         # --- 3. Utilization Rates ---
         planned_utilization_rate = (
@@ -1772,6 +1843,18 @@ def admin_dashboard(request):
         actual_utilization_rate = (
             total_actual / total_allocated * 100) if total_allocated > 0 else 0
 
+        budget_utilization.append({
+            'month': month,
+            'allocated': float(total_allocated),
+            'planned': float(total_planned),
+            'actual': float(total_actual),
+            'plannedUtilizationRate': float(planned_utilization_rate),
+            'actualUtilizationRate': float(actual_utilization_rate)
+        })
+
+        print(
+            f"SUMMARY: Month: {month}, Planned: {total_planned}, Actual: {total_actual}")
+        print("---")
         # --- 4. Category Breakdown for this month (NEW) ---
         category_data_for_month = {}
         for category_key, category_name in ListOfPriority.CATEGORY_CHOICES:
@@ -1796,15 +1879,6 @@ def admin_dashboard(request):
                 'planned': float(planned_for_category),
                 'actual': float(actual_for_category)
             }
-
-        budget_utilization.append({
-            'month': month,
-            'allocated': float(total_allocated),
-            'planned': float(total_planned),        # NEW
-            'actual': float(total_actual),          # NEW
-            'plannedUtilizationRate': float(planned_utilization_rate),  # NEW
-            'actualUtilizationRate': float(actual_utilization_rate)    # NEW
-        })
 
         # Append category data for the stacked chart
         category_breakdown.append({
@@ -1832,9 +1906,12 @@ def admin_dashboard(request):
    # 3. Liquidation Timeline - FIXED calculation
     liquidation_timeline = []
     for month in months:
+        year, month_num = map(int, month.split('-'))
+
+        # Get liquidations created in this month that were eventually liquidated
         month_liquidations = LiquidationManagement.objects.filter(
-            created_at__year=month[:4],
-            created_at__month=month[5:7],
+            created_at__year=year,
+            created_at__month=month_num,
             status='liquidated'
         )
 
@@ -1843,18 +1920,19 @@ def admin_dashboard(request):
 
         for liquidation in month_liquidations:
             if liquidation.date_liquidated and liquidation.created_at:
-                # Calculate time difference properly - from liquidation creation to completion
+                # Both are DateTimeField, so direct comparison works
                 time_diff = liquidation.date_liquidated - liquidation.created_at
                 total_seconds += time_diff.total_seconds()
                 count += 1
 
-        avg_seconds = total_seconds / count if count > 0 else 0
-        avg_days = avg_seconds / (24 * 60 * 60)  # Convert seconds to days
+        # Calculate average processing time in days
+        avg_days = (total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
 
+        # Count approved and rejected for this month
         approved_count = month_liquidations.count()
         rejected_count = LiquidationManagement.objects.filter(
-            created_at__year=month[:4],
-            created_at__month=month[5:7],
+            created_at__year=year,
+            created_at__month=month_num,
             status='resubmit'
         ).count()
 
@@ -2825,30 +2903,58 @@ def get_next_available_month(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def debug_liquidation_times(request):
-    """Debug endpoint to check liquidation time calculations"""
-    liquidated_liquidations = LiquidationManagement.objects.filter(
-        status='liquidated',
-        date_liquidated__isnull=False,
-        created_at__isnull=False
-    ).order_by('-created_at')[:10]  # Get last 10 liquidations
+    """More permissive debug endpoint"""
+    try:
+        # First try the original filter
+        liquidated_liquidations = LiquidationManagement.objects.filter(
+            status='liquidated',
+            date_liquidated__isnull=False,
+            created_at__isnull=False
+        ).order_by('-created_at')[:10]
 
-    debug_data = []
-    for liq in liquidated_liquidations:
-        if liq.date_liquidated and liq.created_at:
-            time_diff = liq.date_liquidated - liq.created_at
+        # If no results, try a less restrictive filter
+        if not liquidated_liquidations.exists():
+            liquidated_liquidations = LiquidationManagement.objects.filter(
+                date_liquidated__isnull=False,
+                created_at__isnull=False
+            ).order_by('-created_at')[:10]
+
+        # If still no results, get ANY records
+        if not liquidated_liquidations.exists():
+            liquidated_liquidations = LiquidationManagement.objects.all().order_by(
+                '-created_at')[:10]
+
+        debug_data = []
+        for liq in liquidated_liquidations:
+            time_diff = None
+            days_diff = 0
+
+            if liq.date_liquidated and liq.created_at:
+                time_diff = liq.date_liquidated - liq.created_at
+                days_diff = time_diff.total_seconds() / (24 * 60 * 60)
+
             debug_data.append({
                 'liquidation_id': liq.LiquidationID,
-                'created_at': liq.created_at.isoformat(),
-                'date_liquidated': liq.date_liquidated.isoformat(),
-                'time_diff_seconds': time_diff.total_seconds(),
-                'time_diff_days': time_diff.total_seconds() / (24 * 60 * 60),
-                'is_realistic': time_diff.total_seconds() < (365 * 24 * 60 * 60)
+                'status': liq.status,
+                'created_at': liq.created_at.isoformat() if liq.created_at else None,
+                'date_liquidated': liq.date_liquidated.isoformat() if liq.date_liquidated else None,
+                'time_diff_seconds': time_diff.total_seconds() if time_diff else None,
+                'time_diff_days': days_diff,
+                'has_both_dates': liq.date_liquidated is not None and liq.created_at is not None
             })
 
-    return Response({
-        'total_liquidated': liquidated_liquidations.count(),
-        'sample_data': debug_data
-    })
+        return Response({
+            'total_records': LiquidationManagement.objects.count(),
+            'filtered_records': liquidated_liquidations.count(),
+            'sample_data': debug_data,
+            'filter_used': 'liquidated status with both dates' if liquidated_liquidations.exists() else 'fallback to any records'
+        })
+
+    except Exception as e:
+        return Response({
+            'error': str(e),
+            'message': 'Error retrieving liquidation data'
+        }, status=500)
 
 
 @api_view(['GET'])
