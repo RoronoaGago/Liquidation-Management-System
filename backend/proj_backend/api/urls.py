@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report
 
 
 from rest_framework_simplejwt.views import (
@@ -111,6 +111,8 @@ urlpatterns = [
     # Report URLs
     path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
          name='unliquidated-schools-report'),
+    path('reports/liquidation/', liquidation_report,
+         name='liquidation-report'),
     path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
     path('liquidations/<str:LiquidationID>/generate-report/',
          views.generate_liquidation_report, name='generate-liquidation-report'),

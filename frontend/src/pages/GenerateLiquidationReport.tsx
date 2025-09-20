@@ -12,6 +12,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   DownloadIcon,
+  Filter,
 } from "lucide-react";
 
 const { Option } = Select;
@@ -99,6 +100,26 @@ export default function GenerateLiquidationReport() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [legislativeDistricts, setLegislativeDistricts] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
+    string[]
+  >([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
+    useState("");
+  const [filterMunicipality, setFilterMunicipality] = useState("");
+  const [filterDistrict, setFilterDistrict] = useState("");
+  const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
+    string[]
+  >([]);
+  const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
+    []
+  );
 
   const fetchReport = async (page: number = 1, size: number = pageSize) => {
     setLoading(true);
@@ -139,7 +160,18 @@ export default function GenerateLiquidationReport() {
         params.end_date = dateRange[1];
       }
 
-      const res = await api.get("liquidations/", { params });
+      // Add filter parameters
+      if (filterLegislativeDistrict) {
+        params.legislative_district = filterLegislativeDistrict;
+      }
+      if (filterMunicipality) {
+        params.municipality = filterMunicipality;
+      }
+      if (filterDistrict) {
+        params.school_district = filterDistrict;
+      }
+
+      const res = await api.get("reports/liquidation/", { params });
       setReportData(res.data);
       console.log(res.data);
       setCurrentPage(page);
@@ -154,7 +186,82 @@ export default function GenerateLiquidationReport() {
 
   useEffect(() => {
     fetchReport(1);
-  }, [activeTab, statusFilter, dateRange]);
+  }, [
+    activeTab,
+    statusFilter,
+    dateRange,
+    filterLegislativeDistrict,
+    filterMunicipality,
+    filterDistrict,
+  ]);
+
+  // Load legislative districts and districts for filters
+  useEffect(() => {
+    const fetchLegislativeDistrictsAndDistricts = async () => {
+      try {
+        const legislativeResponse = await api.get("/school-districts/");
+        const legislativeDistrictsData =
+          legislativeResponse.data.results || legislativeResponse.data;
+
+        const map: { [key: string]: string[] } = {};
+        (legislativeDistrictsData || []).forEach((d: any) => {
+          if (d.legislativeDistrict) {
+            if (!map[d.legislativeDistrict]) map[d.legislativeDistrict] = [];
+            if (
+              d.municipality &&
+              !map[d.legislativeDistrict].includes(d.municipality)
+            ) {
+              map[d.legislativeDistrict].push(d.municipality);
+            }
+          }
+        });
+        setLegislativeDistricts(map);
+        setLegislativeDistrictOptions(Object.keys(map));
+
+        const districtsResponse = await api.get(
+          "school-districts/?show_all=true"
+        );
+        const districtsData =
+          districtsResponse.data.results || districtsResponse.data;
+        setDistricts(Array.isArray(districtsData) ? districtsData : []);
+      } catch (error) {
+        console.error(
+          "Failed to fetch legislative districts or districts:",
+          error
+        );
+      }
+    };
+    fetchLegislativeDistrictsAndDistricts();
+  }, []);
+
+  // Update municipality options when legislative district changes
+  useEffect(() => {
+    if (
+      filterLegislativeDistrict &&
+      legislativeDistricts[filterLegislativeDistrict]
+    ) {
+      setFilterMunicipalityOptions(
+        legislativeDistricts[filterLegislativeDistrict]
+      );
+    } else {
+      setFilterMunicipalityOptions([]);
+    }
+    setFilterMunicipality("");
+    setFilterDistrict("");
+  }, [filterLegislativeDistrict, legislativeDistricts]);
+
+  // Update district options when municipality changes
+  useEffect(() => {
+    if (filterMunicipality) {
+      const districtsForMunicipality = districts
+        .filter((d) => d.municipality === filterMunicipality && d.is_active)
+        .map((d) => d.districtId);
+      setFilterDistrictOptions(districtsForMunicipality);
+    } else {
+      setFilterDistrictOptions([]);
+    }
+    setFilterDistrict("");
+  }, [filterMunicipality, districts]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -206,7 +313,18 @@ export default function GenerateLiquidationReport() {
         params.end_date = dateRange[1];
       }
 
-      const response = await api.get("liquidations/", {
+      // Add filter parameters
+      if (filterLegislativeDistrict) {
+        params.legislative_district = filterLegislativeDistrict;
+      }
+      if (filterMunicipality) {
+        params.municipality = filterMunicipality;
+      }
+      if (filterDistrict) {
+        params.school_district = filterDistrict;
+      }
+
+      const response = await api.get("reports/liquidation/", {
         params,
         responseType: "blob",
       });
@@ -303,6 +421,14 @@ export default function GenerateLiquidationReport() {
               </div>
 
               <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                startIcon={<Filter className="size-4" />}
+              >
+                Filters
+              </Button>
+
+              <Button
                 variant="primary"
                 onClick={handleExportExcel}
                 disabled={loading || report.length === 0 || exportLoading}
@@ -354,6 +480,99 @@ export default function GenerateLiquidationReport() {
               </ConfigProvider>
             )}
           </div>
+
+          {/* Filters Panel */}
+          {showFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 mb-6">
+              {/* Legislative District */}
+              <div className="space-y-2">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="filter-legislative-district"
+                >
+                  Legislative District
+                </label>
+                <select
+                  id="filter-legislative-district"
+                  value={filterLegislativeDistrict}
+                  onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  <option value="">All</option>
+                  {legislativeDistrictOptions.map((ld) => (
+                    <option key={ld} value={ld}>
+                      {ld}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Municipality */}
+              <div className="space-y-2">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="filter-municipality"
+                >
+                  Municipality
+                </label>
+                <select
+                  id="filter-municipality"
+                  value={filterMunicipality}
+                  onChange={(e) => setFilterMunicipality(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  disabled={!filterLegislativeDistrict}
+                >
+                  <option value="">All</option>
+                  {filterMunicipalityOptions.map((mun) => (
+                    <option key={mun} value={mun}>
+                      {mun}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* District */}
+              <div className="space-y-2">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="filter-school-district"
+                >
+                  School District
+                </label>
+                <select
+                  id="filter-school-district"
+                  value={filterDistrict}
+                  onChange={(e) => setFilterDistrict(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  disabled={!filterMunicipality}
+                >
+                  <option value="">All Districts</option>
+                  {filterDistrictOptions.map((districtId) => {
+                    const d = districts.find((dd) => dd.districtId === districtId);
+                    return (
+                      <option key={districtId} value={districtId}>
+                        {d?.districtName}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="md:col-span-3 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFilterLegislativeDistrict("");
+                    setFilterMunicipality("");
+                    setFilterDistrict("");
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="p-3 mb-6 text-sm text-red-700 bg-red-100 rounded-lg text-center">

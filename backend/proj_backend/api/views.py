@@ -3040,3 +3040,97 @@ def generate_approved_request_pdf(request, request_id):
             content_type='application/json',
             status=500
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def liquidation_report(request):
+    """
+    Generate liquidation report with filtering and export capabilities
+    Similar to unliquidated requests report but for liquidations
+    """
+    from .liquidation_report_utils import (
+        generate_liquidation_report_data,
+        generate_liquidation_csv_report,
+        generate_liquidation_excel_report,
+        LiquidationReportPagination
+    )
+    from datetime import datetime
+    
+    # Get filter parameters
+    status_filter = request.GET.get('status', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    legislative_district = request.GET.get('legislative_district')
+    municipality = request.GET.get('municipality')
+    school_district = request.GET.get('school_district')
+    school_ids = request.GET.get('school_ids')
+    export_format = request.GET.get('export')
+    page_size = request.GET.get('page_size', 50)
+    
+    # Validate date format
+    if start_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid start_date format. Use YYYY-MM-DD"}, status=400)
+    
+    if end_date:
+        try:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid end_date format. Use YYYY-MM-DD"}, status=400)
+    
+    # Generate report data
+    report_data = generate_liquidation_report_data(
+        status_filter=status_filter,
+        start_date=start_date,
+        end_date=end_date,
+        legislative_district=legislative_district,
+        municipality=municipality,
+        school_district=school_district,
+        school_ids=school_ids
+    )
+    
+    # Prepare filters for export
+    filters = {
+        'status': status_filter,
+        'start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
+        'end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
+        'legislative_district': legislative_district,
+        'municipality': municipality,
+        'school_district': school_district,
+        'school_ids': school_ids
+    }
+    
+    # Handle export formats
+    if export_format == 'csv':
+        return generate_liquidation_csv_report(report_data, filters)
+    elif export_format == 'excel':
+        return generate_liquidation_excel_report(report_data, filters)
+    
+    # Apply pagination for regular API response
+    paginator = LiquidationReportPagination()
+    paginator.page_size = int(page_size)
+    paginated_data = paginator.paginate_queryset(report_data, request)
+    
+    # Calculate status counts for filters
+    status_counts = {}
+    for item in report_data:
+        status = item['status']
+        status_counts[status] = status_counts.get(status, 0) + 1
+    
+    return paginator.get_paginated_response({
+        'results': paginated_data,
+        'total_count': len(report_data),
+        'filters': {
+            'status_filter': status_filter,
+            'start_date': filters['start_date'],
+            'end_date': filters['end_date'],
+            'legislative_district': legislative_district,
+            'municipality': municipality,
+            'school_district': school_district,
+            'school_ids': school_ids,
+            'status_counts': status_counts
+        }
+    })
