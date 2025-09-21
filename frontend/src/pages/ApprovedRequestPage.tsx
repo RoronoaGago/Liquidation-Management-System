@@ -970,29 +970,31 @@ const ApprovedRequestPage = () => {
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  {viewedSubmission.status === "approved"
+                  {viewedSubmission.status === "approved" ||
+                  viewedSubmission.status === "unliquidated"
                     ? "Download Official PDF"
                     : "Export PDF"}
                 </Button>
 
-                {viewedSubmission.status === "approved" && (
-                  <div className="flex gap-3 order-0 sm:order-1">
-                    <Button
-                      type="button"
-                      variant="success"
-                      onClick={() => {
-                        setSubmissionToApprove(viewedSubmission);
-                        setShowDatePicker(true);
-                        setSelectedDownloadDate(dayjs()); // Set default to current date
-                      }}
-                      startIcon={<CheckCircle className="w-4 h-4" />}
-                      disabled={downloadLoading}
-                      loading={downloadLoading}
-                    >
-                      Download Fund
-                    </Button>
-                  </div>
-                )}
+                {viewedSubmission.status === "approved" ||
+                  (viewedSubmission.status === "unliquidated" && (
+                    <div className="flex gap-3 order-0 sm:order-1">
+                      <Button
+                        type="button"
+                        variant="success"
+                        onClick={() => {
+                          setSubmissionToApprove(viewedSubmission);
+                          setShowDatePicker(true);
+                          setSelectedDownloadDate(dayjs()); // Set default to current date
+                        }}
+                        startIcon={<CheckCircle className="w-4 h-4" />}
+                        disabled={downloadLoading}
+                        loading={downloadLoading}
+                      >
+                        Download Fund
+                      </Button>
+                    </div>
+                  ))}
               </div>
             </div>
           )}

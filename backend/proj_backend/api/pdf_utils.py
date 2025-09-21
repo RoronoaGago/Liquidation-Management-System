@@ -743,7 +743,7 @@ class PDFGenerator:
 
         accountant_signature = self._get_user_signature(
             accountant) if accountant else None
-        if accountant_signature and request_obj.status == 'downloaded':
+        if accountant_signature and request_obj.status == 'unliquidated':
             right_column.append(accountant_signature)
         else:
             right_column.append(

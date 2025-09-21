@@ -1,6 +1,6 @@
 // GenerateLiquidationReport.tsx
 import React, { useState, useEffect } from "react";
-import { DatePicker, Select, ConfigProvider } from "antd";
+import { DatePicker, ConfigProvider } from "antd";
 import type { ThemeConfig } from "antd";
 import dayjs from "dayjs";
 import Button from "@/components/ui/button/Button";
@@ -14,8 +14,8 @@ import {
   DownloadIcon,
   Filter,
 } from "lucide-react";
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 
-const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 interface LiquidationReportItem {
@@ -385,9 +385,7 @@ export default function GenerateLiquidationReport() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Liquidation Report</h1>
-      </div>
+      <PageBreadcrumb pageTitle="Generate Liquidation Report" />
 
       <div className="space-y-6">
         <div className="rounded-2xl border border-gray-200 bg-white px-5 py-7 xl:px-10 xl:py-12">
@@ -397,43 +395,31 @@ export default function GenerateLiquidationReport() {
                 Liquidation Report
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                View and export liquidation reports with filtering options.
+                View and export list of liquidation reports.
               </p>
             </div>
+          </div>
 
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 text-nowrap">
-                  Status:
-                </span>
-                <Select
-                  value={statusFilter}
-                  onChange={setStatusFilter}
-                  className="w-32"
+          {/* Moved Filters and Export button to same row as tabs */}
+          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto mb-6 justify-between items-start md:items-center">
+            <div className="flex space-x-1 p-1 rounded-md bg-white border border-gray-200">
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                    activeTab === tab
+                      ? "bg-brand-600 text-white shadow-md"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                  onClick={() => handleTabChange(tab)}
+                  disabled={loading}
                 >
-                  <Option value="all">All</Option>
-                  <Option value="draft">Draft</Option>
-                  <Option value="submitted">Submitted</Option>
-                  <Option value="under_review_district">
-                    Under Review (District)
-                  </Option>
-                  <Option value="under_review_liquidator">
-                    Under Review (Liquidator)
-                  </Option>
-                  <Option value="under_review_division">
-                    Under Review (Division)
-                  </Option>
-                  <Option value="resubmit">Needs Revision</Option>
-                  <Option value="approved_district">
-                    Approved by District
-                  </Option>
-                  <Option value="approved_liquidator">
-                    Approved by Liquidator
-                  </Option>
-                  <Option value="liquidated">Liquidated</Option>
-                </Select>
-              </div>
+                  {tab}
+                </button>
+              ))}
+            </div>
 
+            <div className="flex gap-4">
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
@@ -455,26 +441,9 @@ export default function GenerateLiquidationReport() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto mb-6">
-            <div className="flex space-x-1 p-1 rounded-md bg-white border border-gray-200">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
-                    activeTab === tab
-                      ? "bg-brand-600 text-white shadow-md"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                  onClick={() => handleTabChange(tab)}
-                  disabled={loading}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === "Custom" && (
-              <ConfigProvider theme={lightTheme}>
+          {activeTab === "Custom" && (
+            <ConfigProvider theme={lightTheme}>
+              <div className="mb-6">
                 <RangePicker
                   onChange={handleDateRangeChange}
                   value={
@@ -491,13 +460,47 @@ export default function GenerateLiquidationReport() {
                     maxWidth: "300px",
                   }}
                 />
-              </ConfigProvider>
-            )}
-          </div>
+              </div>
+            </ConfigProvider>
+          )}
 
           {/* Filters Panel */}
           {showFilters && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 mb-6">
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="filter-status">
+                  Status
+                </label>
+                <select
+                  id="filter-status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  <option value="all">All</option>
+                  <option value="draft">Draft</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="under_review_district">
+                    Under Review (District)
+                  </option>
+                  <option value="under_review_liquidator">
+                    Under Review (Liquidator)
+                  </option>
+                  <option value="under_review_division">
+                    Under Review (Division)
+                  </option>
+                  <option value="resubmit">Needs Revision</option>
+                  <option value="approved_district">
+                    Approved by District
+                  </option>
+                  <option value="approved_liquidator">
+                    Approved by Liquidator
+                  </option>
+                  <option value="liquidated">Liquidated</option>
+                </select>
+              </div>
+
               {/* Legislative District */}
               <div className="space-y-2">
                 <label
@@ -582,6 +585,7 @@ export default function GenerateLiquidationReport() {
                     setFilterLegislativeDistrict("");
                     setFilterMunicipality("");
                     setFilterDistrict("");
+                    setStatusFilter("all");
                   }}
                 >
                   Clear Filters
@@ -665,7 +669,7 @@ export default function GenerateLiquidationReport() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs ${
+                          className={`px-2 py-1 rounded-full text-xs capitalize ${
                             row.status === "liquidated"
                               ? "bg-green-100 text-green-800"
                               : row.status === "submitted"

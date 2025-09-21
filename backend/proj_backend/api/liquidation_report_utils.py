@@ -276,12 +276,10 @@ def generate_liquidation_excel_report(report_data, filters):
         ws.cell(row=row_num, column=12, value=item['date_liquidated'].date(
         ) if item['date_liquidated'] else '')
         ws.cell(row=row_num, column=13, value=item['refund'] or '')
-        ws.cell(row=row_num, column=14,
-                value=f"{item['reviewed_by_district'].first_name} {item['reviewed_by_district'].last_name}" if item['reviewed_by_district'] else '')
-        ws.cell(row=row_num, column=15,
-                value=f"{item['reviewed_by_liquidator'].first_name} {item['reviewed_by_liquidator'].last_name}" if item['reviewed_by_liquidator'] else '')
-        ws.cell(row=row_num, column=16,
-                value=f"{item['reviewed_by_division'].first_name} {item['reviewed_by_division'].last_name}" if item['reviewed_by_division'] else '')
+        # Use the already formatted string values instead of trying to access user attributes
+        ws.cell(row=row_num, column=14, value=item['reviewed_by_district'])
+        ws.cell(row=row_num, column=15, value=item['reviewed_by_liquidator'])
+        ws.cell(row=row_num, column=16, value=item['reviewed_by_division'])
 
     # Auto-adjust column widths
     for column in ws.columns:
