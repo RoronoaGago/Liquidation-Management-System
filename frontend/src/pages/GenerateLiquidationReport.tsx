@@ -19,40 +19,22 @@ const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 interface LiquidationReportItem {
-  LiquidationID: string;
-  request: {
-    request_id: string;
-    user: {
-      first_name: string;
-      last_name: string;
-      school: {
-        schoolId: string;
-        schoolName: string;
-        district: {
-          districtId: string;
-          districtName: string;
-        };
-      };
-    };
-    request_monthyear: string;
-  };
+  liquidation_id: string;
+  request_id: string;
+  school_id: string;
+  school_name: string;
+  district_name: string;
+  municipality: string;
+  legislative_district: string;
+  request_month: string;
   status: string;
   created_at: string;
-  date_submitted: string;
-  date_liquidated: string;
-  refund: number;
-  reviewed_by_district: {
-    first_name: string;
-    last_name: string;
-  } | null;
-  reviewed_by_liquidator: {
-    first_name: string;
-    last_name: string;
-  } | null;
-  reviewed_by_division: {
-    first_name: string;
-    last_name: string;
-  } | null;
+  date_submitted: string | null;
+  date_liquidated: string | null;
+  refund: number | null;
+  reviewed_by_district: string;
+  reviewed_by_liquidator: string;
+  reviewed_by_division: string;
 }
 
 interface LiquidationReportResponse {
@@ -61,6 +43,7 @@ interface LiquidationReportResponse {
   previous: string | null;
   results: LiquidationReportItem[];
   total_count: number;
+  filters: any;
 }
 
 const tabs = ["Monthly", "Quarterly", "Custom"];
@@ -172,8 +155,39 @@ export default function GenerateLiquidationReport() {
       }
 
       const res = await api.get("reports/liquidation/", { params });
-      setReportData(res.data.results);
-      console.log(res.data);
+      // Handle both response structures
+      const responseData = res.data;
+      if (responseData.results && Array.isArray(responseData.results)) {
+        // If results is directly an array
+        setReportData({
+          count: responseData.count,
+          next: responseData.next,
+          previous: responseData.previous,
+          results: responseData.results,
+          total_count: responseData.total_count || responseData.count,
+          filters: responseData.filters || {},
+        });
+      } else if (responseData.results && responseData.results.results) {
+        // If results has a nested results property
+        setReportData({
+          count: responseData.count,
+          next: responseData.next,
+          previous: responseData.previous,
+          results: responseData.results.results,
+          total_count: responseData.results.total_count || responseData.count,
+          filters: responseData.results.filters || {},
+        });
+      } else {
+        // Fallback
+        setReportData({
+          count: responseData.count || 0,
+          next: responseData.next || null,
+          previous: responseData.previous || null,
+          results: [],
+          total_count: responseData.total_count || 0,
+          filters: responseData.filters || {},
+        });
+      }
       setCurrentPage(page);
       setPageSize(size);
     } catch (err: any) {
@@ -367,7 +381,7 @@ export default function GenerateLiquidationReport() {
   const totalPages = reportData?.count
     ? Math.ceil(reportData.count / pageSize)
     : 0;
-  const report = reportData?.results || [];
+  const report = reportData?.results || []; // Directly access results array
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -589,9 +603,9 @@ export default function GenerateLiquidationReport() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Liquidation ID
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Request ID
-                  </th>
+                  </th> */}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     School
                   </th>
@@ -633,21 +647,21 @@ export default function GenerateLiquidationReport() {
                   </tr>
                 ) : (
                   report.map((row) => (
-                    <tr key={row.LiquidationID}>
+                    <tr key={row.liquidation_id}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
-                        {row.LiquidationID}
+                        {row.liquidation_id}
+                      </td>
+                      {/* <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
+                        {row.request_id}
+                      </td> */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
+                        {row.school_name}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
-                        {row.request.request_id}
+                        {row.district_name}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
-                        {row.request.user.school.schoolName}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
-                        {row.request.user.school.district.districtName}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
-                        {row.request.request_monthyear}
+                        {row.request_month}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
                         <span

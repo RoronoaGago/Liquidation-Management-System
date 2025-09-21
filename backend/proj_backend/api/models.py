@@ -750,8 +750,8 @@ class LiquidationManagement(models.Model):
         # Handle submitted status
         if self.status == 'submitted' and self.date_submitted is None:
             self.date_submitted = now
-        elif self.status != 'submitted' and self.date_submitted is not None:
-            self.date_submitted = None
+        # elif self.status != 'submitted' and self.date_submitted is not None:
+        #     self.date_submitted = None
 
         # Handle district approval - only set if not already set
         if self.status == 'approved_district' and self.date_districtApproved is None:
