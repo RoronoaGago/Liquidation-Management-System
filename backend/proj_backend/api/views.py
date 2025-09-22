@@ -24,11 +24,12 @@ import string
 from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
 import logging
+from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer, BackupSerializer
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer, BackupSerializer, AuditLogSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -110,6 +111,17 @@ def change_password(request):
     user.set_password(new_password)
     user.password_change_required = False
     user.save()
+
+    from .audit_utils import log_audit_event
+    log_audit_event(
+        request=request,
+        action='password_change',
+        module='auth',
+        description="Changed password",
+        object_id=user.pk,
+        object_type='User',
+        object_name=user.get_full_name()
+    )
 
     # Update the token to prevent automatic logout
     refresh = RefreshToken.for_user(user)
@@ -200,7 +212,18 @@ def user_list(request):
             data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
+            from .audit_utils import log_audit_event
+            log_audit_event(
+                request=request,
+                action='create',
+                module='user',
+                description=f"Created user {serializer.data['first_name']} {serializer.data['last_name']}",
+                object_id=serializer.data['id'],
+                object_type='User',
+                object_name=f"{serializer.data['first_name']} {serializer.data['last_name']}"
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -236,6 +259,16 @@ def user_detail(request, pk):
             field in request.data for field in sensitive_fields)
 
         serializer.save()
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=request,
+            action='update',
+            module='user',
+            description=f"Updated user {user.get_full_name()}",
+            object_id=user.pk,
+            object_type='User',
+            object_name=user.get_full_name()
+        )
 
         response_data = serializer.data
 
@@ -267,7 +300,31 @@ def user_detail(request, pk):
             serializer = UserSerializer(
                 user, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
+                is_archiving = 'is_active' in request.data and not request.data[
+                    'is_active'] and user.is_active
+                is_restoring = 'is_active' in request.data and request.data[
+                    'is_active'] and not user.is_active
+
                 serializer.save()
+
+                # Log the action
+                from .audit_utils import log_audit_event
+                action = 'update'
+                if is_archiving:
+                    action = 'archive'
+                elif is_restoring:
+                    action = 'restore'
+
+                log_audit_event(
+                    request=request,
+                    action=action,
+                    module='user',
+                    description=f"{action.capitalize()} user {user.get_full_name()}",
+                    object_id=user.pk,
+                    object_type='User',
+                    object_name=user.get_full_name()
+                )
+
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -276,6 +333,16 @@ def user_detail(request, pk):
             user, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
+            from .audit_utils import log_audit_event
+            log_audit_event(
+                request=request,
+                action='update',
+                module='user',
+                description=f"Updated user {user.get_full_name()}",
+                object_id=user.pk,
+                object_type='User',
+                object_name=user.get_full_name()
+            )
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -618,19 +685,26 @@ class ApproveRequestView(generics.UpdateAPIView):
             instance.reviewed_by = request.user
             instance.reviewed_at = timezone.now()
 
-            print(f"New status before save: {instance.status}")  # Debug log
+            # Save only the updated fields
+            instance.save(update_fields=[
+                'status',
+                'date_approved',
+                'reviewed_by',
+                'reviewed_at'
+            ])
+            print(f"Status after save: {instance.status}")  # Debug log
 
-            try:
-                instance.save(update_fields=[
-                    'status',
-                    'date_approved',
-                    'reviewed_by',
-                    'reviewed_at'
-                ])
-                print(f"Status after save: {instance.status}")  # Debug log
-            except Exception as e:
-                print(f"Save failed: {str(e)}")  # Debug log
-                raise
+            # Log approval AFTER save
+            from .audit_utils import log_audit_event
+            log_audit_event(
+                request=request,
+                action='approve',
+                module='request',
+                description=f"Approved request {instance.request_id}",
+                object_id=instance.request_id,
+                object_type='RequestManagement',
+                object_name=f"Request {instance.request_id}"
+            )
 
             # Verify in database
             refreshed = RequestManagement.objects.get(pk=instance.pk)
@@ -681,7 +755,16 @@ class RejectRequestView(generics.UpdateAPIView):
         # Explicit save
         instance.save(
             update_fields=['status', 'rejection_comment', 'rejection_date'])
-
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=request,
+            action='reject',
+            module='request',
+            description=f"Rejected request {instance.request_id}",
+            object_id=instance.request_id,
+            object_type='RequestManagement',
+            object_name=f"Request {instance.request_id}"
+        )
         return Response(self.get_serializer(instance).data)
 
 
@@ -1177,6 +1260,16 @@ def submit_liquidation(request, LiquidationID):
             liquidation.status = 'submitted'
             liquidation.date_submitted = timezone.now()
             liquidation.save()
+            from .audit_utils import log_audit_event
+            log_audit_event(
+                request=request,
+                action='submit',
+                module='liquidation',
+                description=f"Submitted liquidation {LiquidationID}",
+                object_id=LiquidationID,
+                object_type='LiquidationManagement',
+                object_name=f"Liquidation {LiquidationID}"
+            )
 
             # Create notification for the reviewer
             # Notification.objects.create(
@@ -3056,7 +3149,7 @@ def liquidation_report(request):
         LiquidationReportPagination
     )
     from datetime import datetime
-    
+
     # Get filter parameters
     status_filter = request.GET.get('status', 'all')
     start_date = request.GET.get('start_date')
@@ -3067,20 +3160,20 @@ def liquidation_report(request):
     school_ids = request.GET.get('school_ids')
     export_format = request.GET.get('export')
     page_size = request.GET.get('page_size', 50)
-    
+
     # Validate date format
     if start_date:
         try:
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
         except ValueError:
             return Response({"error": "Invalid start_date format. Use YYYY-MM-DD"}, status=400)
-    
+
     if end_date:
         try:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
         except ValueError:
             return Response({"error": "Invalid end_date format. Use YYYY-MM-DD"}, status=400)
-    
+
     # Generate report data
     report_data = generate_liquidation_report_data(
         status_filter=status_filter,
@@ -3091,7 +3184,7 @@ def liquidation_report(request):
         school_district=school_district,
         school_ids=school_ids
     )
-    
+
     # Prepare filters for export
     filters = {
         'status': status_filter,
@@ -3102,24 +3195,24 @@ def liquidation_report(request):
         'school_district': school_district,
         'school_ids': school_ids
     }
-    
+
     # Handle export formats
     if export_format == 'csv':
         return generate_liquidation_csv_report(report_data, filters)
     elif export_format == 'excel':
         return generate_liquidation_excel_report(report_data, filters)
-    
+
     # Apply pagination for regular API response
     paginator = LiquidationReportPagination()
     paginator.page_size = int(page_size)
     paginated_data = paginator.paginate_queryset(report_data, request)
-    
+
     # Calculate status counts for filters
     status_counts = {}
     for item in report_data:
         status = item['status']
         status_counts[status] = status_counts.get(status, 0) + 1
-    
+
     return paginator.get_paginated_response({
         'results': paginated_data,
         'total_count': len(report_data),
@@ -3134,3 +3227,62 @@ def liquidation_report(request):
             'status_counts': status_counts
         }
     })
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = '__all__'
+
+
+class AuditLogListView(generics.ListAPIView):
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
+
+    def get_queryset(self):
+        if not self.request.user.role == 'admin':
+            raise PermissionDenied("Only administrators can view audit logs")
+
+        queryset = AuditLog.objects.all().select_related('user')
+
+        # Filter by module
+        module = self.request.query_params.get('module')
+        if module:
+            queryset = queryset.filter(module=module)
+
+        # Filter by action
+        action = self.request.query_params.get('action')
+        if action:
+            queryset = queryset.filter(action=action)
+
+        # Filter by user
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        # Filter by date range
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        if start_date and end_date:
+            queryset = queryset.filter(timestamp__date__range=[
+                                       start_date, end_date])
+
+        # Search in description
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(description__icontains=search)
+
+        # Filter by object type
+        object_type = self.request.query_params.get('object_type')
+        if object_type:
+            queryset = queryset.filter(object_type=object_type)
+
+        # Filter by object ID
+        object_id = self.request.query_params.get('object_id')
+        if object_id:
+            queryset = queryset.filter(object_id=object_id)
+
+        return queryset.order_by('-timestamp')

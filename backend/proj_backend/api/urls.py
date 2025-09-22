@@ -123,5 +123,6 @@ urlpatterns = [
     path('backup/', initiate_backup, name='initiate-backup'),
     path('restore/', initiate_restore, name='initiate-restore'),
     path('backups/', list_backups, name='list-backups'),
+    path('audit-logs/', views.AuditLogListView.as_view(), name='audit-logs'),
 
 ]

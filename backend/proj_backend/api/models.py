@@ -101,6 +101,7 @@ class User(AbstractUser):
 
     USERNAME_FIELD = 'email'  # Use email as the login identifier
     REQUIRED_FIELDS = ['first_name', 'last_name']  # Add basic required fields
+
     # Add these at the bottom of your User model class
     objects = UserManager()
 
@@ -140,6 +141,13 @@ class User(AbstractUser):
             self.phone_number = ''.join(
                 c for c in self.phone_number if c.isdigit())
 
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived user {self.get_full_name()} ({self.email})"
+        elif action == 'restore':
+            return f"Restored user {self.get_full_name()} ({self.email})"
+        return f"{action.capitalize()} user {self.get_full_name()} ({self.email})"
+
 
 class School(models.Model):
     schoolId = models.CharField(max_length=10, primary_key=True, editable=True)
@@ -172,6 +180,13 @@ class School(models.Model):
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
 
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived school {self.schoolName} ({self.schoolId})"
+        elif action == 'restore':
+            return f"Restored school {self.schoolName} ({self.schoolId})"
+        return f"{action.capitalize()} school {self.schoolName} ({self.schoolId})"
+
 
 class Requirement(models.Model):
     requirementID = models.AutoField(primary_key=True)
@@ -181,6 +196,13 @@ class Requirement(models.Model):
 
     def __str__(self):
         return self.requirementTitle
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived requirement {self.requirementTitle}"
+        elif action == 'restore':
+            return f"Restored requirement {self.requirementTitle}"
+        return f"{action.capitalize()} requirement {self.requirementTitle}"
 
 
 class ListOfPriority(models.Model):
@@ -223,6 +245,13 @@ class ListOfPriority(models.Model):
 
     def __str__(self):
         return self.expenseTitle
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived priority {self.expenseTitle}"
+        elif action == 'restore':
+            return f"Restored priority {self.expenseTitle}"
+        return f"{action.capitalize()} priority {self.expenseTitle}"
 
 
 class PriorityRequirement(models.Model):
@@ -482,8 +511,8 @@ class RequestManagement(models.Model):
         if self.status in ['approved', 'downloaded', 'unliquidated', 'liquidated', 'rejected']:
             return
         if (not hasattr(self, '_status_changed_by')
-                    and not self._skip_auto_status
-                    and self.request_monthyear
+                and not self._skip_auto_status
+                and self.request_monthyear
                 ):
             today = date.today()
             try:
@@ -564,6 +593,11 @@ class RequestManagement(models.Model):
             'visible_to_superintendent': self.should_be_visible_to_superintendent(),
             'is_future_month': self.request_monthyear > current_month_year if self.request_monthyear else False
         }
+
+    def get_audit_description(self, created=False, action='create'):
+        status_action = f"changed status to {self.status}" if action == 'update' and 'status' in getattr(
+            self, '_audit_changed_fields', []) else action
+        return f"{status_action.capitalize()} request {self.request_id}"
 
 
 class RequestPriority(models.Model):
@@ -774,6 +808,11 @@ class LiquidationManagement(models.Model):
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
 
+    def get_audit_description(self, created=False, action='create'):
+        status_action = f"changed status to {self.status}" if action == 'update' and 'status' in getattr(
+            self, '_audit_changed_fields', []) else action
+        return f"{status_action.capitalize()} liquidation {self.LiquidationID}"
+
     @classmethod
     def update_all_remaining_days(cls):
         for liquidation in cls.objects.all():
@@ -876,6 +915,13 @@ class SchoolDistrict(models.Model):
     def __str__(self):
         return f"{self.districtName} ({self.districtId})"
 
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived district {self.districtName}"
+        elif action == 'restore':
+            return f"Restored district {self.districtName}"
+        return f"{action.capitalize()} district {self.districtName}"
+
 
 class GeneratedPDF(models.Model):
     """
@@ -976,3 +1022,64 @@ class Backup(models.Model):
 
     def __str__(self):
         return f"Backup {self.id} ({self.status})"
+
+
+# Add to models.py
+# Add to models.py
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ('create', 'Create'),
+        ('update', 'Update'),
+        ('archive', 'Archive'),
+        ('restore', 'Restore'),
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('approve', 'Approve'),
+        ('reject', 'Reject'),
+        ('submit', 'Submit'),
+        ('download', 'Download'),
+        ('backup', 'Backup'),
+        ('restore', 'Restore'),
+        ('password_change', 'Password Change'),
+    ]
+
+    MODULE_CHOICES = [
+        ('user', 'User Management'),
+        ('school', 'School Management'),
+        ('request', 'Request Management'),
+        ('liquidation', 'Liquidation Management'),
+        ('priority', 'Priority Management'),
+        ('requirement', 'Requirement Management'),
+        ('district', 'District Management'),
+        ('system', 'System Operations'),
+        ('auth', 'Authentication'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL,
+                             null=True, blank=True, related_name='audit_logs')
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    module = models.CharField(max_length=20, choices=MODULE_CHOICES)
+    object_id = models.CharField(max_length=100, null=True, blank=True)
+    object_type = models.CharField(max_length=100, null=True, blank=True)
+    object_name = models.CharField(max_length=255, null=True, blank=True)
+    description = models.TextField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    # For changes tracking
+    old_values = models.JSONField(null=True, blank=True)
+    new_values = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['user', 'timestamp']),
+            models.Index(fields=['module', 'action']),
+            models.Index(fields=['object_type', 'object_id']),
+        ]
+
+    def __str__(self):
+        user_name = self.user.get_full_name() if self.user else "System"
+        return f"{user_name} {self.action} {self.module} at {self.timestamp}"

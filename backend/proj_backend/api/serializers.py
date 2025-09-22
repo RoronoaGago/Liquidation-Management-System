@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
@@ -816,3 +816,49 @@ class BackupSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id', 'created_at',
                             'initiated_by', 'status', 'file_size', 'message']
+
+
+# Add to serializers.py
+class AuditLogSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    user_full_name = serializers.SerializerMethodField()
+    action_display = serializers.SerializerMethodField()
+    module_display = serializers.SerializerMethodField()
+    formatted_timestamp = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            'id',
+            'user',
+            'user_full_name',
+            'action',
+            'action_display',
+            'module',
+            'module_display',
+            'object_id',
+            'object_type',
+            'object_name',
+            'description',
+            'ip_address',
+            'user_agent',
+            'timestamp',
+            'formatted_timestamp',
+            'old_values',
+            'new_values'
+        ]
+        read_only_fields = ['id', 'timestamp']
+
+    def get_user_full_name(self, obj):
+        if obj.user:
+            return obj.user.get_full_name()
+        return "System"
+
+    def get_action_display(self, obj):
+        return obj.get_action_display()
+
+    def get_module_display(self, obj):
+        return obj.get_module_display()
+
+    def get_formatted_timestamp(self, obj):
+        return obj.timestamp.strftime("%Y-%m-%d %H:%M:%S") if obj.timestamp else None

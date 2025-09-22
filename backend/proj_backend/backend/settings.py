@@ -45,10 +45,16 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'api',
+    'auditlog',
     'django_celery_results',  # For storing Celery task results
     'django_celery_beat',     # For scheduled tasks
     'simple_history',  # For tracking model history
 ]
+
+# Optional: Configure auditlog settings
+# Set to True to track all models automatically
+AUDITLOG_INCLUDE_ALL_MODELS = False
+AUDITLOG_EXCLUDE_TRACKING_MODELS = ()  # Exclude specific models if needed
 # JWT Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -64,6 +70,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'api.middleware.AllowIframeForMediaMiddleware',
+    'api.middleware.AuditMiddleware',  # Custom middleware for audit logging
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
