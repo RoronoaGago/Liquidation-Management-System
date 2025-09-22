@@ -19,6 +19,7 @@ urlpatterns = [
          name='token_obtain_pair'),
     path('token/refresh/', CustomTokenRefreshView.as_view(),
          name='token_refresh'),  # Updated
+    path('logout/', views.logout, name='logout'),
     path('change-password/', views.change_password, name='change-password'),
     path('protected/', ProtectedView.as_view(), name='protected'),
     path('auth/request-otp/', views.request_otp, name='request-otp'),

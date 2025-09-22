@@ -370,6 +370,18 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         request = self.context.get('request')
         ip = request.META.get('REMOTE_ADDR') if request else None
 
+        # Log audit for login (since JWT doesn't trigger Django signals)
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=request,
+            action='login',
+            module='auth',
+            description=f"User {user.get_full_name()} logged in",
+            object_id=user.pk,
+            object_type='User',
+            object_name=user.get_full_name()
+        )
+
         # Prepare context for email notification
         context = {
             'user': user,

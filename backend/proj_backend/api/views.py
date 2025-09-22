@@ -102,6 +102,29 @@ class CustomTokenRefreshView(TokenRefreshView):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def logout(request):
+    """
+    Logout endpoint with audit trail
+    """
+    user = request.user
+    
+    # Log audit for logout
+    from .audit_utils import log_audit_event
+    log_audit_event(
+        request=request,
+        action='logout',
+        module='auth',
+        description=f"User {user.get_full_name()} logged out",
+        object_id=user.pk,
+        object_type='User',
+        object_name=user.get_full_name()
+    )
+    
+    return Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def change_password(request):
     user = request.user
     old_password = request.data.get('old_password')
