@@ -1,3 +1,6 @@
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import AccessToken
+from auditlog.models import LogEntry
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
@@ -426,18 +429,27 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
-
-        # Get the user ID from the token (if needed)
-        from rest_framework_simplejwt.tokens import AccessToken
-        access_token = AccessToken(data['access'])
-        user_id = access_token['user_id']
-
-        # Verify the user exists (optional, but helps prevent invalid tokens)
         try:
-            User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("User not found")
+            data = super().validate(attrs)
+
+            # Get the user ID from the new access token
+            access_token = AccessToken(data['access'])
+            user_id = access_token['user_id']
+
+            # Verify the user still exists
+            try:
+                User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError(
+                    "User account no longer exists. Please login again.")
+
+        except TokenError as e:
+            raise serializers.ValidationError(str(e))
+        except Exception as e:
+            if "matching query does not exist" in str(e):
+                raise serializers.ValidationError(
+                    "User account no longer exists. Please login again.")
+            raise serializers.ValidationError("Token refresh failed.")
 
         return data
 
