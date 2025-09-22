@@ -257,11 +257,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logout = () => {
+const logout = async () => {
+  try {
+    // Call the backend logout endpoint
+    await api.post('/logout/');
+
+    // Clear authentication state
     authLogout();
     setIsAuthenticated(false);
     setUser(null);
-  };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error('Logout failed:', error.response?.data || error.message);
+    } else {
+      if (error instanceof Error) {
+        console.error('Logout failed:', error.message);
+      } else {
+        console.error('Logout failed:', error);
+      }
+    }
+  }
+};
 
   const updateUser = (userData: UserData, newToken?: string) => {
     setUser(userData);
