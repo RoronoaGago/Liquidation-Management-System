@@ -12,7 +12,19 @@ import {
   ChevronsLeft,
   ChevronsRight,
   DownloadIcon,
+  FileText,
   Filter,
+  UploadIcon,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
+  AlertCircle,
+  Paperclip,
+  MessageCircleIcon,
+  Info,
+  Clock,
+  XCircle,
+  RefreshCw,
 } from "lucide-react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 
@@ -70,6 +82,18 @@ const lightTheme: ThemeConfig = {
       algorithm: true,
     },
   },
+};
+const statusIcons: Record<string, React.ReactNode> = {
+  draft: <FileText className="h-4 w-4" />,
+  submitted: <Clock className="h-4 w-4" />,
+  under_review_district: <RefreshCw className="h-4 w-4 animate-spin" />,
+  under_review_division: <RefreshCw className="h-4 w-4 animate-spin" />,
+  under_review_liquidator: <RefreshCw className="h-4 w-4 animate-spin" />,
+  resubmit: <AlertCircle className="h-4 w-4" />,
+  approved_district: <CheckCircle className="h-4 w-4" />,
+  rejected: <XCircle className="h-4 w-4" />,
+  liquidated: <CheckCircle className="h-4 w-4" />,
+  cancelled: <XCircle className="h-4 w-4" />,
 };
 
 export default function GenerateLiquidationReport() {
@@ -669,19 +693,12 @@ export default function GenerateLiquidationReport() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs capitalize ${
-                            row.status === "liquidated"
-                              ? "bg-green-100 text-green-800"
-                              : row.status === "submitted"
-                              ? "bg-blue-100 text-blue-800"
-                              : row.status.includes("approved")
-                              ? "bg-purple-100 text-purple-800"
-                              : row.status.includes("review")
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
+                          className={`px-2 py-1 rounded-full text-xs capitalize ${statusBadgeStyle(
+                            row.status
+                          )}`}
                         >
-                          {row.status.replace(/_/g, " ")}
+                          {STATUS_LABELS[row.status] ||
+                            row.status.replace(/_/g, " ")}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
@@ -781,3 +798,49 @@ export default function GenerateLiquidationReport() {
     </div>
   );
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  submitted: "Submitted",
+  under_review_district: "Under Review (District)",
+  under_review_liquidator: "Under Review (Liquidator)",
+  under_review_division: "Under Review (Division)",
+  resubmit: "Needs Revision",
+  approved_district: "Approved by District",
+  approved_liquidator: "Approved by Liquidator",
+  liquidated: "Liquidated",
+  rejected: "Rejected",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+const statusBadgeStyle = (status: string) => {
+  switch (status) {
+    case "draft":
+      return "bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300";
+    case "submitted":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+    case "under_review_district":
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+    case "under_review_liquidator":
+      return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
+    case "under_review_division":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+    case "approved_district":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "approved_liquidator":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "liquidated":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
+    case "resubmit":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    case "rejected":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    case "completed":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "cancelled":
+      return "bg-gray-200 text-gray-500 dark:bg-gray-700/30 dark:text-gray-400";
+    default:
+      return "bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300";
+  }
+};

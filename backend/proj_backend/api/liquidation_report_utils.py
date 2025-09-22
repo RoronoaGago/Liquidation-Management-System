@@ -6,7 +6,8 @@ from django.conf import settings
 from django.http import HttpResponse
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
 from django.utils import timezone
 from rest_framework.pagination import PageNumberPagination
 from .models import LiquidationManagement, RequestManagement
@@ -194,59 +195,7 @@ def generate_liquidation_excel_report(report_data, filters):
     ws = wb.active
     ws.title = "Liquidation Report"
 
-    # Add logos
-    try:
-        # Left logo - company-logo.png
-        left_logo_path = os.path.join(
-            settings.BASE_DIR, 'static', 'images', 'logo.png')
-        if os.path.exists(left_logo_path):
-            left_img = Image(left_logo_path)
-            left_img.width = 80
-            left_img.height = 80
-            ws.add_image(left_img, 'A1')
-    except Exception as e:
-        logger.error(f"Could not add left logo: {e}")
-
-    try:
-        # Right logo - deped-bagong-pilipinas-logo.png
-        right_logo_path = os.path.join(
-            settings.BASE_DIR, 'static', 'images', 'depend-bagong-pilipinas-logo.png')
-        if os.path.exists(right_logo_path):
-            right_img = Image(right_logo_path)
-            right_img.width = 80
-            right_img.height = 80
-            ws.add_image(right_img, 'P1')
-    except Exception as e:
-        logger.error(f"Could not add right logo: {e}")
-
-    # Add centered text
-    header_text = [
-        "Republic of the Philippines",
-        "Department of Education",
-        "La Union Schools Division",
-        "",
-        "LIQUIDATION REPORT"
-    ]
-
-    # Start from row 1 and place each text in column H (which is column 8)
-    for i, text in enumerate(header_text, 1):
-        cell = ws.cell(row=i, column=8, value=text)
-        cell.font = Font(bold=True)
-        if i == 5:  # Make the last line (report title) larger
-            cell.font = Font(size=14, bold=True)
-        cell.alignment = Alignment(horizontal='center', vertical='center')
-
-    # Merge cells for the report title to make it span across multiple columns
-    ws.merge_cells('H5:J5')
-
-    # Add generation info
-    ws['A7'] = f'Generated on: {timezone.now().date()}'
-    if filters.get('start_date') and filters.get('end_date'):
-        ws['A8'] = f'Date Range: {filters["start_date"]} to {filters["end_date"]}'
-    if filters.get('status') and filters['status'] != 'all':
-        ws['A9'] = f'Status: {filters["status"]}'
-
-    # Add column headers
+    # Define headers for the report
     headers = [
         'Liquidation ID', 'Request ID', 'School ID', 'School Name',
         'District', 'Municipality', 'Legislative District', 'Month',
@@ -254,12 +203,88 @@ def generate_liquidation_excel_report(report_data, filters):
         'Reviewed by District', 'Reviewed by Liquidator', 'Reviewed by Division'
     ]
 
-    for col_num, header in enumerate(headers, 1):
-        cell = ws.cell(row=10, column=col_num, value=header)
-        cell.font = Font(bold=True)
+    # Add logos
+    try:
+        left_logo_path = os.path.join(
+            settings.BASE_DIR, 'static', 'images', 'SDOLU-website-banner.png')
+        if os.path.exists(left_logo_path):
+            left_img = Image(left_logo_path)
+            left_img.width = 630
+            left_img.height = 80
+            ws.add_image(left_img, 'A2')
+    except Exception as e:
+        logger.error(f"Could not add left logo: {e}")
 
-    # Add data
-    for row_num, item in enumerate(report_data, 11):
+    try:
+        right_logo_path = os.path.join(
+            settings.BASE_DIR, 'static', 'images', 'depend-bagong-pilipinas-logo.png')
+        if os.path.exists(right_logo_path):
+            right_img = Image(right_logo_path)
+            right_img.width = 250
+            right_img.height = 130
+            ws.add_image(right_img,  'E1')  # Place next to left logo
+    except Exception as e:
+        logger.error(f"Could not add right logo: {e}")
+
+    # Add report title at the top (centered)
+    ws['A7'] = "LIQUIDATION REPORT"
+    ws['A7'].font = Font(name='Century Gothic', size=22, bold=True)
+    ws['A7'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.merge_cells(start_row=7, start_column=1,
+                   end_row=7, end_column=len(headers))
+
+    # Add generation info (left-aligned)
+    ws['A8'] = f'Generated on: {timezone.now().date()}'
+    ws['A8'].font = Font(name='Century Gothic', size=12)
+    ws['A8'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.merge_cells(start_row=8, start_column=1,
+                   end_row=8, end_column=len(headers))
+
+    if filters.get('start_date') and filters.get('end_date'):
+        ws['A9'] = f'Date Range: {filters["start_date"]} to {filters["end_date"]}'
+        ws['A9'].font = Font(name='Century Gothic', size=12)
+        ws['A9'].alignment = Alignment(horizontal='left', vertical='center')
+        ws.merge_cells(start_row=9, start_column=1,
+                       end_row=9, end_column=len(headers))
+    if filters.get('status') and filters['status'] != 'all':
+        ws['A10'] = f'Status: {filters["status"]}'
+        ws['A10'].font = Font(name='Century Gothic', size=12)
+        ws['A10'].alignment = Alignment(horizontal='left', vertical='center')
+        ws.merge_cells(start_row=10, start_column=1,
+                       end_row=10, end_column=len(headers))
+
+    # Add column headers
+    header_fill = PatternFill(start_color="D6DCE4",
+                              end_color="D6DCE4", fill_type="solid")
+    header_font = Font(name='Century Gothic', bold=True, size=12)
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    header_row = 12
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+
+    # Set header row height
+    ws.row_dimensions[header_row].height = 29.75
+
+    # Add data rows with alternating fill
+    data_font = Font(name='Century Gothic', size=11)
+    data_alignment = Alignment(horizontal='center', vertical='center')
+    alt_fill = PatternFill(start_color="D6DCE4",
+                           end_color="D6DCE4", fill_type="solid")
+    for row_num, item in enumerate(report_data, header_row + 1):
+        for col_num in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.font = data_font
+            cell.alignment = data_alignment
+            # Alternating fill: even rows get alt_fill, odd rows get white
+            if (row_num - header_row) % 2 == 0:
+                cell.fill = alt_fill
+        # Set data row height
+        ws.row_dimensions[row_num].height = 16
+
+        # Fill in data
         ws.cell(row=row_num, column=1, value=item['liquidation_id'])
         ws.cell(row=row_num, column=2, value=item['request_id'])
         ws.cell(row=row_num, column=3, value=item['school_id'])
@@ -276,7 +301,6 @@ def generate_liquidation_excel_report(report_data, filters):
         ws.cell(row=row_num, column=12, value=item['date_liquidated'].date(
         ) if item['date_liquidated'] else '')
         ws.cell(row=row_num, column=13, value=item['refund'] or '')
-        # Use the already formatted string values instead of trying to access user attributes
         ws.cell(row=row_num, column=14, value=item['reviewed_by_district'])
         ws.cell(row=row_num, column=15, value=item['reviewed_by_liquidator'])
         ws.cell(row=row_num, column=16, value=item['reviewed_by_division'])
@@ -287,11 +311,11 @@ def generate_liquidation_excel_report(report_data, filters):
         column_letter = column[0].column_letter
         for cell in column:
             try:
-                if len(str(cell.value)) > max_length:
+                if cell.value and len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
             except:
                 pass
-        adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
+        adjusted_width = min(max_length + 2, 50)
         ws.column_dimensions[column_letter].width = adjusted_width
 
     # Save to response
