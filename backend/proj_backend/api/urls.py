@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf
+from .views import school_head_dashboard
 
 
 from rest_framework_simplejwt.views import (
@@ -116,5 +117,6 @@ urlpatterns = [
          views.generate_liquidation_report, name='generate-liquidation-report'),
     path('requests/<str:request_id>/generate-pdf/',
          generate_approved_request_pdf, name='generate-approved-request-pdf'),
+path('school-head/dashboard/', school_head_dashboard, name='school-head-dashboard'),
 
 ]

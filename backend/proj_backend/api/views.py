@@ -186,7 +186,89 @@ def user_list(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def school_head_dashboard(request):
+    """
+    Dashboard data for School Head users
+    """
+    if request.user.role != 'school_head':
+        return Response({"error": "Only school heads can access this endpoint"}, status=403)
 
+    try:
+        # Get user's school
+        school = request.user.school
+        
+        # Get pending request if exists
+        pending_request = RequestManagement.objects.filter(
+            user=request.user,
+            status='pending'
+        ).first()
+        
+        # Get active liquidation if exists
+        active_liquidation = LiquidationManagement.objects.filter(
+            request__user=request.user
+        ).exclude(status='liquidated').first()
+        
+        # Get priority breakdown for pending request
+        priority_breakdown = []
+        if pending_request:
+            priorities = RequestPriority.objects.filter(request=pending_request)
+            total_amount = priorities.aggregate(total=Sum('amount'))['total'] or 0
+            
+            for priority in priorities:
+                percentage = (priority.amount / total_amount * 100) if total_amount > 0 else 0
+                priority_breakdown.append({
+                    'priority': priority.priority.expenseTitle,
+                    'amount': float(priority.amount),
+                    'percentage': float(percentage),
+                    'color': get_random_color(),  # You'll need to implement this
+                    'name': priority.priority.expenseTitle
+                })
+        
+        # Get liquidation progress
+        liquidation_progress = {
+            'priorities': [],
+            'totalPriorities': 0,
+            'completedPriorities': 0,
+            'completionPercentage': 0
+        }
+        
+        if active_liquidation:
+            # Calculate liquidation progress logic here
+            pass
+        
+        # Get financial metrics
+        financial_metrics = {
+            'totalDownloadedAmount': 0,
+            'totalLiquidatedAmount': 0,
+            'liquidationPercentage': 0,
+            'remainingAmount': 0
+        }
+        
+        # Build response
+        response_data = {
+            'liquidationProgress': liquidation_progress,
+            'financialMetrics': financial_metrics,
+            'recentLiquidations': [],
+            'priorityBreakdown': priority_breakdown,
+            'requestStatus': {
+                'hasPendingRequest': pending_request is not None,
+                'hasActiveLiquidation': active_liquidation is not None,
+                'pendingRequest': RequestManagementSerializer(pending_request).data if pending_request else None
+            }
+        }
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in school head dashboard: {str(e)}")
+        return Response({"error": "Failed to load dashboard data"}, status=500)
+
+# Helper function for random colors
+def get_random_color():
+    colors = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"]
+    return random.choice(colors)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def user_detail(request, pk):
     """
