@@ -31,6 +31,7 @@ export async function initiateBackup(params: {
 export async function initiateRestore(file: File) {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('confirm_wipe', 'true');
 
   const { data } = await api.post<{ detail: string }>('/restore/', formData, {
     headers: {
