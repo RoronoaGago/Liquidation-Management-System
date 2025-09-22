@@ -107,10 +107,10 @@ def log_user_login(sender, request, user, **kwargs):
         request=request,
         action='login',
         module='auth',
-        description=f"User logged in",
+        description=f"User {user.get_full_name()} logged in",
         object_id=user.pk,
         object_type='User',
-        object_name=str(user)
+        object_name=user.get_full_name()
     )
 
 
@@ -121,8 +121,8 @@ def log_user_logout(sender, request, user, **kwargs):
         request=request,
         action='logout',
         module='auth',
-        description=f"User logged out",
+        description=f"User {user.get_full_name()} logged out",
         object_id=user.pk,
         object_type='User',
-        object_name=str(user)
+        object_name=user.get_full_name()
     )

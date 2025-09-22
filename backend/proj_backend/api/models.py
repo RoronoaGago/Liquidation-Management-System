@@ -1041,6 +1041,12 @@ class AuditLog(models.Model):
         ('backup', 'Backup'),
         ('restore', 'Restore'),
         ('password_change', 'Password Change'),
+        ('resubmit', 'Resubmit'),
+        ('approve_district', 'Approve (District)'),
+        ('approve_liquidator', 'Approve (Liquidator)'),
+        ('approve_division', 'Approve (Division)'),
+        ('liquidate', 'Liquidate'),
+        ('batch_update', 'Batch Update'),
     ]
 
     MODULE_CHOICES = [
