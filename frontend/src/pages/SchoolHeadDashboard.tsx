@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import api from "@/services/api";
-
+import { format } from "date-fns"; // Install via npm if needed: npm install date-fns
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -130,6 +131,9 @@ const SchoolHeadDashboard = () => {
   const [, setRefreshing] = useState(false);
   const [showRequestStatus, setShowRequestStatus] = useState(false);
   const navigate = useNavigate();
+  const [selectedMonth, setSelectedMonth] = useState(
+    format(new Date(), "yyyy-MM")
+  ); // Defaults to '2025-09'/ Defaults to '2025-09'
 
   const getPriorityColor = (priorityName: string, fallbackIndex = 0) => {
     const index = data?.liquidationProgress.priorities.findIndex(
@@ -141,16 +145,20 @@ const SchoolHeadDashboard = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    fetchDashboardData(selectedMonth); // Pass the month on initial load
+  }, [selectedMonth]); // Re-fetch if month changes (e.g., via a dropdown UI you can add later)
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (month?: string) => {
+    // Make month optional
     setLoading(true);
     try {
-      const response = await api.get("/school-head/dashboard/");
+      // Append query param if month is provided
+      const url = month
+        ? `/school-head/dashboard/?month=${month}`
+        : "/school-head/dashboard/";
+      const response = await api.get(url);
       setData(response.data);
       setLoading(false);
-      setRefreshing(false);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       setData(null);
