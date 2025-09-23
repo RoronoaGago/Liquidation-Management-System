@@ -14,6 +14,10 @@ def track_model_changes(sender, instance, **kwargs):
     if sender == AuditLog or sender._meta.app_label not in ['api']:
         return
 
+    # Allow explicit suppression from business logic
+    if getattr(instance, '_skip_signal_audit', False):
+        return
+
     # Try multiple ways to get the request
     request = None
 
@@ -46,6 +50,10 @@ def track_model_changes(sender, instance, **kwargs):
 @receiver(post_save)
 def log_model_save(sender, instance, created, **kwargs):
     if sender == AuditLog or sender._meta.app_label not in ['api']:
+        return
+
+    # Allow explicit suppression from business logic
+    if getattr(instance, '_skip_signal_audit', False):
         return
 
     # Get request using the same method as pre_save

@@ -111,17 +111,7 @@ def logout(request):
     """
     user = request.user
 
-    # Log audit for logout
-    from .audit_utils import log_audit_event
-    log_audit_event(
-        request=request,
-        action='logout',
-        module='auth',
-        description=f"User {user.get_full_name()} logged out",
-        object_id=user.pk,
-        object_type='User',
-        object_name=user.get_full_name()
-    )
+    # Audit for logout is handled by auth signal receiver
 
     return Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)
 
@@ -143,16 +133,7 @@ def change_password(request):
     user.password_change_required = False
     user.save()
 
-    from .audit_utils import log_audit_event
-    log_audit_event(
-        request=request,
-        action='password_change',
-        module='auth',
-        description="Changed password",
-        object_id=user.pk,
-        object_type='User',
-        object_name=user.get_full_name()
-    )
+    # Rely on signals for user update; no manual CRUD audit here
 
     # Update the token to prevent automatic logout
     refresh = RefreshToken.for_user(user)
@@ -243,16 +224,6 @@ def user_list(request):
             data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='create',
-                module='user',
-                description=f"Created user {serializer.data['first_name']} {serializer.data['last_name']}",
-                object_id=serializer.data['id'],
-                object_type='User',
-                object_name=f"{serializer.data['first_name']} {serializer.data['last_name']}"
-            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -290,16 +261,6 @@ def user_detail(request, pk):
             field in request.data for field in sensitive_fields)
 
         serializer.save()
-        from .audit_utils import log_audit_event
-        log_audit_event(
-            request=request,
-            action='update',
-            module='user',
-            description=f"Updated user {user.get_full_name()}",
-            object_id=user.pk,
-            object_type='User',
-            object_name=user.get_full_name()
-        )
 
         response_data = serializer.data
 
@@ -346,15 +307,7 @@ def user_detail(request, pk):
                 elif is_restoring:
                     action = 'restore'
 
-                log_audit_event(
-                    request=request,
-                    action=action,
-                    module='user',
-                    description=f"{action.capitalize()} user {user.get_full_name()}",
-                    object_id=user.pk,
-                    object_type='User',
-                    object_name=user.get_full_name()
-                )
+                # Rely on signals for archive/restore update logs
 
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -364,16 +317,6 @@ def user_detail(request, pk):
             user, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='update',
-                module='user',
-                description=f"Updated user {user.get_full_name()}",
-                object_id=user.pk,
-                object_type='User',
-                object_name=user.get_full_name()
-            )
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -434,32 +377,7 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
 
-        # Log audit for creation
-        from .audit_utils import log_audit_event
-        if is_many:
-            # Bulk creation
-            for school in serializer.instance:
-                log_audit_event(
-                    request=request,
-                    action='create',
-                    module='school',
-                    description=f"Created school {school.schoolName} ({school.schoolId})",
-                    object_id=school.schoolId,
-                    object_type='School',
-                    object_name=f"{school.schoolName} ({school.schoolId})"
-                )
-        else:
-            # Single creation
-            school = serializer.instance
-            log_audit_event(
-                request=request,
-                action='create',
-                module='school',
-                description=f"Created school {school.schoolName} ({school.schoolId})",
-                object_id=school.schoolId,
-                object_type='School',
-                object_name=f"{school.schoolName} ({school.schoolId})"
-            )
+        # Audit will be handled by signals
 
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -488,28 +406,6 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         response = super().update(request, *args, **kwargs)
 
-        if response.status_code == status.HTTP_200_OK:
-            # Log audit for update
-            from .audit_utils import log_audit_event
-            new_is_active = instance.is_active
-
-            # Determine action type
-            action = 'update'
-            if old_is_active and not new_is_active:
-                action = 'archive'
-            elif not old_is_active and new_is_active:
-                action = 'restore'
-
-            log_audit_event(
-                request=request,
-                action=action,
-                module='school',
-                description=f"{action.capitalize()} school {instance.schoolName} ({instance.schoolId})",
-                object_id=instance.schoolId,
-                object_type='School',
-                object_name=f"{instance.schoolName} ({instance.schoolId})"
-            )
-
         return response
 
     def destroy(self, request, *args, **kwargs):
@@ -518,18 +414,6 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         response = super().destroy(request, *args, **kwargs)
 
-        if response.status_code == status.HTTP_204_NO_CONTENT:
-            # Log audit for deletion
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='archive',  # Treating delete as archive
-                module='school',
-                description=f"Deleted school {school_name}",
-                object_id=instance.schoolId,
-                object_type='School',
-                object_name=school_name
-            )
 
         return response
 
@@ -554,32 +438,7 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
 
-        # Log audit for creation
-        from .audit_utils import log_audit_event
-        if is_many:
-            # Bulk creation
-            for requirement in serializer.instance:
-                log_audit_event(
-                    request=request,
-                    action='create',
-                    module='requirement',
-                    description=f"Created requirement {requirement.requirementTitle}",
-                    object_id=requirement.requirementID,
-                    object_type='Requirement',
-                    object_name=requirement.requirementTitle
-                )
-        else:
-            # Single creation
-            requirement = serializer.instance
-            log_audit_event(
-                request=request,
-                action='create',
-                module='requirement',
-                description=f"Created requirement {requirement.requirementTitle}",
-                object_id=requirement.requirementID,
-                object_type='Requirement',
-                object_name=requirement.requirementTitle
-            )
+        # Audit handled by signals
 
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -595,27 +454,6 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
 
         response = super().update(request, *args, **kwargs)
 
-        if response.status_code == status.HTTP_200_OK:
-            # Log audit for update
-            from .audit_utils import log_audit_event
-            new_is_active = instance.is_active
-
-            # Determine action type
-            action = 'update'
-            if old_is_active and not new_is_active:
-                action = 'archive'
-            elif not old_is_active and new_is_active:
-                action = 'restore'
-
-            log_audit_event(
-                request=request,
-                action=action,
-                module='requirement',
-                description=f"{action.capitalize()} requirement {instance.requirementTitle}",
-                object_id=instance.requirementID,
-                object_type='Requirement',
-                object_name=instance.requirementTitle
-            )
 
         return response
 
@@ -625,18 +463,6 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
 
         response = super().destroy(request, *args, **kwargs)
 
-        if response.status_code == status.HTTP_204_NO_CONTENT:
-            # Log audit for deletion
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='archive',  # Treating delete as archive
-                module='requirement',
-                description=f"Deleted requirement {requirement_name}",
-                object_id=instance.requirementID,
-                object_type='Requirement',
-                object_name=requirement_name
-            )
 
         return response
 
@@ -662,32 +488,7 @@ class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
 
-        # Log audit for creation
-        from .audit_utils import log_audit_event
-        if is_many:
-            # Bulk creation
-            for priority in serializer.instance:
-                log_audit_event(
-                    request=request,
-                    action='create',
-                    module='priority',
-                    description=f"Created priority {priority.expenseTitle}",
-                    object_id=priority.LOPID,
-                    object_type='ListOfPriority',
-                    object_name=priority.expenseTitle
-                )
-        else:
-            # Single creation
-            priority = serializer.instance
-            log_audit_event(
-                request=request,
-                action='create',
-                module='priority',
-                description=f"Created priority {priority.expenseTitle}",
-                object_id=priority.LOPID,
-                object_type='ListOfPriority',
-                object_name=priority.expenseTitle
-            )
+        # Audit handled by signals
 
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -703,27 +504,7 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 
         response = super().update(request, *args, **kwargs)
 
-        if response.status_code == status.HTTP_200_OK:
-            # Log audit for update
-            from .audit_utils import log_audit_event
-            new_is_active = instance.is_active
-
-            # Determine action type
-            action = 'update'
-            if old_is_active and not new_is_active:
-                action = 'archive'
-            elif not old_is_active and new_is_active:
-                action = 'restore'
-
-            log_audit_event(
-                request=request,
-                action=action,
-                module='priority',
-                description=f"{action.capitalize()} priority {instance.expenseTitle}",
-                object_id=instance.LOPID,
-                object_type='ListOfPriority',
-                object_name=instance.expenseTitle
-            )
+        
 
         return response
 
@@ -733,18 +514,6 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 
         response = super().destroy(request, *args, **kwargs)
 
-        if response.status_code == status.HTTP_204_NO_CONTENT:
-            # Log audit for deletion
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='archive',  # Treating delete as archive
-                module='priority',
-                description=f"Deleted priority {priority_name}",
-                object_id=instance.LOPID,
-                object_type='ListOfPriority',
-                object_name=priority_name
-            )
 
         return response
 
@@ -992,6 +761,7 @@ class RejectRequestView(generics.UpdateAPIView):
         instance._old_status = instance.status  # CRITICAL: Track previous state
         instance._status_changed_by = request.user
         instance._skip_auto_status = True  # Add this line
+        instance._skip_signal_audit = True  # Avoid duplicate signal audit; manual business log below
 
         # Permission check
         if request.user.role not in ['admin', 'superintendent']:
@@ -1154,6 +924,7 @@ def resubmit_request(request, request_id):
             )
 
         # Reset status and clear rejection fields
+        req._skip_signal_audit = True
         req.status = 'pending'
         # req.rejection_comment = None
         # req.rejection_date = None
@@ -1486,6 +1257,8 @@ def submit_for_liquidation(request, request_id):
 
             # First update the request status to 'downloaded' and set date_downloaded
             request_obj._status_changed_by = request.user
+            # Avoid duplicate signal audit; we will log business event manually
+            request_obj._skip_signal_audit = True
             request_obj.status = 'downloaded'
             request_obj.downloaded_at = download_date  # Use the selected date
             request_obj.save(update_fields=['status', 'downloaded_at'])
@@ -1526,6 +1299,7 @@ def submit_for_liquidation(request, request_id):
             )
 
             # Update request status to 'unliquidated' as final state
+            request_obj._skip_signal_audit = True
             request_obj.status = 'unliquidated'
             request_obj.save(update_fields=['status'])
 
@@ -1617,19 +1391,21 @@ def submit_liquidation(request, LiquidationID):
 
             # Update status to submitted and track who changed it
             liquidation._status_changed_by = request.user
+            # Avoid duplicate signal audit; we log business event manually
+            liquidation._skip_signal_audit = True
             liquidation.status = 'submitted'
             liquidation.date_submitted = timezone.now()
             liquidation.save()
-            # from .audit_utils import log_audit_event
-            # log_audit_event(
-            #     request=request,
-            #     action='submit',
-            #     module='liquidation',
-            #     description=f"Submitted liquidation {LiquidationID}",
-            #     object_id=LiquidationID,
-            #     object_type='LiquidationManagement',
-            #     object_name=f"Liquidation {LiquidationID}"
-            # )
+            from .audit_utils import log_audit_event
+            log_audit_event(
+                request=request,
+                action='submit',
+                module='liquidation',
+                description=f"Submitted liquidation {LiquidationID}",
+                object_id=LiquidationID,
+                object_type='LiquidationManagement',
+                object_name=f"Liquidation {LiquidationID}"
+            )
 
             # Create notification for the reviewer
             # Notification.objects.create(
@@ -1772,11 +1548,12 @@ def batch_update_school_budgets(request):
             except Exception as e:
                 errors.append({"schoolId": school_id, "error": str(e)})
 
-    # Log audit for batch update
+    # Log audit for batch update (business event)
     if updated_schools:
         from .audit_utils import log_audit_event
         for update_info in updated_schools:
             school = update_info['school']
+            # Suppress signal audit for this save already happened; log business event only
             log_audit_event(
                 request=request,
                 action='batch_update',
@@ -1990,32 +1767,7 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
 
-        # Log audit for creation
-        from .audit_utils import log_audit_event
-        if is_many:
-            # Bulk creation
-            for district in serializer.instance:
-                log_audit_event(
-                    request=request,
-                    action='create',
-                    module='district',
-                    description=f"Created district {district.districtName} ({district.districtId})",
-                    object_id=district.districtId,
-                    object_type='SchoolDistrict',
-                    object_name=f"{district.districtName} ({district.districtId})"
-                )
-        else:
-            # Single creation
-            district = serializer.instance
-            log_audit_event(
-                request=request,
-                action='create',
-                module='district',
-                description=f"Created district {district.districtName} ({district.districtId})",
-                object_id=district.districtId,
-                object_type='SchoolDistrict',
-                object_name=f"{district.districtName} ({district.districtId})"
-            )
+        # Audit handled by signals
 
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -2031,28 +1783,7 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 
         response = super().update(request, *args, **kwargs)
 
-        if response.status_code == status.HTTP_200_OK:
-            # Log audit for update
-            from .audit_utils import log_audit_event
-            new_is_active = instance.is_active
-
-            # Determine action type
-            action = 'update'
-            if old_is_active and not new_is_active:
-                action = 'archive'
-            elif not old_is_active and new_is_active:
-                action = 'restore'
-
-            log_audit_event(
-                request=request,
-                action=action,
-                module='district',
-                description=f"{action.capitalize()} district {instance.districtName} ({instance.districtId})",
-                object_id=instance.districtId,
-                object_type='SchoolDistrict',
-                object_name=f"{instance.districtName} ({instance.districtId})"
-            )
-
+        
         return response
 
     def destroy(self, request, *args, **kwargs):
@@ -2061,18 +1792,6 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 
         response = super().destroy(request, *args, **kwargs)
 
-        if response.status_code == status.HTTP_204_NO_CONTENT:
-            # Log audit for deletion
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='archive',  # Treating delete as archive
-                module='district',
-                description=f"Deleted district {district_name}",
-                object_id=instance.districtId,
-                object_type='SchoolDistrict',
-                object_name=district_name
-            )
 
         return response
 
@@ -2089,19 +1808,7 @@ def archive_school_district(request, districtId):
         if is_active is not None:
             school_district.is_active = is_active
             school_district.save()
-
-            # Log audit for archive/restore
-            from .audit_utils import log_audit_event
-            action = 'archive' if not is_active and old_is_active else 'restore' if is_active and not old_is_active else 'update'
-            log_audit_event(
-                request=request,
-                action=action,
-                module='district',
-                description=f"{action.capitalize()} district {school_district.districtName} ({school_district.districtId})",
-                object_id=school_district.districtId,
-                object_type='SchoolDistrict',
-                object_name=f"{school_district.districtName} ({school_district.districtId})"
-            )
+            # Audit handled by signals
 
             return Response({"status": "updated", "is_active": school_district.is_active})
         return Response({"error": "Missing is_active field"}, status=400)
@@ -2981,7 +2688,7 @@ def initiate_backup(request):
                     logger.error(f"Media backup failed: {e}")
                     # Don't fail the entire backup if media fails
 
-        # Update backup record
+        # Update backup record (signals will audit the CRUD change)
         backup.status = 'success'
         backup.file_size = len(response.content)
         backup.save()
