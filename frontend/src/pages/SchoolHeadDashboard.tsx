@@ -20,13 +20,11 @@ import {
   RefreshCw,
   Plus,
   FileText,
-  Eye,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Badge from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
-import { useNavigate, useLocation } from "react-router-dom"; // Add useLocation if needed elsewhere
+import { useNavigate } from "react-router-dom";
 
 // Types for our data
 interface SchoolHeadDashboardData {
@@ -128,15 +126,121 @@ const COLORS = [
   "#8884D8",
 ];
 
+// Toggle to use mock data for showcasing the dashboard without backend
+const USE_MOCK_DATA = false;
+
+const MOCK_DASHBOARD_DATA: SchoolHeadDashboardData = {
+  liquidationProgress: {
+    priorities: [
+      {
+        priorityId: "p1",
+        priorityName: "Utilities",
+        status: "completed",
+        documentsRequired: 5,
+        documentsUploaded: 5,
+        completionPercentage: 100,
+      },
+      {
+        priorityId: "p2",
+        priorityName: "Supplies",
+        status: "in_progress",
+        documentsRequired: 6,
+        documentsUploaded: 4,
+        completionPercentage: 67,
+      },
+      {
+        priorityId: "p3",
+        priorityName: "Repair & Maintenance",
+        status: "in_progress",
+        documentsRequired: 4,
+        documentsUploaded: 2,
+        completionPercentage: 50,
+      },
+      {
+        priorityId: "p4",
+        priorityName: "Training",
+        status: "not_started",
+        documentsRequired: 3,
+        documentsUploaded: 0,
+        completionPercentage: 0,
+      },
+    ],
+    totalPriorities: 4,
+    completedPriorities: 1,
+    completionPercentage: 54.3,
+  },
+  financialMetrics: {
+    totalDownloadedAmount: 250000,
+    totalLiquidatedAmount: 135800,
+    liquidationPercentage: 54.3,
+    remainingAmount: 114200,
+  },
+  recentLiquidations: [
+    {
+      id: "l1",
+      priorityName: "Utilities",
+      amount: 45000,
+      status: "approved",
+      date: new Date().toISOString(),
+    },
+    {
+      id: "l2",
+      priorityName: "Supplies",
+      amount: 35800,
+      status: "submitted",
+      date: new Date().toISOString(),
+    },
+  ],
+  priorityBreakdown: [
+    { priority: "Utilities", amount: 65000, percentage: 26, color: "#465FFF", name: "Utilities" },
+    { priority: "Supplies", amount: 80000, percentage: 32, color: "#9CB9FF", name: "Supplies" },
+    { priority: "Repair & Maintenance", amount: 70000, percentage: 28, color: "#FF8042", name: "Repair & Maintenance" },
+    { priority: "Training", amount: 35000, percentage: 14, color: "#00C49F", name: "Training" },
+  ],
+  requestStatus: {
+    hasPendingRequest: true,
+    hasActiveLiquidation: false,
+    pendingRequest: {
+      request_id: "REQ-2025-09",
+      status: "submitted",
+      request_monthyear: format(new Date(), "yyyy-MM"),
+      created_at: new Date().toISOString(),
+      school_name: "Sample High School",
+      school_id: "SCH-001",
+      division: "Division A",
+      total_amount: 250000,
+      priorities: [
+        { expenseTitle: "Utilities", amount: 65000 },
+        { expenseTitle: "Supplies", amount: 80000 },
+        { expenseTitle: "Repair & Maintenance", amount: 70000 },
+        { expenseTitle: "Training", amount: 35000 },
+      ],
+    },
+  },
+  frequentlyUsedPriorities: [
+    { priority: "Supplies", frequency: 8, totalAmount: 560000, lastUsed: new Date().toISOString() },
+    { priority: "Utilities", frequency: 7, totalAmount: 420000, lastUsed: new Date().toISOString() },
+  ],
+  recentRequests: [
+    {
+      request_id: "REQ-2025-08",
+      status: "approved",
+      request_monthyear: "2025-08",
+      created_at: new Date().toISOString(),
+      total_amount: 200000,
+      priorities: [
+        { expenseTitle: "Utilities", amount: 60000 },
+        { expenseTitle: "Supplies", amount: 70000 },
+      ],
+    },
+  ],
+};
+
 const SchoolHeadDashboard = () => {
   const [data, setData] = useState<SchoolHeadDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [, setRefreshing] = useState(false);
-  const [showRequestStatus, setShowRequestStatus] = useState(false); // Can remove if no longer needed
   const navigate = useNavigate();
-  const [selectedMonth, setSelectedMonth] = useState(
-    format(new Date(), "yyyy-MM")
-  );
+  const [selectedMonth] = useState(format(new Date(), "yyyy-MM"));
 
   const getPriorityColor = (priorityName: string, fallbackIndex = 0) => {
     const index = data?.liquidationProgress.priorities.findIndex(
@@ -147,6 +251,25 @@ const SchoolHeadDashboard = () => {
     return COLORS[colorIndex % COLORS.length];
   };
 
+  const truncateLabel = (value: string, maxLength = 16) => {
+    if (!value) return "";
+    return value.length > maxLength
+      ? value.slice(0, maxLength - 1) + "…"
+      : value;
+  };
+
+  const formatMonthTitle = (ym: string | undefined) => {
+    if (!ym) return "Month Expense Breakdown";
+    try {
+      const date = new Date(ym + "-01");
+      const month = date.toLocaleString("default", { month: "long" });
+      const year = ym.split("-")[0];
+      return `${month} ${year} Expense Breakdown`;
+    } catch {
+      return "Month Expense Breakdown";
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData(selectedMonth);
   }, [selectedMonth]);
@@ -154,11 +277,139 @@ const SchoolHeadDashboard = () => {
   const fetchDashboardData = async (month?: string) => {
     setLoading(true);
     try {
+      if (USE_MOCK_DATA) {
+        // Simulate a short network delay for UX
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        setData(MOCK_DASHBOARD_DATA);
+        setLoading(false);
+        return;
+      }
       const url = month
         ? `/school-head/dashboard/?month=${month}`
         : "/school-head/dashboard/";
       const response = await api.get(url);
-      setData(response.data);
+      const respData: SchoolHeadDashboardData = response.data;
+
+      // Fallback: derive liquidationProgress from pending request priorities
+      if (
+        (!respData.liquidationProgress ||
+          !respData.liquidationProgress.priorities ||
+          respData.liquidationProgress.priorities.length === 0) &&
+        respData.requestStatus?.pendingRequest?.priorities &&
+        respData.requestStatus.pendingRequest.priorities.length > 0
+      ) {
+        const derivedPriorities: PriorityProgress[] =
+          respData.requestStatus.pendingRequest.priorities.map((p: any, idx: number) => ({
+            priorityId: String(p.id ?? `pending-${idx}`),
+            priorityName: p?.priority?.expenseTitle || p?.expenseTitle || `Priority ${idx + 1}`,
+            status: "not_started",
+            documentsRequired: 0,
+            documentsUploaded: 0,
+            completionPercentage: 0,
+          }));
+
+        const totalPriorities = derivedPriorities.length;
+        respData.liquidationProgress = {
+          priorities: derivedPriorities,
+          totalPriorities,
+          completedPriorities: 0,
+          completionPercentage: 0,
+        };
+      }
+
+      // Fallback: derive priorityBreakdown from pending request priorities if missing
+      if (
+        (!respData.priorityBreakdown ||
+          respData.priorityBreakdown.length === 0) &&
+        respData.requestStatus?.pendingRequest?.priorities &&
+        respData.requestStatus.pendingRequest.priorities.length > 0
+      ) {
+        const total = respData.requestStatus.pendingRequest.priorities.reduce(
+          (sum: number, p: any) => sum + Number(p.amount || 0),
+          0
+        );
+        respData.priorityBreakdown = respData.requestStatus.pendingRequest.priorities.map(
+          (p: any, idx: number) => ({
+            priority: p?.priority?.expenseTitle || p?.expenseTitle || `Priority ${idx + 1}`,
+            amount: Number(p.amount || 0),
+            percentage: total > 0 ? (Number(p.amount || 0) / total) * 100 : 0,
+            color: COLORS[idx % COLORS.length],
+            name: p?.priority?.expenseTitle || p?.expenseTitle || `Priority ${idx + 1}`,
+          })
+        );
+      }
+
+      // If still missing data, derive from the latest user request (regardless of status)
+      const deriveFromLatestRequestIfNeeded = async () => {
+        const needsPriorities =
+          !respData.liquidationProgress ||
+          !respData.liquidationProgress.priorities ||
+          respData.liquidationProgress.priorities.length === 0;
+        const needsBreakdown =
+          !respData.priorityBreakdown || respData.priorityBreakdown.length === 0;
+
+        if (!needsPriorities && !needsBreakdown) return;
+
+        try {
+          const ur = await api.get("/user-requests/");
+          const list = Array.isArray(ur.data)
+            ? ur.data
+            : Array.isArray(ur.data?.results)
+            ? ur.data.results
+            : [];
+          const latest = list && list.length > 0 ? list[0] : null;
+          const latestPriorities = latest?.priorities || [];
+          if ((needsPriorities || needsBreakdown) && latestPriorities.length > 0) {
+            // Build liquidationProgress.priorities from latest request priorities
+            if (needsPriorities) {
+              const derivedPriorities: PriorityProgress[] = latestPriorities.map(
+                (rp: any, idx: number) => {
+                  const reqs = rp.priority?.requirements || [];
+                  const requiredCount = reqs.filter((r: any) => r.is_required).length;
+                  return {
+                    priorityId: String(rp.id ?? `req-${idx}`),
+                    priorityName: rp.priority?.expenseTitle || rp.expenseTitle || `Priority ${idx + 1}`,
+                    status: "not_started",
+                    documentsRequired: requiredCount,
+                    documentsUploaded: 0,
+                    completionPercentage: 0,
+                  };
+                }
+              );
+              respData.liquidationProgress = {
+                priorities: derivedPriorities,
+                totalPriorities: derivedPriorities.length,
+                completedPriorities: 0,
+                completionPercentage: 0,
+              };
+            }
+
+            // Build priorityBreakdown from latest request priorities and amounts
+            if (needsBreakdown) {
+              const total = latestPriorities.reduce(
+                (sum: number, rp: any) => sum + Number(rp.amount || 0),
+                0
+              );
+              respData.priorityBreakdown = latestPriorities.map(
+                (rp: any, idx: number) => ({
+                  priority: rp.priority?.expenseTitle || rp.expenseTitle || `Priority ${idx + 1}`,
+                  amount: Number(rp.amount || 0),
+                  percentage: total > 0 ? (Number(rp.amount || 0) / total) * 100 : 0,
+                  color: COLORS[idx % COLORS.length],
+                  name: rp.priority?.expenseTitle || rp.expenseTitle || `Priority ${idx + 1}`,
+                })
+              );
+            }
+          }
+        } catch (e) {
+          // Silent fallback; UI will show empty datasets with cards visible
+          console.warn("Failed to derive from latest user request:", e);
+        }
+      };
+
+      await deriveFromLatestRequestIfNeeded();
+
+      setData(respData);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -249,6 +500,11 @@ const SchoolHeadDashboard = () => {
 
   return (
     <div className="p-6 min-h-screen">
+      {/** Determine if we should show request/liquidation-related visuals */}
+      {/** Visible when there's a pending request or an active liquidation (not liquidated) */}
+      {/** Hidden only when there's no ongoing request/liquidation */}
+      {/** Safely compute here for re-use below */}
+      {/** Note: We keep header and metrics always visible */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
@@ -367,21 +623,16 @@ const SchoolHeadDashboard = () => {
           </CardContent>
         </Card>
       </div>
-      {/* Charts and Detailed Information */}
+      {/* Charts and Detailed Information - Always render cards; datasets may be empty */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
         {/* Expense Breakdown (moved left) */}
         <Card>
           <CardHeader>
             <CardTitle>
-              {data?.requestStatus?.pendingRequest?.request_monthyear
-                ? `${new Date(
-                    data.requestStatus.pendingRequest.request_monthyear + "-01"
-                  ).toLocaleString("default", { month: "long" })}, ${
-                    data.requestStatus.pendingRequest.request_monthyear.split(
-                      "-"
-                    )[0]
-                  } Expense Breakdown`
-                : "Month Expense Breakdown"}
+              {formatMonthTitle(
+                data?.requestStatus?.pendingRequest?.request_monthyear ||
+                  selectedMonth
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -396,11 +647,12 @@ const SchoolHeadDashboard = () => {
                       }))}
                       cx="50%"
                       cy="50%"
-                      outerRadius={80}
+                      outerRadius={70}
                       fill="#8884d8"
                       dataKey="amount"
+                      labelLine={false}
                       label={({ name, percent }) =>
-                        `${name} (${(Number(percent) * 100).toFixed(0)}%)`
+                        `${truncateLabel(String(name))} (${(Number(percent) * 100).toFixed(0)}%)`
                       }
                     >
                       {data.priorityBreakdown.map((entry, index) => (
@@ -495,7 +747,7 @@ const SchoolHeadDashboard = () => {
           </CardContent>
         </Card>
       </div>
-      {/* Priority Progress Details */}
+      {/* Priority Progress Details - Always render; dataset may be empty */}
       <Card className={`mb-6`}>
         <CardHeader className="flex items-center justify-between">
           <CardTitle>List of Priority Document Progress</CardTitle>
@@ -553,15 +805,7 @@ const SchoolHeadDashboard = () => {
         </CardContent>
       </Card>
       {/* Example button in the request status card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Request Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* ... status display ... */}
-          <Button onClick={handleViewRequestStatus}>View Request Status</Button>
-        </CardContent>
-      </Card>
+      
     </div>
   );
 };
