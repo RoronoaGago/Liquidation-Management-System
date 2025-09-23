@@ -107,7 +107,7 @@ def logout(request):
     Logout endpoint with audit trail
     """
     user = request.user
-    
+
     # Log audit for logout
     from .audit_utils import log_audit_event
     log_audit_event(
@@ -119,7 +119,7 @@ def logout(request):
         object_type='User',
         object_name=user.get_full_name()
     )
-    
+
     return Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)
 
 
@@ -430,7 +430,7 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        
+
         # Log audit for creation
         from .audit_utils import log_audit_event
         if is_many:
@@ -457,7 +457,7 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
                 object_type='School',
                 object_name=f"{school.schoolName} ({school.schoolId})"
             )
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -482,21 +482,21 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_is_active = instance.is_active
-        
+
         response = super().update(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             # Log audit for update
             from .audit_utils import log_audit_event
             new_is_active = instance.is_active
-            
+
             # Determine action type
             action = 'update'
             if old_is_active and not new_is_active:
                 action = 'archive'
             elif not old_is_active and new_is_active:
                 action = 'restore'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -506,15 +506,15 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                 object_type='School',
                 object_name=f"{instance.schoolName} ({instance.schoolId})"
             )
-        
+
         return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         school_name = f"{instance.schoolName} ({instance.schoolId})"
-        
+
         response = super().destroy(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_204_NO_CONTENT:
             # Log audit for deletion
             from .audit_utils import log_audit_event
@@ -527,7 +527,7 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                 object_type='School',
                 object_name=school_name
             )
-        
+
         return response
 
 
@@ -550,7 +550,7 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        
+
         # Log audit for creation
         from .audit_utils import log_audit_event
         if is_many:
@@ -577,7 +577,7 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
                 object_type='Requirement',
                 object_name=requirement.requirementTitle
             )
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -589,21 +589,21 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_is_active = instance.is_active
-        
+
         response = super().update(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             # Log audit for update
             from .audit_utils import log_audit_event
             new_is_active = instance.is_active
-            
+
             # Determine action type
             action = 'update'
             if old_is_active and not new_is_active:
                 action = 'archive'
             elif not old_is_active and new_is_active:
                 action = 'restore'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -613,15 +613,15 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
                 object_type='Requirement',
                 object_name=instance.requirementTitle
             )
-        
+
         return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         requirement_name = instance.requirementTitle
-        
+
         response = super().destroy(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_204_NO_CONTENT:
             # Log audit for deletion
             from .audit_utils import log_audit_event
@@ -634,7 +634,7 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
                 object_type='Requirement',
                 object_name=requirement_name
             )
-        
+
         return response
 
 
@@ -658,7 +658,7 @@ class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        
+
         # Log audit for creation
         from .audit_utils import log_audit_event
         if is_many:
@@ -685,7 +685,7 @@ class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
                 object_type='ListOfPriority',
                 object_name=priority.expenseTitle
             )
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -697,21 +697,21 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_is_active = instance.is_active
-        
+
         response = super().update(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             # Log audit for update
             from .audit_utils import log_audit_event
             new_is_active = instance.is_active
-            
+
             # Determine action type
             action = 'update'
             if old_is_active and not new_is_active:
                 action = 'archive'
             elif not old_is_active and new_is_active:
                 action = 'restore'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -721,15 +721,15 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 object_type='ListOfPriority',
                 object_name=instance.expenseTitle
             )
-        
+
         return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         priority_name = instance.expenseTitle
-        
+
         response = super().destroy(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_204_NO_CONTENT:
             # Log audit for deletion
             from .audit_utils import log_audit_event
@@ -742,7 +742,7 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 object_type='ListOfPriority',
                 object_name=priority_name
             )
-        
+
         return response
 
 
@@ -1271,7 +1271,7 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         liquidation = serializer.save(user=self.request.user)
-        
+
         # Log audit for liquidation creation
         from .audit_utils import log_audit_event
         log_audit_event(
@@ -1356,12 +1356,12 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         self.perform_update(serializer)
 
         instance.save()
-        
+
         # Log audit for liquidation status changes
         from .audit_utils import log_audit_event
         old_status = instance._old_status
         new_status = instance.status
-        
+
         if old_status != new_status:
             # Determine action type based on status change
             action = 'update'
@@ -1375,7 +1375,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
                 action = 'reject'
             elif new_status == 'submitted':
                 action = 'submit'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -1387,7 +1387,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
                 old_values={'status': old_status},
                 new_values={'status': new_status}
             )
-        
+
         return Response(serializer.data)
 
     def perform_update(self, serializer):
@@ -1986,7 +1986,7 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        
+
         # Log audit for creation
         from .audit_utils import log_audit_event
         if is_many:
@@ -2013,7 +2013,7 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
                 object_type='SchoolDistrict',
                 object_name=f"{district.districtName} ({district.districtId})"
             )
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -2025,21 +2025,21 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_is_active = instance.is_active
-        
+
         response = super().update(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             # Log audit for update
             from .audit_utils import log_audit_event
             new_is_active = instance.is_active
-            
+
             # Determine action type
             action = 'update'
             if old_is_active and not new_is_active:
                 action = 'archive'
             elif not old_is_active and new_is_active:
                 action = 'restore'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -2049,15 +2049,15 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 object_type='SchoolDistrict',
                 object_name=f"{instance.districtName} ({instance.districtId})"
             )
-        
+
         return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         district_name = f"{instance.districtName} ({instance.districtId})"
-        
+
         response = super().destroy(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_204_NO_CONTENT:
             # Log audit for deletion
             from .audit_utils import log_audit_event
@@ -2070,7 +2070,7 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 object_type='SchoolDistrict',
                 object_name=district_name
             )
-        
+
         return response
 
 
@@ -2086,7 +2086,7 @@ def archive_school_district(request, districtId):
         if is_active is not None:
             school_district.is_active = is_active
             school_district.save()
-            
+
             # Log audit for archive/restore
             from .audit_utils import log_audit_event
             action = 'archive' if not is_active and old_is_active else 'restore' if is_active and not old_is_active else 'update'
@@ -2099,7 +2099,7 @@ def archive_school_district(request, districtId):
                 object_type='SchoolDistrict',
                 object_name=f"{school_district.districtName} ({school_district.districtId})"
             )
-            
+
             return Response({"status": "updated", "is_active": school_district.is_active})
         return Response({"error": "Missing is_active field"}, status=400)
     except SchoolDistrict.DoesNotExist:
@@ -3870,6 +3870,7 @@ class AuditLogListView(generics.ListAPIView):
     serializer_class = AuditLogSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = PageNumberPagination
+    pagination_class.page_size = 10  # Set default page size
 
     def get_queryset(self):
         if not self.request.user.role == 'admin':
@@ -3892,12 +3893,18 @@ class AuditLogListView(generics.ListAPIView):
         if user_id:
             queryset = queryset.filter(user_id=user_id)
 
-        # Filter by date range
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
-        if start_date and end_date:
-            queryset = queryset.filter(timestamp__date__range=[
-                                       start_date, end_date])
+        # Filter by date range - FIXED this part
+        timestamp_after = self.request.query_params.get('timestamp_after')
+        timestamp_before = self.request.query_params.get('timestamp_before')
+        if timestamp_after and timestamp_before:
+            queryset = queryset.filter(
+                timestamp__date__gte=timestamp_after,
+                timestamp__date__lte=timestamp_before
+            )
+        elif timestamp_after:
+            queryset = queryset.filter(timestamp__date__gte=timestamp_after)
+        elif timestamp_before:
+            queryset = queryset.filter(timestamp__date__lte=timestamp_before)
 
         # Search in description
         search = self.request.query_params.get('search')
@@ -3914,4 +3921,13 @@ class AuditLogListView(generics.ListAPIView):
         if object_id:
             queryset = queryset.filter(object_id=object_id)
 
-        return queryset.order_by('-timestamp')
+        # Ordering
+        ordering = self.request.query_params.get('ordering', '-timestamp')
+        if ordering:
+            if ordering.startswith('-'):
+                field = ordering[1:]
+                queryset = queryset.order_by(f'-{field}')
+            else:
+                queryset = queryset.order_by(ordering)
+
+        return queryset
