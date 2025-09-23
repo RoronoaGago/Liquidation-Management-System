@@ -14,6 +14,7 @@ import tempfile
 import shutil
 import os
 import random
+import json
 from django.db.models import Sum
 from django.utils.timezone import localtime
 from openpyxl.styles import Font, Alignment
@@ -30,6 +31,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
 import logging
 from rest_framework import serializers
+from django.core import serializers as django_serializers
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -3025,7 +3027,7 @@ def initiate_backup(request):
             for model, model_name in MODEL_BACKUP_ORDER:
                 try:
                     # Use natural keys if available for better serialization
-                    data = serializers.serialize(
+                    data = django_serializers.serialize(
                         "json",
                         model.objects.all(),
                         use_natural_foreign_keys=True,
@@ -3190,7 +3192,7 @@ def initiate_restore(request):
 
                     # Use Django's deserializer
                     objects = []
-                    for obj in serializers.deserialize("json", data):
+                    for obj in django_serializers.deserialize("json", data):
                         try:
                             # Check if object already exists
                             if model.objects.filter(pk=obj.object.pk).exists():
