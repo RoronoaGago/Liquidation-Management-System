@@ -30,6 +30,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
 import logging
 from rest_framework import serializers
+from django.core import serializers as django_serializers
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -108,7 +109,7 @@ def logout(request):
     Logout endpoint with audit trail
     """
     user = request.user
-    
+
     # Log audit for logout
     from .audit_utils import log_audit_event
     log_audit_event(
@@ -120,7 +121,7 @@ def logout(request):
         object_type='User',
         object_name=user.get_full_name()
     )
-    
+
     return Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)
 
 
@@ -431,7 +432,7 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        
+
         # Log audit for creation
         from .audit_utils import log_audit_event
         if is_many:
@@ -458,7 +459,7 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
                 object_type='School',
                 object_name=f"{school.schoolName} ({school.schoolId})"
             )
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -483,21 +484,21 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_is_active = instance.is_active
-        
+
         response = super().update(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             # Log audit for update
             from .audit_utils import log_audit_event
             new_is_active = instance.is_active
-            
+
             # Determine action type
             action = 'update'
             if old_is_active and not new_is_active:
                 action = 'archive'
             elif not old_is_active and new_is_active:
                 action = 'restore'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -507,15 +508,15 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                 object_type='School',
                 object_name=f"{instance.schoolName} ({instance.schoolId})"
             )
-        
+
         return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         school_name = f"{instance.schoolName} ({instance.schoolId})"
-        
+
         response = super().destroy(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_204_NO_CONTENT:
             # Log audit for deletion
             from .audit_utils import log_audit_event
@@ -528,7 +529,7 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                 object_type='School',
                 object_name=school_name
             )
-        
+
         return response
 
 
@@ -551,7 +552,7 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        
+
         # Log audit for creation
         from .audit_utils import log_audit_event
         if is_many:
@@ -578,7 +579,7 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
                 object_type='Requirement',
                 object_name=requirement.requirementTitle
             )
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -590,21 +591,21 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_is_active = instance.is_active
-        
+
         response = super().update(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             # Log audit for update
             from .audit_utils import log_audit_event
             new_is_active = instance.is_active
-            
+
             # Determine action type
             action = 'update'
             if old_is_active and not new_is_active:
                 action = 'archive'
             elif not old_is_active and new_is_active:
                 action = 'restore'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -614,15 +615,15 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
                 object_type='Requirement',
                 object_name=instance.requirementTitle
             )
-        
+
         return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         requirement_name = instance.requirementTitle
-        
+
         response = super().destroy(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_204_NO_CONTENT:
             # Log audit for deletion
             from .audit_utils import log_audit_event
@@ -635,7 +636,7 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
                 object_type='Requirement',
                 object_name=requirement_name
             )
-        
+
         return response
 
 
@@ -659,7 +660,7 @@ class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        
+
         # Log audit for creation
         from .audit_utils import log_audit_event
         if is_many:
@@ -686,7 +687,7 @@ class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
                 object_type='ListOfPriority',
                 object_name=priority.expenseTitle
             )
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -698,21 +699,21 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_is_active = instance.is_active
-        
+
         response = super().update(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             # Log audit for update
             from .audit_utils import log_audit_event
             new_is_active = instance.is_active
-            
+
             # Determine action type
             action = 'update'
             if old_is_active and not new_is_active:
                 action = 'archive'
             elif not old_is_active and new_is_active:
                 action = 'restore'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -722,15 +723,15 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 object_type='ListOfPriority',
                 object_name=instance.expenseTitle
             )
-        
+
         return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         priority_name = instance.expenseTitle
-        
+
         response = super().destroy(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_204_NO_CONTENT:
             # Log audit for deletion
             from .audit_utils import log_audit_event
@@ -743,7 +744,7 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 object_type='ListOfPriority',
                 object_name=priority_name
             )
-        
+
         return response
 
 
@@ -1272,7 +1273,7 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         liquidation = serializer.save(user=self.request.user)
-        
+
         # Log audit for liquidation creation
         from .audit_utils import log_audit_event
         log_audit_event(
@@ -1357,12 +1358,12 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         self.perform_update(serializer)
 
         instance.save()
-        
+
         # Log audit for liquidation status changes
         from .audit_utils import log_audit_event
         old_status = instance._old_status
         new_status = instance.status
-        
+
         if old_status != new_status:
             # Determine action type based on status change
             action = 'update'
@@ -1376,7 +1377,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
                 action = 'reject'
             elif new_status == 'submitted':
                 action = 'submit'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -1388,7 +1389,7 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
                 old_values={'status': old_status},
                 new_values={'status': new_status}
             )
-        
+
         return Response(serializer.data)
 
     def perform_update(self, serializer):
@@ -1987,7 +1988,7 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        
+
         # Log audit for creation
         from .audit_utils import log_audit_event
         if is_many:
@@ -2014,7 +2015,7 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
                 object_type='SchoolDistrict',
                 object_name=f"{district.districtName} ({district.districtId})"
             )
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -2026,21 +2027,21 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         old_is_active = instance.is_active
-        
+
         response = super().update(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             # Log audit for update
             from .audit_utils import log_audit_event
             new_is_active = instance.is_active
-            
+
             # Determine action type
             action = 'update'
             if old_is_active and not new_is_active:
                 action = 'archive'
             elif not old_is_active and new_is_active:
                 action = 'restore'
-            
+
             log_audit_event(
                 request=request,
                 action=action,
@@ -2050,15 +2051,15 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 object_type='SchoolDistrict',
                 object_name=f"{instance.districtName} ({instance.districtId})"
             )
-        
+
         return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         district_name = f"{instance.districtName} ({instance.districtId})"
-        
+
         response = super().destroy(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_204_NO_CONTENT:
             # Log audit for deletion
             from .audit_utils import log_audit_event
@@ -2071,7 +2072,7 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 object_type='SchoolDistrict',
                 object_name=district_name
             )
-        
+
         return response
 
 
@@ -2087,7 +2088,7 @@ def archive_school_district(request, districtId):
         if is_active is not None:
             school_district.is_active = is_active
             school_district.save()
-            
+
             # Log audit for archive/restore
             from .audit_utils import log_audit_event
             action = 'archive' if not is_active and old_is_active else 'restore' if is_active and not old_is_active else 'update'
@@ -2100,7 +2101,7 @@ def archive_school_district(request, districtId):
                 object_type='SchoolDistrict',
                 object_name=f"{school_district.districtName} ({school_district.districtId})"
             )
-            
+
             return Response({"status": "updated", "is_active": school_district.is_active})
         return Response({"error": "Missing is_active field"}, status=400)
     except SchoolDistrict.DoesNotExist:
@@ -2846,7 +2847,6 @@ def _is_safe_path(path: str) -> bool:
     return True
 
 
-# Define backup/restore order with actual model classes - CRITICAL: Same order for both operations
 MODEL_BACKUP_ORDER = [
     # Level 1: Independent models (no foreign keys)
     (SchoolDistrict, 'SchoolDistrict'),
@@ -2888,13 +2888,13 @@ MODEL_BACKUP_ORDER = [
 @permission_classes([IsAuthenticated])
 def initiate_backup(request):
     """
-    Generate a backup archive and return it as a downloadable file without storing on server.
+    Generate a backup archive with improved error handling.
     """
     try:
         format = request.data.get("format", "json")
         include_media = request.data.get("include_media", True)
 
-        # Create backup record in database (without file path storage)
+        # Create backup record
         backup = Backup.objects.create(
             initiated_by=request.user,
             format=format,
@@ -2903,78 +2903,84 @@ def initiate_backup(request):
         )
 
         # Create HTTP response with ZIP file
-        response = HttpResponse(
-            content_type='application/zip'
-        )
+        response = HttpResponse(content_type='application/zip')
         filename = f"backup_{backup.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.zip"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
-        # Create zip file in memory and write directly to response
         with zipfile.ZipFile(response, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            # Add database dump based on format
-            if format == "json":
-                # Export data as JSON using the explicit model order
-                for model, model_name in MODEL_BACKUP_ORDER:
-                    try:
-                        data = serializers.serialize(
-                            "json", model.objects.all())
-                        zipf.writestr(f"data/{model_name}.json", data)
-                        logger.info(
-                            f"Backed up {model_name}: {model.objects.all().count()} records")
-                    except Exception as e:
-                        logger.error(f"Failed to backup {model_name}: {e}")
-                        continue
+            # Add metadata
+            metadata = {
+                'created_at': timezone.now().isoformat(),
+                'created_by': request.user.email,
+                'format': format,
+                'include_media': include_media,
+                'model_versions': {}
+            }
 
-            elif format == "sql":
-                # Export SQL dump using Django dumpdata
-                from django.core.management import call_command
-                from io import StringIO
-
+            # Export data as JSON using the corrected model order
+            for model, model_name in MODEL_BACKUP_ORDER:
                 try:
-                    out = StringIO()
-                    call_command('dumpdata', stdout=out)
-                    zipf.writestr('database/dump.json', out.getvalue())
+                    # Use natural keys if available for better serialization
+                    data = django_serializers.serialize(
+                        "json",
+                        model.objects.all(),
+                        use_natural_foreign_keys=False
+                    )
+                    zipf.writestr(f"data/{model_name}.json", data)
+
+                    # Store model version info
+                    metadata['model_versions'][model_name] = {
+                        'count': model.objects.all().count(),
+                        'exported_at': timezone.now().isoformat()
+                    }
+
+                    logger.info(
+                        f"Backed up {model_name}: {model.objects.all().count()} records")
                 except Exception as e:
-                    logger.error(f"SQL dump failed: {e}")
-                    # Fallback to JSON serialization
-                    out = StringIO()
-                    serializers.serialize(
-                        "json", User.objects.all(), stream=out)
-                    zipf.writestr('database/fallback_dump.json',
-                                  out.getvalue())
+                    logger.error(f"Failed to backup {model_name}: {e}")
+                    # Continue with other models instead of failing completely
+                    continue
+
+            # Add metadata file
+            zipf.writestr('metadata.json', json.dumps(metadata, indent=2))
 
             # Include media files if requested
             if include_media:
                 try:
                     media_root = settings.MEDIA_ROOT
                     if os.path.exists(media_root):
+                        media_files_added = 0
                         for root, dirs, files in os.walk(media_root):
                             for file in files:
+                                # Skip temporary and hidden files
+                                if file.startswith(('.', '~')) or file.endswith('.tmp'):
+                                    continue
+
                                 abs_path = os.path.join(root, file)
                                 rel_path = os.path.relpath(
                                     abs_path, media_root)
 
-                                # Skip temporary files and hidden files
-                                if file.startswith(('.', '~')):
-                                    continue
-
-                                # Read file content and add to zip
                                 try:
                                     with open(abs_path, 'rb') as f:
                                         file_content = f.read()
                                     zipf.writestr(
                                         f"media/{rel_path}", file_content)
+                                    media_files_added += 1
                                 except (IOError, OSError) as e:
                                     logger.warning(
                                         f"Could not read media file {abs_path}: {e}")
                                     continue
+
+                        logger.info(
+                            f"Added {media_files_added} media files to backup")
                     else:
                         logger.warning(
                             f"Media root {media_root} does not exist")
                 except Exception as e:
                     logger.error(f"Media backup failed: {e}")
+                    # Don't fail the entire backup if media fails
 
-        # Update backup record with success
+        # Update backup record
         backup.status = 'success'
         backup.file_size = len(response.content)
         backup.save()
@@ -3006,13 +3012,13 @@ def initiate_restore(request):
     current_user_id = request.user.id
     current_user_email = request.user.email
 
-    # Require explicit confirmation for data wipe
+    # Require explicit confirmation
     if not request.data.get("confirm_wipe", False):
         return Response(
             {
-                "detail": "Restore will wipe ALL current data and log out all users. "
+                "detail": "Restore will replace existing data. "
                 "Include 'confirm_wipe': true in your request to proceed.",
-                "warning": "This action cannot be undone. All current data will be permanently deleted."
+                "warning": "This action cannot be undone."
             },
             status=status.HTTP_400_BAD_REQUEST
         )
@@ -3046,29 +3052,26 @@ def initiate_restore(request):
         with zipfile.ZipFile(archive_path, "r") as zipf:
             zipf.extractall(temp_dir)
 
-        # Restore logic - use the SAME order as backup
+        # Restore logic
         data_dir = os.path.join(temp_dir, 'data')
-        media_dir = os.path.join(temp_dir, 'media')
 
-        # First, clear existing data to avoid conflicts
-        logger.warning("Clearing existing database data before restore...")
+        if not os.path.exists(data_dir):
+            return Response(
+                {"detail": "Backup file is corrupted or invalid"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Clear data in REVERSE dependency order to avoid FK constraints
-        with transaction.atomic():
-            # Reverse the backup order for safe deletion
-            models_to_clear = [model for model,
-                               name in reversed(MODEL_BACKUP_ORDER)]
+        # NEW APPROACH: Use smaller transactions per model instead of one giant transaction
+        restored_counts = {}
+        errors = []
 
-            for model in models_to_clear:
-                try:
-                    count = model.objects.all().count()
-                    model.objects.all().delete()
-                    logger.info(f"Cleared {count} {model.__name__} records")
-                except Exception as e:
-                    logger.warning(f"Could not clear {model.__name__}: {e}")
+        try:
+            # Step 1: Create a backup of current data (optional safety measure)
+            safety_backup = {}
+            for model, model_name in MODEL_BACKUP_ORDER:
+                safety_backup[model_name] = list(model.objects.all().values())
 
-        # Now restore data in correct order with enhanced logging and per-object handling
-        if os.path.exists(data_dir):
+            # Step 2: Restore data in correct order with conflict resolution
             for model, model_name in MODEL_BACKUP_ORDER:
                 file_path = os.path.join(data_dir, f"{model_name}.json")
                 if not os.path.exists(file_path):
@@ -3077,152 +3080,300 @@ def initiate_restore(request):
 
                 logger.info(f"Restoring {model_name} from {file_path}")
 
-                # Read raw file once
+                # Use a separate transaction for each model
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        raw_data = f.read()
-                except Exception as e:
-                    logger.error(f"Failed reading {file_path}: {e}")
-                    if model_name in ['SchoolDistrict', 'School', 'User']:
-                        if temp_dir and os.path.exists(temp_dir):
-                            shutil.rmtree(temp_dir, ignore_errors=True)
-                        return Response(
-                            {"detail": f"Restore failed reading {model_name}.json: {str(e)}"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                        )
-                    continue
+                    with transaction.atomic():
+                        objects_processed = 0
 
-                # Peek at first object structure for debugging
-                first_obj = None
-                total_in_file = 0
-                try:
-                    parsed = json.loads(raw_data)
-                    if isinstance(parsed, list) and parsed:
-                        first_obj = parsed[0]
-                        total_in_file = len(parsed)
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            data = f.read()
+
+                        # DEBUG: Check the structure of the serialized data
+                        import json
+                        parsed_data = json.loads(data)
+                        if parsed_data:
+                            logger.info(
+                                f"First object structure: {list(parsed_data[0].keys())}")
+                            if 'pk' in parsed_data[0]:
+                                logger.info(
+                                    f"PK found: {parsed_data[0]['pk']}")
+                            else:
+                                logger.warning(
+                                    "PK not found in serialized data!")
+
+                        # Use Django's deserializer
+                        for obj in django_serializers.deserialize("json", data):
+                            try:
+                                # SPECIAL HANDLING FOR USER MODEL - IMPROVED VERSION
+                                # SPECIAL HANDLING FOR USER MODEL - FIXED VERSION
+                                if model.__name__ == 'User':
+                                    email = getattr(obj.object, 'email', None)
+                                    # Get the PK from serialized data - handle empty string case
+                                    original_pk = getattr(obj, 'pk', None)
+
+                                    # Check if PK is valid (not empty string and not None)
+                                    is_valid_pk = original_pk and str(
+                                        original_pk).strip() != ''
+
+                                    logger.info(
+                                        f"Processing user: email={email}, original_pk={original_pk}, is_valid_pk={is_valid_pk}")
+
+                                    if email:
+                                        try:
+                                            # First, check if a user with this email already exists
+                                            existing_by_email = model.objects.filter(
+                                                email=email).first()
+
+                                            # Check if a user with the original PK exists (only if PK is valid)
+                                            existing_by_pk = None
+                                            if is_valid_pk:
+                                                existing_by_pk = model.objects.filter(
+                                                    pk=original_pk).first()
+
+                                            if existing_by_email:
+                                                # User with same email exists - update it
+                                                logger.info(
+                                                    f"Updating existing user by email: {email}")
+                                                for field in obj.object._meta.fields:
+                                                    if field.primary_key or field.name == 'password':
+                                                        continue
+                                                    try:
+                                                        setattr(existing_by_email, field.name, getattr(
+                                                            obj.object, field.name))
+                                                    except Exception as field_error:
+                                                        logger.warning(
+                                                            f"Error setting field {field.name}: {field_error}")
+                                                        continue
+                                                existing_by_email.save()
+                                                objects_processed += 1
+
+                                            elif existing_by_pk and is_valid_pk:
+                                                # User with original PK exists - update it
+                                                logger.info(
+                                                    f"Updating existing user by PK: {original_pk}")
+                                                for field in obj.object._meta.fields:
+                                                    if field.primary_key or field.name == 'password':
+                                                        continue
+                                                    try:
+                                                        setattr(existing_by_pk, field.name, getattr(
+                                                            obj.object, field.name))
+                                                    except Exception as field_error:
+                                                        logger.warning(
+                                                            f"Error setting field {field.name}: {field_error}")
+                                                        continue
+                                                existing_by_pk.save()
+                                                objects_processed += 1
+
+                                            else:
+                                                # No existing user found - create new one
+                                                logger.info(
+                                                    f"Creating new user: {email}")
+
+                                                # Create a copy of the object data
+                                                user_data = obj.object.__dict__.copy()
+                                                user_data.pop('_state', None)
+
+                                                # Handle password separately
+                                                password = user_data.pop(
+                                                    'password', None)
+
+                                                # Try to use original PK only if it's valid and not conflicting
+                                                if is_valid_pk and not model.objects.filter(pk=original_pk).exists():
+                                                    user_data['id'] = original_pk
+                                                else:
+                                                    # Remove invalid PK so Django can auto-generate one
+                                                    user_data.pop('id', None)
+
+                                                # Create the user
+                                                new_user = model(**user_data)
+                                                if password:
+                                                    new_user.set_password(
+                                                        password)
+                                                new_user.save()
+                                                objects_processed += 1
+
+                                        except IntegrityError as e:
+                                            logger.warning(
+                                                f"Integrity error for user {email}: {e}")
+                                            # Try fallback creation without PK
+                                            try:
+                                                user_data = obj.object.__dict__.copy()
+                                                user_data.pop('_state', None)
+                                                # Remove PK to avoid conflict
+                                                user_data.pop('id', None)
+
+                                                password = user_data.pop(
+                                                    'password', None)
+                                                new_user = model(**user_data)
+                                                if password:
+                                                    new_user.set_password(
+                                                        password)
+                                                new_user.save()
+                                                objects_processed += 1
+                                                logger.info(
+                                                    f"Created user with auto-generated PK: {email}")
+                                            except Exception as fallback_error:
+                                                logger.error(
+                                                    f"Fallback creation failed for {email}: {fallback_error}")
+                                                errors.append(
+                                                    f"User {email}: {str(fallback_error)}")
+
+                                    else:
+                                        # User without email - handle carefully
+                                        logger.warning(
+                                            "User without email found in backup")
+                                        try:
+                                            user_data = obj.object.__dict__.copy()
+                                            user_data.pop('_state', None)
+
+                                            # Only use PK if it's valid
+                                            if is_valid_pk and not model.objects.filter(pk=original_pk).exists():
+                                                user_data['id'] = original_pk
+                                            else:
+                                                user_data.pop('id', None)
+
+                                            password = user_data.pop(
+                                                'password', None)
+                                            new_user = model(**user_data)
+                                            if password:
+                                                new_user.set_password(password)
+                                            new_user.save()
+                                            objects_processed += 1
+                                            logger.info(
+                                                "Created user without email with auto-generated PK")
+                                        except Exception as no_email_error:
+                                            logger.error(
+                                                f"Failed to create user without email: {no_email_error}")
+                                            errors.append(
+                                                f"User without email: {str(no_email_error)}")
+
+                            except IntegrityError as e:
+                                logger.warning(
+                                    f"Integrity error for {model_name} object: {e}")
+                                # Try to create without PK
+                                try:
+                                    data_dict = obj.object.__dict__.copy()
+                                    data_dict.pop('id', None)
+                                    data_dict.pop('_state', None)
+                                    model.objects.create(**data_dict)
+                                    objects_processed += 1
+                                    logger.info(
+                                        f"Created {model_name} with auto PK after integrity error")
+                                except Exception as e2:
+                                    logger.error(
+                                        f"Failed to restore {model_name} object: {e2}")
+                                    errors.append(
+                                        f"{model_name} object: {str(e2)}")
+                            except Exception as e:
+                                logger.error(
+                                    f"Error restoring {model_name} object: {e}")
+                                errors.append(f"{model_name} object: {str(e)}")
+
+                        restored_counts[model_name] = objects_processed
                         logger.info(
-                            f"First object structure for {model_name}: {list(first_obj.keys())}")
-                        logger.info(
-                            f"First PK for {model_name}: {first_obj.get('pk', 'N/A')}")
-                except Exception as e:
-                    logger.warning(f"Could not parse JSON for debug on {model_name}: {e}")
+                            f"Successfully processed {objects_processed} {model_name} records")
 
-                saved_count = 0
-                error_count = 0
+                except Exception as model_error:
+                    logger.error(
+                        f"Error processing {model_name}: {model_error}")
+                    errors.append(f"{model_name}: {str(model_error)}")
 
-                # Deserialize stream and save each object independently
-                for obj in serializers.deserialize("json", raw_data, ignorenonexistent=True):
-                    try:
-                        # Special handling for User passwords
-                        if model_name == 'User' and hasattr(obj.object, 'password'):
-                            temp_password = obj.object.password
-                            # Save base object first
-                            obj.object.password = ''
-                            with transaction.atomic():
-                                obj.save()
+            # Step 3: Restore media files
+            media_dir = os.path.join(temp_dir, 'media')
+            if os.path.exists(media_dir):
+                media_root = settings.MEDIA_ROOT
+                for root, dirs, files in os.walk(media_dir):
+                    for file in files:
+                        src_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(src_path, media_dir)
+                        dest_path = os.path.join(media_root, rel_path)
 
-                            # Then update password correctly
-                            if temp_password:
-                                if not str(temp_password).startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
-                                    obj.object.set_password(temp_password)
-                                else:
-                                    obj.object.password = temp_password
-                                with transaction.atomic():
-                                    obj.object.save(update_fields=['password'])
-                        else:
-                            with transaction.atomic():
-                                obj.save()
+                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        shutil.copy2(src_path, dest_path)
+                        logger.info(f"Restored media file: {rel_path}")
 
-                        saved_count += 1
-                    except Exception as e:
-                        error_count += 1
-                        try:
-                            # Best-effort primary key for logging
-                            pk_val = None
-                            if hasattr(obj, 'object') and hasattr(obj.object, 'pk'):
-                                pk_val = obj.object.pk
-                        except Exception:
-                            pk_val = None
-                        logger.error(
-                            f"Failed to save {model_name} object (pk={pk_val}): {e}",
-                            exc_info=True
-                        )
-                        # Continue to next object without aborting the whole model
-                        continue
+            # Cleanup temporary files
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
 
-                logger.info(
-                    f"Processed {model_name}: saved={saved_count}, errors={error_count}, total_in_file={total_in_file}")
+            # Try to maintain user session
+            try:
+                restored_user = User.objects.get(email=current_user_email)
+                refresh = RefreshToken.for_user(restored_user)
 
-                # Treat critical models as failures if zero saved and file had entries
-                if model_name in ['SchoolDistrict', 'School', 'User'] and total_in_file > 0 and saved_count == 0:
-                    if temp_dir and os.path.exists(temp_dir):
-                        shutil.rmtree(temp_dir, ignore_errors=True)
-                    return Response(
-                        {
-                            "detail": f"Restore failed for critical model {model_name}: 0 of {total_in_file} records saved",
-                            "model": model_name,
-                            "saved": saved_count,
-                            "errors": error_count
-                        },
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
-
-        # Restore media files
-        if os.path.exists(media_dir):
-            media_root = settings.MEDIA_ROOT
-            for root, dirs, files in os.walk(media_dir):
-                for file in files:
-                    src_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(src_path, media_dir)
-                    dest_path = os.path.join(media_root, rel_path)
-
-                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-                    shutil.copy2(src_path, dest_path)
-                    logger.info(f"Restored media file: {rel_path}")
-
-        # Cleanup temporary files
-        if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-
-        # Enhanced UX: Try to auto-login the user if their account was restored
-        try:
-            restored_user = User.objects.get(email=current_user_email)
-            # Generate new tokens for the restored user
-            refresh = RefreshToken.for_user(restored_user)
-
-            logger.info(
-                f"Auto-login successful for user: {current_user_email}")
-            return Response(
-                {
+                response_data = {
                     "detail": f"Restore completed successfully from {file_obj.name}",
+                    "summary": restored_counts,
                     "auto_login": True,
-                    "user": {
-                        "id": restored_user.id,
-                        "email": restored_user.email,
-                        "username": restored_user.username
-                    },
                     "tokens": {
                         "access": str(refresh.access_token),
                         "refresh": str(refresh)
                     }
-                },
-                status=status.HTTP_200_OK
-            )
+                }
 
-        except User.DoesNotExist:
-            # User needs to login manually with backup credentials
-            logger.warning(
-                f"Original user {current_user_email} not found in backup, manual login required")
-            return Response(
-                {
-                    "detail": f"Restore completed successfully from {file_obj.name}. "
-                    "Please login with your backup credentials.",
+                if errors:
+                    response_data["warnings"] = errors
+
+                return Response(response_data, status=status.HTTP_200_OK)
+
+            except User.DoesNotExist:
+                response_data = {
+                    "detail": f"Restore completed successfully from {file_obj.name}",
+                    "summary": restored_counts,
                     "auto_login": False,
-                    "note": "Your previous account was not found in the backup data. "
-                    "Use credentials from the backup file to login."
-                },
-                status=status.HTTP_200_OK
-            )
+                    "note": "Please login with your credentials."
+                }
+
+                if errors:
+                    response_data["warnings"] = errors
+
+                return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as restore_error:
+            logger.error(f"Restore failed: {restore_error}")
+
+            # Attempt safety rollback with separate transactions
+            rollback_errors = []
+            try:
+                # Restore from safety backup in reverse order
+                for model, model_name in reversed(MODEL_BACKUP_ORDER):
+                    try:
+                        with transaction.atomic():
+                            # Clear current data
+                            model.objects.all().delete()
+
+                            # Restore from backup
+                            if model_name in safety_backup:
+                                for obj_data in safety_backup[model_name]:
+                                    try:
+                                        model.objects.create(**obj_data)
+                                    except Exception as e:
+                                        rollback_errors.append(
+                                            f"Failed to restore {model_name} object: {e}")
+                    except Exception as e:
+                        rollback_errors.append(
+                            f"Failed to restore {model_name}: {e}")
+
+                if not rollback_errors:
+                    logger.info("Safety backup restored successfully")
+                else:
+                    logger.error(
+                        f"Safety rollback had errors: {rollback_errors}")
+
+            except Exception as rollback_error:
+                logger.error(f"Safety rollback failed: {rollback_error}")
+                rollback_errors.append(str(rollback_error))
+
+            error_response = {
+                "detail": "Restore failed",
+                "error": str(restore_error),
+                "auto_login": False
+            }
+
+            if rollback_errors:
+                error_response["rollback_errors"] = rollback_errors
+
+            return Response(error_response, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     except Exception as e:
         logger.error(f"Restore failed: {e}", exc_info=True)
