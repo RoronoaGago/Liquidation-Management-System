@@ -3083,6 +3083,10 @@ def initiate_restore(request):
     current_user_id = request.user.id
     current_user_email = request.user.email
 
+    # Conflict handling strategies for User restores
+    user_conflict_mode = request.data.get(
+        'user_conflict', 'update')  # update | skip | error
+
     # Require explicit confirmation
     if not request.data.get("confirm_wipe", False):
         return Response(
