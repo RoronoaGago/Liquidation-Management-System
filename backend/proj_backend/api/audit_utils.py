@@ -35,50 +35,41 @@ def log_audit_event(request, action, module, description,
     return audit_log
 
 
-def get_changed_fields(instance, fields_to_track=None):
+def get_changed_fields(instance):
     """
-    Get changed fields for an instance
+    Compare current instance with database version to detect changes
     """
     if not instance.pk:
         return None, None  # New instance, no old values
-
-    old_values = {}
-    new_values = {}
-
-    # Get the current instance from database
+    print(
+        f"DEBUG: Checking changes for {instance.__class__.__name__} {instance.pk}")
     try:
+
         old_instance = instance.__class__.objects.get(pk=instance.pk)
     except instance.__class__.DoesNotExist:
         return None, None
 
-    # Track all fields or specific fields
-    fields = fields_to_track or [field.name for field in instance._meta.fields
-                                 if not field.primary_key and field.name not in ['created_at', 'updated_at']]
+    old_values = {}
+    new_values = {}
 
-    for field in fields:
-        old_val = getattr(old_instance, field)
-        new_val = getattr(instance, field)
+    for field in instance._meta.fields:
+        field_name = field.name
 
-        if old_val != new_val:
-            # Handle special field types
-            if hasattr(old_val, 'pk'):
-                old_val = str(old_val.pk)
-            if hasattr(new_val, 'pk'):
-                new_val = str(new_val.pk)
+        # Skip internal fields
+        if field_name in ['password', 'last_login', 'otp_code']:
+            continue
 
-            # Handle file fields
-            if hasattr(old_val, 'url'):
-                old_val = old_val.url
-            if hasattr(new_val, 'url'):
-                new_val = new_val.url
+        old_value = getattr(old_instance, field_name)
+        new_value = getattr(instance, field_name)
 
-            # Handle dates
-            if hasattr(old_val, 'isoformat'):
-                old_val = old_val.isoformat()
-            if hasattr(new_val, 'isoformat'):
-                new_val = new_val.isoformat()
+        # Better comparison that handles different data types
+        if old_value != new_value:
+            # Convert to string for JSON serialization
+            old_values[field_name] = str(
+                old_value) if old_value is not None else None
+            new_values[field_name] = str(
+                new_value) if new_value is not None else None
 
-            old_values[field] = old_val
-            new_values[field] = new_val
-
-    return old_values, new_values
+    print(f"DEBUG: Found changes - old: {old_values}, new: {new_values}")
+    return (old_values if old_values else None,
+            new_values if new_values else None)

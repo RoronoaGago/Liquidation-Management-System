@@ -4,6 +4,7 @@ import {
   initiateRestore,
   listBackups,
   type BackupRecord,
+  type RestoreResponse,
 } from "@/api/backupService";
 import Button from "@/components/ui/button/Button";
 import {
@@ -16,21 +17,23 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 
 const BackupRestorePage = () => {
-  const [includeMedia, setIncludeMedia] = useState(true);
+  const [includeMedia, setIncludeMedia] = useState(false);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
-  // Add the missing file input ref
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   async function refresh() {
     try {
       const data = await listBackups();
       setBackups(data);
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error("Failed to load backups:", error);
     }
   }
 
@@ -42,14 +45,14 @@ const BackupRestorePage = () => {
     setLoading(true);
     setMessage(null);
     try {
-      const payload: any = { format: "json", include_media: includeMedia };
+      const payload = { include_media: includeMedia };
       const blob = await initiateBackup(payload);
 
       // Try to use the File System Access API if available
       if ("showSaveFilePicker" in window) {
         try {
           const handle = await (window as any).showSaveFilePicker({
-            suggestedName: `backup_json_${
+            suggestedName: `backup_${
               new Date().toISOString().split("T")[0]
             }.zip`,
             types: [
@@ -95,37 +98,74 @@ const BackupRestorePage = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `backup_json_${new Date().toISOString().split("T")[0]}.zip`;
+    a.download = `backup_${new Date().toISOString().split("T")[0]}.zip`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
   }
 
-  // Update onRestore function to use file upload
   async function onRestore() {
-    setLoading(true);
+    setRestoreLoading(true);
     setMessage(null);
     try {
-      if (!fileInputRef.current?.files?.[0]) {
+      if (!selectedFile) {
+        // ← Changed from fileInputRef to selectedFile
         setMessage("Please select a backup file to restore");
         setMessageType("error");
-        setLoading(false);
+        setRestoreLoading(false);
         return;
       }
 
-      const file = fileInputRef.current.files[0];
+      const file = selectedFile; // ← Changed from fileInputRef to selectedFile
 
-      // Use the initiateRestore function from backupService
-      const res = await initiateRestore(file);
+      // Show confirmation dialog
+      if (
+        !window.confirm(
+          "⚠️ CRITICAL WARNING ⚠️\n\n" +
+            "This restore operation will:\n" +
+            "• Replace existing data with backup data\n" +
+            "• Log out all current users\n" +
+            "• Cannot be undone\n\n" +
+            "Are you absolutely sure you want to continue?"
+        )
+      ) {
+        setRestoreLoading(false);
+        return;
+      }
 
-      setMessage(res.detail);
-      setMessageType("success");
+      // Use the corrected initiateRestore function
+      const res: RestoreResponse = await initiateRestore(file, true);
+
+      if (res.auto_login && res.tokens) {
+        // Store new tokens and refresh the page
+        localStorage.setItem("access_token", res.tokens.access);
+        localStorage.setItem("refresh_token", res.tokens.refresh);
+
+        setMessage(`${res.detail} Redirecting...`);
+        setMessageType("success");
+
+        // Short delay before refresh to show message
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setMessage(`${res.detail} ${res.note || ""}`);
+        setMessageType("success");
+
+        // Refresh the backup list
+        await refresh();
+      }
     } catch (e: any) {
       setMessage(e.message || "Restore failed");
       setMessageType("error");
     } finally {
-      setLoading(false);
+      setRestoreLoading(false);
+      // Clear file input and state
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setSelectedFile(null); // ← Clear the state as well
     }
   }
 
@@ -176,7 +216,7 @@ const BackupRestorePage = () => {
     }
   };
 
-  // SVG Icons for UI elements
+  // SVG Icons
   const DownloadIcon = () => (
     <svg
       className="w-5 h-5 mr-2"
@@ -205,54 +245,6 @@ const BackupRestorePage = () => {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-      />
-    </svg>
-  );
-
-  const FolderIcon = () => (
-    <svg
-      className="w-5 h-5 mr-2"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-      />
-    </svg>
-  );
-
-  const FileIcon = () => (
-    <svg
-      className="w-5 h-5 mr-2"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-      />
-    </svg>
-  );
-
-  const DatabaseIcon = () => (
-    <svg
-      className="w-5 h-5 mr-2"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
       />
     </svg>
   );
@@ -294,7 +286,9 @@ const BackupRestorePage = () => {
           className={`mb-6 p-4 rounded-lg ${
             messageType === "success"
               ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+              : messageType === "error"
+              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
           }`}
         >
           {message}
@@ -334,7 +328,7 @@ const BackupRestorePage = () => {
           <Button
             onClick={onBackup}
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center justify-center">
@@ -369,12 +363,12 @@ const BackupRestorePage = () => {
           </Button>
         </div>
 
-        {/* Restore Card - Updated for file upload */}
+        {/* Restore Card */}
         <div className="border rounded-xl p-5 shadow-sm bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-900 dark:to-gray-800 flex flex-col justify-between min-h-[200px]">
           <div>
             <h2 className="text-lg font-semibold mb-3 flex items-center text-gray-800 dark:text-white">
               <UploadIcon />
-              Restore From Backup File
+              Restore From Backup
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Upload a backup file to restore your system data
@@ -384,20 +378,15 @@ const BackupRestorePage = () => {
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                   Backup File
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="file"
-                    accept=".zip"
-                    ref={fileInputRef}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setMessage(null);
-                      }
-                    }}
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 dark:bg-gray-800 dark:border-gray-700 focus:ring-2 focus:ring-green-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-                  />
-                </div>
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => {
+                    setSelectedFile(e.target.files?.[0] || null);
+                    setMessage(null);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:bg-gray-800 dark:border-gray-700 focus:ring-2 focus:ring-green-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Select a backup ZIP file previously created by the system
                 </p>
@@ -406,10 +395,10 @@ const BackupRestorePage = () => {
           </div>
           <Button
             onClick={onRestore}
-            disabled={loading || !fileInputRef.current?.files?.[0]}
-            className="w-full border border-green-300 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors"
+            disabled={restoreLoading || !selectedFile}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors disabled:opacity-50"
           >
-            {loading ? (
+            {restoreLoading ? (
               <span className="flex items-center justify-center">
                 <svg
                   className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
@@ -448,9 +437,6 @@ const BackupRestorePage = () => {
         <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
           Backup History
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Recently created backups
-        </p>
 
         <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="max-w-full overflow-x-auto">
@@ -511,9 +497,9 @@ const BackupRestorePage = () => {
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4 text-start text-sm break-all font-medium text-gray-900 dark:text-white">
-                        {`backup_json_${
+                        {`backup_${
                           new Date(b.created_at).toISOString().split("T")[0]
-                        }.zip` || "-"}
+                        }.zip`}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-start text-sm text-gray-600 dark:text-gray-400">
                         {b.file_size
@@ -536,7 +522,6 @@ const BackupRestorePage = () => {
                               {b.status}
                             </Badge>
                           </div>
-                          {/* Remove the Restore button from each row */}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -11,26 +11,36 @@ from .audit_utils import log_audit_event, get_changed_fields
 
 @receiver(pre_save)
 def track_model_changes(sender, instance, **kwargs):
-    # Skip if not a model we want to track or if it's the AuditLog itself
     if sender == AuditLog or sender._meta.app_label not in ['api']:
         return
 
-    # Get request from thread local storage (we'll set this in middleware)
-    from django.utils.deprecation import MiddlewareMixin
-    thread_local = MiddlewareMixin.thread_local if hasattr(
-        MiddlewareMixin, 'thread_local') else None
-    request = getattr(thread_local, 'request', None) if thread_local else None
+    # Try multiple ways to get the request
+    request = None
+
+    # Method 1: From thread_local (current approach)
+    from .middleware import thread_local
+    request = getattr(thread_local, 'request', None)
+
+    # Method 2: Fallback - get request from active requests
+    if not request:
+        try:
+            from django.core.handlers.wsgi import WSGIHandler
+            # This is tricky but sometimes necessary
+            pass
+        except:
+            pass
 
     if not request:
-        return
+        return  # Skip if no request context
 
-    # Get changed fields
+    # Get changed fields ONLY if we have a request
     old_values, new_values = get_changed_fields(instance)
 
-    if old_values and new_values:  # Only if there are changes
-        # Store in instance for use in post_save
+    if old_values and new_values:
         instance._audit_old_values = old_values
         instance._audit_new_values = new_values
+        # Also store the request ID for verification
+        instance._audit_request_id = id(request)
 
 
 @receiver(post_save)
@@ -38,14 +48,15 @@ def log_model_save(sender, instance, created, **kwargs):
     if sender == AuditLog or sender._meta.app_label not in ['api']:
         return
 
-    # Get request from thread local storage
-    from django.utils.deprecation import MiddlewareMixin
-    thread_local = MiddlewareMixin.thread_local if hasattr(
-        MiddlewareMixin, 'thread_local') else None
-    request = getattr(thread_local, 'request', None) if thread_local else None
+    # Get request using the same method as pre_save
+    from .middleware import thread_local
+    request = getattr(thread_local, 'request', None)
 
     if not request:
-        return
+        # Try to get from instance if stored in pre_save
+        request_id = getattr(instance, '_audit_request_id', None)
+        if not request_id:
+            return  # No request context, skip audit logging
 
     module_map = {
         User: 'user',

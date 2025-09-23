@@ -946,25 +946,15 @@ const ApprovedRequestPage = () => {
                   type="button"
                   variant="outline"
                   onClick={async () => {
-                    if (viewedSubmission.status === "approved") {
-                      // Use server-side PDF generation for approved requests
-                      const result = await handleServerSideExport(
-                        viewedSubmission
+                    const result = await handleServerSideExport(
+                      viewedSubmission
+                    );
+                    if (result.success) {
+                      toast.success(
+                        result.message || "PDF generated successfully!"
                       );
-                      if (result.success) {
-                        toast.success(
-                          result.message || "PDF generated successfully!"
-                        );
-                      } else {
-                        toast.error(result.error || "Failed to generate PDF");
-                      }
                     } else {
-                      // Use legacy client-side generation for non-approved requests
-                      handleExport(
-                        viewedSubmission,
-                        user?.first_name || "user",
-                        user?.last_name || "name"
-                      );
+                      toast.error(result.error || "Failed to generate PDF");
                     }
                   }}
                   startIcon={<Download className="w-4 h-4" />}
@@ -976,25 +966,27 @@ const ApprovedRequestPage = () => {
                     : "Export PDF"}
                 </Button>
 
-                {viewedSubmission.status === "approved" ||
-                  (viewedSubmission.status === "unliquidated" && (
-                    <div className="flex gap-3 order-0 sm:order-1">
-                      <Button
-                        type="button"
-                        variant="success"
-                        onClick={() => {
-                          setSubmissionToApprove(viewedSubmission);
-                          setShowDatePicker(true);
-                          setSelectedDownloadDate(dayjs()); // Set default to current date
-                        }}
-                        startIcon={<CheckCircle className="w-4 h-4" />}
-                        disabled={downloadLoading}
-                        loading={downloadLoading}
-                      >
-                        Download Fund
-                      </Button>
-                    </div>
-                  ))}
+                {/* ✅ Fixed logic - show Download Fund button for approved requests in accountant view */}
+                {viewedSubmission.status === "approved" && (
+                  <div className="flex gap-3 order-0 sm:order-1">
+                    <Button
+                      type="button"
+                      variant="success"
+                      onClick={() => {
+                        setSubmissionToApprove(viewedSubmission);
+                        setShowDatePicker(true);
+                        setSelectedDownloadDate(dayjs());
+                      }}
+                      startIcon={<CheckCircle className="w-4 h-4" />}
+                      disabled={downloadLoading}
+                      loading={downloadLoading}
+                    >
+                      {viewedSubmission.status === "approved"
+                        ? "Download Fund"
+                        : "Update Liquidation"}
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}

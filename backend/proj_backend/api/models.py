@@ -594,10 +594,10 @@ class RequestManagement(models.Model):
             'is_future_month': self.request_monthyear > current_month_year if self.request_monthyear else False
         }
 
-    def get_audit_description(self, created=False, action='create'):
-        status_action = f"changed status to {self.status}" if action == 'update' and 'status' in getattr(
-            self, '_audit_changed_fields', []) else action
-        return f"{status_action.capitalize()} request {self.request_id}"
+    # def get_audit_description(self, created=False, action='create'):
+    #     status_action = f"changed status to {self.status}" if action == 'update' and 'status' in getattr(
+    #         self, '_audit_changed_fields', []) else action
+    #     return f"{status_action.capitalize()} request {self.request_id}"
 
 
 class RequestPriority(models.Model):

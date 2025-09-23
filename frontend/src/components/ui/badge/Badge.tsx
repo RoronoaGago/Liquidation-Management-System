@@ -2,7 +2,7 @@ type BadgeVariant = "light" | "solid";
 type BadgeSize = "sm" | "md";
 type BadgeColor =
   | "primary"
-  | "secondary" // <-- Add this line
+  | "secondary"
   | "success"
   | "error"
   | "warning"
@@ -11,13 +11,13 @@ type BadgeColor =
   | "dark";
 
 interface BadgeProps {
-  variant?: BadgeVariant; // Light or solid variant
-  size?: BadgeSize; // Badge size
-  color?: BadgeColor; // Badge color
-  startIcon?: React.ReactNode; // Icon at the start
-  endIcon?: React.ReactNode; // Icon at the end
-  children: React.ReactNode; // Badge content
-  className?: string; // <-- Add this line
+  variant?: BadgeVariant;
+  size?: BadgeSize;
+  color?: BadgeColor;
+  startIcon?: React.ReactNode;
+  endIcon?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
 }
 
 const Badge: React.FC<BadgeProps> = ({
@@ -27,47 +27,45 @@ const Badge: React.FC<BadgeProps> = ({
   startIcon,
   endIcon,
   children,
-  className, // <-- Add this line
+  className,
 }) => {
   const baseStyles =
     "inline-flex items-center px-2.5 py-0.5 justify-center gap-1 rounded-full font-medium capitalize";
 
-  // Define size styles
   const sizeStyles = {
-    sm: "text-theme-xs", // Smaller padding and font size
-    md: "text-sm", // Default padding and font size
+    sm: "text-theme-xs",
+    md: "text-sm",
   };
 
-  // Define color styles for variants
+  // Complete color styles for all variants
   const variants = {
     light: {
       primary:
         "bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400",
       secondary:
-        "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200", // <-- Add this line
+        "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
       success:
         "bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500",
       error:
         "bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500",
       warning:
         "bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-orange-400",
-      info: "bg-blue-light-50 text-blue-light-500 dark:bg-blue-light-500/15 dark:text-blue-light-500",
+      info: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400", // Added missing info variant
       light: "bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80",
       dark: "bg-gray-500 text-white dark:bg-white/5 dark:text-white",
     },
     solid: {
       primary: "bg-brand-500 text-white dark:text-white",
-      secondary: "bg-gray-600 text-white dark:bg-gray-400 dark:text-gray-900", // <-- Add this line
+      secondary: "bg-gray-600 text-white dark:bg-gray-400 dark:text-gray-900",
       success: "bg-success-500 text-white dark:text-white",
       error: "bg-error-500 text-white dark:text-white",
       warning: "bg-warning-500 text-white dark:text-white",
-      info: "bg-blue-light-500 text-white dark:text-white",
+      info: "bg-blue-500 text-white dark:text-white", // Added missing info variant
       light: "bg-gray-400 dark:bg-white/5 text-white dark:text-white/80",
       dark: "bg-gray-700 text-white dark:text-white",
     },
   };
 
-  // Get styles based on size and color variant
   const sizeClass = sizeStyles[size];
   const colorStyles = variants[variant][color];
 
