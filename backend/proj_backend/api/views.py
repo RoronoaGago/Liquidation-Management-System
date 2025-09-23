@@ -3196,43 +3196,57 @@ def initiate_restore(request):
                         try:
                             sid = transaction.savepoint()
 
-                            # Special handling for User to resolve by unique email
+                            # Special handling for User to resolve by unique email and preserve PKs
                             if model.__name__ == 'User':
-                                email = getattr(obj.object, 'email', None)
-                                if email:
-                                    try:
-                                        existing = model.objects.get(email=email)
-                                        # Keep existing PK; update non-PK fields
+                                incoming_pk = getattr(obj.object, 'pk', None)
+                                incoming_email = getattr(obj.object, 'email', None)
+
+                                existing_by_pk = None
+                                if incoming_pk is not None:
+                                    existing_by_pk = model.objects.filter(pk=incoming_pk).first()
+
+                                existing_by_email = None
+                                if incoming_email:
+                                    existing_by_email = model.objects.filter(email=incoming_email).first()
+
+                                # Case 1: Row with same PK exists -> update it, but avoid email collisions
+                                if existing_by_pk is not None:
+                                    if incoming_email and model.objects.filter(email=incoming_email).exclude(pk=existing_by_pk.pk).exists():
+                                        # Email belongs to a different user; do not change email
+                                        for field in obj.object._meta.fields:
+                                            if field.primary_key or field.name == 'email':
+                                                continue
+                                            setattr(existing_by_pk, field.name, getattr(obj.object, field.name))
+                                    else:
+                                        # Safe to update all non-PK fields including email
                                         for field in obj.object._meta.fields:
                                             if field.primary_key:
                                                 continue
-                                            setattr(existing, field.name, getattr(obj.object, field.name))
-                                        existing.save()
-                                        logger.info(f"Updated existing {model_name} by email: {email}")
-                                    except model.DoesNotExist:
-                                        # If PK is free, create with provided PK; else create without specifying PK
-                                        if not model.objects.filter(pk=obj.object.pk).exists():
+                                            setattr(existing_by_pk, field.name, getattr(obj.object, field.name))
+                                    existing_by_pk.save()
+                                    logger.info(f"Updated existing {model_name} by pk: {existing_by_pk.pk}")
+
+                                # Case 2: No row with same PK
+                                else:
+                                    if existing_by_email is not None:
+                                        # Update the user found by email without changing its email or pk
+                                        for field in obj.object._meta.fields:
+                                            if field.primary_key or field.name == 'email':
+                                                continue
+                                            setattr(existing_by_email, field.name, getattr(obj.object, field.name))
+                                        existing_by_email.save()
+                                        logger.info(f"Updated existing {model_name} by email: {existing_by_email.email}")
+                                    else:
+                                        # Create a new user; use incoming PK if it is free and not None
+                                        if incoming_pk is not None and not model.objects.filter(pk=incoming_pk).exists():
                                             obj.save()
+                                            logger.info(f"Created new {model_name} with pk: {incoming_pk}")
                                         else:
-                                            # Create without forcing PK
                                             data_dict = obj.object.__dict__.copy()
                                             data_dict.pop('id', None)
                                             data_dict.pop('_state', None)
-                                            model.objects.create(**data_dict)
-                                        logger.info(f"Created new {model_name}: {email}")
-                                else:
-                                    # Fallback to default behavior
-                                    if model.objects.filter(pk=obj.object.pk).exists():
-                                        existing = model.objects.get(pk=obj.object.pk)
-                                        for field in obj.object._meta.fields:
-                                            if field.primary_key:
-                                                continue
-                                            setattr(existing, field.name, getattr(obj.object, field.name))
-                                        existing.save()
-                                        logger.info(f"Updated existing {model_name}: {obj.object.pk}")
-                                    else:
-                                        obj.save()
-                                        logger.info(f"Created new {model_name}: {obj.object.pk}")
+                                            created = model.objects.create(**data_dict)
+                                            logger.info(f"Created new {model_name} with pk: {created.pk}")
                             else:
                                 # Generic upsert by PK
                                 if model.objects.filter(pk=obj.object.pk).exists():
@@ -3244,7 +3258,14 @@ def initiate_restore(request):
                                     existing.save()
                                     logger.info(f"Updated existing {model_name}: {obj.object.pk}")
                                 else:
-                                    obj.save()
+                                    # Try to create with specified PK; if it fails due to auto fields, drop id
+                                    try:
+                                        obj.save()
+                                    except IntegrityError:
+                                        data_dict = obj.object.__dict__.copy()
+                                        data_dict.pop('id', None)
+                                        data_dict.pop('_state', None)
+                                        model.objects.create(**data_dict)
                                     logger.info(f"Created new {model_name}: {obj.object.pk}")
 
                             transaction.savepoint_commit(sid)
