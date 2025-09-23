@@ -3119,6 +3119,9 @@ def initiate_restore(request):
     current_user_id = request.user.id
     current_user_email = request.user.email
 
+    # Conflict handling strategies for User restores
+    user_conflict_mode = request.data.get('user_conflict', 'update')  # update | skip | error
+
     # Require explicit confirmation
     if not request.data.get("confirm_wipe", False):
         return Response(
@@ -3194,7 +3197,7 @@ def initiate_restore(request):
                     objects = []
                     for obj in django_serializers.deserialize("json", data):
                         try:
-                            sid = transaction.savepoint()
+                            with transaction.atomic():
 
                             # Special handling for User to resolve by unique email and preserve PKs
                             if model.__name__ == 'User':
@@ -3209,20 +3212,26 @@ def initiate_restore(request):
                                 if incoming_email:
                                     existing_by_email = model.objects.filter(email=incoming_email).first()
 
+                                # Build field dict from deserialized object
+                                field_values = {}
+                                for field in obj.object._meta.fields:
+                                    if field.primary_key:
+                                        continue
+                                    field_values[field.name] = getattr(obj.object, field.name)
+
                                 # Case 1: Row with same PK exists -> update it, but avoid email collisions
                                 if existing_by_pk is not None:
+                                    # If email would collide with another account
                                     if incoming_email and model.objects.filter(email=incoming_email).exclude(pk=existing_by_pk.pk).exists():
-                                        # Email belongs to a different user; do not change email
-                                        for field in obj.object._meta.fields:
-                                            if field.primary_key or field.name == 'email':
-                                                continue
-                                            setattr(existing_by_pk, field.name, getattr(obj.object, field.name))
-                                    else:
-                                        # Safe to update all non-PK fields including email
-                                        for field in obj.object._meta.fields:
-                                            if field.primary_key:
-                                                continue
-                                            setattr(existing_by_pk, field.name, getattr(obj.object, field.name))
+                                        if user_conflict_mode == 'error':
+                                            raise IntegrityError(f"Email conflict for user pk={existing_by_pk.pk}, email={incoming_email}")
+                                        if user_conflict_mode == 'skip':
+                                            logger.info(f"Skipped updating {model_name} pk={existing_by_pk.pk} due to email conflict")
+                                            continue
+                                        # update mode: do not change email
+                                        field_values.pop('email', None)
+                                    for name, value in field_values.items():
+                                        setattr(existing_by_pk, name, value)
                                     existing_by_pk.save()
                                     logger.info(f"Updated existing {model_name} by pk: {existing_by_pk.pk}")
 
@@ -3230,23 +3239,38 @@ def initiate_restore(request):
                                 else:
                                     if existing_by_email is not None:
                                         # Update the user found by email without changing its email or pk
-                                        for field in obj.object._meta.fields:
-                                            if field.primary_key or field.name == 'email':
-                                                continue
-                                            setattr(existing_by_email, field.name, getattr(obj.object, field.name))
+                                        if user_conflict_mode == 'error' and existing_by_email.pk != incoming_pk:
+                                            raise IntegrityError(f"Email conflict for incoming pk={incoming_pk}, email={incoming_email}")
+                                        if user_conflict_mode == 'skip' and existing_by_email.pk != incoming_pk:
+                                            logger.info(f"Skipped updating {model_name} email={existing_by_email.email} due to email conflict")
+                                            continue
+                                        field_values.pop('email', None)
+                                        for name, value in field_values.items():
+                                            setattr(existing_by_email, name, value)
                                         existing_by_email.save()
                                         logger.info(f"Updated existing {model_name} by email: {existing_by_email.email}")
                                     else:
                                         # Create a new user; use incoming PK if it is free and not None
                                         if incoming_pk is not None and not model.objects.filter(pk=incoming_pk).exists():
-                                            obj.save()
+                                            # Create directly with provided pk
+                                            create_values = field_values.copy()
+                                            create_values['id'] = incoming_pk
+                                            instance = model.objects.create(**create_values)
                                             logger.info(f"Created new {model_name} with pk: {incoming_pk}")
                                         else:
-                                            data_dict = obj.object.__dict__.copy()
-                                            data_dict.pop('id', None)
-                                            data_dict.pop('_state', None)
-                                            created = model.objects.create(**data_dict)
+                                            create_values = field_values.copy()
+                                            created = model.objects.create(**create_values)
                                             logger.info(f"Created new {model_name} with pk: {created.pk}")
+
+                                # Apply m2m data for User if present (e.g., groups, permissions)
+                                try:
+                                    instance = existing_by_pk or existing_by_email or locals().get('instance') or locals().get('created')
+                                    if instance is not None and hasattr(obj, 'm2m_data'):
+                                        for m2m_field, rel_vals in obj.m2m_data.items():
+                                            getattr(instance, m2m_field).set(rel_vals)
+                                except Exception as m2m_err:
+                                    logger.warning(f"Failed to restore m2m for {model_name}: {m2m_err}
+")
                             else:
                                 # Generic upsert by PK
                                 if model.objects.filter(pk=obj.object.pk).exists():
@@ -3268,14 +3292,10 @@ def initiate_restore(request):
                                         model.objects.create(**data_dict)
                                     logger.info(f"Created new {model_name}: {obj.object.pk}")
 
-                            transaction.savepoint_commit(sid)
-
                             objects.append(obj)
                         except IntegrityError as e:
-                            transaction.savepoint_rollback(sid)
                             logger.warning(f"Integrity error restoring {model_name} {getattr(obj.object, 'pk', 'unknown')}: {e}")
                         except Exception as e:
-                            transaction.savepoint_rollback(sid)
                             logger.warning(f"Failed to restore {model_name} object {getattr(obj.object, 'pk', 'unknown')}: {e}")
 
                     restored_counts[model_name] = len(objects)
