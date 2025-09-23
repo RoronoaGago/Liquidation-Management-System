@@ -873,7 +873,7 @@ class NumberedCanvas(canvas.Canvas):
         self._startPage()
 
     def save(self):
-        """Add page numbering to each page"""
+        """Add page numbering and headers/footers to each page"""
         num_pages = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
@@ -883,7 +883,10 @@ class NumberedCanvas(canvas.Canvas):
 
     def draw_header_footer(self, page_count):
         """Draw header and footer on each page"""
-        # Draw header
+        # Save current state
+        self.saveState()
+        
+        # Draw header (position from top of page)
         self.setFont("Helvetica-Bold", 10)
         self.drawString(72, 800, "Republic of the Philippines")
         self.setFont("Helvetica-Bold", 12)
@@ -895,11 +898,12 @@ class NumberedCanvas(canvas.Canvas):
         # Draw horizontal line
         self.line(72, 745, 540, 745)
         
-        # Draw footer with page number if needed
-        if page_count > 1:
-            self.setFont("Helvetica", 8)
-            self.drawRightString(540, 30, f"Page {self._pageNumber} of {page_count}")
-
+        # Draw footer with page number
+        self.setFont("Helvetica", 8)
+        self.drawRightString(540, 30, f"Page {self._pageNumber} of {page_count}")
+        
+        # Restore state
+        self.restoreState()
 
 class DemandLetterGenerator(PDFGenerator):
     """Handles Demand Letter PDF generation matching the exact specifications"""
@@ -1204,14 +1208,6 @@ class DemandLetterGenerator(PDFGenerator):
             # Build the PDF content
             story = []
 
-            # Add official header
-            try:
-                story.extend(self._create_official_header())
-                logger.debug("Official header created successfully")
-            except Exception as e:
-                logger.error(f"Error creating official header: {e}")
-                story.append(Paragraph("DEPARTMENT OF EDUCATION", self.styles['HeaderDepartment']))
-
             # Add date (empty field as in template)
             current_date = datetime.now().strftime("%B %d, %Y")
             story.append(Paragraph(f"DATE: _________________________", self.styles['DemandBodyLeft']))
@@ -1354,15 +1350,11 @@ class DemandLetterGenerator(PDFGenerator):
 
             # Add official footer
             story.append(PageBreak())
-            try:
-                story.extend(self._create_official_footer())
-                logger.debug("Official footer created successfully")
-            except Exception as e:
-                logger.error(f"Error creating official footer: {e}")
+            
 
             # Build the PDF
             logger.debug("Building professional Demand Letter PDF...")
-            doc.build(story)
+            doc.build(story, canvasmaker=NumberedCanvas)
 
             # Get the PDF content
             pdf_content = buffer.getvalue()
@@ -1374,8 +1366,6 @@ class DemandLetterGenerator(PDFGenerator):
         except Exception as e:
             logger.error(f"Critical error generating professional Demand Letter PDF: {e}")
             logger.error(f"Error type: {type(e).__name__}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
 
     def _create_professional_unliquidated_table(self, unliquidated_data):
