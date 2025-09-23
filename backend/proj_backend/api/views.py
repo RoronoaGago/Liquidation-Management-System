@@ -28,6 +28,7 @@ from django.contrib.auth import update_session_auth_hash
 import string
 from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
+from django.db import IntegrityError
 import logging
 from rest_framework import serializers
 from django.core import serializers as django_serializers
@@ -3063,6 +3064,9 @@ def initiate_restore(request):
 
         # NEW APPROACH: Use smaller transactions per model instead of one giant transaction
         restored_counts = {}
+        file_record_counts = {}
+        critical_failures = {}
+        critical_models = {"SchoolDistrict", "Requirement", "ListOfPriority", "School"}
         errors = []
 
         try:
@@ -3091,6 +3095,7 @@ def initiate_restore(request):
                         # DEBUG: Check the structure of the serialized data
                         import json
                         parsed_data = json.loads(data)
+                        file_record_counts[model_name] = len(parsed_data) if isinstance(parsed_data, list) else 0
                         if parsed_data:
                             logger.info(
                                 f"First object structure: {list(parsed_data[0].keys())}")
@@ -3261,17 +3266,24 @@ def initiate_restore(request):
                                         f"Created {model_name} with auto PK after integrity error")
                                 except Exception as e2:
                                     logger.error(
-                                        f"Failed to restore {model_name} object: {e2}")
+                                        f"Failed to restore {model_name} object (pk={getattr(obj.object, 'pk', None)}): {e2}")
                                     errors.append(
                                         f"{model_name} object: {str(e2)}")
                             except Exception as e:
                                 logger.error(
-                                    f"Error restoring {model_name} object: {e}")
-                                errors.append(f"{model_name} object: {str(e)}")
+                                    f"Error restoring {model_name} object (pk={getattr(obj.object, 'pk', None)}): {e}")
+                                errors.append(f"{model_name} object (pk={getattr(obj.object, 'pk', None)}): {str(e)}")
 
                         restored_counts[model_name] = objects_processed
                         logger.info(
                             f"Successfully processed {objects_processed} {model_name} records")
+
+                        # Flag critical failure if a critical model had data in file but restored zero
+                        if model_name in critical_models and file_record_counts.get(model_name, 0) > 0 and objects_processed == 0:
+                            critical_failures[model_name] = {
+                                'file_records': file_record_counts.get(model_name, 0),
+                                'restored': 0
+                            }
 
                 except Exception as model_error:
                     logger.error(
@@ -3295,6 +3307,17 @@ def initiate_restore(request):
             # Cleanup temporary files
             if temp_dir and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
+
+            # If any critical models failed to restore, return 500 with details
+            if critical_failures:
+                response_data = {
+                    "detail": "Restore failed for critical models",
+                    "critical_failures": critical_failures,
+                    "summary": restored_counts,
+                    "warnings": errors,
+                    "auto_login": False
+                }
+                return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             # Try to maintain user session
             try:
