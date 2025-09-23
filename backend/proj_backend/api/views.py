@@ -3112,7 +3112,9 @@ def initiate_restore(request):
                                 # SPECIAL HANDLING FOR USER MODEL - IMPROVED VERSION
                                 # SPECIAL HANDLING FOR USER MODEL - FIXED VERSION
                                 if model.__name__ == 'User':
-                                    email = getattr(obj.object, 'email', None)
+                                    # Use a savepoint to prevent breaking the whole transaction
+                                    with transaction.atomic():
+                                        email = getattr(obj.object, 'email', None)
                                     # Get the PK from serialized data - handle empty string case
                                     original_pk = getattr(obj, 'pk', None)
 
@@ -3202,55 +3204,72 @@ def initiate_restore(request):
                                                 f"Integrity error for user {email}: {e}")
                                             # Try fallback creation without PK
                                             try:
-                                                user_data = obj.object.__dict__.copy()
-                                                user_data.pop('_state', None)
-                                                # Remove PK to avoid conflict
-                                                user_data.pop('id', None)
+                                                with transaction.atomic():
+                                                    user_data = obj.object.__dict__.copy()
+                                                    user_data.pop('_state', None)
+                                                    # Remove PK to avoid conflict
+                                                    user_data.pop('id', None)
 
-                                                password = user_data.pop(
-                                                    'password', None)
-                                                new_user = model(**user_data)
-                                                if password:
-                                                    new_user.set_password(
-                                                        password)
-                                                new_user.save()
-                                                objects_processed += 1
-                                                logger.info(
-                                                    f"Created user with auto-generated PK: {email}")
+                                                    password = user_data.pop(
+                                                            'password', None)
+                                                    new_user = model(**user_data)
+                                                    if password:
+                                                        new_user.set_password(
+                                                                password)
+                                                        new_user.save()
+                                                        objects_processed += 1
+                                                        logger.info(
+                                                            f"Created user with auto-generated PK: {email}")
                                             except Exception as fallback_error:
                                                 logger.error(
-                                                    f"Fallback creation failed for {email}: {fallback_error}")
+                                                        f"Fallback creation failed for {email}: {fallback_error}")
                                                 errors.append(
-                                                    f"User {email}: {str(fallback_error)}")
+                                                        f"User {email}: {str(fallback_error)}")
 
                                     else:
                                         # User without email - handle carefully
                                         logger.warning(
                                             "User without email found in backup")
                                         try:
-                                            user_data = obj.object.__dict__.copy()
-                                            user_data.pop('_state', None)
+                                            with transaction.atomic():
+                                                user_data = obj.object.__dict__.copy()
+                                                user_data.pop('_state', None)
 
-                                            # Only use PK if it's valid
-                                            if is_valid_pk and not model.objects.filter(pk=original_pk).exists():
-                                                user_data['id'] = original_pk
-                                            else:
-                                                user_data.pop('id', None)
+                                                # Only use PK if it's valid
+                                                if is_valid_pk and not model.objects.filter(pk=original_pk).exists():
+                                                    user_data['id'] = original_pk
+                                                else:
+                                                    user_data.pop('id', None)
 
-                                            password = user_data.pop(
-                                                'password', None)
-                                            new_user = model(**user_data)
-                                            if password:
-                                                new_user.set_password(password)
-                                            new_user.save()
-                                            objects_processed += 1
-                                            logger.info(
-                                                "Created user without email with auto-generated PK")
+                                                password = user_data.pop(
+                                                    'password', None)
+                                                new_user = model(**user_data)
+                                                if password:
+                                                    new_user.set_password(password)
+                                                new_user.save()
+                                                objects_processed += 1
+                                                logger.info(
+                                                    "Created user without email with auto-generated PK")
                                         except Exception as no_email_error:
                                             logger.error(
                                                 f"Failed to create user without email: {no_email_error}")
                                             errors.append(
                                                 f"User without email: {str(no_email_error)}")
+                                else:
+                                    # Default path for non-User models via deserializer
+                                    try:
+                                        # Use a savepoint per object so one failure doesn't poison the batch
+                                        with transaction.atomic():
+                                            obj.save()
+                                            objects_processed += 1
+                                    except IntegrityError as e:
+                                        logger.error(
+                                            f"Integrity error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
+                                        errors.append(f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
+                                        errors.append(f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
 
                             except IntegrityError as e:
                                 logger.warning(
@@ -3412,6 +3431,7 @@ def initiate_restore(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
 
 
 @api_view(['GET'])
