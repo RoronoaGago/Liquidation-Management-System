@@ -414,7 +414,6 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         response = super().destroy(request, *args, **kwargs)
 
-
         return response
 
 
@@ -454,7 +453,6 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
 
         response = super().update(request, *args, **kwargs)
 
-
         return response
 
     def destroy(self, request, *args, **kwargs):
@@ -462,7 +460,6 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
         requirement_name = instance.requirementTitle
 
         response = super().destroy(request, *args, **kwargs)
-
 
         return response
 
@@ -504,8 +501,6 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 
         response = super().update(request, *args, **kwargs)
 
-        
-
         return response
 
     def destroy(self, request, *args, **kwargs):
@@ -513,7 +508,6 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
         priority_name = instance.expenseTitle
 
         response = super().destroy(request, *args, **kwargs)
-
 
         return response
 
@@ -761,7 +755,8 @@ class RejectRequestView(generics.UpdateAPIView):
         instance._old_status = instance.status  # CRITICAL: Track previous state
         instance._status_changed_by = request.user
         instance._skip_auto_status = True  # Add this line
-        instance._skip_signal_audit = True  # Avoid duplicate signal audit; manual business log below
+        # Avoid duplicate signal audit; manual business log below
+        instance._skip_signal_audit = True
 
         # Permission check
         if request.user.role not in ['admin', 'superintendent']:
@@ -1783,7 +1778,6 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 
         response = super().update(request, *args, **kwargs)
 
-        
         return response
 
     def destroy(self, request, *args, **kwargs):
@@ -1791,7 +1785,6 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
         district_name = f"{instance.districtName} ({instance.districtId})"
 
         response = super().destroy(request, *args, **kwargs)
-
 
         return response
 
@@ -2833,11 +2826,14 @@ def initiate_restore(request):
                                     # If password appears to be in plain text, hash and update
                                     try:
                                         if temp_password and not str(temp_password).startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
-                                            obj.object.set_password(temp_password)
+                                            obj.object.set_password(
+                                                temp_password)
                                             with transaction.atomic():
-                                                obj.object.save(update_fields=['password'])
+                                                obj.object.save(
+                                                    update_fields=['password'])
                                     except Exception as pw_error:
-                                        logger.warning(f"Password update failed for User pk={getattr(obj.object, 'pk', None)}: {pw_error}")
+                                        logger.warning(
+                                            f"Password update failed for User pk={getattr(obj.object, 'pk', None)}: {pw_error}")
                                 else:
                                     # Default path for non-User models via deserializer
                                     try:
@@ -2846,7 +2842,8 @@ def initiate_restore(request):
                                             obj.save()
                                             objects_processed += 1
                                     except IntegrityError as e:
-                                        logger.error(f"Integrity error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
+                                        logger.error(
+                                            f"Integrity error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
                                         # Targeted FK fallbacks for known models
                                         fallback_applied = False
                                         try:
@@ -2855,7 +2852,8 @@ def initiate_restore(request):
                                                 for attr in ['reviewed_by', 'reviewed_by_district', 'reviewed_by_liquidator', 'reviewed_by_division']:
                                                     if hasattr(obj.object, attr):
                                                         try:
-                                                            setattr(obj.object, attr, None)
+                                                            setattr(
+                                                                obj.object, attr, None)
                                                             changed = True
                                                         except Exception:
                                                             pass
@@ -2866,7 +2864,8 @@ def initiate_restore(request):
                                                         fallback_applied = True
                                             elif model_name == 'Backup':
                                                 if hasattr(obj.object, 'initiated_by'):
-                                                    setattr(obj.object, 'initiated_by', None)
+                                                    setattr(
+                                                        obj.object, 'initiated_by', None)
                                                     with transaction.atomic():
                                                         obj.save()
                                                         objects_processed += 1
@@ -2874,10 +2873,12 @@ def initiate_restore(request):
                                             elif model_name == 'Notification':
                                                 changed = False
                                                 if hasattr(obj.object, 'sender'):
-                                                    setattr(obj.object, 'sender', None)
+                                                    setattr(
+                                                        obj.object, 'sender', None)
                                                     changed = True
                                                 if hasattr(obj.object, 'receiver'):
-                                                    setattr(obj.object, 'receiver', None)
+                                                    setattr(
+                                                        obj.object, 'receiver', None)
                                                     changed = True
                                                 if changed:
                                                     with transaction.atomic():
@@ -2886,13 +2887,16 @@ def initiate_restore(request):
                                                         fallback_applied = True
                                             elif model_name in ['GeneratedPDF', 'LiquidationManagement', 'LiquidationDocument']:
                                                 # Skip if parent FK missing; these depend on RequestManagement/Liquidation
-                                                logger.warning(f"Skipping {model_name} due to missing parent FK (pk={getattr(obj, 'pk', None)})")
+                                                logger.warning(
+                                                    f"Skipping {model_name} due to missing parent FK (pk={getattr(obj, 'pk', None)})")
                                                 fallback_applied = True  # treat as handled to avoid double-counting
                                         except Exception as fb_err:
-                                            logger.warning(f"Fallback failed for {model_name} (pk={getattr(obj, 'pk', None)}): {fb_err}")
+                                            logger.warning(
+                                                f"Fallback failed for {model_name} (pk={getattr(obj, 'pk', None)}): {fb_err}")
 
                                         if not fallback_applied:
-                                            errors.append(f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
+                                            errors.append(
+                                                f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
                                     except Exception as e:
                                         logger.error(
                                             f"Error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
