@@ -59,6 +59,7 @@ from django.http import HttpResponse
 from decimal import Decimal
 from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
+import json
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
 from .unliquidated_requests_report_utils import (
     AgingReportPagination,
@@ -3066,7 +3067,7 @@ def initiate_restore(request):
                 except Exception as e:
                     logger.warning(f"Could not clear {model.__name__}: {e}")
 
-        # Now restore data in correct order with proper transaction handling
+        # Now restore data in correct order with enhanced logging and per-object handling
         if os.path.exists(data_dir):
             for model, model_name in MODEL_BACKUP_ORDER:
                 file_path = os.path.join(data_dir, f"{model_name}.json")
@@ -3074,56 +3075,97 @@ def initiate_restore(request):
                     logger.warning(f"Backup file not found: {file_path}")
                     continue
 
+                logger.info(f"Restoring {model_name} from {file_path}")
+
+                # Read raw file once
                 try:
-                    logger.info(f"Loading {model_name} from {file_path}")
-
-                    # Use Django's serializers with transaction for each model
-                    with transaction.atomic():
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            data = f.read()
-
-                        # Deserialize and save objects
-                        objects = []
-                        for obj in serializers.deserialize("json", data):
-                            # Special handling for User model passwords
-                            if model_name == 'User' and hasattr(obj.object, 'password'):
-                                # Save the password temporarily
-                                temp_password = obj.object.password
-                                obj.object.password = ''  # Clear temporarily
-                                obj.save()
-
-                                # Now set the password properly
-                                if temp_password:
-                                    if not temp_password.startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
-                                        # If it's plain text, hash it
-                                        obj.object.set_password(temp_password)
-                                    else:
-                                        # If already hashed, set directly
-                                        obj.object.password = temp_password
-                                    obj.object.save(update_fields=['password'])
-                            else:
-                                obj.save()
-
-                            objects.append(obj)
-
-                        logger.info(
-                            f"Successfully loaded {len(objects)} {model_name} records")
-
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        raw_data = f.read()
                 except Exception as e:
-                    logger.error(
-                        f"Error loading data from {model_name}.json: {e}")
-                    # If it's a critical model, abort the restore
+                    logger.error(f"Failed reading {file_path}: {e}")
                     if model_name in ['SchoolDistrict', 'School', 'User']:
                         if temp_dir and os.path.exists(temp_dir):
                             shutil.rmtree(temp_dir, ignore_errors=True)
                         return Response(
-                            {"detail": f"Restore failed on critical model {model_name}: {str(e)}"},
+                            {"detail": f"Restore failed reading {model_name}.json: {str(e)}"},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR
                         )
-                    # Continue with other models for less critical errors
-                    logger.warning(
-                        f"Continuing restore despite error in {model_name}")
                     continue
+
+                # Peek at first object structure for debugging
+                first_obj = None
+                total_in_file = 0
+                try:
+                    parsed = json.loads(raw_data)
+                    if isinstance(parsed, list) and parsed:
+                        first_obj = parsed[0]
+                        total_in_file = len(parsed)
+                        logger.info(
+                            f"First object structure for {model_name}: {list(first_obj.keys())}")
+                        logger.info(
+                            f"First PK for {model_name}: {first_obj.get('pk', 'N/A')}")
+                except Exception as e:
+                    logger.warning(f"Could not parse JSON for debug on {model_name}: {e}")
+
+                saved_count = 0
+                error_count = 0
+
+                # Deserialize stream and save each object independently
+                for obj in serializers.deserialize("json", raw_data, ignorenonexistent=True):
+                    try:
+                        # Special handling for User passwords
+                        if model_name == 'User' and hasattr(obj.object, 'password'):
+                            temp_password = obj.object.password
+                            # Save base object first
+                            obj.object.password = ''
+                            with transaction.atomic():
+                                obj.save()
+
+                            # Then update password correctly
+                            if temp_password:
+                                if not str(temp_password).startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
+                                    obj.object.set_password(temp_password)
+                                else:
+                                    obj.object.password = temp_password
+                                with transaction.atomic():
+                                    obj.object.save(update_fields=['password'])
+                        else:
+                            with transaction.atomic():
+                                obj.save()
+
+                        saved_count += 1
+                    except Exception as e:
+                        error_count += 1
+                        try:
+                            # Best-effort primary key for logging
+                            pk_val = None
+                            if hasattr(obj, 'object') and hasattr(obj.object, 'pk'):
+                                pk_val = obj.object.pk
+                        except Exception:
+                            pk_val = None
+                        logger.error(
+                            f"Failed to save {model_name} object (pk={pk_val}): {e}",
+                            exc_info=True
+                        )
+                        # Continue to next object without aborting the whole model
+                        continue
+
+                logger.info(
+                    f"Processed {model_name}: saved={saved_count}, errors={error_count}, total_in_file={total_in_file}")
+
+                # Treat critical models as failures if zero saved and file had entries
+                if model_name in ['SchoolDistrict', 'School', 'User'] and total_in_file > 0 and saved_count == 0:
+                    if temp_dir and os.path.exists(temp_dir):
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                    return Response(
+                        {
+                            "detail": f"Restore failed for critical model {model_name}: 0 of {total_in_file} records saved",
+                            "model": model_name,
+                            "saved": saved_count,
+                            "errors": error_count
+                        },
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
         # Restore media files
         if os.path.exists(media_dir):
