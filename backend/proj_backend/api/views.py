@@ -267,6 +267,15 @@ def user_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
+        # Store old values before updating
+        old_values = {}
+        for field in user._meta.fields:
+            field_name = field.name
+            if field_name in ['password', 'last_login', 'otp_code']:
+                continue
+            old_values[field_name] = str(getattr(user, field_name)) if getattr(
+                user, field_name) is not None else None
+
         # Prevent non-admins from making users admins
         if (request.data.get('role') == 'admin' and
             not request.user.is_superuser and
@@ -282,11 +291,29 @@ def user_detail(request, pk):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if sensitive fields were modified
-        sensitive_fields = ['email',  'password', 'role']
+        sensitive_fields = ['email', 'password', 'role']
         needs_new_token = any(
             field in request.data for field in sensitive_fields)
 
         serializer.save()
+
+        # Get new values after saving
+        new_values = {}
+        for field in user._meta.fields:
+            field_name = field.name
+            if field_name in ['password', 'last_login', 'otp_code']:
+                continue
+            new_values[field_name] = str(getattr(user, field_name)) if getattr(
+                user, field_name) is not None else None
+
+        # Filter out unchanged values
+        changed_old_values = {}
+        changed_new_values = {}
+        for field_name in old_values:
+            if old_values.get(field_name) != new_values.get(field_name):
+                changed_old_values[field_name] = old_values[field_name]
+                changed_new_values[field_name] = new_values[field_name]
+
         from .audit_utils import log_audit_event
         log_audit_event(
             request=request,
@@ -295,7 +322,9 @@ def user_detail(request, pk):
             description=f"Updated user {user.get_full_name()}",
             object_id=user.pk,
             object_type='User',
-            object_name=user.get_full_name()
+            object_name=user.get_full_name(),
+            old_values=changed_old_values if changed_old_values else None,
+            new_values=changed_new_values if changed_new_values else None
         )
 
         response_data = serializer.data
@@ -483,12 +512,41 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         instance = self.get_object()
         old_is_active = instance.is_active
 
+        # Store old values before updating
+        old_values = {}
+        for field in instance._meta.fields:
+            field_name = field.name
+            if field_name in ['created_at', 'updated_at']:  # Skip auto fields
+                continue
+            old_values[field_name] = str(getattr(instance, field_name)) if getattr(
+                instance, field_name) is not None else None
+
         response = super().update(request, *args, **kwargs)
 
         if response.status_code == status.HTTP_200_OK:
+            # Refresh instance to get new values
+            instance.refresh_from_db()
+            new_is_active = instance.is_active
+
+            # Get new values after saving
+            new_values = {}
+            for field in instance._meta.fields:
+                field_name = field.name
+                if field_name in ['created_at', 'updated_at']:
+                    continue
+                new_values[field_name] = str(getattr(instance, field_name)) if getattr(
+                    instance, field_name) is not None else None
+
+            # Filter out unchanged values
+            changed_old_values = {}
+            changed_new_values = {}
+            for field_name in old_values:
+                if old_values.get(field_name) != new_values.get(field_name):
+                    changed_old_values[field_name] = old_values[field_name]
+                    changed_new_values[field_name] = new_values[field_name]
+
             # Log audit for update
             from .audit_utils import log_audit_event
-            new_is_active = instance.is_active
 
             # Determine action type
             action = 'update'
@@ -504,28 +562,9 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                 description=f"{action.capitalize()} school {instance.schoolName} ({instance.schoolId})",
                 object_id=instance.schoolId,
                 object_type='School',
-                object_name=f"{instance.schoolName} ({instance.schoolId})"
-            )
-
-        return response
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        school_name = f"{instance.schoolName} ({instance.schoolId})"
-
-        response = super().destroy(request, *args, **kwargs)
-
-        if response.status_code == status.HTTP_204_NO_CONTENT:
-            # Log audit for deletion
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='archive',  # Treating delete as archive
-                module='school',
-                description=f"Deleted school {school_name}",
-                object_id=instance.schoolId,
-                object_type='School',
-                object_name=school_name
+                object_name=f"{instance.schoolName} ({instance.schoolId})",
+                old_values=changed_old_values if changed_old_values else None,
+                new_values=changed_new_values if changed_new_values else None
             )
 
         return response
@@ -590,12 +629,41 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
         instance = self.get_object()
         old_is_active = instance.is_active
 
+        # Store old values before updating
+        old_values = {}
+        for field in instance._meta.fields:
+            field_name = field.name
+            if field_name in ['created_at', 'updated_at']:
+                continue
+            old_values[field_name] = str(getattr(instance, field_name)) if getattr(
+                instance, field_name) is not None else None
+
         response = super().update(request, *args, **kwargs)
 
         if response.status_code == status.HTTP_200_OK:
+            # Refresh instance to get new values
+            instance.refresh_from_db()
+            new_is_active = instance.is_active
+
+            # Get new values after saving
+            new_values = {}
+            for field in instance._meta.fields:
+                field_name = field.name
+                if field_name in ['created_at', 'updated_at']:
+                    continue
+                new_values[field_name] = str(getattr(instance, field_name)) if getattr(
+                    instance, field_name) is not None else None
+
+            # Filter out unchanged values
+            changed_old_values = {}
+            changed_new_values = {}
+            for field_name in old_values:
+                if old_values.get(field_name) != new_values.get(field_name):
+                    changed_old_values[field_name] = old_values[field_name]
+                    changed_new_values[field_name] = new_values[field_name]
+
             # Log audit for update
             from .audit_utils import log_audit_event
-            new_is_active = instance.is_active
 
             # Determine action type
             action = 'update'
@@ -611,28 +679,9 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
                 description=f"{action.capitalize()} requirement {instance.requirementTitle}",
                 object_id=instance.requirementID,
                 object_type='Requirement',
-                object_name=instance.requirementTitle
-            )
-
-        return response
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        requirement_name = instance.requirementTitle
-
-        response = super().destroy(request, *args, **kwargs)
-
-        if response.status_code == status.HTTP_204_NO_CONTENT:
-            # Log audit for deletion
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='archive',  # Treating delete as archive
-                module='requirement',
-                description=f"Deleted requirement {requirement_name}",
-                object_id=instance.requirementID,
-                object_type='Requirement',
-                object_name=requirement_name
+                object_name=instance.requirementTitle,
+                old_values=changed_old_values if changed_old_values else None,
+                new_values=changed_new_values if changed_new_values else None
             )
 
         return response
@@ -698,12 +747,41 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
         instance = self.get_object()
         old_is_active = instance.is_active
 
+        # Store old values before updating
+        old_values = {}
+        for field in instance._meta.fields:
+            field_name = field.name
+            if field_name in ['created_at', 'updated_at']:
+                continue
+            old_values[field_name] = str(getattr(instance, field_name)) if getattr(
+                instance, field_name) is not None else None
+
         response = super().update(request, *args, **kwargs)
 
         if response.status_code == status.HTTP_200_OK:
+            # Refresh instance to get new values
+            instance.refresh_from_db()
+            new_is_active = instance.is_active
+
+            # Get new values after saving
+            new_values = {}
+            for field in instance._meta.fields:
+                field_name = field.name
+                if field_name in ['created_at', 'updated_at']:
+                    continue
+                new_values[field_name] = str(getattr(instance, field_name)) if getattr(
+                    instance, field_name) is not None else None
+
+            # Filter out unchanged values
+            changed_old_values = {}
+            changed_new_values = {}
+            for field_name in old_values:
+                if old_values.get(field_name) != new_values.get(field_name):
+                    changed_old_values[field_name] = old_values[field_name]
+                    changed_new_values[field_name] = new_values[field_name]
+
             # Log audit for update
             from .audit_utils import log_audit_event
-            new_is_active = instance.is_active
 
             # Determine action type
             action = 'update'
@@ -719,28 +797,9 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 description=f"{action.capitalize()} priority {instance.expenseTitle}",
                 object_id=instance.LOPID,
                 object_type='ListOfPriority',
-                object_name=instance.expenseTitle
-            )
-
-        return response
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        priority_name = instance.expenseTitle
-
-        response = super().destroy(request, *args, **kwargs)
-
-        if response.status_code == status.HTTP_204_NO_CONTENT:
-            # Log audit for deletion
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='archive',  # Treating delete as archive
-                module='priority',
-                description=f"Deleted priority {priority_name}",
-                object_id=instance.LOPID,
-                object_type='ListOfPriority',
-                object_name=priority_name
+                object_name=instance.expenseTitle,
+                old_values=changed_old_values if changed_old_values else None,
+                new_values=changed_new_values if changed_new_values else None
             )
 
         return response
@@ -2026,12 +2085,41 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
         instance = self.get_object()
         old_is_active = instance.is_active
 
+        # Store old values before updating
+        old_values = {}
+        for field in instance._meta.fields:
+            field_name = field.name
+            if field_name in ['created_at', 'updated_at']:
+                continue
+            old_values[field_name] = str(getattr(instance, field_name)) if getattr(
+                instance, field_name) is not None else None
+
         response = super().update(request, *args, **kwargs)
 
         if response.status_code == status.HTTP_200_OK:
+            # Refresh instance to get new values
+            instance.refresh_from_db()
+            new_is_active = instance.is_active
+
+            # Get new values after saving
+            new_values = {}
+            for field in instance._meta.fields:
+                field_name = field.name
+                if field_name in ['created_at', 'updated_at']:
+                    continue
+                new_values[field_name] = str(getattr(instance, field_name)) if getattr(
+                    instance, field_name) is not None else None
+
+            # Filter out unchanged values
+            changed_old_values = {}
+            changed_new_values = {}
+            for field_name in old_values:
+                if old_values.get(field_name) != new_values.get(field_name):
+                    changed_old_values[field_name] = old_values[field_name]
+                    changed_new_values[field_name] = new_values[field_name]
+
             # Log audit for update
             from .audit_utils import log_audit_event
-            new_is_active = instance.is_active
 
             # Determine action type
             action = 'update'
@@ -2047,28 +2135,9 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 description=f"{action.capitalize()} district {instance.districtName} ({instance.districtId})",
                 object_id=instance.districtId,
                 object_type='SchoolDistrict',
-                object_name=f"{instance.districtName} ({instance.districtId})"
-            )
-
-        return response
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        district_name = f"{instance.districtName} ({instance.districtId})"
-
-        response = super().destroy(request, *args, **kwargs)
-
-        if response.status_code == status.HTTP_204_NO_CONTENT:
-            # Log audit for deletion
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='archive',  # Treating delete as archive
-                module='district',
-                description=f"Deleted district {district_name}",
-                object_id=instance.districtId,
-                object_type='SchoolDistrict',
-                object_name=district_name
+                object_name=f"{instance.districtName} ({instance.districtId})",
+                old_values=changed_old_values if changed_old_values else None,
+                new_values=changed_new_values if changed_new_values else None
             )
 
         return response

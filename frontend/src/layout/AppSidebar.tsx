@@ -31,7 +31,8 @@ import {
   ClipboardCheckIcon,
   DatabaseBackupIcon,
   CalendarIcon,
-  FileIcon, // <-- Add this
+  FileIcon,
+  LogsIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AuditLogPage from "../pages/AuditLogPage";
@@ -190,7 +191,7 @@ const allNavItems: NavItem[] = [
     roles: ["admin"],
   },
   {
-    icon: <FileIcon />,
+    icon: <LogsIcon />,
     name: "Audit Logs",
     path: "/audit-logs",
     roles: ["admin"], // Only admins should access audit logs
