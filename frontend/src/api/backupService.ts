@@ -4,8 +4,6 @@ export type BackupRecord = {
   id: number;
   initiated_by: any;
   created_at: string;
-  base_path: string;
-  archive_path: string;
   format: 'json';
   include_media: boolean;
   status: 'pending' | 'success' | 'failed';
@@ -13,12 +11,25 @@ export type BackupRecord = {
   message?: string | null;
 };
 
-// backupService.ts - Update to match new API
+export type RestoreResponse = {
+  detail: string;
+  summary?: any;
+  auto_login: boolean;
+  tokens?: {
+    access: string;
+    refresh: string;
+  };
+  note?: string;
+};
+
 export async function initiateBackup(params: {
   include_media?: boolean;
 }) {
   try {
-    const { data } = await api.post<Blob>('/backup/', { format: 'json', ...params }, {
+    const { data } = await api.post<Blob>('/backup/', {
+      format: 'json',
+      ...params
+    }, {
       responseType: 'blob'
     });
     return data;
@@ -28,17 +39,22 @@ export async function initiateBackup(params: {
   }
 }
 
-export async function initiateRestore(file: File) {
+export async function initiateRestore(file: File, confirmWipe: boolean = true): Promise<RestoreResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('confirm_wipe', 'true');
+  formData.append('confirm_wipe', confirmWipe.toString());
 
-  const { data } = await api.post<{ detail: string }>('/restore/', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
-  return data;
+  try {
+    const { data } = await api.post<RestoreResponse>('/restore/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return data;
+  } catch (error: any) {
+    console.error('Restore error:', error.response?.data);
+    throw new Error(error.response?.data?.detail || 'Restore failed');
+  }
 }
 
 export async function listBackups() {

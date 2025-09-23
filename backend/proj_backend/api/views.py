@@ -2951,18 +2951,54 @@ MODEL_BACKUP_ORDER = [
     (LiquidationDocument, 'LiquidationDocument'),
 ]
 
+MODEL_BACKUP_ORDER = [
+    # Level 1: Independent models (no foreign keys)
+    (SchoolDistrict, 'SchoolDistrict'),
+    (Requirement, 'Requirement'),
+    (ListOfPriority, 'ListOfPriority'),
+
+    # Level 2: Depend on Level 1
+    (School, 'School'),  # Depends on SchoolDistrict
+    # Depends on ListOfPriority, Requirement
+    (PriorityRequirement, 'PriorityRequirement'),
+
+    # Level 3: Depend on Level 2
+    (User, 'User'),  # Depends on School, SchoolDistrict
+
+    # Level 4: Depend on Level 3
+    (RequestManagement, 'RequestManagement'),  # Depends on User
+    (Notification, 'Notification'),  # Depends on User
+    (Backup, 'Backup'),  # Depends on User
+    (AuditLog, 'AuditLog'),  # Depends on User
+
+    # Level 5: Depend on Level 4
+    # Depends on RequestManagement, ListOfPriority
+    (RequestPriority, 'RequestPriority'),
+    (GeneratedPDF, 'GeneratedPDF'),  # Depends on RequestManagement, User
+
+    # Level 6: Depend on Level 5
+    # Depends on RequestManagement
+    (LiquidationManagement, 'LiquidationManagement'),
+
+    # Level 7: Depend on Level 6
+    # Depends on LiquidationManagement, ListOfPriority
+    (LiquidationPriority, 'LiquidationPriority'),
+    # Depends on LiquidationManagement, RequestPriority, Requirement
+    (LiquidationDocument, 'LiquidationDocument'),
+]
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def initiate_backup(request):
     """
-    Generate a backup archive and return it as a downloadable file without storing on server.
+    Generate a backup archive with improved error handling.
     """
     try:
         format = request.data.get("format", "json")
         include_media = request.data.get("include_media", True)
 
-        # Create backup record in database (without file path storage)
+        # Create backup record
         backup = Backup.objects.create(
             initiated_by=request.user,
             format=format,
@@ -2971,78 +3007,85 @@ def initiate_backup(request):
         )
 
         # Create HTTP response with ZIP file
-        response = HttpResponse(
-            content_type='application/zip'
-        )
+        response = HttpResponse(content_type='application/zip')
         filename = f"backup_{backup.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.zip"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
-        # Create zip file in memory and write directly to response
         with zipfile.ZipFile(response, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            # Add database dump based on format
-            if format == "json":
-                # Export data as JSON using the explicit model order
-                for model, model_name in MODEL_BACKUP_ORDER:
-                    try:
-                        data = serializers.serialize(
-                            "json", model.objects.all())
-                        zipf.writestr(f"data/{model_name}.json", data)
-                        logger.info(
-                            f"Backed up {model_name}: {model.objects.all().count()} records")
-                    except Exception as e:
-                        logger.error(f"Failed to backup {model_name}: {e}")
-                        continue
+            # Add metadata
+            metadata = {
+                'created_at': timezone.now().isoformat(),
+                'created_by': request.user.email,
+                'format': format,
+                'include_media': include_media,
+                'model_versions': {}
+            }
 
-            elif format == "sql":
-                # Export SQL dump using Django dumpdata
-                from django.core.management import call_command
-                from io import StringIO
-
+            # Export data as JSON using the corrected model order
+            for model, model_name in MODEL_BACKUP_ORDER:
                 try:
-                    out = StringIO()
-                    call_command('dumpdata', stdout=out)
-                    zipf.writestr('database/dump.json', out.getvalue())
+                    # Use natural keys if available for better serialization
+                    data = serializers.serialize(
+                        "json",
+                        model.objects.all(),
+                        use_natural_foreign_keys=True,
+                        use_natural_primary_keys=True
+                    )
+                    zipf.writestr(f"data/{model_name}.json", data)
+
+                    # Store model version info
+                    metadata['model_versions'][model_name] = {
+                        'count': model.objects.all().count(),
+                        'exported_at': timezone.now().isoformat()
+                    }
+
+                    logger.info(
+                        f"Backed up {model_name}: {model.objects.all().count()} records")
                 except Exception as e:
-                    logger.error(f"SQL dump failed: {e}")
-                    # Fallback to JSON serialization
-                    out = StringIO()
-                    serializers.serialize(
-                        "json", User.objects.all(), stream=out)
-                    zipf.writestr('database/fallback_dump.json',
-                                  out.getvalue())
+                    logger.error(f"Failed to backup {model_name}: {e}")
+                    # Continue with other models instead of failing completely
+                    continue
+
+            # Add metadata file
+            zipf.writestr('metadata.json', json.dumps(metadata, indent=2))
 
             # Include media files if requested
             if include_media:
                 try:
                     media_root = settings.MEDIA_ROOT
                     if os.path.exists(media_root):
+                        media_files_added = 0
                         for root, dirs, files in os.walk(media_root):
                             for file in files:
+                                # Skip temporary and hidden files
+                                if file.startswith(('.', '~')) or file.endswith('.tmp'):
+                                    continue
+
                                 abs_path = os.path.join(root, file)
                                 rel_path = os.path.relpath(
                                     abs_path, media_root)
 
-                                # Skip temporary files and hidden files
-                                if file.startswith(('.', '~')):
-                                    continue
-
-                                # Read file content and add to zip
                                 try:
                                     with open(abs_path, 'rb') as f:
                                         file_content = f.read()
                                     zipf.writestr(
                                         f"media/{rel_path}", file_content)
+                                    media_files_added += 1
                                 except (IOError, OSError) as e:
                                     logger.warning(
                                         f"Could not read media file {abs_path}: {e}")
                                     continue
+
+                        logger.info(
+                            f"Added {media_files_added} media files to backup")
                     else:
                         logger.warning(
                             f"Media root {media_root} does not exist")
                 except Exception as e:
                     logger.error(f"Media backup failed: {e}")
+                    # Don't fail the entire backup if media fails
 
-        # Update backup record with success
+        # Update backup record
         backup.status = 'success'
         backup.file_size = len(response.content)
         backup.save()
@@ -3074,13 +3117,13 @@ def initiate_restore(request):
     current_user_id = request.user.id
     current_user_email = request.user.email
 
-    # Require explicit confirmation for data wipe
+    # Require explicit confirmation
     if not request.data.get("confirm_wipe", False):
         return Response(
             {
-                "detail": "Restore will wipe ALL current data and log out all users. "
+                "detail": "Restore will replace existing data. "
                 "Include 'confirm_wipe': true in your request to proceed.",
-                "warning": "This action cannot be undone. All current data will be permanently deleted."
+                "warning": "This action cannot be undone."
             },
             status=status.HTTP_400_BAD_REQUEST
         )
@@ -3114,142 +3157,136 @@ def initiate_restore(request):
         with zipfile.ZipFile(archive_path, "r") as zipf:
             zipf.extractall(temp_dir)
 
-        # Restore logic - use the SAME order as backup
+        # Restore logic
         data_dir = os.path.join(temp_dir, 'data')
-        media_dir = os.path.join(temp_dir, 'media')
 
-        # First, clear existing data to avoid conflicts
-        logger.warning("Clearing existing database data before restore...")
+        if not os.path.exists(data_dir):
+            return Response(
+                {"detail": "Backup file is corrupted or invalid"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Clear data in REVERSE dependency order to avoid FK constraints
+        # NEW APPROACH: Use transactions and handle conflicts gracefully
         with transaction.atomic():
-            # Reverse the backup order for safe deletion
-            models_to_clear = [model for model,
-                               name in reversed(MODEL_BACKUP_ORDER)]
-
-            for model in models_to_clear:
-                try:
-                    count = model.objects.all().count()
-                    model.objects.all().delete()
-                    logger.info(f"Cleared {count} {model.__name__} records")
-                except Exception as e:
-                    logger.warning(f"Could not clear {model.__name__}: {e}")
-
-        # Now restore data in correct order with proper transaction handling
-        if os.path.exists(data_dir):
+            # Step 1: Create a backup of current data (optional safety measure)
+            safety_backup = {}
             for model, model_name in MODEL_BACKUP_ORDER:
-                file_path = os.path.join(data_dir, f"{model_name}.json")
-                if not os.path.exists(file_path):
-                    logger.warning(f"Backup file not found: {file_path}")
-                    continue
+                safety_backup[model_name] = list(model.objects.all().values())
 
-                try:
-                    logger.info(f"Loading {model_name} from {file_path}")
+            try:
+                # Step 2: Restore data in correct order with conflict resolution
+                restored_counts = {}
 
-                    # Use Django's serializers with transaction for each model
-                    with transaction.atomic():
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            data = f.read()
+                for model, model_name in MODEL_BACKUP_ORDER:
+                    file_path = os.path.join(data_dir, f"{model_name}.json")
+                    if not os.path.exists(file_path):
+                        logger.warning(f"Backup file not found: {file_path}")
+                        continue
 
-                        # Deserialize and save objects
-                        objects = []
-                        for obj in serializers.deserialize("json", data):
-                            # Special handling for User model passwords
-                            if model_name == 'User' and hasattr(obj.object, 'password'):
-                                # Save the password temporarily
-                                temp_password = obj.object.password
-                                obj.object.password = ''  # Clear temporarily
-                                obj.save()
+                    logger.info(f"Restoring {model_name} from {file_path}")
 
-                                # Now set the password properly
-                                if temp_password:
-                                    if not temp_password.startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
-                                        # If it's plain text, hash it
-                                        obj.object.set_password(temp_password)
-                                    else:
-                                        # If already hashed, set directly
-                                        obj.object.password = temp_password
-                                    obj.object.save(update_fields=['password'])
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = f.read()
+
+                    # Use Django's deserializer
+                    objects = []
+                    for obj in serializers.deserialize("json", data):
+                        try:
+                            # Check if object already exists
+                            if model.objects.filter(pk=obj.object.pk).exists():
+                                # Update existing record
+                                existing = model.objects.get(pk=obj.object.pk)
+                                for field in obj.object._meta.fields:
+                                    if field.name not in ['id', 'pk'] and not field.primary_key:
+                                        setattr(existing, field.name, getattr(
+                                            obj.object, field.name))
+                                existing.save()
+                                logger.info(
+                                    f"Updated existing {model_name}: {obj.object.pk}")
                             else:
+                                # Create new record
                                 obj.save()
+                                logger.info(
+                                    f"Created new {model_name}: {obj.object.pk}")
 
                             objects.append(obj)
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to restore {model_name} object {getattr(obj.object, 'pk', 'unknown')}: {e}")
+                            continue
 
-                        logger.info(
-                            f"Successfully loaded {len(objects)} {model_name} records")
+                    restored_counts[model_name] = len(objects)
+                    logger.info(
+                        f"Successfully processed {len(objects)} {model_name} records")
 
-                except Exception as e:
+                # Step 3: Restore media files
+                media_dir = os.path.join(temp_dir, 'media')
+                if os.path.exists(media_dir):
+                    media_root = settings.MEDIA_ROOT
+                    for root, dirs, files in os.walk(media_dir):
+                        for file in files:
+                            src_path = os.path.join(root, file)
+                            rel_path = os.path.relpath(src_path, media_dir)
+                            dest_path = os.path.join(media_root, rel_path)
+
+                            os.makedirs(os.path.dirname(
+                                dest_path), exist_ok=True)
+                            shutil.copy2(src_path, dest_path)
+                            logger.info(f"Restored media file: {rel_path}")
+
+                # Cleanup temporary files
+                if temp_dir and os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+
+                # Try to maintain user session
+                try:
+                    restored_user = User.objects.get(email=current_user_email)
+                    refresh = RefreshToken.for_user(restored_user)
+
+                    return Response({
+                        "detail": f"Restore completed successfully from {file_obj.name}",
+                        "summary": restored_counts,
+                        "auto_login": True,
+                        "tokens": {
+                            "access": str(refresh.access_token),
+                            "refresh": str(refresh)
+                        }
+                    }, status=status.HTTP_200_OK)
+
+                except User.DoesNotExist:
+                    return Response({
+                        "detail": f"Restore completed successfully from {file_obj.name}",
+                        "summary": restored_counts,
+                        "auto_login": False,
+                        "note": "Please login with your credentials."
+                    }, status=status.HTTP_200_OK)
+
+            except Exception as restore_error:
+                # Restore failed - attempt to restore from safety backup
+                logger.error(
+                    f"Restore failed, attempting rollback: {restore_error}")
+
+                try:
+                    # Clear all data
+                    for model, model_name in reversed(MODEL_BACKUP_ORDER):
+                        model.objects.all().delete()
+
+                    # Restore from safety backup
+                    for model, model_name in MODEL_BACKUP_ORDER:
+                        if model_name in safety_backup:
+                            for obj_data in safety_backup[model_name]:
+                                try:
+                                    model.objects.create(**obj_data)
+                                except Exception as e:
+                                    logger.error(
+                                        f"Failed to restore {model_name} from safety backup: {e}")
+
+                    logger.info("Safety backup restored successfully")
+                except Exception as rollback_error:
                     logger.error(
-                        f"Error loading data from {model_name}.json: {e}")
-                    # If it's a critical model, abort the restore
-                    if model_name in ['SchoolDistrict', 'School', 'User']:
-                        if temp_dir and os.path.exists(temp_dir):
-                            shutil.rmtree(temp_dir, ignore_errors=True)
-                        return Response(
-                            {"detail": f"Restore failed on critical model {model_name}: {str(e)}"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                        )
-                    # Continue with other models for less critical errors
-                    logger.warning(
-                        f"Continuing restore despite error in {model_name}")
-                    continue
+                        f"Safety rollback also failed: {rollback_error}")
 
-        # Restore media files
-        if os.path.exists(media_dir):
-            media_root = settings.MEDIA_ROOT
-            for root, dirs, files in os.walk(media_dir):
-                for file in files:
-                    src_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(src_path, media_dir)
-                    dest_path = os.path.join(media_root, rel_path)
-
-                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-                    shutil.copy2(src_path, dest_path)
-                    logger.info(f"Restored media file: {rel_path}")
-
-        # Cleanup temporary files
-        if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-
-        # Enhanced UX: Try to auto-login the user if their account was restored
-        try:
-            restored_user = User.objects.get(email=current_user_email)
-            # Generate new tokens for the restored user
-            refresh = RefreshToken.for_user(restored_user)
-
-            logger.info(
-                f"Auto-login successful for user: {current_user_email}")
-            return Response(
-                {
-                    "detail": f"Restore completed successfully from {file_obj.name}",
-                    "auto_login": True,
-                    "user": {
-                        "id": restored_user.id,
-                        "email": restored_user.email,
-                        "username": restored_user.username
-                    },
-                    "tokens": {
-                        "access": str(refresh.access_token),
-                        "refresh": str(refresh)
-                    }
-                },
-                status=status.HTTP_200_OK
-            )
-
-        except User.DoesNotExist:
-            # User needs to login manually with backup credentials
-            logger.warning(
-                f"Original user {current_user_email} not found in backup, manual login required")
-            return Response(
-                {
-                    "detail": f"Restore completed successfully from {file_obj.name}. "
-                    "Please login with your backup credentials.",
-                    "auto_login": False,
-                    "note": "Your previous account was not found in the backup data. "
-                    "Use credentials from the backup file to login."
-                },
-                status=status.HTTP_200_OK
-            )
+                raise restore_error
 
     except Exception as e:
         logger.error(f"Restore failed: {e}", exc_info=True)
