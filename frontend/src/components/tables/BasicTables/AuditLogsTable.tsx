@@ -169,12 +169,12 @@ export default function AuditLogsTable({
                 >
                   Object
                 </TableCell>
-                <TableCell
+                {/* <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
                 >
                   Description
-                </TableCell>
+                </TableCell> */}
                 <TableCell
                   isHeader
                   className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -259,9 +259,9 @@ export default function AuditLogsTable({
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
+                    {/* <TableCell className="px-6 py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {truncateText(log.description, 60)}
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {log.ip_address || "N/A"}
                     </TableCell>

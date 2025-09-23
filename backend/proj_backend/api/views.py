@@ -2954,42 +2954,6 @@ MODEL_BACKUP_ORDER = [
     (LiquidationDocument, 'LiquidationDocument'),
 ]
 
-MODEL_BACKUP_ORDER = [
-    # Level 1: Independent models (no foreign keys)
-    (SchoolDistrict, 'SchoolDistrict'),
-    (Requirement, 'Requirement'),
-    (ListOfPriority, 'ListOfPriority'),
-
-    # Level 2: Depend on Level 1
-    (School, 'School'),  # Depends on SchoolDistrict
-    # Depends on ListOfPriority, Requirement
-    (PriorityRequirement, 'PriorityRequirement'),
-
-    # Level 3: Depend on Level 2
-    (User, 'User'),  # Depends on School, SchoolDistrict
-
-    # Level 4: Depend on Level 3
-    (RequestManagement, 'RequestManagement'),  # Depends on User
-    (Notification, 'Notification'),  # Depends on User
-    (Backup, 'Backup'),  # Depends on User
-    (AuditLog, 'AuditLog'),  # Depends on User
-
-    # Level 5: Depend on Level 4
-    # Depends on RequestManagement, ListOfPriority
-    (RequestPriority, 'RequestPriority'),
-    (GeneratedPDF, 'GeneratedPDF'),  # Depends on RequestManagement, User
-
-    # Level 6: Depend on Level 5
-    # Depends on RequestManagement
-    (LiquidationManagement, 'LiquidationManagement'),
-
-    # Level 7: Depend on Level 6
-    # Depends on LiquidationManagement, ListOfPriority
-    (LiquidationPriority, 'LiquidationPriority'),
-    # Depends on LiquidationManagement, RequestPriority, Requirement
-    (LiquidationDocument, 'LiquidationDocument'),
-]
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -3031,7 +2995,7 @@ def initiate_backup(request):
                     data = django_serializers.serialize(
                         "json",
                         model.objects.all(),
-                        use_natural_foreign_keys=True
+                        use_natural_foreign_keys=False
                     )
                     zipf.writestr(f"data/{model_name}.json", data)
 
@@ -3168,167 +3132,319 @@ def initiate_restore(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # NEW APPROACH: Use transactions and handle conflicts gracefully
-        with transaction.atomic():
+        # NEW APPROACH: Use smaller transactions per model instead of one giant transaction
+        restored_counts = {}
+        errors = []
+
+        try:
             # Step 1: Create a backup of current data (optional safety measure)
             safety_backup = {}
             for model, model_name in MODEL_BACKUP_ORDER:
                 safety_backup[model_name] = list(model.objects.all().values())
 
-            try:
-                # Step 2: Restore data in correct order with conflict resolution
-                restored_counts = {}
+            # Step 2: Restore data in correct order with conflict resolution
+            for model, model_name in MODEL_BACKUP_ORDER:
+                file_path = os.path.join(data_dir, f"{model_name}.json")
+                if not os.path.exists(file_path):
+                    logger.warning(f"Backup file not found: {file_path}")
+                    continue
 
-                for model, model_name in MODEL_BACKUP_ORDER:
-                    file_path = os.path.join(data_dir, f"{model_name}.json")
-                    if not os.path.exists(file_path):
-                        logger.warning(f"Backup file not found: {file_path}")
-                        continue
+                logger.info(f"Restoring {model_name} from {file_path}")
 
-                    logger.info(f"Restoring {model_name} from {file_path}")
+                # Use a separate transaction for each model
+                try:
+                    with transaction.atomic():
+                        objects_processed = 0
 
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        data = f.read()
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            data = f.read()
 
-                    # Use Django's deserializer with per-object savepoints and conflict handling
-                    objects = []
-                    for obj in django_serializers.deserialize("json", data):
-                        try:
-                            sid = transaction.savepoint()
-
-                            # Special handling for User to resolve by unique email
-                            if model.__name__ == 'User':
-                                email = getattr(obj.object, 'email', None)
-                                if email:
-                                    try:
-                                        existing = model.objects.get(email=email)
-                                        # Keep existing PK; update non-PK fields
-                                        for field in obj.object._meta.fields:
-                                            if field.primary_key:
-                                                continue
-                                            setattr(existing, field.name, getattr(obj.object, field.name))
-                                        existing.save()
-                                        logger.info(f"Updated existing {model_name} by email: {email}")
-                                    except model.DoesNotExist:
-                                        # If PK is free, create with provided PK; else create without specifying PK
-                                        if not model.objects.filter(pk=obj.object.pk).exists():
-                                            obj.save()
-                                        else:
-                                            # Create without forcing PK
-                                            data_dict = obj.object.__dict__.copy()
-                                            data_dict.pop('id', None)
-                                            data_dict.pop('_state', None)
-                                            model.objects.create(**data_dict)
-                                        logger.info(f"Created new {model_name}: {email}")
-                                else:
-                                    # Fallback to default behavior
-                                    if model.objects.filter(pk=obj.object.pk).exists():
-                                        existing = model.objects.get(pk=obj.object.pk)
-                                        for field in obj.object._meta.fields:
-                                            if field.primary_key:
-                                                continue
-                                            setattr(existing, field.name, getattr(obj.object, field.name))
-                                        existing.save()
-                                        logger.info(f"Updated existing {model_name}: {obj.object.pk}")
-                                    else:
-                                        obj.save()
-                                        logger.info(f"Created new {model_name}: {obj.object.pk}")
+                        # DEBUG: Check the structure of the serialized data
+                        import json
+                        parsed_data = json.loads(data)
+                        if parsed_data:
+                            logger.info(
+                                f"First object structure: {list(parsed_data[0].keys())}")
+                            if 'pk' in parsed_data[0]:
+                                logger.info(
+                                    f"PK found: {parsed_data[0]['pk']}")
                             else:
-                                # Generic upsert by PK
-                                if model.objects.filter(pk=obj.object.pk).exists():
-                                    existing = model.objects.get(pk=obj.object.pk)
-                                    for field in obj.object._meta.fields:
-                                        if field.primary_key:
-                                            continue
-                                        setattr(existing, field.name, getattr(obj.object, field.name))
-                                    existing.save()
-                                    logger.info(f"Updated existing {model_name}: {obj.object.pk}")
-                                else:
-                                    obj.save()
-                                    logger.info(f"Created new {model_name}: {obj.object.pk}")
+                                logger.warning(
+                                    "PK not found in serialized data!")
 
-                            transaction.savepoint_commit(sid)
+                        # Use Django's deserializer
+                        for obj in django_serializers.deserialize("json", data):
+                            try:
+                                # SPECIAL HANDLING FOR USER MODEL - IMPROVED VERSION
+                                # SPECIAL HANDLING FOR USER MODEL - FIXED VERSION
+                                if model.__name__ == 'User':
+                                    email = getattr(obj.object, 'email', None)
+                                    # Get the PK from serialized data - handle empty string case
+                                    original_pk = getattr(obj, 'pk', None)
 
-                            objects.append(obj)
-                        except IntegrityError as e:
-                            transaction.savepoint_rollback(sid)
-                            logger.warning(f"Integrity error restoring {model_name} {getattr(obj.object, 'pk', 'unknown')}: {e}")
-                        except Exception as e:
-                            transaction.savepoint_rollback(sid)
-                            logger.warning(f"Failed to restore {model_name} object {getattr(obj.object, 'pk', 'unknown')}: {e}")
+                                    # Check if PK is valid (not empty string and not None)
+                                    is_valid_pk = original_pk and str(
+                                        original_pk).strip() != ''
 
-                    restored_counts[model_name] = len(objects)
-                    logger.info(
-                        f"Successfully processed {len(objects)} {model_name} records")
+                                    logger.info(
+                                        f"Processing user: email={email}, original_pk={original_pk}, is_valid_pk={is_valid_pk}")
 
-                # Step 3: Restore media files
-                media_dir = os.path.join(temp_dir, 'media')
-                if os.path.exists(media_dir):
-                    media_root = settings.MEDIA_ROOT
-                    for root, dirs, files in os.walk(media_dir):
-                        for file in files:
-                            src_path = os.path.join(root, file)
-                            rel_path = os.path.relpath(src_path, media_dir)
-                            dest_path = os.path.join(media_root, rel_path)
+                                    if email:
+                                        try:
+                                            # First, check if a user with this email already exists
+                                            existing_by_email = model.objects.filter(
+                                                email=email).first()
 
-                            os.makedirs(os.path.dirname(
-                                dest_path), exist_ok=True)
-                            shutil.copy2(src_path, dest_path)
-                            logger.info(f"Restored media file: {rel_path}")
+                                            # Check if a user with the original PK exists (only if PK is valid)
+                                            existing_by_pk = None
+                                            if is_valid_pk:
+                                                existing_by_pk = model.objects.filter(
+                                                    pk=original_pk).first()
 
-                # Cleanup temporary files
-                if temp_dir and os.path.exists(temp_dir):
-                    shutil.rmtree(temp_dir)
+                                            if existing_by_email:
+                                                # User with same email exists - update it
+                                                logger.info(
+                                                    f"Updating existing user by email: {email}")
+                                                for field in obj.object._meta.fields:
+                                                    if field.primary_key or field.name == 'password':
+                                                        continue
+                                                    try:
+                                                        setattr(existing_by_email, field.name, getattr(
+                                                            obj.object, field.name))
+                                                    except Exception as field_error:
+                                                        logger.warning(
+                                                            f"Error setting field {field.name}: {field_error}")
+                                                        continue
+                                                existing_by_email.save()
+                                                objects_processed += 1
 
-                # Try to maintain user session
-                try:
-                    restored_user = User.objects.get(email=current_user_email)
-                    refresh = RefreshToken.for_user(restored_user)
+                                            elif existing_by_pk and is_valid_pk:
+                                                # User with original PK exists - update it
+                                                logger.info(
+                                                    f"Updating existing user by PK: {original_pk}")
+                                                for field in obj.object._meta.fields:
+                                                    if field.primary_key or field.name == 'password':
+                                                        continue
+                                                    try:
+                                                        setattr(existing_by_pk, field.name, getattr(
+                                                            obj.object, field.name))
+                                                    except Exception as field_error:
+                                                        logger.warning(
+                                                            f"Error setting field {field.name}: {field_error}")
+                                                        continue
+                                                existing_by_pk.save()
+                                                objects_processed += 1
 
-                    return Response({
-                        "detail": f"Restore completed successfully from {file_obj.name}",
-                        "summary": restored_counts,
-                        "auto_login": True,
-                        "tokens": {
-                            "access": str(refresh.access_token),
-                            "refresh": str(refresh)
-                        }
-                    }, status=status.HTTP_200_OK)
+                                            else:
+                                                # No existing user found - create new one
+                                                logger.info(
+                                                    f"Creating new user: {email}")
 
-                except User.DoesNotExist:
-                    return Response({
-                        "detail": f"Restore completed successfully from {file_obj.name}",
-                        "summary": restored_counts,
-                        "auto_login": False,
-                        "note": "Please login with your credentials."
-                    }, status=status.HTTP_200_OK)
+                                                # Create a copy of the object data
+                                                user_data = obj.object.__dict__.copy()
+                                                user_data.pop('_state', None)
 
-            except Exception as restore_error:
-                # Restore failed - attempt to restore from safety backup
-                logger.error(
-                    f"Restore failed, attempting rollback: {restore_error}")
+                                                # Handle password separately
+                                                password = user_data.pop(
+                                                    'password', None)
 
-                try:
-                    # Clear all data
-                    for model, model_name in reversed(MODEL_BACKUP_ORDER):
-                        model.objects.all().delete()
+                                                # Try to use original PK only if it's valid and not conflicting
+                                                if is_valid_pk and not model.objects.filter(pk=original_pk).exists():
+                                                    user_data['id'] = original_pk
+                                                else:
+                                                    # Remove invalid PK so Django can auto-generate one
+                                                    user_data.pop('id', None)
 
-                    # Restore from safety backup
-                    for model, model_name in MODEL_BACKUP_ORDER:
-                        if model_name in safety_backup:
-                            for obj_data in safety_backup[model_name]:
+                                                # Create the user
+                                                new_user = model(**user_data)
+                                                if password:
+                                                    new_user.set_password(
+                                                        password)
+                                                new_user.save()
+                                                objects_processed += 1
+
+                                        except IntegrityError as e:
+                                            logger.warning(
+                                                f"Integrity error for user {email}: {e}")
+                                            # Try fallback creation without PK
+                                            try:
+                                                user_data = obj.object.__dict__.copy()
+                                                user_data.pop('_state', None)
+                                                # Remove PK to avoid conflict
+                                                user_data.pop('id', None)
+
+                                                password = user_data.pop(
+                                                    'password', None)
+                                                new_user = model(**user_data)
+                                                if password:
+                                                    new_user.set_password(
+                                                        password)
+                                                new_user.save()
+                                                objects_processed += 1
+                                                logger.info(
+                                                    f"Created user with auto-generated PK: {email}")
+                                            except Exception as fallback_error:
+                                                logger.error(
+                                                    f"Fallback creation failed for {email}: {fallback_error}")
+                                                errors.append(
+                                                    f"User {email}: {str(fallback_error)}")
+
+                                    else:
+                                        # User without email - handle carefully
+                                        logger.warning(
+                                            "User without email found in backup")
+                                        try:
+                                            user_data = obj.object.__dict__.copy()
+                                            user_data.pop('_state', None)
+
+                                            # Only use PK if it's valid
+                                            if is_valid_pk and not model.objects.filter(pk=original_pk).exists():
+                                                user_data['id'] = original_pk
+                                            else:
+                                                user_data.pop('id', None)
+
+                                            password = user_data.pop(
+                                                'password', None)
+                                            new_user = model(**user_data)
+                                            if password:
+                                                new_user.set_password(password)
+                                            new_user.save()
+                                            objects_processed += 1
+                                            logger.info(
+                                                "Created user without email with auto-generated PK")
+                                        except Exception as no_email_error:
+                                            logger.error(
+                                                f"Failed to create user without email: {no_email_error}")
+                                            errors.append(
+                                                f"User without email: {str(no_email_error)}")
+
+                            except IntegrityError as e:
+                                logger.warning(
+                                    f"Integrity error for {model_name} object: {e}")
+                                # Try to create without PK
                                 try:
-                                    model.objects.create(**obj_data)
-                                except Exception as e:
+                                    data_dict = obj.object.__dict__.copy()
+                                    data_dict.pop('id', None)
+                                    data_dict.pop('_state', None)
+                                    model.objects.create(**data_dict)
+                                    objects_processed += 1
+                                    logger.info(
+                                        f"Created {model_name} with auto PK after integrity error")
+                                except Exception as e2:
                                     logger.error(
-                                        f"Failed to restore {model_name} from safety backup: {e}")
+                                        f"Failed to restore {model_name} object: {e2}")
+                                    errors.append(
+                                        f"{model_name} object: {str(e2)}")
+                            except Exception as e:
+                                logger.error(
+                                    f"Error restoring {model_name} object: {e}")
+                                errors.append(f"{model_name} object: {str(e)}")
 
-                    logger.info("Safety backup restored successfully")
-                except Exception as rollback_error:
+                        restored_counts[model_name] = objects_processed
+                        logger.info(
+                            f"Successfully processed {objects_processed} {model_name} records")
+
+                except Exception as model_error:
                     logger.error(
-                        f"Safety rollback also failed: {rollback_error}")
+                        f"Error processing {model_name}: {model_error}")
+                    errors.append(f"{model_name}: {str(model_error)}")
 
-                raise restore_error
+            # Step 3: Restore media files
+            media_dir = os.path.join(temp_dir, 'media')
+            if os.path.exists(media_dir):
+                media_root = settings.MEDIA_ROOT
+                for root, dirs, files in os.walk(media_dir):
+                    for file in files:
+                        src_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(src_path, media_dir)
+                        dest_path = os.path.join(media_root, rel_path)
+
+                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        shutil.copy2(src_path, dest_path)
+                        logger.info(f"Restored media file: {rel_path}")
+
+            # Cleanup temporary files
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+
+            # Try to maintain user session
+            try:
+                restored_user = User.objects.get(email=current_user_email)
+                refresh = RefreshToken.for_user(restored_user)
+
+                response_data = {
+                    "detail": f"Restore completed successfully from {file_obj.name}",
+                    "summary": restored_counts,
+                    "auto_login": True,
+                    "tokens": {
+                        "access": str(refresh.access_token),
+                        "refresh": str(refresh)
+                    }
+                }
+
+                if errors:
+                    response_data["warnings"] = errors
+
+                return Response(response_data, status=status.HTTP_200_OK)
+
+            except User.DoesNotExist:
+                response_data = {
+                    "detail": f"Restore completed successfully from {file_obj.name}",
+                    "summary": restored_counts,
+                    "auto_login": False,
+                    "note": "Please login with your credentials."
+                }
+
+                if errors:
+                    response_data["warnings"] = errors
+
+                return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as restore_error:
+            logger.error(f"Restore failed: {restore_error}")
+
+            # Attempt safety rollback with separate transactions
+            rollback_errors = []
+            try:
+                # Restore from safety backup in reverse order
+                for model, model_name in reversed(MODEL_BACKUP_ORDER):
+                    try:
+                        with transaction.atomic():
+                            # Clear current data
+                            model.objects.all().delete()
+
+                            # Restore from backup
+                            if model_name in safety_backup:
+                                for obj_data in safety_backup[model_name]:
+                                    try:
+                                        model.objects.create(**obj_data)
+                                    except Exception as e:
+                                        rollback_errors.append(
+                                            f"Failed to restore {model_name} object: {e}")
+                    except Exception as e:
+                        rollback_errors.append(
+                            f"Failed to restore {model_name}: {e}")
+
+                if not rollback_errors:
+                    logger.info("Safety backup restored successfully")
+                else:
+                    logger.error(
+                        f"Safety rollback had errors: {rollback_errors}")
+
+            except Exception as rollback_error:
+                logger.error(f"Safety rollback failed: {rollback_error}")
+                rollback_errors.append(str(rollback_error))
+
+            error_response = {
+                "detail": "Restore failed",
+                "error": str(restore_error),
+                "auto_login": False
+            }
+
+            if rollback_errors:
+                error_response["rollback_errors"] = rollback_errors
+
+            return Response(error_response, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     except Exception as e:
         logger.error(f"Restore failed: {e}", exc_info=True)

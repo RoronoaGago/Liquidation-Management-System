@@ -685,12 +685,14 @@ class PDFGenerator:
         return story
 
     def _create_simple_signature_section(self, request_obj, superintendent, accountant):
-        """Create signature section with superintendent in the middle and always show signature lines/names"""
+        """Create signature section with proper business rule logic"""
         story = []
-
         story.append(Spacer(1, 100))
 
-        # --- Left Column: School Head ---
+        # Get approval status based on business rules
+        status = request_obj.status
+
+        # --- Left Column: School Head (ALWAYS visible - submitted by school head) ---
         left_column = []
         left_column.append(
             Paragraph("Prepared by:", self.styles['SignatureLabel']))
@@ -710,15 +712,16 @@ class PDFGenerator:
         left_column.append(
             Paragraph("School Head", self.styles['SignatureTitle']))
 
-        # --- Middle Column: Superintendent ---
+        # --- Middle Column: Superintendent (visible when APPROVED or later) ---
         middle_column = []
         middle_column.append(
             Paragraph("Approved by:", self.styles['SignatureLabel']))
         middle_column.append(Spacer(1, 15))
 
+        # Superintendent signature shows when status is approved or beyond
         superintendent_signature = self._get_user_signature(
             superintendent) if superintendent else None
-        if superintendent_signature and request_obj.status == 'approved':
+        if superintendent_signature and status in ['approved', 'downloaded', 'unliquidated', 'liquidated']:
             middle_column.append(superintendent_signature)
         else:
             middle_column.append(
@@ -735,15 +738,16 @@ class PDFGenerator:
         middle_column.append(
             Paragraph("Schools Division Superintendent", self.styles['SignatureTitle']))
 
-        # --- Right Column: Accountant ---
+        # --- Right Column: Accountant (visible when DOWNLOADED or beyond) ---
         right_column = []
         right_column.append(Paragraph("Certified Correct:",
                             self.styles['SignatureLabel']))
         right_column.append(Spacer(1, 15))
 
+        # Accountant signature shows when status is downloaded or beyond (after accountant processes)
         accountant_signature = self._get_user_signature(
             accountant) if accountant else None
-        if accountant_signature and request_obj.status == 'unliquidated':
+        if accountant_signature and status in ['downloaded', 'unliquidated', 'liquidated']:
             right_column.append(accountant_signature)
         else:
             right_column.append(
@@ -762,10 +766,8 @@ class PDFGenerator:
 
         # --- Combine into row ---
         signature_data = [[left_column, middle_column, right_column]]
-
-        # Table with 3 equal columns
         signature_table = Table(signature_data, colWidths=[
-            2.5*inch, 2.5*inch, 2.5*inch])  # Narrower side columns
+                                2.5*inch, 2.5*inch, 2.5*inch])
         signature_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),

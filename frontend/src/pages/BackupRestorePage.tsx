@@ -17,7 +17,7 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 
 const BackupRestorePage = () => {
-  const [includeMedia, setIncludeMedia] = useState(true);
+  const [includeMedia, setIncludeMedia] = useState(false);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
@@ -25,6 +25,7 @@ const BackupRestorePage = () => {
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
@@ -104,19 +105,19 @@ const BackupRestorePage = () => {
     window.URL.revokeObjectURL(url);
   }
 
-  // Fixed onRestore function
   async function onRestore() {
     setRestoreLoading(true);
     setMessage(null);
     try {
-      if (!fileInputRef.current?.files?.[0]) {
+      if (!selectedFile) {
+        // ← Changed from fileInputRef to selectedFile
         setMessage("Please select a backup file to restore");
         setMessageType("error");
         setRestoreLoading(false);
         return;
       }
 
-      const file = fileInputRef.current.files[0];
+      const file = selectedFile; // ← Changed from fileInputRef to selectedFile
 
       // Show confirmation dialog
       if (
@@ -160,10 +161,11 @@ const BackupRestorePage = () => {
       setMessageType("error");
     } finally {
       setRestoreLoading(false);
-      // Clear file input
+      // Clear file input and state
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      setSelectedFile(null); // ← Clear the state as well
     }
   }
 
@@ -379,11 +381,9 @@ const BackupRestorePage = () => {
                 <input
                   type="file"
                   accept=".zip"
-                  ref={fileInputRef}
                   onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      setMessage(null);
-                    }
+                    setSelectedFile(e.target.files?.[0] || null);
+                    setMessage(null);
                   }}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:bg-gray-800 dark:border-gray-700 focus:ring-2 focus:ring-green-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
                 />
@@ -395,7 +395,7 @@ const BackupRestorePage = () => {
           </div>
           <Button
             onClick={onRestore}
-            disabled={restoreLoading || !fileInputRef.current?.files?.[0]}
+            disabled={restoreLoading || !selectedFile}
             className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition-colors disabled:opacity-50"
           >
             {restoreLoading ? (
