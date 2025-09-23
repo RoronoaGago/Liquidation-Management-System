@@ -2774,7 +2774,7 @@ def initiate_restore(request):
         file_record_counts = {}
         critical_failures = {}
         critical_models = {"SchoolDistrict",
-                           "Requirement", "ListOfPriority", "School"}
+                           "Requirement", "ListOfPriority", "School", "User", "RequestManagement"}
         errors = []
 
         try:
