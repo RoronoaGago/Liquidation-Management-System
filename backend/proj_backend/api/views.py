@@ -29,6 +29,7 @@ from django.contrib.auth import update_session_auth_hash
 import string
 from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
+from django.db import IntegrityError
 import logging
 from rest_framework import serializers
 from django.core import serializers as django_serializers
@@ -3030,8 +3031,7 @@ def initiate_backup(request):
                     data = django_serializers.serialize(
                         "json",
                         model.objects.all(),
-                        use_natural_foreign_keys=True,
-                        use_natural_primary_keys=True
+                        use_natural_foreign_keys=True
                     )
                     zipf.writestr(f"data/{model_name}.json", data)
 
@@ -3190,32 +3190,72 @@ def initiate_restore(request):
                     with open(file_path, 'r', encoding='utf-8') as f:
                         data = f.read()
 
-                    # Use Django's deserializer
+                    # Use Django's deserializer with per-object savepoints and conflict handling
                     objects = []
                     for obj in django_serializers.deserialize("json", data):
                         try:
-                            # Check if object already exists
-                            if model.objects.filter(pk=obj.object.pk).exists():
-                                # Update existing record
-                                existing = model.objects.get(pk=obj.object.pk)
-                                for field in obj.object._meta.fields:
-                                    if field.name not in ['id', 'pk'] and not field.primary_key:
-                                        setattr(existing, field.name, getattr(
-                                            obj.object, field.name))
-                                existing.save()
-                                logger.info(
-                                    f"Updated existing {model_name}: {obj.object.pk}")
+                            sid = transaction.savepoint()
+
+                            # Special handling for User to resolve by unique email
+                            if model.__name__ == 'User':
+                                email = getattr(obj.object, 'email', None)
+                                if email:
+                                    try:
+                                        existing = model.objects.get(email=email)
+                                        # Keep existing PK; update non-PK fields
+                                        for field in obj.object._meta.fields:
+                                            if field.primary_key:
+                                                continue
+                                            setattr(existing, field.name, getattr(obj.object, field.name))
+                                        existing.save()
+                                        logger.info(f"Updated existing {model_name} by email: {email}")
+                                    except model.DoesNotExist:
+                                        # If PK is free, create with provided PK; else create without specifying PK
+                                        if not model.objects.filter(pk=obj.object.pk).exists():
+                                            obj.save()
+                                        else:
+                                            # Create without forcing PK
+                                            data_dict = obj.object.__dict__.copy()
+                                            data_dict.pop('id', None)
+                                            data_dict.pop('_state', None)
+                                            model.objects.create(**data_dict)
+                                        logger.info(f"Created new {model_name}: {email}")
+                                else:
+                                    # Fallback to default behavior
+                                    if model.objects.filter(pk=obj.object.pk).exists():
+                                        existing = model.objects.get(pk=obj.object.pk)
+                                        for field in obj.object._meta.fields:
+                                            if field.primary_key:
+                                                continue
+                                            setattr(existing, field.name, getattr(obj.object, field.name))
+                                        existing.save()
+                                        logger.info(f"Updated existing {model_name}: {obj.object.pk}")
+                                    else:
+                                        obj.save()
+                                        logger.info(f"Created new {model_name}: {obj.object.pk}")
                             else:
-                                # Create new record
-                                obj.save()
-                                logger.info(
-                                    f"Created new {model_name}: {obj.object.pk}")
+                                # Generic upsert by PK
+                                if model.objects.filter(pk=obj.object.pk).exists():
+                                    existing = model.objects.get(pk=obj.object.pk)
+                                    for field in obj.object._meta.fields:
+                                        if field.primary_key:
+                                            continue
+                                        setattr(existing, field.name, getattr(obj.object, field.name))
+                                    existing.save()
+                                    logger.info(f"Updated existing {model_name}: {obj.object.pk}")
+                                else:
+                                    obj.save()
+                                    logger.info(f"Created new {model_name}: {obj.object.pk}")
+
+                            transaction.savepoint_commit(sid)
 
                             objects.append(obj)
+                        except IntegrityError as e:
+                            transaction.savepoint_rollback(sid)
+                            logger.warning(f"Integrity error restoring {model_name} {getattr(obj.object, 'pk', 'unknown')}: {e}")
                         except Exception as e:
-                            logger.warning(
-                                f"Failed to restore {model_name} object {getattr(obj.object, 'pk', 'unknown')}: {e}")
-                            continue
+                            transaction.savepoint_rollback(sid)
+                            logger.warning(f"Failed to restore {model_name} object {getattr(obj.object, 'pk', 'unknown')}: {e}")
 
                     restored_counts[model_name] = len(objects)
                     logger.info(
