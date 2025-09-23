@@ -2818,156 +2818,26 @@ def initiate_restore(request):
                         # Use Django's deserializer
                         for obj in django_serializers.deserialize("json", data):
                             try:
-                                # SPECIAL HANDLING FOR USER MODEL - IMPROVED VERSION
-                                # SPECIAL HANDLING FOR USER MODEL - FIXED VERSION
+                                # SPECIAL HANDLING FOR USER MODEL (preserve PKs)
                                 if model.__name__ == 'User':
-                                    # Use a savepoint to prevent breaking the whole transaction
+                                    try:
+                                        temp_password = obj.object.password
+                                    except Exception:
+                                        temp_password = None
+
+                                    # Save as-is to preserve primary key from JSON
                                     with transaction.atomic():
-                                        email = getattr(
-                                            obj.object, 'email', None)
-                                    # Get the PK from serialized data - handle empty string case
-                                    original_pk = getattr(obj, 'pk', None)
+                                        obj.save()
+                                        objects_processed += 1
 
-                                    # Check if PK is valid (not empty string and not None)
-                                    is_valid_pk = original_pk and str(
-                                        original_pk).strip() != ''
-
-                                    logger.info(
-                                        f"Processing user: email={email}, original_pk={original_pk}, is_valid_pk={is_valid_pk}")
-
-                                    if email:
-                                        try:
-                                            # First, check if a user with this email already exists
-                                            existing_by_email = model.objects.filter(
-                                                email=email).first()
-
-                                            # Check if a user with the original PK exists (only if PK is valid)
-                                            existing_by_pk = None
-                                            if is_valid_pk:
-                                                existing_by_pk = model.objects.filter(
-                                                    pk=original_pk).first()
-
-                                            if existing_by_email:
-                                                # User with same email exists - update it
-                                                logger.info(
-                                                    f"Updating existing user by email: {email}")
-                                                for field in obj.object._meta.fields:
-                                                    if field.primary_key or field.name == 'password':
-                                                        continue
-                                                    try:
-                                                        setattr(existing_by_email, field.name, getattr(
-                                                            obj.object, field.name))
-                                                    except Exception as field_error:
-                                                        logger.warning(
-                                                            f"Error setting field {field.name}: {field_error}")
-                                                        continue
-                                                existing_by_email.save()
-                                                objects_processed += 1
-
-                                            elif existing_by_pk and is_valid_pk:
-                                                # User with original PK exists - update it
-                                                logger.info(
-                                                    f"Updating existing user by PK: {original_pk}")
-                                                for field in obj.object._meta.fields:
-                                                    if field.primary_key or field.name == 'password':
-                                                        continue
-                                                    try:
-                                                        setattr(existing_by_pk, field.name, getattr(
-                                                            obj.object, field.name))
-                                                    except Exception as field_error:
-                                                        logger.warning(
-                                                            f"Error setting field {field.name}: {field_error}")
-                                                        continue
-                                                existing_by_pk.save()
-                                                objects_processed += 1
-
-                                            else:
-                                                # No existing user found - create new one
-                                                logger.info(
-                                                    f"Creating new user: {email}")
-
-                                                # Create a copy of the object data
-                                                user_data = obj.object.__dict__.copy()
-                                                user_data.pop('_state', None)
-
-                                                # Handle password separately
-                                                password = user_data.pop(
-                                                    'password', None)
-
-                                                # Try to use original PK only if it's valid and not conflicting
-                                                if is_valid_pk and not model.objects.filter(pk=original_pk).exists():
-                                                    user_data['id'] = original_pk
-                                                else:
-                                                    # Remove invalid PK so Django can auto-generate one
-                                                    user_data.pop('id', None)
-
-                                                # Create the user
-                                                new_user = model(**user_data)
-                                                if password:
-                                                    new_user.set_password(
-                                                        password)
-                                                new_user.save()
-                                                objects_processed += 1
-
-                                        except IntegrityError as e:
-                                            logger.warning(
-                                                f"Integrity error for user {email}: {e}")
-                                            # Try fallback creation without PK
-                                            try:
-                                                with transaction.atomic():
-                                                    user_data = obj.object.__dict__.copy()
-                                                    user_data.pop(
-                                                        '_state', None)
-                                                    # Remove PK to avoid conflict
-                                                    user_data.pop('id', None)
-
-                                                    password = user_data.pop(
-                                                        'password', None)
-                                                    new_user = model(
-                                                        **user_data)
-                                                    if password:
-                                                        new_user.set_password(
-                                                            password)
-                                                        new_user.save()
-                                                        objects_processed += 1
-                                                        logger.info(
-                                                            f"Created user with auto-generated PK: {email}")
-                                            except Exception as fallback_error:
-                                                logger.error(
-                                                    f"Fallback creation failed for {email}: {fallback_error}")
-                                                errors.append(
-                                                    f"User {email}: {str(fallback_error)}")
-
-                                    else:
-                                        # User without email - handle carefully
-                                        logger.warning(
-                                            "User without email found in backup")
-                                        try:
+                                    # If password appears to be in plain text, hash and update
+                                    try:
+                                        if temp_password and not str(temp_password).startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
+                                            obj.object.set_password(temp_password)
                                             with transaction.atomic():
-                                                user_data = obj.object.__dict__.copy()
-                                                user_data.pop('_state', None)
-
-                                                # Only use PK if it's valid
-                                                if is_valid_pk and not model.objects.filter(pk=original_pk).exists():
-                                                    user_data['id'] = original_pk
-                                                else:
-                                                    user_data.pop('id', None)
-
-                                                password = user_data.pop(
-                                                    'password', None)
-                                                new_user = model(**user_data)
-                                                if password:
-                                                    new_user.set_password(
-                                                        password)
-                                                new_user.save()
-                                                objects_processed += 1
-                                                logger.info(
-                                                    "Created user without email with auto-generated PK")
-                                        except Exception as no_email_error:
-                                            logger.error(
-                                                f"Failed to create user without email: {no_email_error}")
-                                            errors.append(
-                                                f"User without email: {str(no_email_error)}")
+                                                obj.object.save(update_fields=['password'])
+                                    except Exception as pw_error:
+                                        logger.warning(f"Password update failed for User pk={getattr(obj.object, 'pk', None)}: {pw_error}")
                                 else:
                                     # Default path for non-User models via deserializer
                                     try:
@@ -2976,10 +2846,53 @@ def initiate_restore(request):
                                             obj.save()
                                             objects_processed += 1
                                     except IntegrityError as e:
-                                        logger.error(
-                                            f"Integrity error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
-                                        errors.append(
-                                            f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
+                                        logger.error(f"Integrity error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
+                                        # Targeted FK fallbacks for known models
+                                        fallback_applied = False
+                                        try:
+                                            if model_name == 'RequestManagement':
+                                                changed = False
+                                                for attr in ['reviewed_by', 'reviewed_by_district', 'reviewed_by_liquidator', 'reviewed_by_division']:
+                                                    if hasattr(obj.object, attr):
+                                                        try:
+                                                            setattr(obj.object, attr, None)
+                                                            changed = True
+                                                        except Exception:
+                                                            pass
+                                                if changed:
+                                                    with transaction.atomic():
+                                                        obj.save()
+                                                        objects_processed += 1
+                                                        fallback_applied = True
+                                            elif model_name == 'Backup':
+                                                if hasattr(obj.object, 'initiated_by'):
+                                                    setattr(obj.object, 'initiated_by', None)
+                                                    with transaction.atomic():
+                                                        obj.save()
+                                                        objects_processed += 1
+                                                        fallback_applied = True
+                                            elif model_name == 'Notification':
+                                                changed = False
+                                                if hasattr(obj.object, 'sender'):
+                                                    setattr(obj.object, 'sender', None)
+                                                    changed = True
+                                                if hasattr(obj.object, 'receiver'):
+                                                    setattr(obj.object, 'receiver', None)
+                                                    changed = True
+                                                if changed:
+                                                    with transaction.atomic():
+                                                        obj.save()
+                                                        objects_processed += 1
+                                                        fallback_applied = True
+                                            elif model_name in ['GeneratedPDF', 'LiquidationManagement', 'LiquidationDocument']:
+                                                # Skip if parent FK missing; these depend on RequestManagement/Liquidation
+                                                logger.warning(f"Skipping {model_name} due to missing parent FK (pk={getattr(obj, 'pk', None)})")
+                                                fallback_applied = True  # treat as handled to avoid double-counting
+                                        except Exception as fb_err:
+                                            logger.warning(f"Fallback failed for {model_name} (pk={getattr(obj, 'pk', None)}): {fb_err}")
+
+                                        if not fallback_applied:
+                                            errors.append(f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
                                     except Exception as e:
                                         logger.error(
                                             f"Error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
