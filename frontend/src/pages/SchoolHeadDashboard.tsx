@@ -11,6 +11,7 @@ import {
   Cell,
   RadialBarChart,
   RadialBar,
+  PolarAngleAxis,
 } from "recharts";
 import {
   Download,
@@ -409,6 +410,103 @@ const SchoolHeadDashboard = () => {
 
       await deriveFromLatestRequestIfNeeded();
 
+      // Enhance using active liquidation data to compute document progress and metrics
+      try {
+        const liqRes = await api.get("/liquidation/");
+        const activeList = Array.isArray(liqRes.data)
+          ? liqRes.data
+          : Array.isArray(liqRes.data?.results)
+          ? liqRes.data.results
+          : [];
+        const active = activeList && activeList.length > 0 ? activeList[0] : null;
+
+        if (active) {
+          const reqPriorities = (active.request?.priorities || []) as any[];
+          const documents = (active.documents || []) as any[];
+          const liquidationPriorities = (active.liquidation_priorities || []) as any[];
+
+          // Compute document progress per priority
+          const progress: PriorityProgress[] = reqPriorities.map((rp: any, idx: number) => {
+            const allReqs = rp.priority?.requirements || [];
+            const requiredReqs = allReqs.filter((r: any) => r.is_required);
+            const uploadedForPriority = documents.filter(
+              (d: any) => String(d.request_priority_id) === String(rp.id)
+            );
+            const uploadedRequiredCount = requiredReqs.filter((r: any) =>
+              uploadedForPriority.some(
+                (d: any) => String(d.requirement_id) === String(r.requirementID)
+              )
+            ).length;
+            const requiredCount = requiredReqs.length;
+            const completion = requiredCount > 0 ? (uploadedRequiredCount / requiredCount) * 100 : 0;
+            return {
+              priorityId: String(rp.id ?? `req-${idx}`),
+              priorityName: rp.priority?.expenseTitle || `Priority ${idx + 1}`,
+              status: completion >= 100 ? "completed" : completion > 0 ? "in_progress" : "not_started",
+              documentsRequired: requiredCount,
+              documentsUploaded: uploadedRequiredCount,
+              completionPercentage: Math.round(completion),
+            } as PriorityProgress;
+          });
+
+          // Update liquidationProgress
+          respData.liquidationProgress = {
+            priorities: progress,
+            totalPriorities: progress.length,
+            completedPriorities: progress.filter((p) => p.status === "completed").length,
+            completionPercentage:
+              progress.length > 0
+                ? (progress.reduce((s, p) => s + p.completionPercentage, 0) / progress.length)
+                : 0,
+          };
+
+          // Compute priority breakdown from requested amounts
+          const totalRequested = reqPriorities.reduce(
+            (sum: number, rp: any) => sum + Number(rp.amount || 0),
+            0
+          );
+          respData.priorityBreakdown = reqPriorities.map((rp: any, idx: number) => ({
+            priority: rp.priority?.expenseTitle || `Priority ${idx + 1}`,
+            amount: Number(rp.amount || 0),
+            percentage: totalRequested > 0 ? (Number(rp.amount || 0) / totalRequested) * 100 : 0,
+            color: COLORS[idx % COLORS.length],
+            name: rp.priority?.expenseTitle || `Priority ${idx + 1}`,
+          }));
+
+          // Compute financial metrics
+          const totalActual = liquidationPriorities.reduce(
+            (sum: number, lp: any) => sum + Number(lp.amount || 0),
+            0
+          );
+          // Determine total downloaded: if latest request is unliquidated and we have school_max_budget, use it
+          let totalDownloaded = totalRequested;
+          try {
+            const ur = await api.get("/user-requests/");
+            const list = Array.isArray(ur.data)
+              ? ur.data
+              : Array.isArray(ur.data?.results)
+              ? ur.data.results
+              : [];
+            const latest = list && list.length > 0 ? list[0] : null;
+            if (latest?.status === "unliquidated" && (respData as any).school_max_budget !== undefined) {
+              totalDownloaded = Number((respData as any).school_max_budget) || totalDownloaded;
+            }
+          } catch {
+            // ignore and keep totalRequested
+          }
+
+          const remaining = Math.max(totalDownloaded - totalActual, 0);
+          respData.financialMetrics = {
+            totalDownloadedAmount: totalDownloaded,
+            totalLiquidatedAmount: totalActual,
+            liquidationPercentage: totalDownloaded > 0 ? (totalActual / totalDownloaded) * 100 : 0,
+            remainingAmount: remaining,
+          };
+        }
+      } catch (e) {
+        // If no active liquidation, keep previous derivations
+      }
+
       setData(respData);
       setLoading(false);
     } catch (error) {
@@ -454,12 +552,21 @@ const SchoolHeadDashboard = () => {
   };
 
   const handleViewRequestStatus = () => {
-    // Instead of setting showRequestStatus, navigate to /request-history with state
-    if (data?.requestStatus?.pendingRequest) {
-      navigate("/request-history", { state: { openLatest: true } });
+    // Prefer navigating to the specific active request modal (pending/approved/unliquidated)
+    const req = data?.requestStatus?.pendingRequest;
+    const activeStatus = req?.status?.toLowerCase?.();
+    const isActive = activeStatus === "pending" || activeStatus === "approved" || activeStatus === "unliquidated";
+
+    if (req && isActive) {
+      navigate("/requests-history", { state: { requestId: req.request_id } });
+      return;
+    }
+
+    // Fallbacks: active liquidation → open latest; else just go to history
+    if (data?.requestStatus?.hasPendingRequest) {
+      navigate("/requests-history", { state: { openLatest: true } });
     } else {
-      // Fallback: If no pending request, just navigate without auto-open
-      navigate("/request-history");
+      navigate("/requests-history");
     }
   };
 
@@ -699,6 +806,7 @@ const SchoolHeadDashboard = () => {
                       })
                     )}
                   >
+                    <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
                     <RadialBar background dataKey="value" />
                     <Tooltip
                       formatter={(value) => [`${value}%`, "Completion"]}

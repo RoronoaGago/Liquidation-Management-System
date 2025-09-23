@@ -122,14 +122,27 @@ const MOOERequestHistory = () => {
     fetchRequests();
   }, []);
 
-  // New useEffect: Auto-open latest if coming from dashboard
+  // New useEffect: Auto-open latest or specific request if coming from dashboard, then clear state
   useEffect(() => {
-    if (
-      location.state?.openLatest &&
-      submissions.length > 0 &&
-      !viewedSubmission
-    ) {
-      setViewedSubmission(submissions[0]); // Latest is first after sorting
+    if (!submissions || submissions.length === 0 || viewedSubmission) return;
+
+    // 1) Open specific request if requestId is provided
+    const requestedId = (location.state as any)?.requestId as string | undefined;
+    if (requestedId) {
+      const match = submissions.find((s) => s.request_id === requestedId);
+      if (match) {
+        setViewedSubmission(match as any);
+        // Clear navigation state to avoid re-opening after close/refresh
+        navigate(location.pathname, { replace: true });
+        return;
+      }
+    }
+
+    // 2) Otherwise, open latest if flagged
+    if ((location.state as any)?.openLatest) {
+      setViewedSubmission(submissions[0] as any);
+      // Clear navigation state to avoid re-opening after close/refresh
+      navigate(location.pathname, { replace: true });
     }
   }, [submissions, location.state, viewedSubmission]);
 
@@ -170,7 +183,13 @@ const MOOERequestHistory = () => {
       {/* Modal for viewing priorities */}
       <Dialog
         open={!!viewedSubmission}
-        onOpenChange={() => setViewedSubmission(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewedSubmission(null);
+            // Ensure we clear any lingering state so the modal doesn't auto-reopen
+            navigate(location.pathname, { replace: true });
+          }
+        }}
       >
         <DialogContent className="w-full max-w-[90vw] lg:max-w-5xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">
