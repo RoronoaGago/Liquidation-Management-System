@@ -963,16 +963,16 @@ class ApproveRequestView(generics.UpdateAPIView):
             print(f"Status after save: {instance.status}")  # Debug log
 
             # Log approval AFTER save
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='approve',
-                module='request',
-                description=f"Approved request {instance.request_id}",
-                object_id=instance.request_id,
-                object_type='RequestManagement',
-                object_name=f"Request {instance.request_id}"
-            )
+            # from .audit_utils import log_audit_event
+            # log_audit_event(
+            #     request=request,
+            #     action='approve',
+            #     module='request',
+            #     description=f"Approved request {instance.request_id}",
+            #     object_id=instance.request_id,
+            #     object_type='RequestManagement',
+            #     object_name=f"Request {instance.request_id}"
+            # )
 
             # Verify in database
             refreshed = RequestManagement.objects.get(pk=instance.pk)
@@ -1379,17 +1379,17 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
             elif new_status == 'submitted':
                 action = 'submit'
 
-            log_audit_event(
-                request=request,
-                action=action,
-                module='liquidation',
-                description=f"Changed liquidation {instance.LiquidationID} status from {old_status} to {new_status}",
-                object_id=instance.LiquidationID,
-                object_type='LiquidationManagement',
-                object_name=f"Liquidation {instance.LiquidationID}",
-                old_values={'status': old_status},
-                new_values={'status': new_status}
-            )
+            # log_audit_event(
+            #     request=request,
+            #     action=action,
+            #     module='liquidation',
+            #     description=f"Changed liquidation {instance.LiquidationID} status from {old_status} to {new_status}",
+            #     object_id=instance.LiquidationID,
+            #     object_type='LiquidationManagement',
+            #     object_name=f"Liquidation {instance.LiquidationID}",
+            #     old_values={'status': old_status},
+            #     new_values={'status': new_status}
+            # )
 
         return Response(serializer.data)
 
@@ -1620,16 +1620,16 @@ def submit_liquidation(request, LiquidationID):
             liquidation.status = 'submitted'
             liquidation.date_submitted = timezone.now()
             liquidation.save()
-            from .audit_utils import log_audit_event
-            log_audit_event(
-                request=request,
-                action='submit',
-                module='liquidation',
-                description=f"Submitted liquidation {LiquidationID}",
-                object_id=LiquidationID,
-                object_type='LiquidationManagement',
-                object_name=f"Liquidation {LiquidationID}"
-            )
+            # from .audit_utils import log_audit_event
+            # log_audit_event(
+            #     request=request,
+            #     action='submit',
+            #     module='liquidation',
+            #     description=f"Submitted liquidation {LiquidationID}",
+            #     object_id=LiquidationID,
+            #     object_type='LiquidationManagement',
+            #     object_name=f"Liquidation {LiquidationID}"
+            # )
 
             # Create notification for the reviewer
             # Notification.objects.create(
@@ -3066,7 +3066,8 @@ def initiate_restore(request):
         restored_counts = {}
         file_record_counts = {}
         critical_failures = {}
-        critical_models = {"SchoolDistrict", "Requirement", "ListOfPriority", "School"}
+        critical_models = {"SchoolDistrict",
+                           "Requirement", "ListOfPriority", "School"}
         errors = []
 
         try:
@@ -3095,7 +3096,8 @@ def initiate_restore(request):
                         # DEBUG: Check the structure of the serialized data
                         import json
                         parsed_data = json.loads(data)
-                        file_record_counts[model_name] = len(parsed_data) if isinstance(parsed_data, list) else 0
+                        file_record_counts[model_name] = len(
+                            parsed_data) if isinstance(parsed_data, list) else 0
                         if parsed_data:
                             logger.info(
                                 f"First object structure: {list(parsed_data[0].keys())}")
@@ -3114,7 +3116,8 @@ def initiate_restore(request):
                                 if model.__name__ == 'User':
                                     # Use a savepoint to prevent breaking the whole transaction
                                     with transaction.atomic():
-                                        email = getattr(obj.object, 'email', None)
+                                        email = getattr(
+                                            obj.object, 'email', None)
                                     # Get the PK from serialized data - handle empty string case
                                     original_pk = getattr(obj, 'pk', None)
 
@@ -3206,25 +3209,27 @@ def initiate_restore(request):
                                             try:
                                                 with transaction.atomic():
                                                     user_data = obj.object.__dict__.copy()
-                                                    user_data.pop('_state', None)
+                                                    user_data.pop(
+                                                        '_state', None)
                                                     # Remove PK to avoid conflict
                                                     user_data.pop('id', None)
 
                                                     password = user_data.pop(
-                                                            'password', None)
-                                                    new_user = model(**user_data)
+                                                        'password', None)
+                                                    new_user = model(
+                                                        **user_data)
                                                     if password:
                                                         new_user.set_password(
-                                                                password)
+                                                            password)
                                                         new_user.save()
                                                         objects_processed += 1
                                                         logger.info(
                                                             f"Created user with auto-generated PK: {email}")
                                             except Exception as fallback_error:
                                                 logger.error(
-                                                        f"Fallback creation failed for {email}: {fallback_error}")
+                                                    f"Fallback creation failed for {email}: {fallback_error}")
                                                 errors.append(
-                                                        f"User {email}: {str(fallback_error)}")
+                                                    f"User {email}: {str(fallback_error)}")
 
                                     else:
                                         # User without email - handle carefully
@@ -3245,7 +3250,8 @@ def initiate_restore(request):
                                                     'password', None)
                                                 new_user = model(**user_data)
                                                 if password:
-                                                    new_user.set_password(password)
+                                                    new_user.set_password(
+                                                        password)
                                                 new_user.save()
                                                 objects_processed += 1
                                                 logger.info(
@@ -3265,11 +3271,13 @@ def initiate_restore(request):
                                     except IntegrityError as e:
                                         logger.error(
                                             f"Integrity error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
-                                        errors.append(f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
+                                        errors.append(
+                                            f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
                                     except Exception as e:
                                         logger.error(
                                             f"Error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
-                                        errors.append(f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
+                                        errors.append(
+                                            f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
 
                             except IntegrityError as e:
                                 logger.warning(
@@ -3291,7 +3299,8 @@ def initiate_restore(request):
                             except Exception as e:
                                 logger.error(
                                     f"Error restoring {model_name} object (pk={getattr(obj.object, 'pk', None)}): {e}")
-                                errors.append(f"{model_name} object (pk={getattr(obj.object, 'pk', None)}): {str(e)}")
+                                errors.append(
+                                    f"{model_name} object (pk={getattr(obj.object, 'pk', None)}): {str(e)}")
 
                         restored_counts[model_name] = objects_processed
                         logger.info(
@@ -3431,7 +3440,6 @@ def initiate_restore(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 
 @api_view(['GET'])
