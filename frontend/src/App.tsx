@@ -33,6 +33,7 @@ import LiquidatorReviewPage from "./pages/LiquidatorReviewPage";
 import DivisionReviewPage from "./pages/DivisionReviewPage";
 import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashboard";
 import DivisionDistrictAdaDashboard from "./pages/DivisionDistrictAdaDashboard";
+import DivisionAccountantDashboard from "./pages/DivisionAccountantDashboard";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -58,6 +59,8 @@ const App = () => {
                   <DivisionSuperintendentDashboard />
                 ) : user?.role === "district_admin" ? (
                   <DivisionDistrictAdaDashboard />
+                ) : user?.role === "accountant" ? (
+                  <DivisionAccountantDashboard />
                 ) : (
                   <Home />
                 )
