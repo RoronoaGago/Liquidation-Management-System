@@ -115,6 +115,7 @@ def user_list(request):
     """
     List all users or create a new user with enhanced filtering
     """
+    
     if request.method == 'GET':
         # Get filter parameters from query string
         show_archived = request.query_params.get(
@@ -194,7 +195,7 @@ def school_head_dashboard(request):
     """
     if request.user.role != 'school_head':
         return Response({"error": "Only school heads can access this endpoint"}, status=403)
-
+    
     try:
         # Get user's school
         school = request.user.school
@@ -222,7 +223,7 @@ def school_head_dashboard(request):
                     'priority': priority.priority.expenseTitle,
                     'amount': float(priority.amount),
                     'percentage': float(percentage),
-                    'color': get_random_color(),  # You'll need to implement this
+                    'color': get_random_color(),
                     'name': priority.priority.expenseTitle
                 })
         
@@ -258,7 +259,11 @@ def school_head_dashboard(request):
                 'pendingRequest': RequestManagementSerializer(pending_request).data if pending_request else None
             }
         }
-        
+
+        # Add school max_budget if user has a school
+        if school:
+            response_data['school_max_budget'] = school.max_budget
+
         return Response(response_data)
         
     except Exception as e:

@@ -1,6 +1,7 @@
+/* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router"; // Add useLocation
 import { useEffect, useState } from "react";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
 import { Submission } from "@/lib/types";
@@ -82,6 +83,7 @@ const statusIcons: Record<string, React.ReactNode> = {
 
 const MOOERequestHistory = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Add this
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +102,16 @@ const MOOERequestHistory = () => {
       setError(null);
       try {
         const res = await api.get("/user-requests/");
-        setSubmissions(Array.isArray(res.data) ? res.data : []);
+        let data = Array.isArray(res.data) ? res.data : [];
+
+        // Sort by created_at descending (latest first)
+        data.sort(
+          (a: Submission, b: Submission) =>
+            new Date(b.created_at || 0).getTime() -
+            new Date(a.created_at || 0).getTime()
+        );
+
+        setSubmissions(data);
         console.log(res.data);
       } catch (err: any) {
         setError("Failed to load requests.");
@@ -110,6 +121,17 @@ const MOOERequestHistory = () => {
     };
     fetchRequests();
   }, []);
+
+  // New useEffect: Auto-open latest if coming from dashboard
+  useEffect(() => {
+    if (
+      location.state?.openLatest &&
+      submissions.length > 0 &&
+      !viewedSubmission
+    ) {
+      setViewedSubmission(submissions[0]); // Latest is first after sorting
+    }
+  }, [submissions, location.state, viewedSubmission]);
 
   // Sorting logic (client-side)
   const handleSort = (key: string) => {
@@ -143,7 +165,7 @@ const MOOERequestHistory = () => {
         error={error}
         sortConfig={sortConfig}
         requestSort={handleSort}
-        currentUserRole={user?.role} // Pass the user's role
+        currentUserRole={user?.role}
       />
       {/* Modal for viewing priorities */}
       <Dialog

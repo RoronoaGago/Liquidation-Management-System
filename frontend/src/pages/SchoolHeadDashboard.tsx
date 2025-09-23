@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import api from "@/services/api";
-import { format } from "date-fns"; // Install via npm if needed: npm install date-fns
+import api from "@/services/api"; // Assuming this is your backend API client
+import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,16 +21,12 @@ import {
   Plus,
   FileText,
   Eye,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Badge from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
-import { useNavigate } from "react-router-dom";
-import {
-  MetricCard,
-  PriorityProgressTable,
-  RequestStatusCard,
-} from "@/components/ui/dashboard";
+import { useNavigate, useLocation } from "react-router-dom"; // Add useLocation if needed elsewhere
 
 // Types for our data
 interface SchoolHeadDashboardData {
@@ -52,6 +48,9 @@ interface SchoolHeadDashboardData {
     hasPendingRequest: boolean;
     hasActiveLiquidation: boolean;
     pendingRequest?: {
+      date_approved?: string;
+      date_downloaded?: string;
+      date_rejected?: string;
       request_id: string;
       status: string;
       request_monthyear: string;
@@ -67,6 +66,10 @@ interface SchoolHeadDashboardData {
       }[];
     };
     activeLiquidation?: {
+      date_districtApproved?: string;
+      date_liquidatorApproved?: string;
+      date_liquidated?: string;
+      date_submitted?: string;
       LiquidationID: string;
       status: string;
       created_at: string;
@@ -129,11 +132,11 @@ const SchoolHeadDashboard = () => {
   const [data, setData] = useState<SchoolHeadDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [, setRefreshing] = useState(false);
-  const [showRequestStatus, setShowRequestStatus] = useState(false);
+  const [showRequestStatus, setShowRequestStatus] = useState(false); // Can remove if no longer needed
   const navigate = useNavigate();
   const [selectedMonth, setSelectedMonth] = useState(
     format(new Date(), "yyyy-MM")
-  ); // Defaults to '2025-09'/ Defaults to '2025-09'
+  );
 
   const getPriorityColor = (priorityName: string, fallbackIndex = 0) => {
     const index = data?.liquidationProgress.priorities.findIndex(
@@ -145,14 +148,12 @@ const SchoolHeadDashboard = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData(selectedMonth); // Pass the month on initial load
-  }, [selectedMonth]); // Re-fetch if month changes (e.g., via a dropdown UI you can add later)
+    fetchDashboardData(selectedMonth);
+  }, [selectedMonth]);
 
   const fetchDashboardData = async (month?: string) => {
-    // Make month optional
     setLoading(true);
     try {
-      // Append query param if month is provided
       const url = month
         ? `/school-head/dashboard/?month=${month}`
         : "/school-head/dashboard/";
@@ -202,11 +203,13 @@ const SchoolHeadDashboard = () => {
   };
 
   const handleViewRequestStatus = () => {
-    setShowRequestStatus(true);
-  };
-
-  const handleCloseRequestStatus = () => {
-    setShowRequestStatus(false);
+    // Instead of setting showRequestStatus, navigate to /request-history with state
+    if (data?.requestStatus?.pendingRequest) {
+      navigate("/request-history", { state: { openLatest: true } });
+    } else {
+      // Fallback: If no pending request, just navigate without auto-open
+      navigate("/request-history");
+    }
   };
 
   const handleGoToLiquidation = () => {
@@ -268,18 +271,10 @@ const SchoolHeadDashboard = () => {
             )}
           {data?.requestStatus?.hasPendingRequest && (
             <Button
-              onClick={
-                showRequestStatus
-                  ? handleCloseRequestStatus
-                  : handleViewRequestStatus
-              }
-              variant="outline"
-              className="border-blue-200 text-blue-600 hover:bg-blue-50"
+              onClick={handleViewRequestStatus}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              <Eye className="h-4 w-4 mr-2" />
-              {showRequestStatus
-                ? "Hide Request Status"
-                : "View Request Status"}
+              View Request Status
             </Button>
           )}
           {data?.requestStatus?.hasActiveLiquidation && (
@@ -295,73 +290,83 @@ const SchoolHeadDashboard = () => {
       </div>
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <MetricCard
-          title="Liquidation Completion"
-          value={
-            data?.liquidationProgress?.completionPercentage !== undefined
-              ? `${data.liquidationProgress.completionPercentage.toFixed(1)}%`
-              : "0%"
-          }
-          description={
-            data?.liquidationProgress
-              ? `${data.liquidationProgress.completedPriorities} of ${data.liquidationProgress.totalPriorities} list of priorities`
-              : "0 of 0 list of priorities"
-          }
-          icon={CheckCircle}
-        />
-        <MetricCard
-          title="Amount Liquidated"
-          value={
-            data?.financialMetrics?.totalLiquidatedAmount !== undefined
-              ? `₱${data.financialMetrics.totalLiquidatedAmount.toLocaleString()}`
-              : "₱0"
-          }
-          description={
-            data?.financialMetrics?.liquidationPercentage !== undefined
-              ? `${data.financialMetrics.liquidationPercentage.toFixed(
-                  1
-                )}% of downloaded amount`
-              : "0% of downloaded amount"
-          }
-          icon={DollarSign}
-        />
-        <MetricCard
-          title="Remaining Amount"
-          value={
-            data?.financialMetrics?.remainingAmount !== undefined
-              ? `₱${data.financialMetrics.remainingAmount.toLocaleString()}`
-              : "₱0"
-          }
-          description="To be liquidated"
-          icon={AlertCircle}
-        />
-        <MetricCard
-          title="Total Downloaded"
-          value={
-            data?.financialMetrics?.totalDownloadedAmount !== undefined
-              ? `₱${data.financialMetrics.totalDownloadedAmount.toLocaleString()}`
-              : "₱0"
-          }
-          description="Initial cash advance"
-          icon={Download}
-        />
-      </div>
-      {/* Request Status View (shows overview when button is clicked) */}
-      {showRequestStatus && (
-        <div className="mb-6">
-          {data?.requestStatus?.pendingRequest ? (
-            <RequestStatusCard
-              request={data.requestStatus.pendingRequest}
-              getStatusBadge={getStatusBadge}
-              getPriorityColor={getPriorityColor}
-            />
-          ) : (
-            <div className="p-6 text-center text-gray-500 border rounded bg-gray-50">
-              No request status available yet.
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Liquidation Completion
+            </CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {data?.liquidationProgress?.completionPercentage !== undefined
+                ? `${data.liquidationProgress.completionPercentage.toFixed(1)}%`
+                : "0%"}
             </div>
-          )}
-        </div>
-      )}
+            <p className="text-xs text-muted-foreground">
+              {data?.liquidationProgress
+                ? `${data.liquidationProgress.completedPriorities} of ${data.liquidationProgress.totalPriorities} list of priorities`
+                : "0 of 0 list of priorities"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Amount Liquidated
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {data?.financialMetrics?.totalLiquidatedAmount !== undefined
+                ? `₱${data.financialMetrics.totalLiquidatedAmount.toLocaleString()}`
+                : "₱0"}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {data?.financialMetrics?.liquidationPercentage !== undefined
+                ? `${data.financialMetrics.liquidationPercentage.toFixed(
+                    1
+                  )}% of downloaded amount`
+                : "0% of downloaded amount"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Remaining Amount
+            </CardTitle>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {data?.financialMetrics?.remainingAmount !== undefined
+                ? `₱${data.financialMetrics.remainingAmount.toLocaleString()}`
+                : "₱0"}
+            </div>
+            <p className="text-xs text-muted-foreground">To be liquidated</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Downloaded
+            </CardTitle>
+            <Download className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {data?.financialMetrics?.totalDownloadedAmount !== undefined
+                ? `₱${data.financialMetrics.totalDownloadedAmount.toLocaleString()}`
+                : "₱0"}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Initial cash advance
+            </p>
+          </CardContent>
+        </Card>
+      </div>
       {/* Charts and Detailed Information */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
         {/* Expense Breakdown (moved left) */}
@@ -421,7 +426,6 @@ const SchoolHeadDashboard = () => {
             </div>
           </CardContent>
         </Card>
-
         {/* List of Priority Completion Chart (moved right) */}
         <Card>
           <CardHeader>
@@ -492,12 +496,72 @@ const SchoolHeadDashboard = () => {
         </Card>
       </div>
       {/* Priority Progress Details */}
-      <PriorityProgressTable
-        priorities={data?.liquidationProgress?.priorities || []}
-        getPriorityColor={getPriorityColor}
-        getStatusBadge={getStatusBadge}
-        onViewDetails={() => window.open("/liquidation", "_blank")}
-      />
+      <Card className={`mb-6`}>
+        <CardHeader className="flex items-center justify-between">
+          <CardTitle>List of Priority Document Progress</CardTitle>
+          <a href="/liquidation">
+            <Button className="mb-4" size="sm" variant="outline">
+              View Details
+            </Button>
+          </a>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-3 text-left font-medium">Priority</th>
+                  <th className="p-3 text-left font-medium">Status</th>
+                  <th className="p-3 text-left font-medium">Documents</th>
+                  <th className="p-3 text-left font-medium">Completion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.liquidationProgress?.priorities || []).map(
+                  (priority) => (
+                    <tr key={priority.priorityId} className="border-b">
+                      <td className="p-3 font-medium">
+                        {priority.priorityName}
+                      </td>
+                      <td className="p-3">{getStatusBadge(priority.status)}</td>
+                      <td className="p-3">
+                        {priority.documentsUploaded} of{" "}
+                        {priority.documentsRequired}
+                      </td>
+                      <td className="p-3">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div
+                            className="h-2.5 rounded-full"
+                            style={{
+                              width: `${priority.completionPercentage}%`,
+                              backgroundColor: getPriorityColor(
+                                priority.priorityName
+                              ),
+                            }}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          {priority.completionPercentage}%
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+      {/* Example button in the request status card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Request Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* ... status display ... */}
+          <Button onClick={handleViewRequestStatus}>View Request Status</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

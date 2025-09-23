@@ -81,7 +81,8 @@ const RequestStatusCard: React.FC<RequestStatusCardProps> = ({
                   Total Amount
                 </div>
                 <div className="text-lg font-semibold text-blue-800">
-                  ₱{request.total_amount?.toLocaleString() || "250,000"}
+                  ₱{request.total_amount?.toLocaleString() || "0"}{" "}
+                  {/* Now uses max_budget if passed */}{" "}
                 </div>
               </div>
               <div>
@@ -118,7 +119,8 @@ const RequestStatusCard: React.FC<RequestStatusCardProps> = ({
                         </div>
                         <div className="text-right">
                           <div className="font-semibold text-gray-800">
-                            ₱{priority.amount.toLocaleString()}
+                            ₱{request.total_amount?.toLocaleString() || "0"}{" "}
+                            {/* Consistent with above */}{" "}
                           </div>
                           <div className="text-xs text-gray-500">
                             {(
