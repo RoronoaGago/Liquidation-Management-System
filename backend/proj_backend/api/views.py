@@ -2824,65 +2824,82 @@ def initiate_restore(request):
 
                                     try:
                                         # Check if user with this email already exists
-                                        existing_user = model.objects.filter(email=email).first() if email else None
-                                        
+                                        existing_user = model.objects.filter(
+                                            email=email).first() if email else None
+
                                         if existing_user:
                                             # Update existing user with data from backup
-                                            logger.info(f"Updating existing user by email: {email}")
+                                            logger.info(
+                                                f"Updating existing user by email: {email}")
                                             for field in obj.object._meta.fields:
                                                 if field.primary_key or field.name == 'password':
                                                     continue
                                                 try:
-                                                    setattr(existing_user, field.name, getattr(obj.object, field.name))
+                                                    setattr(existing_user, field.name, getattr(
+                                                        obj.object, field.name))
                                                 except Exception as field_error:
-                                                    logger.warning(f"Error setting field {field.name}: {field_error}")
-                                            
+                                                    logger.warning(
+                                                        f"Error setting field {field.name}: {field_error}")
+
                                             existing_user.save()
                                             objects_processed += 1
-                                            
+
                                             # Handle password if needed
                                             if temp_password and not str(temp_password).startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
-                                                existing_user.set_password(temp_password)
-                                                existing_user.save(update_fields=['password'])
+                                                existing_user.set_password(
+                                                    temp_password)
+                                                existing_user.save(
+                                                    update_fields=['password'])
                                         else:
                                             # Create new user
-                                            logger.info(f"Creating new user: {email}")
-                                            
+                                            logger.info(
+                                                f"Creating new user: {email}")
+
                                             # Try to preserve original PK if possible
                                             if original_pk and not model.objects.filter(pk=original_pk).exists():
                                                 obj.object.pk = original_pk
-                                            
+
                                             with transaction.atomic():
                                                 obj.save()
                                                 objects_processed += 1
-                                            
+
                                             # Handle password if needed
                                             if temp_password and not str(temp_password).startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
-                                                obj.object.set_password(temp_password)
+                                                obj.object.set_password(
+                                                    temp_password)
                                                 with transaction.atomic():
-                                                    obj.object.save(update_fields=['password'])
-                                                    
+                                                    obj.object.save(
+                                                        update_fields=['password'])
+
                                     except IntegrityError as e:
-                                        logger.warning(f"Integrity error for user {email}: {e}")
+                                        logger.warning(
+                                            f"Integrity error for user {email}: {e}")
                                         # Try fallback: create without original PK
                                         try:
                                             user_data = obj.object.__dict__.copy()
                                             user_data.pop('_state', None)
-                                            user_data.pop('id', None)  # Remove PK to avoid conflict
-                                            
-                                            password = user_data.pop('password', None)
+                                            # Remove PK to avoid conflict
+                                            user_data.pop('id', None)
+
+                                            password = user_data.pop(
+                                                'password', None)
                                             new_user = model(**user_data)
                                             if password:
                                                 new_user.set_password(password)
                                             new_user.save()
                                             objects_processed += 1
-                                            logger.info(f"Created user with auto-generated PK: {email}")
+                                            logger.info(
+                                                f"Created user with auto-generated PK: {email}")
                                         except Exception as fallback_error:
-                                            logger.error(f"Fallback creation failed for {email}: {fallback_error}")
-                                            errors.append(f"User {email}: {str(fallback_error)}")
+                                            logger.error(
+                                                f"Fallback creation failed for {email}: {fallback_error}")
+                                            errors.append(
+                                                f"User {email}: {str(fallback_error)}")
                                     except Exception as e:
-                                        logger.error(f"Error restoring User object (pk={original_pk}): {e}")
-                                        errors.append(f"User object (pk={original_pk}): {str(e)}")
+                                        logger.error(
+                                            f"Error restoring User object (pk={original_pk}): {e}")
+                                        errors.append(
+                                            f"User object (pk={original_pk}): {str(e)}")
                                 else:
                                     # Default path for non-User models via deserializer
                                     try:
