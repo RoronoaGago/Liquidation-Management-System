@@ -769,7 +769,7 @@ class PDFGenerator:
         signature_table = Table(signature_data, colWidths=[
                                 2.5*inch, 2.5*inch, 2.5*inch])
         signature_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('TOPPADDING', (0, 0), (-1, -1), 12),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 12),

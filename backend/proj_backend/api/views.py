@@ -1932,7 +1932,7 @@ def admin_dashboard(request):
         return Response({"error": "Only administrators can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
 
     # Get time range parameter
-    time_range = request.GET.get('time_range', 'last_quarter')
+    time_range = request.GET.get('time_range', 'last_month')
 
     # Calculate date range based on parameter
     end_date = timezone.now()
@@ -2240,28 +2240,79 @@ def admin_dashboard(request):
     category_spending = category_spending[:5]  # Limit to top 5
 
     # 6. Document Compliance
+    # Enhanced Document Compliance with trend calculation
     document_compliance = []
     requirements = Requirement.objects.all()
 
+    # Get current period compliance
+    current_period_compliance = {}
     for requirement in requirements:
         total_submitted = LiquidationDocument.objects.filter(
-            requirement=requirement
+            requirement=requirement,
+            created_at__range=(start_date, end_date)  # Current period
         ).count()
 
         compliant = LiquidationDocument.objects.filter(
             requirement=requirement,
-            is_approved=True
+            is_approved=True,
+            created_at__range=(start_date, end_date)
         ).count()
 
         compliance_rate = (compliant / total_submitted *
                            100) if total_submitted > 0 else 0
 
+        current_period_compliance[requirement.id] = compliance_rate
+
+    # Get previous period compliance for trend calculation
+    prev_start_date = start_date - (end_date - start_date)
+    prev_end_date = start_date
+
+    previous_period_compliance = {}
+    for requirement in requirements:
+        total_submitted_prev = LiquidationDocument.objects.filter(
+            requirement=requirement,
+            created_at__range=(prev_start_date, prev_end_date)
+        ).count()
+
+        compliant_prev = LiquidationDocument.objects.filter(
+            requirement=requirement,
+            is_approved=True,
+            created_at__range=(prev_start_date, prev_end_date)
+        ).count()
+
+        compliance_rate_prev = (
+            compliant_prev / total_submitted_prev * 100) if total_submitted_prev > 0 else 0
+        previous_period_compliance[requirement.id] = compliance_rate_prev
+
+    # Calculate trend for each requirement
+    for requirement in requirements:
+        current_rate = current_period_compliance.get(requirement.id, 0)
+        previous_rate = previous_period_compliance.get(requirement.id, 0)
+
+        trend = current_rate - previous_rate if previous_rate > 0 else 0
+
         document_compliance.append({
             'requirement': requirement.requirementTitle,
-            'totalSubmitted': total_submitted,
-            'compliant': compliant,
-            'complianceRate': float(compliance_rate)
+            'totalSubmitted': LiquidationDocument.objects.filter(
+                requirement=requirement,
+                created_at__range=(start_date, end_date)
+            ).count(),
+            'compliant': LiquidationDocument.objects.filter(
+                requirement=requirement,
+                is_approved=True,
+                created_at__range=(start_date, end_date)
+            ).count(),
+            'complianceRate': float(current_rate),
+            'trend': float(trend)  # Add trend data
         })
+
+    # Calculate overall compliance trend for the metrics widget
+    overall_current_compliance = sum(current_period_compliance.values(
+    )) / len(current_period_compliance) if current_period_compliance else 0
+    overall_previous_compliance = sum(previous_period_compliance.values(
+    )) / len(previous_period_compliance) if previous_period_compliance else 0
+    overall_trend = overall_current_compliance - \
+        overall_previous_compliance if overall_previous_compliance > 0 else 0
 
     # 7. Top Priorities
     top_priorities = []
@@ -2483,6 +2534,7 @@ def admin_dashboard(request):
         'schoolPerformance': school_performance,
         'categorySpending': category_spending,
         'documentCompliance': document_compliance,
+        'complianceTrend': float(overall_trend),  # Add overall trend
         'topPriorities': top_priorities,
         'activeRequests': active_requests,
         'liquidationMetrics': liquidation_metrics,

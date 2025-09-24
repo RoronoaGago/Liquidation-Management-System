@@ -75,6 +75,7 @@ interface DashboardData {
   schoolPerformance: SchoolPerformanceData[];
   categorySpending: CategoryData[];
   documentCompliance: ComplianceData[];
+  complianceTrend?: number; // NEW
   topPriorities: PriorityData[];
   activeRequests: ActiveRequestItem[];
   liquidationMetrics: {
@@ -306,31 +307,6 @@ const TopSchoolsWidget = ({
       title="🚀 Fastest Liquidating Schools"
       subtitle="Top 5 schools by average liquidation time"
       editMode={editMode}
-      actions={
-        <div className="relative inline-block">
-          <button className="dropdown-toggle no-drag" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Export Data
-            </DropdownItem>
-          </Dropdown>
-        </div>
-      }
     >
       <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
         {items.slice(0, 5).map((school, index) => (
@@ -378,9 +354,7 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
           <AlertCircle className="h-5 w-5 text-gray-800 dark:text-white/90" />
         ),
         value: `${data?.activeRequests?.length || 0}`,
-        description: `${
-          data?.activeRequests?.filter((a) => a.priority === "high").length || 0
-        } high priority`,
+        description: "Currently being processed",
         bgColor: "bg-gray-100 dark:bg-gray-800",
       },
       {
@@ -416,7 +390,11 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
               ).toFixed(1)
             : 0
         }%`,
-        description: "+3.1% from previous period",
+        description: data?.complianceTrend
+          ? `${
+              data.complianceTrend >= 0 ? "+" : ""
+            }${data.complianceTrend.toFixed(1)}% from previous period`
+          : "No trend data",
         bgColor: "bg-gray-100 dark:bg-gray-800",
       },
     ].map((metric, index) => (
@@ -467,38 +445,6 @@ const BudgetWidget = ({
       title="Budget Analysis"
       subtitle="Planned vs. actual spending"
       editMode={editMode}
-      actions={
-        <div className="flex items-center gap-2">
-          {/* Remove the view mode toggle buttons */}
-
-          <div className="relative inline-block">
-            <button
-              className="dropdown-toggle no-drag"
-              onClick={toggleDropdown}
-            >
-              <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-            </button>
-            <Dropdown
-              isOpen={isOpen}
-              onClose={closeDropdown}
-              className="w-40 p-2"
-            >
-              <DropdownItem
-                onItemClick={closeDropdown}
-                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-              >
-                View More
-              </DropdownItem>
-              <DropdownItem
-                onItemClick={closeDropdown}
-                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-              >
-                Delete
-              </DropdownItem>
-            </Dropdown>
-          </div>
-        </div>
-      }
     >
       {/* Keep only the utilization view (Line Chart) */}
       <div className="h-[300px]">
@@ -650,31 +596,6 @@ const StatusWidget = ({
       title="Request Status Distribution"
       subtitle="Breakdown of requests by current status"
       editMode={editMode}
-      actions={
-        <div className="relative inline-block">
-          <button className="dropdown-toggle no-drag" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Delete
-            </DropdownItem>
-          </Dropdown>
-        </div>
-      }
     >
       <div className="h-[300px] flex flex-col">
         {distribution.length === 0 ? (
@@ -754,31 +675,6 @@ const TimelineWidget = ({
     <WidgetContainer
       title="Liquidation Processing Timeline"
       editMode={editMode}
-      actions={
-        <div className="relative inline-block">
-          <button className="dropdown-toggle no-drag" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Delete
-            </DropdownItem>
-          </Dropdown>
-        </div>
-      }
     >
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -987,7 +883,7 @@ const SchoolPerformanceWidget = ({
             </button>
           </div>
 
-          <Button
+          {/* <Button
             variant="outline"
             size="sm"
             className="no-drag inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
@@ -1021,7 +917,7 @@ const SchoolPerformanceWidget = ({
                 Delete
               </DropdownItem>
             </Dropdown>
-          </div>
+          </div> */}
         </div>
       }
     >
@@ -1585,7 +1481,7 @@ const ActiveRequestsWidget = ({
 const AdminDashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<string>("last_quarter");
+  const [timeRange, setTimeRange] = useState<string>("last_month");
   const [activeView, setActiveView] = useState<string>("overview");
   const [refreshing, setRefreshing] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -1901,7 +1797,11 @@ const AdminDashboard = () => {
             <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={saveLayout} disabled={!layoutDirty}>
+            <Button
+              onClick={saveLayout}
+              disabled={!layoutDirty}
+              variant="default"
+            >
               Save Layout
             </Button>
           </div>
