@@ -1,148 +1,274 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
-    <title>OTP Verification</title>
+  <head>
+    <meta charset="UTF-8" />
+    <title>OTP Verification - MOOE Liquidation Management System</title>
     <style>
-        body { 
-            font-family: 'Segoe UI', Arial, sans-serif; 
-            background: #f5f8fa; 
-            margin: 0; 
-            padding: 0; 
-            line-height: 1.6;
-            color: #333;
-        }
-        .container { 
-            max-width: 600px; 
-            margin: 30px auto; 
-            background: #fff; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
-            overflow: hidden; 
-        }
-        .header { 
-            background: linear-gradient(135deg, #094684 0%, #DD1F2F 50%, #FBAF3D 100%); 
-            color: #fff; 
-            text-align: center; 
-            padding: 30px 0 20px 0;
-            position: relative;
-        }
-        .header:after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: rgba(0,0,0,0.1);
-        }
-        .header img { 
-            max-height: 70px; 
-            margin-bottom: 15px;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-        }
-        .company-name { 
-            font-size: 1.5em; 
-            font-weight: 600; 
-            letter-spacing: 0.5px;
-            margin-bottom: 5px;
-        }
-        .content { 
-            padding: 35px 40px 25px 40px; 
-        }
-        .otp-display {
-            background: #f0f7ff;
-            border-left: 4px solid #094684;
-            padding: 25px;
-            margin: 25px 0;
-            border-radius: 0 6px 6px 0;
-            text-align: center;
-            font-size: 1.2em;
+      body {
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        background: #f8fafc;
+        margin: 0;
+        padding: 20px 0;
+        line-height: 1.5;
+        color: #334155;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+      }
+      .header {
+        background: linear-gradient(
+          135deg,
+          #094684 0%,
+          #dd1f2f 50%,
+          #fbaf3d 100%
+        );
+        color: #fff;
+        text-align: center;
+        padding: 40px 0 30px 0;
+        position: relative;
+      }
+      .header:after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .header img {
+        max-height: 70px;
+        margin-bottom: 15px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+      }
+      .company-name {
+        font-size: 1.75em;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        margin-bottom: 5px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+      .company-subtitle {
+        font-size: 1em;
+        opacity: 0.9;
+        font-weight: 400;
+        margin-top: 5px;
+      }
+      .content {
+        padding: 40px;
+      }
+      .greeting {
+        font-size: 1.25em;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #1e293b;
+      }
+      .intro-text {
+        margin-bottom: 30px;
+        color: #475569;
+      }
+      .otp-section {
+        margin: 30px 0;
+        text-align: center;
+      }
+      .otp-label {
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #64748b;
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+      .otp-code {
+        font-size: 3em;
+        font-weight: 800;
+        color: #094684;
+        letter-spacing: 8px;
+        margin: 15px 0;
+        padding: 15px 20px;
+        background: #f0f7ff;
+        border-radius: 10px;
+        display: inline-block;
+        border: 2px dashed #c7dafe;
+        font-family: "Courier New", monospace;
+      }
+      .expiry-notice {
+        font-size: 0.95em;
+        color: #dc2626;
+        font-weight: 600;
+        margin-top: 10px;
+      }
+      .security-section {
+        background: #fff8f0;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 30px 0;
+        border-left: 4px solid #fbaf3d;
+      }
+      .security-title {
+        font-size: 1.1em;
+        font-weight: 700;
+        color: #92400e;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+      }
+      .security-title:before {
+        content: "🔒";
+        margin-right: 8px;
+      }
+      .security-list {
+        margin: 15px 0;
+        padding-left: 20px;
+      }
+      .security-list li {
+        margin-bottom: 8px;
+        color: #475569;
+      }
+      .action-section {
+        text-align: center;
+        margin: 30px 0;
+      }
+      .button {
+        display: inline-block;
+        padding: 14px 32px;
+        background: linear-gradient(to right, #094684, #003366);
+        color: #fff !important;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1em;
+        box-shadow: 0 2px 8px rgba(9, 70, 132, 0.2);
+        transition: all 0.2s ease;
+      }
+      .button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(9, 70, 132, 0.3);
+      }
+      .signature {
+        margin-top: 40px;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 25px;
+      }
+      .signature p {
+        margin: 5px 0;
+      }
+      .signature-name {
+        font-weight: 700;
+        color: #1e293b;
+      }
+      .footer {
+        background: #f1f5f9;
+        color: #64748b;
+        text-align: center;
+        padding: 25px;
+        font-size: 0.85em;
+        border-top: 1px solid #e2e8f0;
+      }
+      .footer p {
+        margin: 5px 0;
+      }
+      .urgency-badge {
+        display: inline-block;
+        background: #dc2626;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 600;
+        margin-left: 10px;
+        vertical-align: middle;
+      }
+      @media (max-width: 600px) {
+        .content {
+          padding: 25px;
         }
         .otp-code {
-            font-size: 2.5em;
-            font-weight: 700;
-            color: #094684;
-            letter-spacing: 5px;
-            margin: 15px 0;
+          font-size: 2.2em;
+          letter-spacing: 5px;
+          padding: 12px 15px;
         }
-        .security-note {
-            background: #fff8f0;
-            padding: 16px;
-            border-radius: 6px;
-            margin: 20px 0;
-            border-left: 4px solid #FBAF3D;
-        }
-        .button {
-            display: inline-block;
-            padding: 12px 24px;
-            background: linear-gradient(to right, #094684, #003366);
-            color: #fff !important;
-            border-radius: 30px;
-            text-decoration: none;
-            font-weight: 600;
-            margin-top: 15px;
-        }
-        .signature {
-            margin-top: 30px;
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-        }
-        .footer { 
-            background: #f0f3f7; 
-            color: #666; 
-            text-align: center; 
-            padding: 20px; 
-            font-size: 0.85em;
-            border-top: 1px solid #e0e4e8;
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header">
-            <img src="DepEd_logo-W.png" alt="DepEd Logo">
-            <div class="company-name">MOOE Liquidation Management System</div>
-            <div class="company-subtitle">Department of Education, La Union Schools Division</div>
+      <div class="header">
+        <img src="DepEd_logo-W.png" alt="DepEd Logo" />
+        <div class="company-name">MOOE Liquidation Management System</div>
+        <div class="company-subtitle">
+          Department of Education, La Union Schools Division
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="greeting">
+          Dear {{ user.first_name|default:user.username }},
         </div>
 
-        <div class="content">
-            <p>Dear {{ user.first_name|default:user.username }},</p>
-            
-            <p>Your One-Time Password (OTP) for account verification is:</p>
-            
-            <div class="otp-display">
-                <div class="detail-title">Verification Code</div>
-                <div class="otp-code">{{ otp }}</div>
-                <p>This code will expire in 10 minutes</p>
-            </div>
-            
-            <div class="security-note">
-                <p><strong>Security Notice:</strong></p>
-                <p>For your protection:</p>
-                <ol>
-                    <li>Never share this code with anyone</li>
-                    <li>This code will expire after 10 minutes</li>
-                    <li>If you didn't request this code, please secure your account immediately</li>
-                </ol>
-            </div>
-            
-            <p style="text-align: center; margin: 25px 0;">
-                <a href="{{ account_settings_url }}" class="button">Account Security Settings</a>
-            </p>
+        <p class="intro-text">
+          To complete your verification process, please use the following
+          One-Time Password (OTP):
+        </p>
 
-            <div class="signature">
-                <p>Best regards,</p>
-                <p><strong>System Security Team</strong><br>
-                Liquidation Management System<br>
-                Department of Education - La Union Schools Division</p>
-            </div>
+        <div class="otp-section">
+          <div class="otp-label">Your Verification Code</div>
+          <div class="otp-code">{{ otp }}</div>
+          <div class="expiry-notice">
+            ⏳ Expires in 10 minutes <span class="urgency-badge">URGENT</span>
+          </div>
         </div>
 
-        <div class="footer">
-            <p>&copy; {{ now|date:"Y" }} La Union Schools Division Office. All rights reserved.</p>
-            <p>This is an automated message. Please do not reply to this email.</p>
+        <div class="security-section">
+          <div class="security-title">Security Notice</div>
+          <p>For your protection, please note:</p>
+          <ul class="security-list">
+            <li>
+              <strong>Never share</strong> this code with anyone, including
+              DepEd staff
+            </li>
+            <li>
+              This code will <strong>expire after 10 minutes</strong> for
+              security reasons
+            </li>
+            <li>
+              If you didn't request this code, please secure your account
+              immediately
+            </li>
+          </ul>
         </div>
+
+        <div class="action-section">
+          <p>Need to update your security settings?</p>
+          <a href="{{ account_settings_url }}" class="button"
+            >Manage Account Security</a
+          >
+        </div>
+
+        <div class="signature">
+          <p>Best regards,</p>
+          <p class="signature-name">System Security Team</p>
+          <p>
+            Liquidation Management System<br />
+            Department of Education - La Union Schools Division
+          </p>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>
+          &copy; {{ now|date:"Y" }} La Union Schools Division Office. All rights
+          reserved.
+        </p>
+        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>If you have questions, contact your system administrator.</p>
+      </div>
     </div>
-</body>
+  </body>
 </html>
