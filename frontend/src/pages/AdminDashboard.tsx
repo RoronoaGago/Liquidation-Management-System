@@ -75,6 +75,7 @@ interface DashboardData {
   schoolPerformance: SchoolPerformanceData[];
   categorySpending: CategoryData[];
   documentCompliance: ComplianceData[];
+  overallCompliance: number; // NEW
   complianceTrend?: number; // NEW
   topPriorities: PriorityData[];
   activeRequests: ActiveRequestItem[];
@@ -380,16 +381,7 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
       {
         title: "Document Compliance",
         icon: <FileText className="h-5 w-5 text-gray-800 dark:text-white/90" />,
-        value: `${
-          data?.documentCompliance && data.documentCompliance.length > 0
-            ? (
-                data.documentCompliance.reduce(
-                  (acc, curr) => acc + curr.complianceRate,
-                  0
-                ) / data.documentCompliance.length
-              ).toFixed(1)
-            : 0
-        }%`,
+        value: `${data?.overallCompliance?.toFixed(1) || 0}%`,
         description: data?.complianceTrend
           ? `${
               data.complianceTrend >= 0 ? "+" : ""
@@ -1580,8 +1572,8 @@ const AdminDashboard = () => {
     switch (widgetId) {
       case "metrics":
         return <MetricsWidget data={data} />;
-      case "budget":
-        return <BudgetWidget data={data} editMode={editMode} />;
+      // case "budget":
+      //   return <BudgetWidget data={data} editMode={editMode} />;
       case "status":
         return <StatusWidget data={data} editMode={editMode} />;
       case "timeline":

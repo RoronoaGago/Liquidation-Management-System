@@ -407,7 +407,8 @@ class PDFGenerator:
             story.append(Spacer(1, 15))
 
             # Salutation
-            story.append(Paragraph("Sir:", self.styles['BodyText']))
+            story.append(Paragraph("Dear Superintendent:",
+                         self.styles['BodyText']))
             story.append(Spacer(1, 10))
 
             # Request content

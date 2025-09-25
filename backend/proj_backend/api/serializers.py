@@ -271,12 +271,27 @@ class UserSerializer(serializers.ModelSerializer):
             e_signature = data.get("e_signature")
             required_roles = ["school_head", "superintendent", "accountant"]
 
-            # Only require e-signature for updates (when instance exists), not for creation
             if self.instance and role in required_roles and not e_signature:
-                # Check if user already has an e-signature
-                if not self.instance.e_signature:
+                # Get the current role from the instance
+                current_role = self.instance.role
+
+                # Only require signature if:
+                # 1. User is being activated AND doesn't have signature OR
+                # 2. Role is being changed TO a required role AND user doesn't have signature
+                is_being_activated = data.get('is_active', False)
+                role_is_changing = role != current_role
+                user_has_no_signature = not self.instance.e_signature
+
+                require_signature = False
+
+                if is_being_activated and user_has_no_signature:
+                    require_signature = True
+                elif role_is_changing and role in required_roles and user_has_no_signature:
+                    require_signature = True
+
+                if require_signature:
                     raise serializers.ValidationError(
-                        {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant."}
+                        {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant when activating users or assigning these roles."}
                     )
         return data
 
