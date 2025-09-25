@@ -1282,17 +1282,6 @@ def submit_for_liquidation(request, request_id):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Log audit for liquidation creation
-            log_audit_event(
-                request=request,
-                action='create',
-                module='liquidation',
-                description=f"Created liquidation {liquidation.LiquidationID} for request {request_obj.request_id}",
-                object_id=liquidation.LiquidationID,
-                object_type='LiquidationManagement',
-                object_name=f"Liquidation {liquidation.LiquidationID}"
-            )
-
             # Update request status to 'unliquidated' as final state
             request_obj._skip_signal_audit = True
             request_obj.status = 'unliquidated'
