@@ -35,6 +35,7 @@ import Button from "@/components/ui/button/Button";
 import MOOERequestTable from "@/components/tables/BasicTables/MOOEREquestTable";
 import { useToastState } from "react-stately";
 import { toast } from "react-toastify";
+import { formatDateTime } from "@/lib/helpers";
 
 type SubmissionStatus =
   | "pending"
@@ -163,7 +164,7 @@ const MOOERequestHistory = () => {
             </DialogDescription>
           </DialogHeader>
           {viewedSubmission && (
-            <div className="space-y-6">
+            <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
               {/* Sender Details Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -207,8 +208,7 @@ const MOOERequestHistory = () => {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Submitted at:{" "}
-                    {new Date(viewedSubmission.created_at).toLocaleString()}
+                    Submitted at: {formatDateTime(viewedSubmission.created_at)}
                   </span>
                 </div>
               </div>

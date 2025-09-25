@@ -1,17 +1,56 @@
-# Create a new file signals.py
+# audit_signals.py
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.utils import timezone
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, LiquidationManagement, SchoolDistrict, AuditLog
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, LiquidationManagement, SchoolDistrict, AuditLog, RequestPriority
 from .audit_utils import log_audit_event, get_changed_fields
 
-# Track model changes
+# List of models that should NOT be audited (including historical models)
+EXCLUDED_MODELS = [
+    'AuditLog',
+    'HistoricalRequestManagement',
+    'HistoricalRequestPriority',
+    'HistoricalLiquidationManagement',
+    'Notification',
+    'GeneratedPDF',
+    'Backup',
+    # Add other historical models as needed
+]
+
+
+def should_audit_model(sender):
+    """Check if a model should be audited"""
+    # Skip if app is not 'api'
+    if sender._meta.app_label not in ['api']:
+        return False
+
+    # Skip excluded models (by name)
+    EXCLUDED_MODELS = [
+        'AuditLog',
+        'HistoricalRequestManagement',
+        'HistoricalRequestPriority',
+        'HistoricalLiquidationManagement',
+        'Notification',  # Add here too for clarity
+        'GeneratedPDF',  # You might want to exclude these too
+        'Backup',        # And backups
+    ]
+
+    # Skip excluded models (by name)
+    if sender.__name__ in EXCLUDED_MODELS:
+        return False
+
+    # Skip models with 'Historical' in their name (catch-all for historical models)
+    if 'Historical' in sender.__name__:
+        return False
+
+    return True
 
 
 @receiver(pre_save)
 def track_model_changes(sender, instance, **kwargs):
-    if sender == AuditLog or sender._meta.app_label not in ['api']:
+    # Skip if model shouldn't be audited
+    if not should_audit_model(sender):
         return
 
     # Allow explicit suppression from business logic
@@ -19,20 +58,8 @@ def track_model_changes(sender, instance, **kwargs):
         return
 
     # Try multiple ways to get the request
-    request = None
-
-    # Method 1: From thread_local (current approach)
     from .middleware import thread_local
     request = getattr(thread_local, 'request', None)
-
-    # Method 2: Fallback - get request from active requests
-    if not request:
-        try:
-            from django.core.handlers.wsgi import WSGIHandler
-            # This is tricky but sometimes necessary
-            pass
-        except:
-            pass
 
     if not request:
         return  # Skip if no request context
@@ -49,7 +76,8 @@ def track_model_changes(sender, instance, **kwargs):
 
 @receiver(post_save)
 def log_model_save(sender, instance, created, **kwargs):
-    if sender == AuditLog or sender._meta.app_label not in ['api']:
+    # Skip if model shouldn't be audited
+    if not should_audit_model(sender):
         return
 
     # Allow explicit suppression from business logic
@@ -74,6 +102,8 @@ def log_model_save(sender, instance, created, **kwargs):
         RequestManagement: 'request',
         LiquidationManagement: 'liquidation',
         SchoolDistrict: 'district',
+        # Explicitly include models that should be audited
+        RequestPriority: 'request',  # This should be audited as it's a business action
     }
 
     module = module_map.get(sender, 'system')
@@ -116,7 +146,7 @@ def log_model_save(sender, instance, created, **kwargs):
         new_values=new_values
     )
 
-# Track user logins and logouts
+# Track user logins and logouts (unchanged)
 
 
 @receiver(user_logged_in)

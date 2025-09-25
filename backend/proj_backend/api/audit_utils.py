@@ -39,6 +39,10 @@ def get_changed_fields(instance):
     """
     Compare current instance with database version to detect changes
     """
+    # Skip historical models entirely
+    if 'Historical' in instance.__class__.__name__:
+        return None, None
+
     if not instance.pk:
         return None, None  # New instance, no old values
     print(
