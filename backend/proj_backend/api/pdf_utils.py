@@ -861,50 +861,6 @@ def generate_request_pdf_with_signatures(request_obj):
         raise
 
 
-
-class NumberedCanvas(canvas.Canvas):
-    """Custom canvas for adding header and footer to each page"""
-    def __init__(self, *args, **kwargs):
-        canvas.Canvas.__init__(self, *args, **kwargs)
-        self._saved_page_states = []
-
-    def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
-
-    def save(self):
-        """Add page numbering and headers/footers to each page"""
-        num_pages = len(self._saved_page_states)
-        for state in self._saved_page_states:
-            self.__dict__.update(state)
-            self.draw_header_footer(num_pages)
-            canvas.Canvas.showPage(self)
-        canvas.Canvas.save(self)
-
-    def draw_header_footer(self, page_count):
-        """Draw header and footer on each page"""
-        # Save current state
-        self.saveState()
-        
-        # Draw header (position from top of page)
-        self.setFont("Helvetica-Bold", 10)
-        self.drawString(72, 800, "Republic of the Philippines")
-        self.setFont("Helvetica-Bold", 12)
-        self.drawString(72, 785, "Department of Education")
-        self.setFont("Helvetica", 10)
-        self.drawString(72, 770, "Region I")
-        self.drawString(72, 755, "Schools Division of La Union")
-        
-        # Draw horizontal line
-        self.line(72, 745, 540, 745)
-        
-        # Draw footer with page number
-        self.setFont("Helvetica", 8)
-        self.drawRightString(540, 30, f"Page {self._pageNumber} of {page_count}")
-        
-        # Restore state
-        self.restoreState()
-
 class DemandLetterGenerator(PDFGenerator):
     """Handles Demand Letter PDF generation matching the exact specifications"""
     
@@ -917,6 +873,17 @@ class DemandLetterGenerator(PDFGenerator):
         try:
             # Register required fonts
             self._register_required_fonts()
+            # Ensure we have a font mapping for use in styles
+            # Defaults map to base ReportLab fonts if custom ones are unavailable
+            if not hasattr(self, 'font_names'):
+                self.font_names = {
+                    'old_english': 'Times-Roman',
+                    'trajan_regular': 'Helvetica',
+                    'trajan_bold': 'Helvetica-Bold',
+                    'times_regular': 'Times-Roman',
+                    'times_bold': 'Times-Bold',
+                    'times_italic': 'Times-Italic',
+                }
             
             # Header styles
             if not hasattr(self.styles, 'HeaderRepublic'):
@@ -926,7 +893,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=12,
                     spaceAfter=2,
                     alignment=TA_CENTER,
-                    fontName='OldEnglishTextMT'  # Old English Text MT
+                    fontName=self.font_names.get('old_english', 'Times-Roman')  # Old English Text MT or fallback
                 ))
             
             if not hasattr(self.styles, 'HeaderDepartment'):
@@ -936,7 +903,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=20,
                     spaceAfter=2,
                     alignment=TA_CENTER,
-                    fontName='OldEnglishTextMT'  # Old English Text MT
+                    fontName=self.font_names.get('old_english', 'Times-Roman')  # Old English Text MT or fallback
                 ))
             
             if not hasattr(self.styles, 'HeaderRegion'):
@@ -946,7 +913,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=10,
                     spaceAfter=2,
                     alignment=TA_CENTER,
-                    fontName='Helvetica'  # Trajan Pro
+                    fontName=self.font_names.get('trajan_regular', 'Helvetica')  # Trajan Pro or fallback
                 ))
             
             if not hasattr(self.styles, 'HeaderDivision'):
@@ -956,7 +923,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=12.5,
                     spaceAfter=6,
                     alignment=TA_CENTER,
-                    fontName='Helvetica-Bold'  # Change from 'TrajanPro-Bold'
+                    fontName=self.font_names.get('trajan_bold', 'Helvetica-Bold')
                 ))
             
             # Body styles (Times New Roman, size 10)
@@ -967,7 +934,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=10,
                     spaceAfter=6,
                     alignment=TA_JUSTIFY,
-                    fontName='Times-Roman',
+                    fontName=self.font_names.get('times_regular', 'Times-Roman'),
                     leading=12
                 ))
             
@@ -982,7 +949,7 @@ class DemandLetterGenerator(PDFGenerator):
                 self.styles.add(ParagraphStyle(
                     name='DemandBodyBold',
                     parent=self.styles['DemandBody'],
-                    fontName='Times-Bold'
+                    fontName=self.font_names.get('times_bold', 'Times-Bold')
                 ))
             
             if not hasattr(self.styles, 'DemandBodyIndent'):
@@ -1000,7 +967,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=9,
                     spaceAfter=3,
                     alignment=TA_CENTER,
-                    fontName='Times-Bold',
+                    fontName=self.font_names.get('times_bold', 'Times-Bold'),
                     textColor=colors.white
                 ))
             
@@ -1011,7 +978,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=9,
                     spaceAfter=3,
                     alignment=TA_LEFT,
-                    fontName='Times-Roman'
+                    fontName=self.font_names.get('times_regular', 'Times-Roman')
                 ))
             
             if not hasattr(self.styles, 'DemandTableCellRight'):
@@ -1029,7 +996,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=8,
                     spaceAfter=2,
                     alignment=TA_LEFT,
-                    fontName='Helvetica',
+                    fontName=self.font_names.get('trajan_regular', 'Helvetica'),
                     textColor=colors.HexColor('#555555')  # Gray color
                 ))
             
@@ -1040,7 +1007,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=9,
                     spaceAfter=3,
                     alignment=TA_CENTER,
-                    fontName='Times-Italic',
+                    fontName=self.font_names.get('times_italic', 'Times-Italic'),
                     textColor=colors.HexColor('#E91E63')  # Pink-red color
                 ))
             
@@ -1052,7 +1019,7 @@ class DemandLetterGenerator(PDFGenerator):
                     fontSize=14,
                     spaceAfter=6,
                     alignment=TA_CENTER,
-                    fontName='Times-Bold'
+                    fontName=self.font_names.get('times_bold', 'Times-Bold')
                 ))
             
             logger.debug("Demand letter styles setup completed")
@@ -1063,31 +1030,35 @@ class DemandLetterGenerator(PDFGenerator):
     def _register_required_fonts(self):
         """Register required fonts for the document"""
         try:
-            # Register Old English Text MT
+            self.font_names = {}
+
+            def register_font_or_fallback(preferred_name, ttf_path, fallback_name):
+                try:
+                    if ttf_path and os.path.exists(ttf_path):
+                        pdfmetrics.registerFont(TTFont(preferred_name, ttf_path))
+                        return preferred_name
+                    else:
+                        logger.warning(f"Font file not found for {preferred_name}, falling back to {fallback_name}")
+                        return fallback_name
+                except Exception as ex:
+                    logger.warning(f"Failed to register {preferred_name}, using fallback {fallback_name}: {ex}")
+                    return fallback_name
+
+            # Old English Text MT
             old_english_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'OLDENGL.TTF')
-            if os.path.exists(old_english_path):
-                pdfmetrics.registerFont(TTFont('OldEnglishTextMT', old_english_path))
-            else:
-                logger.warning("Old English Text MT font not found, using Times-Roman")
-                pdfmetrics.registerFont(TTFont('OldEnglishTextMT', 'Times-Roman'))
-            
-            # Register Trajan Pro (fallback to similar fonts)
-            try:
-                trajan_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'TrajanPro-Regular.ttf')
-                if os.path.exists(trajan_path):
-                    pdfmetrics.registerFont(TTFont('TrajanPro', trajan_path))
-                    pdfmetrics.registerFont(TTFont('TrajanPro-Bold', trajan_path))
-                else:
-                    pdfmetrics.registerFont(TTFont('TrajanPro', 'Helvetica'))
-                    pdfmetrics.registerFont(TTFont('TrajanPro-Bold', 'Helvetica-Bold'))
-            except:
-                pdfmetrics.registerFont(TTFont('TrajanPro', 'Helvetica'))
-                pdfmetrics.registerFont(TTFont('TrajanPro-Bold', 'Helvetica-Bold'))
-            
-            # Register Times New Roman
-            pdfmetrics.registerFont(TTFont('Times-Roman', 'Times-Roman'))
-            pdfmetrics.registerFont(TTFont('Times-Bold', 'Times-Bold'))
-            pdfmetrics.registerFont(TTFont('Times-Italic', 'Times-Italic'))
+            self.font_names['old_english'] = register_font_or_fallback('OldEnglishTextMT', old_english_path, 'Times-Roman')
+
+            # Trajan Pro (regular and bold)
+            trajan_regular_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'TrajanPro-Regular.ttf')
+            self.font_names['trajan_regular'] = register_font_or_fallback('TrajanPro', trajan_regular_path, 'Helvetica')
+            # For bold, try a bold file if exists, else fallback to Helvetica-Bold
+            trajan_bold_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'TrajanPro-Bold.ttf')
+            self.font_names['trajan_bold'] = register_font_or_fallback('TrajanPro-Bold', trajan_bold_path, 'Helvetica-Bold')
+
+            # Times family (mostly built-in in ReportLab, no need to register files)
+            self.font_names['times_regular'] = 'Times-Roman'
+            self.font_names['times_bold'] = 'Times-Bold'
+            self.font_names['times_italic'] = 'Times-Italic'
             
         except Exception as e:
             logger.error(f"Error registering fonts: {e}")
@@ -1154,11 +1125,11 @@ class DemandLetterGenerator(PDFGenerator):
                 contact_info
             ]]
 
-            footer_table = Table(footer_data, colWidths=[1.5*inch, 1.5*inch, 1.2*inch, 2.8*inch])
+            # Match number of columns with width specs (3 columns)
+            footer_table = Table(footer_data, colWidths=[1.8*inch, 1.6*inch, 3.6*inch])
             footer_table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('ALIGN', (0, 0), (2, 0), 'CENTER'),
-                ('ALIGN', (3, 0), (3, 0), 'LEFT'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 4),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 4),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
@@ -1207,6 +1178,9 @@ class DemandLetterGenerator(PDFGenerator):
 
             # Build the PDF content
             story = []
+
+            # Official, centered header with static images
+            story.extend(self._create_official_header())
 
             # Add date (empty field as in template)
             current_date = datetime.now().strftime("%B %d, %Y")
@@ -1348,13 +1322,13 @@ class DemandLetterGenerator(PDFGenerator):
             story.append(Paragraph("Sevilla, San Fernando City", self.styles['DemandBodyLeft']))
             story.append(Paragraph("2500, La Union", self.styles['DemandBodyLeft']))
 
-            # Add official footer
-            story.append(PageBreak())
+            # Add official footer (kept on the same page; if you prefer at bottom of page, integrate via PageTemplate)
+            story.append(Spacer(1, 12))
+            story.extend(self._create_official_footer())
             
-
             # Build the PDF
             logger.debug("Building professional Demand Letter PDF...")
-            doc.build(story, canvasmaker=NumberedCanvas)
+            doc.build(story)
 
             # Get the PDF content
             pdf_content = buffer.getvalue()
