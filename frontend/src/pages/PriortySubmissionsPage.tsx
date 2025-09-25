@@ -618,7 +618,7 @@ const PriortySubmissionsPage = () => {
       : diffs.filter((d) => d.change !== "unchanged");
     return (
       <div>
-        <div className="flex items-center mb-2 gap-2">
+        <div className="flex items-center mb-2 gap-2 ml-2">
           <FileDiff className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <span className="font-semibold text-blue-800 dark:text-blue-200">
             Resubmission Changes
@@ -1214,46 +1214,81 @@ const PriortySubmissionsPage = () => {
                 submissionHistory &&
                 submissionHistory.length > 1 &&
                 getPreviousRejected(submissionHistory) && (
-                  <div className="border border-blue-200 dark:border-blue-900/30 rounded-lg p-4 bg-blue-50/50 dark:bg-blue-900/10 shadow-sm">
-                    <div className="mb-2 flex items-center gap-2">
-                      <Info className="h-4 w-4 text-blue-700" />
-                      <span className="font-medium text-blue-800 dark:text-blue-200">
-                        This is a resubmission. Below is a comparison with the
-                        previous version.
-                      </span>
-                    </div>
-                    {/* Summary of the previous rejection */}
-                    <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangleIcon className="h-5 w-5 text-yellow-500" />
-                        <span className="font-medium text-yellow-800 dark:text-yellow-200">
-                          Previous Rejection:
-                        </span>
-                        <span className="text-xs text-gray-500 ml-2">
-                          {formatDateString(
-                            getPreviousRejected(submissionHistory)
-                              ?.rejection_date
-                          )}
-                        </span>
+                  <div className="border border-blue-200/80 dark:border-blue-800 rounded-xl p-5 bg-gradient-to-br from-blue-50/80 to-blue-100/30 dark:from-blue-950/20 dark:to-blue-900/10 shadow-sm backdrop-blur-sm">
+                    {/* Header Section */}
+                    <div className="flex items-start gap-3 mb-4 p-3 bg-white/50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-800/50">
+                      <div className="flex-shrink-0 w-5 h-5 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
+                        <Info className="h-3 w-3 text-blue-600 dark:text-blue-300" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 rounded-full">
-                          Reason:
+                      <div>
+                        <span className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
+                          Resubmission Notice
                         </span>
-                        <span className="italic text-yellow-900 dark:text-yellow-200">
-                          {
-                            getPreviousRejected(submissionHistory)
-                              ?.rejection_comment
-                          }
-                        </span>
+                        <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
+                          This is a resubmission. Below is a comparison with the
+                          previous version.
+                        </p>
                       </div>
                     </div>
-                    {/* Diff table */}
-                    <HistoryComparisonTable
-                      prev={getPreviousRejected(submissionHistory)?.priorities}
-                      curr={submissionHistory[0]?.priorities}
-                      showAll={showAllDiffs}
-                    />
+
+                    {/* Rejection Summary Card */}
+                    <div className="mb-5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="flex-shrink-0 w-6 h-6 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                          <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <span className="font-semibold text-amber-900 dark:text-amber-200 text-sm uppercase tracking-wide">
+                          Previous Rejection Summary
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-900/30 px-2 py-1 rounded">
+                              Date Rejected
+                            </span>
+                            <span className="text-sm text-amber-900 dark:text-amber-200 font-medium">
+                              {formatDateString(
+                                getPreviousRejected(submissionHistory)
+                                  ?.rejection_date
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-900/30 px-2 py-1 rounded flex-shrink-0">
+                              Reason
+                            </span>
+                            <span className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+                              {
+                                getPreviousRejected(submissionHistory)
+                                  ?.rejection_comment
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Comparison Section */}
+                    <div className="bg-white/30 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-800/30 rounded-lg p-1">
+                      <div className="flex items-center justify-between p-3 border-b border-blue-100 dark:border-blue-800/30">
+                        <span className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
+                          Version Comparison
+                        </span>
+                        {/* Optional: Add a toggle button here if needed */}
+                      </div>
+                      <HistoryComparisonTable
+                        prev={
+                          getPreviousRejected(submissionHistory)?.priorities
+                        }
+                        curr={submissionHistory[0]?.priorities}
+                        showAll={showAllDiffs}
+                      />
+                    </div>
                   </div>
                 )
               )}

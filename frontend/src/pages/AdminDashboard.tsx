@@ -123,12 +123,11 @@ interface StatusData {
 }
 
 interface TimelineData {
-  month: string;
+  quarter: string; // Changed from month to quarter
   avgProcessingTime: number;
   approved: number;
   rejected: number;
 }
-
 interface SchoolPerformanceData {
   schoolId: string;
   schoolName: string;
@@ -201,51 +200,48 @@ const COLORS = [
 const defaultLayouts: DashboardLayout = {
   lg: [
     { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
-    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 4 },
-    { i: "budget", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 5 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
     { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
-    { i: "activeRequests", x: 6, y: 9, w: 6, h: 5, minW: 4, minH: 4 },
     { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
     { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
-    { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   md: [
-    { i: "metrics", x: 0, y: 0, w: 8, h: 2, minW: 4, minH: 2 },
-    { i: "budget", x: 0, y: 2, w: 8, h: 6, minW: 4, minH: 4 },
-    { i: "status", x: 0, y: 8, w: 8, h: 6, minW: 4, minH: 4 },
-    { i: "timeline", x: 0, y: 14, w: 8, h: 6, minW: 6, minH: 4 },
-    { i: "performance", x: 0, y: 20, w: 8, h: 8, minW: 6, minH: 6 },
-    { i: "categories", x: 0, y: 28, w: 8, h: 8, minW: 4, minH: 6 },
-    { i: "actions", x: 0, y: 36, w: 8, h: 8, minW: 4, minH: 6 },
-    // Updated for medium screens
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   sm: [
-    { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
-    { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "timeline", x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 20, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "categories", x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "actions", x: 0, y: 36, w: 4, h: 8, minW: 4, minH: 6 },
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   xs: [
-    { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
-    { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "timeline", x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 20, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "categories", x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "actions", x: 0, y: 36, w: 4, h: 8, minW: 4, minH: 6 },
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   xxs: [
-    { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
-    { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "timeline", x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 20, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "categories", x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "actions", x: 0, y: 36, w: 4, minW: 4, minH: 6, h: 8 },
-    // Updated for extra extra small screens
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
 };
 
@@ -658,22 +654,18 @@ const TimelineWidget = ({
   data: DashboardData | null;
   editMode: boolean;
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  const closeDropdown = () => setIsOpen(false);
-
   return (
     <WidgetContainer
-      title="Liquidation Processing Timeline"
+      title="Liquidation Processing Timeline (Quarterly)"
+      subtitle="Average processing time by quarter"
       editMode={editMode}
     >
-      <div className="h-[300px]">
+      <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data?.liquidationTimeline || []}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
             <XAxis
-              dataKey="month"
+              dataKey="quarter" // Changed from 'month' to 'quarter'
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 12, fill: "#6B7280" }}
@@ -683,6 +675,7 @@ const TimelineWidget = ({
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 12, fill: "#6B7280" }}
+              domain={[0, "auto"]}
             />
             <YAxis
               yAxisId="right"
@@ -692,6 +685,12 @@ const TimelineWidget = ({
               tick={{ fontSize: 12, fill: "#6B7280" }}
             />
             <Tooltip
+              formatter={(value, name) => {
+                if (name === "Avg. Processing Time (days)") {
+                  return [`${Number(value).toFixed(1)} days`, name];
+                }
+                return [value, name];
+              }}
               contentStyle={{
                 backgroundColor: "#fff",
                 border: "1px solid #E4E7EC",
@@ -699,12 +698,7 @@ const TimelineWidget = ({
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
             />
-            <Legend
-              verticalAlign="top"
-              height={36}
-              iconType="circle"
-              iconSize={10}
-            />
+            <Legend />
             <Line
               yAxisId="left"
               type="monotone"
@@ -718,7 +712,7 @@ const TimelineWidget = ({
               yAxisId="right"
               type="monotone"
               dataKey="approved"
-              stroke="#9CB9FF"
+              stroke="#00C49F"
               strokeWidth={2}
               name="Completed Liquidations"
             />
@@ -738,7 +732,7 @@ const SchoolPerformanceWidget = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"overview" | "speed" | "compliance">(
-    "overview"
+    "speed"
   );
 
   // Add sorting state
@@ -840,7 +834,7 @@ const SchoolPerformanceWidget = ({
         <div className="flex items-center gap-2 custom-scrollbar">
           {/* View mode toggle */}
           <div className="flex rounded-lg border border-gray-200 p-1 dark:border-gray-700">
-            <button
+            {/* <button
               onClick={() => setViewMode("overview")}
               className={`rounded-md px-2 py-1 text-sm ${
                 viewMode === "overview"
@@ -850,7 +844,7 @@ const SchoolPerformanceWidget = ({
               title="Overview"
             >
               <BarChart3 className="h-4 w-4" />
-            </button>
+            </button> */}
             <button
               onClick={() => setViewMode("speed")}
               className={`rounded-md px-2 py-1 text-sm ${
@@ -976,12 +970,13 @@ const SchoolPerformanceWidget = ({
                   </td>
                   <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
                     <div className="flex items-center">
-                      {(
-                        (school.approvedRequests /
-                          Math.max(school.totalRequests, 1)) *
-                        100
-                      ).toFixed(1)}
-                      %
+                      {school.totalRequests > 0
+                        ? (
+                            (school.approvedRequests / school.totalRequests) *
+                            100
+                          ).toFixed(1)
+                        : 0}
+                      % %
                       {school.rejectionRate > 20 ? (
                         <TrendingDown className="ml-2 h-4 w-4 text-red-500" />
                       ) : (
@@ -1750,9 +1745,9 @@ const AdminDashboard = () => {
         <div key="metrics" className="rounded-2xl">
           {renderWidget("metrics")}
         </div>
-        <div key="budget" className="rounded-2xl">
+        {/* <div key="budget" className="rounded-2xl">
           {renderWidget("budget")}
-        </div>
+        </div> */}
         <div key="status" className="rounded-2xl">
           {renderWidget("status")}
         </div>
