@@ -9,7 +9,6 @@ import {
   Cell,
 } from "recharts";
 import {
-  Download,
   FileText,
   School as SchoolIcon,
   DollarSign,
@@ -17,6 +16,13 @@ import {
   Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Badge  from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
 import api from "@/api/axios";
@@ -83,59 +89,106 @@ const DivisionAccountantDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+
+      let pendingLiquidations: PendingLiquidation[] = [];
+      let expenseStatistics: ExpenseStatistic[] = [];
+      let approvedRequests: ApprovedRequest[] = [];
+
       // Pending liquidations with status approved_liquidator
-      const liqRes = await api.get("liquidations/", {
-        params: { status: "approved_liquidator", ordering: "-created_at" },
-      });
-      const liqs = (liqRes.data?.results || liqRes.data || []) as any[];
-      const pendingLiquidations = liqs.map((l: any) => {
-        const req = l.request;
-        const schoolName = req?.user?.school?.schoolName || "";
-        const schoolId = req?.user?.school?.schoolId || "";
-        const totalAmount = (req?.priorities || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-        const submittedDate = l.created_at || req?.created_at || "";
-        const daysPending = submittedDate ? Math.max(0, Math.round((Date.now() - new Date(submittedDate).getTime()) / (1000*60*60*24))) : 0;
-        return {
-          id: String(l.LiquidationID),
-          liquidationId: l.LiquidationID,
-          requestId: req?.request_id,
-          schoolName,
-          schoolId,
-          submittedDate,
-          daysPending,
-          totalAmount,
-          status: l.status,
-          priority: daysPending > 14 ? "high" : daysPending > 7 ? "medium" : "low",
-        } as PendingLiquidation;
-      });
+      try {
+        const liqRes = await api.get("liquidations/", {
+          params: { status: "approved_liquidator", ordering: "-created_at" },
+        });
+        const liqs = (liqRes.data?.results || liqRes.data || []) as any[];
+        pendingLiquidations = liqs.map((l: any) => {
+          const req = l.request;
+          const schoolName = req?.user?.school?.schoolName || "";
+          const schoolId = req?.user?.school?.schoolId || "";
+          const totalAmount = (req?.priorities || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+          const submittedDate = l.created_at || req?.created_at || "";
+          const daysPending = submittedDate ? Math.max(0, Math.round((Date.now() - new Date(submittedDate).getTime()) / (1000*60*60*24))) : 0;
+          return {
+            id: String(l.LiquidationID),
+            liquidationId: l.LiquidationID,
+            requestId: req?.request_id,
+            schoolName,
+            schoolId,
+            submittedDate,
+            daysPending,
+            totalAmount,
+            status: l.status,
+            priority: daysPending > 14 ? "high" : daysPending > 7 ? "medium" : "low",
+          } as PendingLiquidation;
+        });
+      } catch (e) {
+        console.warn("Failed to fetch pending liquidations", e);
+      }
 
-      // Expense categories from admin dashboard (computed from RequestPriority)
-      const adminRes = await api.get("admin-dashboard/");
-      const categorySpending = adminRes.data?.categorySpending || [];
-      const expenseStatistics: ExpenseStatistic[] = categorySpending.map((c: any) => ({
-        category: c.category,
-        amount: Number(c.totalAmount || 0),
-        percentage: Number(c.percentage || 0),
-        count: Number(c.frequency || 0),
-        trend: (c.trend || "stable") as "up" | "down" | "stable",
-      }));
+      // Expense categories from admin dashboard (may 403 for non-admin users)
+      try {
+        const adminRes = await api.get("admin-dashboard/");
+        const categorySpending = adminRes.data?.categorySpending || [];
+        expenseStatistics = categorySpending.map((c: any) => ({
+          category: c.category,
+          amount: Number(c.totalAmount || 0),
+          percentage: Number(c.percentage || 0),
+          count: Number(c.frequency || 0),
+          trend: (c.trend || "stable") as "up" | "down" | "stable",
+        }));
+      } catch (e) {
+        console.warn("Admin dashboard not available; skipping expense stats", e);
+      }
 
-      // Requests to download table (fetch all for now, no status filter)
-      const reqRes = await api.get("requests/", { params: { ordering: "-created_at" } });
-      const reqs = (reqRes.data?.results || reqRes.data || []) as any[];
-      const approvedRequests: ApprovedRequest[] = reqs.map((r: any) => ({
-        requestId: r.request_id,
-        schoolName: r.user?.school?.schoolName || "",
-        userFullName: r.user ? `${r.user.first_name} ${r.user.last_name}` : "",
-        totalAmount: (r.priorities || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0),
-        createdAt: r.created_at,
-      }));
+      // Requests to download table (approved requests only, newest first)
+      try {
+        const reqRes = await api.get("requests/", {
+          params: { status: "approved", ordering: "-created_at" },
+        });
+        const reqs = (reqRes.data?.results || reqRes.data || []) as any[];
+        approvedRequests = reqs.map((r: any) => ({
+          requestId: r.request_id,
+          schoolName: r.user?.school?.schoolName || "",
+          userFullName: r.user ? `${r.user.first_name} ${r.user.last_name}` : "",
+          totalAmount: (r.priorities || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0),
+          createdAt: r.created_at,
+        }));
+
+        // Build "Most Used Priorities" (top 5 by usage count) for the chart legend
+        const priorityCounts: Record<string, number> = {};
+        for (const r of reqs) {
+          const rps = Array.isArray(r.priorities) ? r.priorities : [];
+          for (const p of rps) {
+            const title = p?.priority?.expenseTitle || "Unknown";
+            priorityCounts[title] = (priorityCounts[title] || 0) + 1;
+          }
+        }
+        const totalCount = Object.values(priorityCounts).reduce((s, n) => s + n, 0);
+        const topFive = Object.entries(priorityCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => ({
+            category: name,
+            amount: 0, // not used in chart anymore
+            percentage: totalCount > 0 ? (count / totalCount) * 100 : 0,
+            count,
+            trend: "stable" as const,
+          }));
+        expenseStatistics = topFive;
+      } catch (e) {
+        console.warn("Failed to fetch approved requests", e);
+      }
 
       // Completed liquidations (status=liquidated)
-      const liqCompletedRes = await api.get("liquidations/", {
-        params: { status: "liquidated", ordering: "-created_at" },
-      });
-      const completedCount = (liqCompletedRes.data?.results || liqCompletedRes.data || []).length;
+      let completedCount = 0;
+      try {
+        const liqCompletedRes = await api.get("liquidations/", {
+          params: { status: "liquidated", ordering: "-created_at" },
+        });
+        completedCount = (liqCompletedRes.data?.results || liqCompletedRes.data || []).length;
+      } catch (e) {
+        console.warn("Failed to fetch completed liquidations", e);
+      }
+
       const pendingCount = pendingLiquidations.length;
       const completionRate = (completedCount + pendingCount) > 0
         ? (completedCount / (completedCount + pendingCount)) * 100
@@ -153,7 +206,7 @@ const DivisionAccountantDashboard = () => {
         },
       });
     } catch (error) {
-      console.error("Failed to fetch dashboard data:", error);
+      console.error("Unexpected error building dashboard data:", error);
       setData({
         pendingLiquidations: [],
         expenseStatistics: [],
@@ -197,6 +250,8 @@ const DivisionAccountantDashboard = () => {
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400";
     }
   };
+
+  // View handling is delegated to ApprovedRequestPage's modal via navigation
 
   // Removed mock data
 
@@ -360,12 +415,9 @@ const DivisionAccountantDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              Expense Categories
+              Most Used List of Priorities (Top 5)
             </CardTitle>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
+            <div />
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -378,17 +430,21 @@ const DivisionAccountantDashboard = () => {
                     outerRadius={80}
                     innerRadius={40}
                     paddingAngle={5}
-                    dataKey="amount"
-                    label={({ category, percentage }) => `${category} (${percentage}%)`}
+                    dataKey="count"
+                    nameKey="category"
+                    label={({ category, count }) => `${category} (${count})`}
                   >
                   {data?.expenseStatistics.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(value) => [`₱${Number(value).toLocaleString()}`, "Amount"]}
-                  />
-                  <Legend />
+                  <Tooltip formatter={(value, name) => [String(value), name === 'count' ? 'Usage' : name]} />
+                  <Legend formatter={(value, entry) => {
+                    // value becomes the category because of nameKey
+                    const payload: any = entry && (entry as any).payload;
+                    const pct = Math.round((payload?.payload?.percentage ?? payload?.percentage ?? 0));
+                    return `${value} (${pct}%)`;
+                  }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -405,46 +461,50 @@ const DivisionAccountantDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="p-3 text-left font-medium">School</th>
-                    <th className="p-3 text-left font-medium">Request ID</th>
-                    <th className="p-3 text-left font-medium">Submitted By</th>
-                    <th className="p-3 text-left font-medium">Amount</th>
-                    <th className="p-3 text-left font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data?.approvedRequests || []).map((req) => (
-                    <tr key={req.requestId} className="border-b">
-                      <td className="p-3 font-medium">{req.schoolName}</td>
-                      <td className="p-3">{req.requestId}</td>
-                      <td className="p-3">{req.userFullName}</td>
-                      <td className="p-3">₱{req.totalAmount.toLocaleString()}</td>
-                      <td className="p-3">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate("/approved-requests", { state: { requestId: req.requestId } })}
-                        >
-                          <Eye className="h-4 w-4 mr-1" /> View
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {(data?.approvedRequests || []).length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="p-3 text-center">No approved requests found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+              <div className="max-w-full overflow-x-auto">
+                <Table className="divide-y divide-gray-200">
+                  <TableHeader className="bg-gray-50">
+                    <TableRow>
+                      <TableCell isHeader className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase">School</TableCell>
+                      <TableCell isHeader className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase">Request ID</TableCell>
+                      <TableCell isHeader className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase">Submitted By</TableCell>
+                      <TableCell isHeader className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase">Amount</TableCell>
+                      <TableCell isHeader className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase">Actions</TableCell>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-gray-200 dark:divide-white/[0.05]">
+                    {(data?.approvedRequests || []).map((req) => (
+                      <TableRow key={req.requestId} className="hover:bg-gray-50 dark:hover:bg-gray-900/20">
+                        <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">{req.schoolName}</TableCell>
+                        <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">{req.requestId}</TableCell>
+                        <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">{req.userFullName}</TableCell>
+                        <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">₱{req.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate("/approved-requests", { state: { requestId: req.requestId } })}
+                          >
+                            <Eye className="h-4 w-4 mr-1" /> View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(data?.approvedRequests || []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-8 text-center text-gray-500">No approved requests found.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Viewing handled in ApprovedRequestPage */}
     </div>
   );
 };

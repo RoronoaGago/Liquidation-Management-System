@@ -32,6 +32,7 @@ import {
 import Input from "@/components/form/input/InputField";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
@@ -103,6 +104,7 @@ const ApprovedRequestPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const location = useLocation();
   const [, setSchools] = useState<School[]>([]);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -225,6 +227,28 @@ const ApprovedRequestPage = () => {
     sortConfig?.key,
     sortConfig?.direction,
   ]);
+
+  // Auto-open modal when navigated with a specific requestId
+  useEffect(() => {
+    const state = (location && (location as any).state) || {};
+    const requestedId = state?.requestId as string | undefined;
+    if (requestedId && submissionsState.length > 0) {
+      const match = submissionsState.find((s) => s.request_id === requestedId);
+      if (match) {
+        setViewedSubmission(match);
+      } else {
+        // If not in current page data, try fetch single item and open
+        (async () => {
+          try {
+            const res = await api.get(`requests/${requestedId}/`);
+            setViewedSubmission(res.data);
+          } catch (e) {
+            // Ignore
+          }
+        })();
+      }
+    }
+  }, [location, submissionsState]);
 
   // Load legislative districts and districts for filters
   useEffect(() => {
