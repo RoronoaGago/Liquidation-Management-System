@@ -471,7 +471,7 @@ const ResourceAllocation = () => {
 
       await api.patch("/schools/batch_update/", { updates });
       setShowSuccessDialog(true);
-      setTimeout(() => setShowSuccessDialog(false), 2500);
+      setTimeout(() => setShowSuccessDialog(false), 3000);
 
       // Refresh data
       await fetchData();
@@ -749,15 +749,37 @@ const ResourceAllocation = () => {
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center">
-          <div className="flex flex-col items-center py-8">
-            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Budgets Updated!
-            </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-center mb-2">
-              School budgets were updated successfully.
-            </p>
+        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+          {/* Main Content Container */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            {/* Animated Checkmark Icon */}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
+              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
+            </div>
+
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+                Budgets Updated Successfully
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                School budgets have been updated and saved to the system.
+              </p>
+            </div>
+
+            {/* Action Indicator */}
+            <div className="pt-2">
+              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+                <span className="animate-pulse">•</span>
+                <span>Closing automatically</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Animated Progress Bar */}
+          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
           </div>
         </DialogContent>
       </Dialog>

@@ -655,9 +655,6 @@ export default function GenerateLiquidationReport() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Liquidated At
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Refund
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -713,9 +710,6 @@ export default function GenerateLiquidationReport() {
                         {row.date_liquidated
                           ? new Date(row.date_liquidated).toLocaleDateString()
                           : "N/A"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">
-                        {row.refund ? row.refund.toLocaleString() : "N/A"}
                       </td>
                     </tr>
                   ))
