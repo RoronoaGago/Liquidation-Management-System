@@ -57,6 +57,7 @@ interface DashboardMetrics {
   totalPendingLiquidations: number;
   totalAmountPendingLiquidations: number;
   totalApprovedRequests: number;
+  completionRate: number;
 }
 
 interface ApprovedRequest {
@@ -108,7 +109,7 @@ const DivisionAccountantDashboard = () => {
         } as PendingLiquidation;
       });
 
-      // Expense categories from admin dashboard
+      // Expense categories from admin dashboard (computed from RequestPriority)
       const adminRes = await api.get("admin-dashboard/");
       const categorySpending = adminRes.data?.categorySpending || [];
       const expenseStatistics: ExpenseStatistic[] = categorySpending.map((c: any) => ({
@@ -119,8 +120,8 @@ const DivisionAccountantDashboard = () => {
         trend: (c.trend || "stable") as "up" | "down" | "stable",
       }));
 
-      // Approved requests to download
-      const reqRes = await api.get("requests/", { params: { status: "approved", ordering: "-created_at" } });
+      // Requests to download table (fetch all for now, no status filter)
+      const reqRes = await api.get("requests/", { params: { ordering: "-created_at" } });
       const reqs = (reqRes.data?.results || reqRes.data || []) as any[];
       const approvedRequests: ApprovedRequest[] = reqs.map((r: any) => ({
         requestId: r.request_id,
@@ -130,6 +131,16 @@ const DivisionAccountantDashboard = () => {
         createdAt: r.created_at,
       }));
 
+      // Completed liquidations (status=liquidated)
+      const liqCompletedRes = await api.get("liquidations/", {
+        params: { status: "liquidated", ordering: "-created_at" },
+      });
+      const completedCount = (liqCompletedRes.data?.results || liqCompletedRes.data || []).length;
+      const pendingCount = pendingLiquidations.length;
+      const completionRate = (completedCount + pendingCount) > 0
+        ? (completedCount / (completedCount + pendingCount)) * 100
+        : 0;
+
       setData({
         pendingLiquidations,
         expenseStatistics,
@@ -138,6 +149,7 @@ const DivisionAccountantDashboard = () => {
           totalPendingLiquidations: pendingLiquidations.length,
           totalAmountPendingLiquidations: pendingLiquidations.reduce((s, x) => s + (Number(x.totalAmount) || 0), 0),
           totalApprovedRequests: approvedRequests.length,
+          completionRate,
         },
       });
     } catch (error) {
@@ -150,6 +162,7 @@ const DivisionAccountantDashboard = () => {
           totalPendingLiquidations: 0,
           totalAmountPendingLiquidations: 0,
           totalApprovedRequests: 0,
+          completionRate: 0,
         },
       });
     } finally {
@@ -276,12 +289,12 @@ const DivisionAccountantDashboard = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">&nbsp;</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">&nbsp;</div>
-            <p className="text-xs text-muted-foreground">&nbsp;</p>
+            <div className="text-2xl font-bold">{(data?.dashboardMetrics.completionRate || 0).toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">Liquidated vs total (completed + pending)</p>
           </CardContent>
         </Card>
       </div>
