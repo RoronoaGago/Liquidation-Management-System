@@ -628,10 +628,9 @@ class LiquidationManagement(models.Model):
         ('under_review_district', 'Under Review (District)'),
         ('under_review_liquidator', 'Under Review (Liquidator)'),
         ('under_review_division', 'Under Review (Division)'),
-        ('under_review_accountant', 'Under Review (Accountant)'),  # <-- NEW
         ('resubmit', 'Needs Revision'),
         ('approved_district', 'Approved by District'),
-        ('approved_division', 'Approved by Division'),             # <-- NEW
+        ('approved_liquidator', 'Approved by Liquidator'),
         ('liquidated', 'Liquidated'),
     ]
 
