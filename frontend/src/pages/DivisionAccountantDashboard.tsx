@@ -1,59 +1,33 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
 } from "recharts";
 import {
   Download,
-  Filter,
-  Calendar,
-  BarChart3,
-  PieChart as PieChartIcon,
   FileText,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-  TrendingUp,
-  Users,
-  School,
+  School as SchoolIcon,
   DollarSign,
   RefreshCw,
   Eye,
-  ChevronRight,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import Badge  from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
 import api from "@/api/axios";
+import { useNavigate } from "react-router-dom";
 
 // Types for our data
 interface DivisionAccountantDashboardData {
   pendingLiquidations: PendingLiquidation[];
-  liquidationAging: AgingData[];
   expenseStatistics: ExpenseStatistic[];
   dashboardMetrics: DashboardMetrics;
-  recentActivity: RecentActivity[];
+  approvedRequests: ApprovedRequest[];
 }
 
 interface PendingLiquidation {
@@ -69,12 +43,7 @@ interface PendingLiquidation {
   priority: "high" | "medium" | "low";
 }
 
-interface AgingData {
-  period: string;
-  count: number;
-  amount: number;
-  color: string;
-}
+// Removed AgingData and aging report per requirements
 
 interface ExpenseStatistic {
   category: string;
@@ -85,20 +54,17 @@ interface ExpenseStatistic {
 }
 
 interface DashboardMetrics {
-  totalPending: number;
-  totalUnliquidated: number;
-  avgProcessingTime: number;
-  completionRate: number;
-  totalAmountPending: number;
+  totalPendingLiquidations: number;
+  totalAmountPendingLiquidations: number;
+  totalApprovedRequests: number;
 }
 
-interface RecentActivity {
-  id: string;
-  liquidationId: string;
+interface ApprovedRequest {
+  requestId: string;
   schoolName: string;
-  action: string;
-  timestamp: string;
-  amount: number;
+  userFullName: string;
+  totalAmount: number;
+  createdAt: string;
 }
 
 const COLORS = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"];
@@ -106,25 +72,86 @@ const COLORS = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"
 const DivisionAccountantDashboard = () => {
   const [data, setData] = useState<DivisionAccountantDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<string>("last_quarter");
   const [refreshing, setRefreshing] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
-  }, [timeRange]);
+  }, []);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // This endpoint would need to be created in the backend
-      const response = await api.get(
-        `/division-accountant-dashboard/?time_range=${timeRange}`
-      );
-      setData(response.data);
+      // Pending liquidations with status approved_liquidator
+      const liqRes = await api.get("liquidations/", {
+        params: { status: "approved_liquidator", ordering: "-created_at" },
+      });
+      const liqs = (liqRes.data?.results || liqRes.data || []) as any[];
+      const pendingLiquidations = liqs.map((l: any) => {
+        const req = l.request;
+        const schoolName = req?.user?.school?.schoolName || "";
+        const schoolId = req?.user?.school?.schoolId || "";
+        const totalAmount = (req?.priorities || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+        const submittedDate = l.created_at || req?.created_at || "";
+        const daysPending = submittedDate ? Math.max(0, Math.round((Date.now() - new Date(submittedDate).getTime()) / (1000*60*60*24))) : 0;
+        return {
+          id: String(l.LiquidationID),
+          liquidationId: l.LiquidationID,
+          requestId: req?.request_id,
+          schoolName,
+          schoolId,
+          submittedDate,
+          daysPending,
+          totalAmount,
+          status: l.status,
+          priority: daysPending > 14 ? "high" : daysPending > 7 ? "medium" : "low",
+        } as PendingLiquidation;
+      });
+
+      // Expense categories from admin dashboard
+      const adminRes = await api.get("admin-dashboard/");
+      const categorySpending = adminRes.data?.categorySpending || [];
+      const expenseStatistics: ExpenseStatistic[] = categorySpending.map((c: any) => ({
+        category: c.category,
+        amount: Number(c.totalAmount || 0),
+        percentage: Number(c.percentage || 0),
+        count: Number(c.frequency || 0),
+        trend: (c.trend || "stable") as "up" | "down" | "stable",
+      }));
+
+      // Approved requests to download
+      const reqRes = await api.get("requests/", { params: { status: "approved", ordering: "-created_at" } });
+      const reqs = (reqRes.data?.results || reqRes.data || []) as any[];
+      const approvedRequests: ApprovedRequest[] = reqs.map((r: any) => ({
+        requestId: r.request_id,
+        schoolName: r.user?.school?.schoolName || "",
+        userFullName: r.user ? `${r.user.first_name} ${r.user.last_name}` : "",
+        totalAmount: (r.priorities || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0),
+        createdAt: r.created_at,
+      }));
+
+      setData({
+        pendingLiquidations,
+        expenseStatistics,
+        approvedRequests,
+        dashboardMetrics: {
+          totalPendingLiquidations: pendingLiquidations.length,
+          totalAmountPendingLiquidations: pendingLiquidations.reduce((s, x) => s + (Number(x.totalAmount) || 0), 0),
+          totalApprovedRequests: approvedRequests.length,
+        },
+      });
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
-      // Fallback to mock data for demonstration
-      setData(getMockData());
+      setData({
+        pendingLiquidations: [],
+        expenseStatistics: [],
+        approvedRequests: [],
+        dashboardMetrics: {
+          totalPendingLiquidations: 0,
+          totalAmountPendingLiquidations: 0,
+          totalApprovedRequests: 0,
+        },
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -158,94 +185,7 @@ const DivisionAccountantDashboard = () => {
     }
   };
 
-  // Mock data for demonstration
-  const getMockData = (): DivisionAccountantDashboardData => ({
-    pendingLiquidations: [
-      {
-        id: "1",
-        liquidationId: "LQN-ABC123",
-        requestId: "REQ-001",
-        schoolName: "Central Elementary School",
-        schoolId: "SCH-001",
-        submittedDate: "2024-01-15",
-        daysPending: 12,
-        totalAmount: 125000,
-        status: "under_review_accountant",
-        priority: "high"
-      },
-      {
-        id: "2",
-        liquidationId: "LQN-DEF456",
-        requestId: "REQ-002",
-        schoolName: "North High School",
-        schoolId: "SCH-002",
-        submittedDate: "2024-01-18",
-        daysPending: 9,
-        totalAmount: 89000,
-        status: "under_review_division",
-        priority: "medium"
-      },
-      {
-        id: "3",
-        liquidationId: "LQN-GHI789",
-        requestId: "REQ-003",
-        schoolName: "South Elementary School",
-        schoolId: "SCH-003",
-        submittedDate: "2024-01-20",
-        daysPending: 7,
-        totalAmount: 156000,
-        status: "under_review_accountant",
-        priority: "high"
-      }
-    ],
-    liquidationAging: [
-      { period: "0-7 days", count: 5, amount: 450000, color: "#00C49F" },
-      { period: "8-14 days", count: 3, amount: 280000, color: "#FFBB28" },
-      { period: "15-30 days", count: 2, amount: 195000, color: "#FF8042" },
-      { period: "30+ days", count: 1, amount: 120000, color: "#FF6B6B" }
-    ],
-    expenseStatistics: [
-      { category: "Travel Expenses", amount: 450000, percentage: 35, count: 23, trend: "up" },
-      { category: "Training Expenses", amount: 280000, percentage: 22, count: 15, trend: "stable" },
-      { category: "Office Supplies", amount: 195000, percentage: 15, count: 18, trend: "down" },
-      { category: "Utilities", amount: 120000, percentage: 9, count: 12, trend: "up" },
-      { category: "Communication", amount: 95000, percentage: 7, count: 8, trend: "stable" },
-      { category: "Other", amount: 140000, percentage: 12, count: 11, trend: "up" }
-    ],
-    dashboardMetrics: {
-      totalPending: 8,
-      totalUnliquidated: 15,
-      avgProcessingTime: 4.2,
-      completionRate: 78.5,
-      totalAmountPending: 1285000
-    },
-    recentActivity: [
-      {
-        id: "1",
-        liquidationId: "LQN-JKL012",
-        schoolName: "West Elementary School",
-        action: "approved",
-        timestamp: "2024-01-22T10:30:00Z",
-        amount: 67500
-      },
-      {
-        id: "2",
-        liquidationId: "LQN-MNO345",
-        schoolName: "East High School",
-        action: "returned",
-        timestamp: "2024-01-21T14:20:00Z",
-        amount: 89000
-      },
-      {
-        id: "3",
-        liquidationId: "LQN-PQR678",
-        schoolName: "Central Elementary School",
-        action: "approved",
-        timestamp: "2024-01-20T09:15:00Z",
-        amount: 123000
-      }
-    ]
-  });
+  // Removed mock data
 
   if (loading) {
     return (
@@ -287,18 +227,6 @@ const DivisionAccountantDashboard = () => {
           </p>
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select time range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="last_week">Last Week</SelectItem>
-              <SelectItem value="last_month">Last Month</SelectItem>
-              <SelectItem value="last_quarter">Last Quarter</SelectItem>
-              <SelectItem value="last_year">Last Year</SelectItem>
-            </SelectContent>
-          </Select>
-          
           <Button
             variant="outline"
             size="sm"
@@ -319,49 +247,41 @@ const DivisionAccountantDashboard = () => {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.dashboardMetrics.totalPending}
-            </div>
+            <div className="text-2xl font-bold">{data?.dashboardMetrics.totalPendingLiquidations}</div>
             <p className="text-xs text-muted-foreground">Awaiting review</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unliquidated Accounts</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.dashboardMetrics.totalUnliquidated}
-            </div>
-            <p className="text-xs text-muted-foreground">Outstanding accounts</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.dashboardMetrics.completionRate}%
-            </div>
-            <p className="text-xs text-muted-foreground">Overall completion</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Amount Pending</CardTitle>
+            <CardTitle className="text-sm font-medium">Amount Pending (Liquidations)</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ₱{(data?.dashboardMetrics.totalAmountPending || 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">Total amount under review</p>
+            <div className="text-2xl font-bold">₱{(data?.dashboardMetrics.totalAmountPendingLiquidations || 0).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Total amount awaiting liquidation</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved Requests (To Download)</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data?.dashboardMetrics.totalApprovedRequests}</div>
+            <p className="text-xs text-muted-foreground">Awaiting fund download</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">&nbsp;</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">&nbsp;</div>
+            <p className="text-xs text-muted-foreground">&nbsp;</p>
           </CardContent>
         </Card>
       </div>
@@ -387,7 +307,7 @@ const DivisionAccountantDashboard = () => {
                 >
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">
-                      <School className="h-8 w-8 text-gray-400" />
+                      <SchoolIcon className="h-8 w-8 text-gray-400" />
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
@@ -416,7 +336,6 @@ const DivisionAccountantDashboard = () => {
               ))}
               {data?.pendingLiquidations.length === 0 && (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>No pending liquidations</p>
                 </div>
               )}
@@ -449,7 +368,7 @@ const DivisionAccountantDashboard = () => {
                     dataKey="amount"
                     label={({ category, percentage }) => `${category} (${percentage}%)`}
                   >
-                    {data?.expenseStatistics.map((entry, index) => (
+                  {data?.expenseStatistics.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -464,110 +383,52 @@ const DivisionAccountantDashboard = () => {
         </Card>
       </div>
 
-      {/* Second Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Aging Report */}
+      {/* Approved Requests to Download */}
+      <div className="grid grid-cols-1 gap-6">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              Liquidation Aging Report
+              Approved MOOE Requests (To Download)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data?.liquidationAging}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
-                  <XAxis dataKey="period" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value, name) => {
-                      if (name === "amount") return [`₱${Number(value).toLocaleString()}`, "Amount"];
-                      return [value, "Count"];
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="count" name="Number of Liquidations" fill="#465FFF" />
-                  <Bar dataKey="amount" name="Total Amount" fill="#00C49F" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="rounded-md border overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="p-3 text-left font-medium">School</th>
+                    <th className="p-3 text-left font-medium">Request ID</th>
+                    <th className="p-3 text-left font-medium">Submitted By</th>
+                    <th className="p-3 text-left font-medium">Amount</th>
+                    <th className="p-3 text-left font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data?.approvedRequests || []).map((req) => (
+                    <tr key={req.requestId} className="border-b">
+                      <td className="p-3 font-medium">{req.schoolName}</td>
+                      <td className="p-3">{req.requestId}</td>
+                      <td className="p-3">{req.userFullName}</td>
+                      <td className="p-3">₱{req.totalAmount.toLocaleString()}</td>
+                      <td className="p-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate("/approved-requests", { state: { requestId: req.requestId } })}
+                        >
+                          <Eye className="h-4 w-4 mr-1" /> View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {(data?.approvedRequests || []).length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-3 text-center">No approved requests found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-            <div className="mt-4 space-y-2">
-              {data?.liquidationAging.map((item) => (
-                <div key={item.period} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center">
-                    <div
-                      className="w-3 h-3 rounded-full mr-2"
-                      style={{ backgroundColor: item.color }}
-                    />
-                    <span>{item.period}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-medium">{item.count} liquidations</span>
-                    <span className="text-gray-500 ml-2">₱{item.amount.toLocaleString()}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {data?.recentActivity.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-full ${
-                      activity.action === 'approved' 
-                        ? 'bg-green-100 text-green-600 dark:bg-green-900/20' 
-                        : 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20'
-                    }`}>
-                      {activity.action === 'approved' ? (
-                        <CheckCircle className="h-4 w-4" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {activity.liquidationId}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {activity.schoolName}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(activity.timestamp).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      ₱{activity.amount.toLocaleString()}
-                    </p>
-                    <Badge
-                      color={activity.action === 'approved' ? "success" : "warning"}
-                      className="mt-1"
-                    >
-                      {activity.action}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Button variant="ghost" className="w-full mt-4" size="sm">
-              View All Activity
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
           </CardContent>
         </Card>
       </div>
