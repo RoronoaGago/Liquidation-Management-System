@@ -1,4 +1,4 @@
-// GenerateReport.tsx
+// GenerateAgeingReport.tsx
 import React, { useState, useEffect } from "react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
@@ -38,7 +38,7 @@ interface AgingReportResponse {
   };
 }
 
-export default function GenerateReport() {
+export default function GenerateAgeingReport() {
   const [daysThreshold, setDaysThreshold] = useState<string>("30");
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<AgingReportResponse | null>(
@@ -74,9 +74,9 @@ export default function GenerateReport() {
     // eslint-disable-next-line
   }, [daysThreshold]);
 
-  const handleExportCSV = async () => {
+  const handleExportExcel = async () => {
     try {
-      const params: any = { days: daysThreshold, export: "csv" };
+      const params: any = { days: daysThreshold, export: "excel" };
       const response = await api.get("reports/unliquidated-schools/", {
         params,
         responseType: "blob",
@@ -84,12 +84,12 @@ export default function GenerateReport() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `aging_report_${daysThreshold}_days.csv`);
+      link.setAttribute("download", `aging_report_${daysThreshold}_days.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
     } catch (err) {
-      toast.error("Failed to export CSV");
+      toast.error("Failed to export Excel");
     }
   };
 
@@ -135,11 +135,11 @@ export default function GenerateReport() {
               </Select>
               <Button
                 variant="primary"
-                onClick={handleExportCSV}
+                onClick={handleExportExcel}
                 disabled={loading || report.length === 0}
                 className="ml-2 text-nowrap"
               >
-                Export CSV
+                Export Excel
               </Button>
             </div>
           </div>

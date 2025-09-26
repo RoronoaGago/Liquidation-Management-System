@@ -27,13 +27,13 @@ import LiquidationReminder from "./components/LiquidationReminder";
 import SetupModal from "./components/common/SetupModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard";
 import ManageDistricts from "./pages/ManageDistricts";
-import GenerateReport from "./pages/GenerateReport";
 import AdminDashboard from "./pages/AdminDashboard";
 import LiquidatorReviewPage from "./pages/LiquidatorReviewPage";
 import DivisionReviewPage from "./pages/DivisionReviewPage";
-import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashboard";
-import DivisionDistrictAdaDashboard from "./pages/DivisionDistrictAdaDashboard";
-import DivisionAccountantDashboard from "./pages/DivisionAccountantDashboard";
+import BackupRestorePage from "./pages/BackupRestorePage";
+import GenerateAgeingReport from "./pages/GenerateAgeingReport";
+import GenerateLiquidationReport from "./pages/GenerateLiquidationReport";
+import AuditLogPage from "./pages/AuditLogPage";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -79,7 +79,13 @@ const App = () => {
             />
             <Route path="/requirements" element={<ManageRequirementsPage />} />
             <Route path="/school-districts" element={<ManageDistricts />} />
-            <Route path="/generate-report" element={<GenerateReport />} />
+            <Route path="/report/aging" element={<GenerateAgeingReport />} />
+            <Route
+              path="/report/liquidation"
+              element={<GenerateLiquidationReport />}
+            />
+            <Route path="/backup-restore" element={<BackupRestorePage />} />
+            <Route path="/audit-logs" element={<AuditLogPage />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>

@@ -15,6 +15,7 @@ import {
   CheckCircle,
   FileText,
   Copy,
+  BadgeCheck,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
@@ -386,7 +387,7 @@ const MOOERequestPage = () => {
           { autoClose: 6000 }
         );
       } else {
-        toast.success("Request submitted successfully!");
+        console.log("request submitted successfully");
       }
 
       setSelected({});
@@ -579,6 +580,7 @@ const MOOERequestPage = () => {
       </Dialog>
 
       {/* Success Dialog */}
+
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="flex flex-col items-center justify-center">
           <DialogHeader>

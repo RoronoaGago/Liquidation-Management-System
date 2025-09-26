@@ -27,9 +27,14 @@ import {
   StampIcon,
   LandPlotIcon,
   FileChartColumnIcon,
-  ClipboardCheckIcon, // <-- Add this
+  ClipboardCheckIcon,
+  DatabaseBackupIcon,
+  CalendarIcon,
+  FileIcon,
+  LogsIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import AuditLogPage from "../pages/AuditLogPage";
 
 // Define all possible navigation items with role permissions
 const allNavItems: NavItem[] = [
@@ -161,8 +166,34 @@ const allNavItems: NavItem[] = [
   {
     icon: <FileChartColumnIcon />,
     name: "Generate Report",
-    path: "/generate-report",
-    roles: ["admin"], // Only admin
+    roles: ["admin"], // Only for admin
+
+    subItems: [
+      {
+        icon: <CalendarIcon />, // <-- Add icon here
+        name: "Aging",
+        path: "/report/aging", // Make sure this route exists in your App.tsx
+        roles: ["admin"],
+      },
+      {
+        icon: <HandCoinsIcon />, // <-- Add icon here
+        name: "Liquidation",
+        path: "/report/liquidation", // Make sure this route exists in your App.tsx
+        roles: ["admin"],
+      },
+    ],
+  },
+  {
+    icon: <DatabaseBackupIcon />,
+    name: "Backup & Restore",
+    path: "/backup-restore",
+    roles: ["admin"],
+  },
+  {
+    icon: <LogsIcon />,
+    name: "Audit Logs",
+    path: "/audit-logs",
+    roles: ["admin"], // Only admins should access audit logs
   },
   {
     icon: <UserRoundPenIcon />,

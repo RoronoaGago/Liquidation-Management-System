@@ -239,6 +239,7 @@ export type Submission = {
   date_approved?: string | null;
   reviewed_by: User;
   reviewed_at?: string;
+  rejected_by?: User;
   is_resubmission?: boolean;
   previous_version?: string; // ID of the original submission if this is a resubmission
   notes?: string; // Optional notes field

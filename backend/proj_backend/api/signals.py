@@ -201,6 +201,12 @@ def handle_liquidation_status_change(instance):
             'receivers': [instance.request.user],
             'additional_receivers': []
         },
+        'under_review_liquidator': {
+            'title': "Liquidation Under Liquidator Review",
+            'details': f"Your liquidation {instance.LiquidationID} is now under review by the liquidator",
+            'receivers': [instance.request.user],
+            'additional_receivers': []
+        },
         'under_review_division': {
             'title': "Liquidation Under Division Review",
             'details': f"Your liquidation {instance.LiquidationID} is now under review by the liquidator",
@@ -218,6 +224,12 @@ def handle_liquidation_status_change(instance):
             'details': f"Your liquidation {instance.LiquidationID} has been approved by the district",
             'receivers': [instance.request.user],
             'additional_receivers': User.objects.filter(role='liquidator', is_active=True)
+        },
+        'approved_liquidator': {
+            'title': "Liquidation Approved by Liquidator",
+            'details': f"Your liquidation {instance.LiquidationID} has been approved by the liquidator",
+            'receivers': [instance.request.user],
+            'additional_receivers': User.objects.filter(role='accountant', is_active=True)
         },
         'liquidated': {
             'title': "Liquidation Completed",

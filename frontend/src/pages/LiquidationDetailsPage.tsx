@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
+import { formatDateTime } from "@/lib/helpers";
+import { format } from "path";
 
 // --- Type Safety Improvements ---
 interface Document {
@@ -266,15 +268,21 @@ const LiquidationDetailsPage = () => {
   const getCompletion = () => {
     // Only count documents that correspond to required requirements
     const requiredDocs = documents.filter((doc) => {
-      const expense = expenseList.find(exp => exp.id === doc.request_priority_id);
+      const expense = expenseList.find(
+        (exp) => exp.id === doc.request_priority_id
+      );
       if (!expense) return false;
-      
-      const requirement = expense.requirements.find(req => req.requirementID === doc.requirement_id);
+
+      const requirement = expense.requirements.find(
+        (req) => req.requirementID === doc.requirement_id
+      );
       return requirement?.is_required === true;
     });
-    
+
     const totalRequired = requiredDocs.length;
-    const approved = requiredDocs.filter((doc) => doc.is_approved === true).length;
+    const approved = requiredDocs.filter(
+      (doc) => doc.is_approved === true
+    ).length;
     return { approved, totalRequired };
   };
 
@@ -286,19 +294,23 @@ const LiquidationDetailsPage = () => {
   // At the bottom of the dialog, after all required documents are reviewed:
   const requiredDocs = documents.filter((doc) => {
     // Find the corresponding requirement to check if it's required
-    const expense = expenseList.find(exp => exp.id === doc.request_priority_id);
+    const expense = expenseList.find(
+      (exp) => exp.id === doc.request_priority_id
+    );
     if (!expense) return false;
-    
-    const requirement = expense.requirements.find(req => req.requirementID === doc.requirement_id);
+
+    const requirement = expense.requirements.find(
+      (req) => req.requirementID === doc.requirement_id
+    );
     return requirement?.is_required === true;
   });
-  
-  const allReviewed = requiredDocs.length > 0 && requiredDocs.every((doc) => doc.is_approved !== null);
-  
+
+  const allReviewed =
+    requiredDocs.length > 0 &&
+    requiredDocs.every((doc) => doc.is_approved !== null);
 
   // Approve enabled only if all required docs are approved
   const canApprove = totalRequired > 0 && approved === totalRequired;
-
 
   // --- Update handlers to show confirmation dialogs ---
   const handleApproveReport = () => {
@@ -334,7 +346,9 @@ const LiquidationDetailsPage = () => {
           });
         }
         // Refresh the liquidation data to show updated fields
-        const updatedLiquidation = await api.get(`/liquidations/${liquidationId}/`);
+        const updatedLiquidation = await api.get(
+          `/liquidations/${liquidationId}/`
+        );
         setLiquidation(updatedLiquidation.data);
         toast.success(
           newStatus === "liquidated"
@@ -404,9 +418,9 @@ const LiquidationDetailsPage = () => {
         ? { ...prev, is_approved: newStatus, reviewer_comment: comment }
         : prev
     );
-    toast[action === "approve" ? "success" : "error"](
-      `Document ${action === "approve" ? "approved" : "rejected"}!`
-    );
+    // toast[action === "approve" ? "success" : "error"](
+    //   `Document ${action === "approve" ? "approved" : "rejected"}!`
+    // );
     setActionLoading(false);
     setShowApproveConfirm(false);
     setShowRejectConfirm(false);
@@ -481,12 +495,13 @@ const LiquidationDetailsPage = () => {
 
   // --- Role-based action logic ---
   const showDistrictAdminActions =
-    isDistrictAdmin && (status === "submitted" || status === "under_review_district") && allReviewed;
+    isDistrictAdmin &&
+    (status === "submitted" || status === "under_review_district") &&
+    allReviewed;
   const showLiquidatorActions =
     isLiquidator && status === "under_review_liquidator" && allReviewed;
   const showAccountantActions =
     isAccountant && status === "under_review_division" && allReviewed;
-
 
   return (
     <div className="container mx-auto px-5 py-10">
@@ -557,14 +572,18 @@ const LiquidationDetailsPage = () => {
         </div>
 
         {/* Approval Information */}
-        {(liquidation.reviewed_by_district || liquidation.reviewed_by_liquidator || liquidation.reviewed_by_division) && (
+        {(liquidation.reviewed_by_district ||
+          liquidation.reviewed_by_liquidator ||
+          liquidation.reviewed_by_division) && (
           <div className="mb-8">
             <h2 className="text-lg font-semibold mb-4">Approval Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* District Approval */}
               {liquidation.reviewed_by_district && (
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-blue-900 mb-2">District Approval</h3>
+                  <h3 className="font-medium text-blue-900 mb-2">
+                    District Approval
+                  </h3>
                   <div className="space-y-1 text-sm">
                     <p>
                       <span className="font-medium">Approved by:</span>{" "}
@@ -575,13 +594,15 @@ const LiquidationDetailsPage = () => {
                     <p>
                       <span className="font-medium">Approved at:</span>{" "}
                       {liquidation.reviewed_at_district
-                        ? new Date(liquidation.reviewed_at_district).toLocaleString()
+                        ? formatDateTime(liquidation.reviewed_at_district)
                         : "N/A"}
                     </p>
                     <p>
                       <span className="font-medium">Approval Date:</span>{" "}
                       {liquidation.date_districtApproved
-                        ? new Date(liquidation.date_districtApproved).toLocaleDateString()
+                        ? new Date(
+                            liquidation.date_districtApproved
+                          ).toLocaleDateString()
                         : "N/A"}
                     </p>
                   </div>
@@ -591,7 +612,9 @@ const LiquidationDetailsPage = () => {
               {/* Liquidator Approval */}
               {liquidation.reviewed_by_liquidator && (
                 <div className="bg-green-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-green-900 mb-2">Liquidator Approval</h3>
+                  <h3 className="font-medium text-green-900 mb-2">
+                    Liquidator Approval
+                  </h3>
                   <div className="space-y-1 text-sm">
                     <p>
                       <span className="font-medium">Approved by:</span>{" "}
@@ -602,13 +625,15 @@ const LiquidationDetailsPage = () => {
                     <p>
                       <span className="font-medium">Approved at:</span>{" "}
                       {liquidation.reviewed_at_liquidator
-                        ? new Date(liquidation.reviewed_at_liquidator).toLocaleString()
+                        ? formatDateTime(liquidation.reviewed_at_liquidator)
                         : "N/A"}
                     </p>
                     <p>
                       <span className="font-medium">Approval Date:</span>{" "}
                       {liquidation.date_liquidatorApproved
-                        ? new Date(liquidation.date_liquidatorApproved).toLocaleDateString()
+                        ? new Date(
+                            liquidation.date_liquidatorApproved
+                          ).toLocaleDateString()
                         : "N/A"}
                     </p>
                   </div>
@@ -618,7 +643,9 @@ const LiquidationDetailsPage = () => {
               {/* Division Approval */}
               {liquidation.reviewed_by_division && (
                 <div className="bg-purple-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-purple-900 mb-2">Division Approval</h3>
+                  <h3 className="font-medium text-purple-900 mb-2">
+                    Division Approval
+                  </h3>
                   <div className="space-y-1 text-sm">
                     <p>
                       <span className="font-medium">Approved by:</span>{" "}
@@ -629,13 +656,15 @@ const LiquidationDetailsPage = () => {
                     <p>
                       <span className="font-medium">Approved at:</span>{" "}
                       {liquidation.reviewed_at_division
-                        ? new Date(liquidation.reviewed_at_division).toLocaleString()
+                        ? formatDateTime(liquidation.reviewed_at_division)
                         : "N/A"}
                     </p>
                     <p>
                       <span className="font-medium">Finalized Date:</span>{" "}
                       {liquidation.date_liquidated
-                        ? new Date(liquidation.date_liquidated).toLocaleDateString()
+                        ? new Date(
+                            liquidation.date_liquidated
+                          ).toLocaleDateString()
                         : "N/A"}
                     </p>
                   </div>

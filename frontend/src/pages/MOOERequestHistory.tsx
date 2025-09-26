@@ -25,6 +25,9 @@ import {
   AlertCircle,
   ArrowDownCircle,
   ArrowUpCircle,
+  Edit,
+  UserCheck,
+  Calendar,
 } from "lucide-react";
 import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
 import { Download } from "lucide-react";
@@ -33,6 +36,7 @@ import Button from "@/components/ui/button/Button";
 import MOOERequestTable from "@/components/tables/BasicTables/MOOEREquestTable";
 import { useToastState } from "react-stately";
 import { toast } from "react-toastify";
+import { formatDateTime } from "@/lib/helpers";
 
 type SubmissionStatus =
   | "pending"
@@ -201,7 +205,7 @@ const MOOERequestHistory = () => {
             </DialogDescription>
           </DialogHeader>
           {viewedSubmission && (
-            <div className="space-y-6">
+            <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
               {/* Sender Details Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -245,8 +249,7 @@ const MOOERequestHistory = () => {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Submitted at:{" "}
-                    {new Date(viewedSubmission.created_at).toLocaleString()}
+                    Submitted at: {formatDateTime(viewedSubmission.created_at)}
                   </span>
                 </div>
               </div>
@@ -308,66 +311,97 @@ const MOOERequestHistory = () => {
               </div>
               {/* Rejection Reason Section */}
               {viewedSubmission?.status === "rejected" && (
-                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900/30">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 pt-0.5">
-                      <XCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
+                <div className="mt-6 p-0 bg-gradient-to-br from-red-50/80 to-orange-50/30 dark:from-red-950/20 dark:to-orange-950/10 rounded-xl border border-red-200/80 dark:border-red-800/50 shadow-sm">
+                  {/* Header Section */}
+                  <div className="flex items-center gap-3 p-4 bg-white/60 dark:bg-red-950/20 border-b border-red-100 dark:border-red-800/30 rounded-t-xl">
+                    <div className="flex-shrink-0 w-8 h-8 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center">
+                      <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-red-800 dark:text-red-200">
-                        Rejection Details
+                      <h4 className="font-semibold text-red-900 dark:text-red-100 text-lg">
+                        Submission Rejected
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Rejected on
-                          </p>
-                          <p className="text-red-700 dark:text-red-300">
-                            {viewedSubmission.rejection_date
-                              ? format(
-                                  new Date(viewedSubmission.rejection_date),
-                                  "MMM dd, yyyy hh:mm a"
-                                )
-                              : "N/A"}
-                          </p>
+                      <p className="text-red-700/80 dark:text-red-300/80 text-sm mt-0.5">
+                        Please review the rejection details below
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Content Section */}
+                  <div className="p-4 space-y-4">
+                    {/* Rejection Meta Information */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Rejection Date */}
+                      <div className="bg-white/50 dark:bg-red-950/10 p-3 rounded-lg border border-red-100/50 dark:border-red-800/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Calendar className="h-4 w-4 text-red-500 dark:text-red-400" />
+                          <span className="text-xs font-medium text-red-700 dark:text-red-300 uppercase tracking-wide">
+                            Rejected On
+                          </span>
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Reviewed by
-                          </p>
-                          <p className="text-red-700 dark:text-red-300">
-                            {viewedSubmission.reviewed_by
-                              ? `${viewedSubmission.reviewed_by.first_name} ${viewedSubmission.reviewed_by.last_name}`
-                              : "Division Superintendent"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Reason for rejection
+                        <p className="text-red-900 dark:text-red-100 font-medium">
+                          {viewedSubmission.rejection_date
+                            ? format(
+                                new Date(viewedSubmission.rejection_date),
+                                "MMM dd, yyyy 'at' hh:mm a"
+                              )
+                            : "Not specified"}
                         </p>
-                        <p className="text-red-700 dark:text-red-300 mt-1 bg-red-100/50 dark:bg-red-900/30 p-3 rounded-md">
-                          {viewedSubmission.rejection_comment ||
-                            "No reason provided"}
+                      </div>
+
+                      {/* Reviewed By */}
+                      <div className="bg-white/50 dark:bg-red-950/10 p-3 rounded-lg border border-red-100/50 dark:border-red-800/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <UserCheck className="h-4 w-4 text-red-500 dark:text-red-400" />
+                          <span className="text-xs font-medium text-red-700 dark:text-red-300 uppercase tracking-wide">
+                            Reviewed By
+                          </span>
+                        </div>
+                        <p className="text-red-900 dark:text-red-100 font-medium">
+                          {viewedSubmission.reviewed_by
+                            ? `${viewedSubmission.reviewed_by.first_name} ${viewedSubmission.reviewed_by.last_name}`
+                            : "Division Superintendent"}
                         </p>
                       </div>
                     </div>
+
+                    {/* Rejection Reason */}
+                    <div className="bg-red-50/70 dark:bg-red-900/15 p-4 rounded-lg border border-red-200/60 dark:border-red-800/30">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        <span className="text-sm font-semibold text-red-800 dark:text-red-200">
+                          Reason for Rejection
+                        </span>
+                      </div>
+                      <div className="bg-white/80 dark:bg-red-950/20 p-3 rounded-md border border-red-100/50 dark:border-red-800/20">
+                        <p className="text-red-900/90 dark:text-red-100/90 leading-relaxed">
+                          {viewedSubmission.rejection_comment ||
+                            "No specific reason provided for the rejection."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-2">
+                      <Button
+                        onClick={() => {
+                          navigate("/prepare-list-of-priorities", {
+                            state: {
+                              rejectedRequestId: viewedSubmission.request_id,
+                              priorities: viewedSubmission.priorities,
+                              rejectionComment:
+                                viewedSubmission.rejection_comment,
+                            },
+                          });
+                        }}
+                        variant="primary"
+                        className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md border-0"
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit and Resubmit Request
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    onClick={() => {
-                      navigate("/prepare-list-of-priorities", {
-                        state: {
-                          rejectedRequestId: viewedSubmission.request_id,
-                          priorities: viewedSubmission.priorities,
-                          rejectionComment: viewedSubmission.rejection_comment,
-                        },
-                      });
-                    }}
-                    variant="primary"
-                    className="mt-4 w-full"
-                  >
-                    Edit and Resubmit Request
-                  </Button>
                 </div>
               )}
               {/* Action Buttons - Modified to check for superintendent role */}

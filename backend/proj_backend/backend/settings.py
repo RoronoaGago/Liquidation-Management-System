@@ -46,11 +46,16 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'api',
-    'proj_backend.api',  # your app
+    'auditlog',
     'django_celery_results',  # For storing Celery task results
     'django_celery_beat',     # For scheduled tasks
     'simple_history',  # For tracking model history
 ]
+
+# Optional: Configure auditlog settings
+# Set to True to track all models automatically
+AUDITLOG_INCLUDE_ALL_MODELS = False
+AUDITLOG_EXCLUDE_TRACKING_MODELS = ()  # Exclude specific models if needed
 # JWT Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -66,6 +71,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'api.middleware.AllowIframeForMediaMiddleware',
+    'api.middleware.AuditMiddleware',  # Custom middleware for audit logging
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -257,24 +263,32 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'console': {
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'INFO',  # Show all logs, including debug
+        'level': 'DEBUG',
     },
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',  # You can set this to 'DEBUG' if you want more Django internals
+            'level': 'INFO',
             'propagate': False,
         },
-        # Your app logger
-        'api': {
+        'api': {  # Replace with your actual app name
             'handlers': ['console'],
-            'level': 'WARNING',
-            'propagate': False
+            'level': 'DEBUG',
+            'propagate': False,
         },
     },
+}
+# Backup/Restore settings
+# Server-managed defaults to avoid trusting client-supplied filesystem paths
+BACKUP_SETTINGS = {
+    'DEFAULT_BACKUP_DIR': os.path.join(BASE_DIR, 'Backups'),
+    'MAX_BACKUP_AGE_DAYS': 30,
+    'ALLOW_CUSTOM_PATHS': False,
+    'COMPRESSION_LEVEL': 6,
 }

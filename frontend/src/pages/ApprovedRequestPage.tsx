@@ -946,35 +946,27 @@ const ApprovedRequestPage = () => {
                   type="button"
                   variant="outline"
                   onClick={async () => {
-                    if (viewedSubmission.status === "approved") {
-                      // Use server-side PDF generation for approved requests
-                      const result = await handleServerSideExport(
-                        viewedSubmission
+                    const result = await handleServerSideExport(
+                      viewedSubmission
+                    );
+                    if (result.success) {
+                      toast.success(
+                        result.message || "PDF generated successfully!"
                       );
-                      if (result.success) {
-                        toast.success(
-                          result.message || "PDF generated successfully!"
-                        );
-                      } else {
-                        toast.error(result.error || "Failed to generate PDF");
-                      }
                     } else {
-                      // Use legacy client-side generation for non-approved requests
-                      handleExport(
-                        viewedSubmission,
-                        user?.first_name || "user",
-                        user?.last_name || "name"
-                      );
+                      toast.error(result.error || "Failed to generate PDF");
                     }
                   }}
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  {viewedSubmission.status === "approved"
+                  {viewedSubmission.status === "approved" ||
+                  viewedSubmission.status === "unliquidated"
                     ? "Download Official PDF"
                     : "Export PDF"}
                 </Button>
 
+                {/* ✅ Fixed logic - show Download Fund button for approved requests in accountant view */}
                 {viewedSubmission.status === "approved" && (
                   <div className="flex gap-3 order-0 sm:order-1">
                     <Button
@@ -983,13 +975,15 @@ const ApprovedRequestPage = () => {
                       onClick={() => {
                         setSubmissionToApprove(viewedSubmission);
                         setShowDatePicker(true);
-                        setSelectedDownloadDate(dayjs()); // Set default to current date
+                        setSelectedDownloadDate(dayjs());
                       }}
                       startIcon={<CheckCircle className="w-4 h-4" />}
                       disabled={downloadLoading}
                       loading={downloadLoading}
                     >
-                      Download Fund
+                      {viewedSubmission.status === "approved"
+                        ? "Download Fund"
+                        : "Update Liquidation"}
                     </Button>
                   </div>
                 )}

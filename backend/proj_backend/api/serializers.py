@@ -1,7 +1,10 @@
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import AccessToken
+from auditlog.models import LogEntry
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
@@ -45,9 +48,9 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         logo_base64 = validated_data.pop('logo_base64', None)
-        
+
         instance = SchoolDistrict.objects.create(**validated_data)
-        
+
         if logo_base64:
             format, imgstr = logo_base64.split(';base64,')
             ext = format.split('/')[-1]
@@ -57,15 +60,15 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
             )
             instance.logo = data
             instance.save()
-        
+
         return instance
 
     def update(self, instance, validated_data):
         logo_base64 = validated_data.pop('logo_base64', None)
-        
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        
+
         if logo_base64:
             format, imgstr = logo_base64.split(';base64,')
             ext = format.split('/')[-1]
@@ -74,7 +77,7 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
                 name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
             )
             instance.logo = data
-        
+
         instance.save()
         return instance
 
@@ -268,12 +271,27 @@ class UserSerializer(serializers.ModelSerializer):
             e_signature = data.get("e_signature")
             required_roles = ["school_head", "superintendent", "accountant"]
 
-            # Only require e-signature for updates (when instance exists), not for creation
             if self.instance and role in required_roles and not e_signature:
-                # Check if user already has an e-signature
-                if not self.instance.e_signature:
+                # Get the current role from the instance
+                current_role = self.instance.role
+
+                # Only require signature if:
+                # 1. User is being activated AND doesn't have signature OR
+                # 2. Role is being changed TO a required role AND user doesn't have signature
+                is_being_activated = data.get('is_active', False)
+                role_is_changing = role != current_role
+                user_has_no_signature = not self.instance.e_signature
+
+                require_signature = False
+
+                if is_being_activated and user_has_no_signature:
+                    require_signature = True
+                elif role_is_changing and role in required_roles and user_has_no_signature:
+                    require_signature = True
+
+                if require_signature:
                     raise serializers.ValidationError(
-                        {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant."}
+                        {"e_signature": "E-signature is required for School Head, Division Superintendent, and Division Accountant when activating users or assigning these roles."}
                     )
         if data.get('school') == "":
             data['school'] = None
@@ -371,6 +389,18 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         request = self.context.get('request')
         ip = request.META.get('REMOTE_ADDR') if request else None
 
+        # Log audit for login (since JWT doesn't trigger Django signals)
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=request,
+            action='login',
+            module='auth',
+            description=f"User {user.get_full_name()} logged in",
+            object_id=user.pk,
+            object_type='User',
+            object_name=user.get_full_name()
+        )
+
         # Prepare context for email notification
         context = {
             'user': user,
@@ -430,18 +460,27 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
-
-        # Get the user ID from the token (if needed)
-        from rest_framework_simplejwt.tokens import AccessToken
-        access_token = AccessToken(data['access'])
-        user_id = access_token['user_id']
-
-        # Verify the user exists (optional, but helps prevent invalid tokens)
         try:
-            User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("User not found")
+            data = super().validate(attrs)
+
+            # Get the user ID from the new access token
+            access_token = AccessToken(data['access'])
+            user_id = access_token['user_id']
+
+            # Verify the user still exists
+            try:
+                User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError(
+                    "User account no longer exists. Please login again.")
+
+        except TokenError as e:
+            raise serializers.ValidationError(str(e))
+        except Exception as e:
+            if "matching query does not exist" in str(e):
+                raise serializers.ValidationError(
+                    "User account no longer exists. Please login again.")
+            raise serializers.ValidationError("Token refresh failed.")
 
         return data
 
@@ -812,3 +851,57 @@ class UnliquidatedSchoolReportSerializer(serializers.Serializer):
     schoolId = serializers.CharField()
     schoolName = serializers.CharField()
     unliquidated_count = serializers.IntegerField()
+
+
+class BackupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Backup
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at',
+                            'initiated_by', 'status', 'file_size', 'message']
+
+
+# Add to serializers.py
+class AuditLogSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    user_full_name = serializers.SerializerMethodField()
+    action_display = serializers.SerializerMethodField()
+    module_display = serializers.SerializerMethodField()
+    formatted_timestamp = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            'id',
+            'user',
+            'user_full_name',
+            'action',
+            'action_display',
+            'module',
+            'module_display',
+            'object_id',
+            'object_type',
+            'object_name',
+            'description',
+            'ip_address',
+            'user_agent',
+            'timestamp',
+            'formatted_timestamp',
+            'old_values',
+            'new_values'
+        ]
+        read_only_fields = ['id', 'timestamp']
+
+    def get_user_full_name(self, obj):
+        if obj.user:
+            return obj.user.get_full_name()
+        return "System"
+
+    def get_action_display(self, obj):
+        return obj.get_action_display()
+
+    def get_module_display(self, obj):
+        return obj.get_module_display()
+
+    def get_formatted_timestamp(self, obj):
+        return obj.timestamp.strftime("%Y-%m-%d %H:%M:%S") if obj.timestamp else None

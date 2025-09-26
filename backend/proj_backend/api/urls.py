@@ -1,7 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf
-from .views import school_head_dashboard
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report
 
 
 from rest_framework_simplejwt.views import (
@@ -20,6 +19,7 @@ urlpatterns = [
          name='token_obtain_pair'),
     path('token/refresh/', CustomTokenRefreshView.as_view(),
          name='token_refresh'),  # Updated
+    path('logout/', views.logout, name='logout'),
     path('change-password/', views.change_password, name='change-password'),
     path('protected/', ProtectedView.as_view(), name='protected'),
     path('auth/request-otp/', views.request_otp, name='request-otp'),
@@ -113,11 +113,18 @@ urlpatterns = [
     # Report URLs
     path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
          name='unliquidated-schools-report'),
+    path('reports/liquidation/', liquidation_report,
+         name='liquidation-report'),
     path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
     path('liquidations/<str:LiquidationID>/generate-report/',
          views.generate_liquidation_report, name='generate-liquidation-report'),
     path('requests/<str:request_id>/generate-pdf/',
          generate_approved_request_pdf, name='generate-approved-request-pdf'),
-path('school-head/dashboard/', school_head_dashboard, name='school-head-dashboard'),
+
+    # Backup/Restore
+    path('backup/', initiate_backup, name='initiate-backup'),
+    path('restore/', initiate_restore, name='initiate-restore'),
+    path('backups/', list_backups, name='list-backups'),
+    path('audit-logs/', views.AuditLogListView.as_view(), name='audit-logs'),
 
 ]
