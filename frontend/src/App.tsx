@@ -34,6 +34,9 @@ import BackupRestorePage from "./pages/BackupRestorePage";
 import GenerateAgeingReport from "./pages/GenerateAgeingReport";
 import GenerateLiquidationReport from "./pages/GenerateLiquidationReport";
 import AuditLogPage from "./pages/AuditLogPage";
+import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashboard";
+import DivisionDistrictAdaDashboard from "./pages/DivisionDistrictAdaDashboard";
+import DivisionAccountantDashboard from "./pages/DivisionAccountantDashboard";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
