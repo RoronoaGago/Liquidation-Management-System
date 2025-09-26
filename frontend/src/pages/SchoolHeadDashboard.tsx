@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import api from "@/services/api"; // Assuming this is your backend API client
 import { format } from "date-fns";
@@ -193,10 +194,34 @@ const MOCK_DASHBOARD_DATA: SchoolHeadDashboardData = {
     },
   ],
   priorityBreakdown: [
-    { priority: "Utilities", amount: 65000, percentage: 26, color: "#465FFF", name: "Utilities" },
-    { priority: "Supplies", amount: 80000, percentage: 32, color: "#9CB9FF", name: "Supplies" },
-    { priority: "Repair & Maintenance", amount: 70000, percentage: 28, color: "#FF8042", name: "Repair & Maintenance" },
-    { priority: "Training", amount: 35000, percentage: 14, color: "#00C49F", name: "Training" },
+    {
+      priority: "Utilities",
+      amount: 65000,
+      percentage: 26,
+      color: "#465FFF",
+      name: "Utilities",
+    },
+    {
+      priority: "Supplies",
+      amount: 80000,
+      percentage: 32,
+      color: "#9CB9FF",
+      name: "Supplies",
+    },
+    {
+      priority: "Repair & Maintenance",
+      amount: 70000,
+      percentage: 28,
+      color: "#FF8042",
+      name: "Repair & Maintenance",
+    },
+    {
+      priority: "Training",
+      amount: 35000,
+      percentage: 14,
+      color: "#00C49F",
+      name: "Training",
+    },
   ],
   requestStatus: {
     hasPendingRequest: true,
@@ -219,8 +244,18 @@ const MOCK_DASHBOARD_DATA: SchoolHeadDashboardData = {
     },
   },
   frequentlyUsedPriorities: [
-    { priority: "Supplies", frequency: 8, totalAmount: 560000, lastUsed: new Date().toISOString() },
-    { priority: "Utilities", frequency: 7, totalAmount: 420000, lastUsed: new Date().toISOString() },
+    {
+      priority: "Supplies",
+      frequency: 8,
+      totalAmount: 560000,
+      lastUsed: new Date().toISOString(),
+    },
+    {
+      priority: "Utilities",
+      frequency: 7,
+      totalAmount: 420000,
+      lastUsed: new Date().toISOString(),
+    },
   ],
   recentRequests: [
     {
@@ -300,14 +335,19 @@ const SchoolHeadDashboard = () => {
         respData.requestStatus.pendingRequest.priorities.length > 0
       ) {
         const derivedPriorities: PriorityProgress[] =
-          respData.requestStatus.pendingRequest.priorities.map((p: any, idx: number) => ({
-            priorityId: String(p.id ?? `pending-${idx}`),
-            priorityName: p?.priority?.expenseTitle || p?.expenseTitle || `Priority ${idx + 1}`,
-            status: "not_started",
-            documentsRequired: 0,
-            documentsUploaded: 0,
-            completionPercentage: 0,
-          }));
+          respData.requestStatus.pendingRequest.priorities.map(
+            (p: any, idx: number) => ({
+              priorityId: String(p.id ?? `pending-${idx}`),
+              priorityName:
+                p?.priority?.expenseTitle ||
+                p?.expenseTitle ||
+                `Priority ${idx + 1}`,
+              status: "not_started",
+              documentsRequired: 0,
+              documentsUploaded: 0,
+              completionPercentage: 0,
+            })
+          );
 
         const totalPriorities = derivedPriorities.length;
         respData.liquidationProgress = {
@@ -329,15 +369,22 @@ const SchoolHeadDashboard = () => {
           (sum: number, p: any) => sum + Number(p.amount || 0),
           0
         );
-        respData.priorityBreakdown = respData.requestStatus.pendingRequest.priorities.map(
-          (p: any, idx: number) => ({
-            priority: p?.priority?.expenseTitle || p?.expenseTitle || `Priority ${idx + 1}`,
-            amount: Number(p.amount || 0),
-            percentage: total > 0 ? (Number(p.amount || 0) / total) * 100 : 0,
-            color: COLORS[idx % COLORS.length],
-            name: p?.priority?.expenseTitle || p?.expenseTitle || `Priority ${idx + 1}`,
-          })
-        );
+        respData.priorityBreakdown =
+          respData.requestStatus.pendingRequest.priorities.map(
+            (p: any, idx: number) => ({
+              priority:
+                p?.priority?.expenseTitle ||
+                p?.expenseTitle ||
+                `Priority ${idx + 1}`,
+              amount: Number(p.amount || 0),
+              percentage: total > 0 ? (Number(p.amount || 0) / total) * 100 : 0,
+              color: COLORS[idx % COLORS.length],
+              name:
+                p?.priority?.expenseTitle ||
+                p?.expenseTitle ||
+                `Priority ${idx + 1}`,
+            })
+          );
       }
 
       // If still missing data, derive from the latest user request (regardless of status)
@@ -347,7 +394,8 @@ const SchoolHeadDashboard = () => {
           !respData.liquidationProgress.priorities ||
           respData.liquidationProgress.priorities.length === 0;
         const needsBreakdown =
-          !respData.priorityBreakdown || respData.priorityBreakdown.length === 0;
+          !respData.priorityBreakdown ||
+          respData.priorityBreakdown.length === 0;
 
         if (!needsPriorities && !needsBreakdown) return;
 
@@ -360,23 +408,30 @@ const SchoolHeadDashboard = () => {
             : [];
           const latest = list && list.length > 0 ? list[0] : null;
           const latestPriorities = latest?.priorities || [];
-          if ((needsPriorities || needsBreakdown) && latestPriorities.length > 0) {
+          if (
+            (needsPriorities || needsBreakdown) &&
+            latestPriorities.length > 0
+          ) {
             // Build liquidationProgress.priorities from latest request priorities
             if (needsPriorities) {
-              const derivedPriorities: PriorityProgress[] = latestPriorities.map(
-                (rp: any, idx: number) => {
+              const derivedPriorities: PriorityProgress[] =
+                latestPriorities.map((rp: any, idx: number) => {
                   const reqs = rp.priority?.requirements || [];
-                  const requiredCount = reqs.filter((r: any) => r.is_required).length;
+                  const requiredCount = reqs.filter(
+                    (r: any) => r.is_required
+                  ).length;
                   return {
                     priorityId: String(rp.id ?? `req-${idx}`),
-                    priorityName: rp.priority?.expenseTitle || rp.expenseTitle || `Priority ${idx + 1}`,
+                    priorityName:
+                      rp.priority?.expenseTitle ||
+                      rp.expenseTitle ||
+                      `Priority ${idx + 1}`,
                     status: "not_started",
                     documentsRequired: requiredCount,
                     documentsUploaded: 0,
                     completionPercentage: 0,
                   };
-                }
-              );
+                });
               respData.liquidationProgress = {
                 priorities: derivedPriorities,
                 totalPriorities: derivedPriorities.length,
@@ -393,11 +448,18 @@ const SchoolHeadDashboard = () => {
               );
               respData.priorityBreakdown = latestPriorities.map(
                 (rp: any, idx: number) => ({
-                  priority: rp.priority?.expenseTitle || rp.expenseTitle || `Priority ${idx + 1}`,
+                  priority:
+                    rp.priority?.expenseTitle ||
+                    rp.expenseTitle ||
+                    `Priority ${idx + 1}`,
                   amount: Number(rp.amount || 0),
-                  percentage: total > 0 ? (Number(rp.amount || 0) / total) * 100 : 0,
+                  percentage:
+                    total > 0 ? (Number(rp.amount || 0) / total) * 100 : 0,
                   color: COLORS[idx % COLORS.length],
-                  name: rp.priority?.expenseTitle || rp.expenseTitle || `Priority ${idx + 1}`,
+                  name:
+                    rp.priority?.expenseTitle ||
+                    rp.expenseTitle ||
+                    `Priority ${idx + 1}`,
                 })
               );
             }
@@ -418,45 +480,62 @@ const SchoolHeadDashboard = () => {
           : Array.isArray(liqRes.data?.results)
           ? liqRes.data.results
           : [];
-        const active = activeList && activeList.length > 0 ? activeList[0] : null;
+        const active =
+          activeList && activeList.length > 0 ? activeList[0] : null;
 
         if (active) {
           const reqPriorities = (active.request?.priorities || []) as any[];
           const documents = (active.documents || []) as any[];
-          const liquidationPriorities = (active.liquidation_priorities || []) as any[];
+          const liquidationPriorities = (active.liquidation_priorities ||
+            []) as any[];
 
           // Compute document progress per priority
-          const progress: PriorityProgress[] = reqPriorities.map((rp: any, idx: number) => {
-            const allReqs = rp.priority?.requirements || [];
-            const requiredReqs = allReqs.filter((r: any) => r.is_required);
-            const uploadedForPriority = documents.filter(
-              (d: any) => String(d.request_priority_id) === String(rp.id)
-            );
-            const uploadedRequiredCount = requiredReqs.filter((r: any) =>
-              uploadedForPriority.some(
-                (d: any) => String(d.requirement_id) === String(r.requirementID)
-              )
-            ).length;
-            const requiredCount = requiredReqs.length;
-            const completion = requiredCount > 0 ? (uploadedRequiredCount / requiredCount) * 100 : 0;
-            return {
-              priorityId: String(rp.id ?? `req-${idx}`),
-              priorityName: rp.priority?.expenseTitle || `Priority ${idx + 1}`,
-              status: completion >= 100 ? "completed" : completion > 0 ? "in_progress" : "not_started",
-              documentsRequired: requiredCount,
-              documentsUploaded: uploadedRequiredCount,
-              completionPercentage: Math.round(completion),
-            } as PriorityProgress;
-          });
+          const progress: PriorityProgress[] = reqPriorities.map(
+            (rp: any, idx: number) => {
+              const allReqs = rp.priority?.requirements || [];
+              const requiredReqs = allReqs.filter((r: any) => r.is_required);
+              const uploadedForPriority = documents.filter(
+                (d: any) => String(d.request_priority_id) === String(rp.id)
+              );
+              const uploadedRequiredCount = requiredReqs.filter((r: any) =>
+                uploadedForPriority.some(
+                  (d: any) =>
+                    String(d.requirement_id) === String(r.requirementID)
+                )
+              ).length;
+              const requiredCount = requiredReqs.length;
+              const completion =
+                requiredCount > 0
+                  ? (uploadedRequiredCount / requiredCount) * 100
+                  : 0;
+              return {
+                priorityId: String(rp.id ?? `req-${idx}`),
+                priorityName:
+                  rp.priority?.expenseTitle || `Priority ${idx + 1}`,
+                status:
+                  completion >= 100
+                    ? "completed"
+                    : completion > 0
+                    ? "in_progress"
+                    : "not_started",
+                documentsRequired: requiredCount,
+                documentsUploaded: uploadedRequiredCount,
+                completionPercentage: Math.round(completion),
+              } as PriorityProgress;
+            }
+          );
 
           // Update liquidationProgress
           respData.liquidationProgress = {
             priorities: progress,
             totalPriorities: progress.length,
-            completedPriorities: progress.filter((p) => p.status === "completed").length,
+            completedPriorities: progress.filter(
+              (p) => p.status === "completed"
+            ).length,
             completionPercentage:
               progress.length > 0
-                ? (progress.reduce((s, p) => s + p.completionPercentage, 0) / progress.length)
+                ? progress.reduce((s, p) => s + p.completionPercentage, 0) /
+                  progress.length
                 : 0,
           };
 
@@ -465,13 +544,18 @@ const SchoolHeadDashboard = () => {
             (sum: number, rp: any) => sum + Number(rp.amount || 0),
             0
           );
-          respData.priorityBreakdown = reqPriorities.map((rp: any, idx: number) => ({
-            priority: rp.priority?.expenseTitle || `Priority ${idx + 1}`,
-            amount: Number(rp.amount || 0),
-            percentage: totalRequested > 0 ? (Number(rp.amount || 0) / totalRequested) * 100 : 0,
-            color: COLORS[idx % COLORS.length],
-            name: rp.priority?.expenseTitle || `Priority ${idx + 1}`,
-          }));
+          respData.priorityBreakdown = reqPriorities.map(
+            (rp: any, idx: number) => ({
+              priority: rp.priority?.expenseTitle || `Priority ${idx + 1}`,
+              amount: Number(rp.amount || 0),
+              percentage:
+                totalRequested > 0
+                  ? (Number(rp.amount || 0) / totalRequested) * 100
+                  : 0,
+              color: COLORS[idx % COLORS.length],
+              name: rp.priority?.expenseTitle || `Priority ${idx + 1}`,
+            })
+          );
 
           // Compute financial metrics
           const totalActual = liquidationPriorities.reduce(
@@ -488,8 +572,12 @@ const SchoolHeadDashboard = () => {
               ? ur.data.results
               : [];
             const latest = list && list.length > 0 ? list[0] : null;
-            if (latest?.status === "unliquidated" && (respData as any).school_max_budget !== undefined) {
-              totalDownloaded = Number((respData as any).school_max_budget) || totalDownloaded;
+            if (
+              latest?.status === "unliquidated" &&
+              (respData as any).school_max_budget !== undefined
+            ) {
+              totalDownloaded =
+                Number((respData as any).school_max_budget) || totalDownloaded;
             }
           } catch {
             // ignore and keep totalRequested
@@ -499,7 +587,8 @@ const SchoolHeadDashboard = () => {
           respData.financialMetrics = {
             totalDownloadedAmount: totalDownloaded,
             totalLiquidatedAmount: totalActual,
-            liquidationPercentage: totalDownloaded > 0 ? (totalActual / totalDownloaded) * 100 : 0,
+            liquidationPercentage:
+              totalDownloaded > 0 ? (totalActual / totalDownloaded) * 100 : 0,
             remainingAmount: remaining,
           };
         }
@@ -555,7 +644,10 @@ const SchoolHeadDashboard = () => {
     // Prefer navigating to the specific active request modal (pending/approved/unliquidated)
     const req = data?.requestStatus?.pendingRequest;
     const activeStatus = req?.status?.toLowerCase?.();
-    const isActive = activeStatus === "pending" || activeStatus === "approved" || activeStatus === "unliquidated";
+    const isActive =
+      activeStatus === "pending" ||
+      activeStatus === "approved" ||
+      activeStatus === "unliquidated";
 
     if (req && isActive) {
       navigate("/requests-history", { state: { requestId: req.request_id } });
@@ -759,7 +851,9 @@ const SchoolHeadDashboard = () => {
                       dataKey="amount"
                       labelLine={false}
                       label={({ name, percent }) =>
-                        `${truncateLabel(String(name))} (${(Number(percent) * 100).toFixed(0)}%)`
+                        `${truncateLabel(String(name))} (${(
+                          Number(percent) * 100
+                        ).toFixed(0)}%)`
                       }
                     >
                       {data.priorityBreakdown.map((entry, index) => (
@@ -806,7 +900,11 @@ const SchoolHeadDashboard = () => {
                       })
                     )}
                   >
-                    <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+                    <PolarAngleAxis
+                      type="number"
+                      domain={[0, 100]}
+                      tick={false}
+                    />
                     <RadialBar background dataKey="value" />
                     <Tooltip
                       formatter={(value) => [`${value}%`, "Completion"]}
@@ -913,7 +1011,6 @@ const SchoolHeadDashboard = () => {
         </CardContent>
       </Card>
       {/* Example button in the request status card */}
-      
     </div>
   );
 };
