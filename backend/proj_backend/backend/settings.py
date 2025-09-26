@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import timedelta
 import os
 from celery.schedules import crontab
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'api',
+    'proj_backend.api',  # your app
     'django_celery_results',  # For storing Celery task results
     'django_celery_beat',     # For scheduled tasks
     'simple_history',  # For tracking model history

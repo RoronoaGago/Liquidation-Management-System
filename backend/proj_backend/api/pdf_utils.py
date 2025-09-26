@@ -16,11 +16,15 @@ from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, Flowable
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, Flowable,Frame, PageTemplate, BaseDocTemplate, NextPageTemplate
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 from reportlab.pdfgen import canvas
 from PIL import Image as PILImage
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.graphics.shapes import Drawing, Rect, String
 import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -832,6 +836,606 @@ def generate_request_pdf_with_signatures(request_obj):
         return result
     except Exception as e:
         logger.error(f"Error in generate_request_pdf_with_signatures: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        raise
+
+
+class DemandLetterGenerator(PDFGenerator):
+    """Handles Demand Letter PDF generation matching the exact specifications"""
+    
+    def __init__(self):
+        super().__init__()
+        self.setup_demand_letter_styles()
+    
+    def setup_demand_letter_styles(self):
+        """Setup custom paragraph styles for demand letter matching exact specs"""
+        try:
+            # Register required fonts
+            self._register_required_fonts()
+            # Ensure we have a font mapping for use in styles
+            # Defaults map to base ReportLab fonts if custom ones are unavailable
+            if not hasattr(self, 'font_names'):
+                self.font_names = {
+                    'old_english': 'Times-Roman',
+                    'trajan_regular': 'Helvetica',
+                    'trajan_bold': 'Helvetica-Bold',
+                    'times_regular': 'Times-Roman',
+                    'times_bold': 'Times-Bold',
+                    'times_italic': 'Times-Italic',
+                }
+            
+            # Header styles
+            if not hasattr(self.styles, 'HeaderRepublic'):
+                self.styles.add(ParagraphStyle(
+                    name='HeaderRepublic',
+                    parent=self.styles['Normal'],
+                    fontSize=12,
+                    spaceAfter=2,
+                    alignment=TA_CENTER,
+                    fontName=self.font_names.get('old_english', 'Times-Roman')  # Old English Text MT or fallback
+                ))
+            
+            if not hasattr(self.styles, 'HeaderDepartment'):
+                self.styles.add(ParagraphStyle(
+                    name='HeaderDepartment',
+                    parent=self.styles['Normal'],
+                    fontSize=20,
+                    spaceAfter=2,
+                    alignment=TA_CENTER,
+                    fontName=self.font_names.get('old_english', 'Times-Roman')  # Old English Text MT or fallback
+                ))
+            
+            if not hasattr(self.styles, 'HeaderRegion'):
+                self.styles.add(ParagraphStyle(
+                    name='HeaderRegion',
+                    parent=self.styles['Normal'],
+                    fontSize=10,
+                    spaceAfter=2,
+                    alignment=TA_CENTER,
+                    fontName=self.font_names.get('trajan_regular', 'Helvetica')  # Trajan Pro or fallback
+                ))
+            
+            if not hasattr(self.styles, 'HeaderDivision'):
+                self.styles.add(ParagraphStyle(
+                    name='HeaderDivision',
+                    parent=self.styles['Normal'],
+                    fontSize=12.5,
+                    spaceAfter=6,
+                    alignment=TA_CENTER,
+                    fontName=self.font_names.get('trajan_bold', 'Helvetica-Bold')
+                ))
+            
+            # Body styles (Times New Roman, size 10)
+            if not hasattr(self.styles, 'DemandBody'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBody',
+                    parent=self.styles['Normal'],
+                    fontSize=10,
+                    spaceAfter=6,
+                    alignment=TA_JUSTIFY,
+                    fontName=self.font_names.get('times_regular', 'Times-Roman'),
+                    leading=12
+                ))
+            
+            if not hasattr(self.styles, 'DemandBodyLeft'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyLeft',
+                    parent=self.styles['DemandBody'],
+                    alignment=TA_LEFT
+                ))
+            
+            if not hasattr(self.styles, 'DemandBodyBold'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyBold',
+                    parent=self.styles['DemandBody'],
+                    fontName=self.font_names.get('times_bold', 'Times-Bold')
+                ))
+            
+            if not hasattr(self.styles, 'DemandBodyIndent'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyIndent',
+                    parent=self.styles['DemandBody'],
+                    leftIndent=20
+                ))
+            
+            # Table styles
+            if not hasattr(self.styles, 'DemandTableHeader'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandTableHeader',
+                    parent=self.styles['Normal'],
+                    fontSize=9,
+                    spaceAfter=3,
+                    alignment=TA_CENTER,
+                    fontName=self.font_names.get('times_bold', 'Times-Bold'),
+                    textColor=colors.white
+                ))
+            
+            if not hasattr(self.styles, 'DemandTableCell'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandTableCell',
+                    parent=self.styles['Normal'],
+                    fontSize=9,
+                    spaceAfter=3,
+                    alignment=TA_LEFT,
+                    fontName=self.font_names.get('times_regular', 'Times-Roman')
+                ))
+            
+            if not hasattr(self.styles, 'DemandTableCellRight'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandTableCellRight',
+                    parent=self.styles['DemandTableCell'],
+                    alignment=TA_RIGHT
+                ))
+            
+            # Footer styles
+            if not hasattr(self.styles, 'FooterText'):
+                self.styles.add(ParagraphStyle(
+                    name='FooterText',
+                    parent=self.styles['Normal'],
+                    fontSize=8,
+                    spaceAfter=2,
+                    alignment=TA_LEFT,
+                    fontName=self.font_names.get('trajan_regular', 'Helvetica'),
+                    textColor=colors.HexColor('#555555')  # Gray color
+                ))
+            
+            if not hasattr(self.styles, 'FooterTagline'):
+                self.styles.add(ParagraphStyle(
+                    name='FooterTagline',
+                    parent=self.styles['Normal'],
+                    fontSize=9,
+                    spaceAfter=3,
+                    alignment=TA_CENTER,
+                    fontName=self.font_names.get('times_italic', 'Times-Italic'),
+                    textColor=colors.HexColor('#E91E63')  # Pink-red color
+                ))
+            
+            # Title styles
+            if not hasattr(self.styles, 'DemandTitle'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandTitle',
+                    parent=self.styles['Normal'],
+                    fontSize=14,
+                    spaceAfter=6,
+                    alignment=TA_CENTER,
+                    fontName=self.font_names.get('times_bold', 'Times-Bold')
+                ))
+            
+            logger.debug("Demand letter styles setup completed")
+        except Exception as e:
+            logger.error(f"Error setting up demand letter styles: {e}")
+            raise
+    
+    def _register_required_fonts(self):
+        """Register required fonts for the document"""
+        try:
+            self.font_names = {}
+
+            def register_font_or_fallback(preferred_name, ttf_path, fallback_name):
+                try:
+                    if ttf_path and os.path.exists(ttf_path):
+                        pdfmetrics.registerFont(TTFont(preferred_name, ttf_path))
+                        return preferred_name
+                    else:
+                        logger.warning(f"Font file not found for {preferred_name}, falling back to {fallback_name}")
+                        return fallback_name
+                except Exception as ex:
+                    logger.warning(f"Failed to register {preferred_name}, using fallback {fallback_name}: {ex}")
+                    return fallback_name
+
+            # Old English Text MT
+            old_english_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'OLDENGL.TTF')
+            self.font_names['old_english'] = register_font_or_fallback('OldEnglishTextMT', old_english_path, 'Times-Roman')
+
+            # Trajan Pro (regular and bold)
+            trajan_regular_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'TrajanPro-Regular.ttf')
+            self.font_names['trajan_regular'] = register_font_or_fallback('TrajanPro', trajan_regular_path, 'Helvetica')
+            # For bold, try a bold file if exists, else fallback to Helvetica-Bold
+            trajan_bold_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'TrajanPro-Bold.ttf')
+            self.font_names['trajan_bold'] = register_font_or_fallback('TrajanPro-Bold', trajan_bold_path, 'Helvetica-Bold')
+
+            # Times family (mostly built-in in ReportLab, no need to register files)
+            self.font_names['times_regular'] = 'Times-Roman'
+            self.font_names['times_bold'] = 'Times-Bold'
+            self.font_names['times_italic'] = 'Times-Italic'
+            
+        except Exception as e:
+            logger.error(f"Error registering fonts: {e}")
+
+    def _create_official_header(self):
+        """Create official header with DepEd seal and proper typography"""
+        story = []
+        try:
+            seal_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'seal_deped.png')
+            seal_img = None
+            if os.path.exists(seal_path):
+                seal_img = Image(seal_path, width=1.5*inch, height=1.5*inch)  # Slightly larger for emphasis
+
+            header_data = []
+            if seal_img:
+                header_data.append([seal_img])
+            header_data.append([Paragraph("Republic of the Philippines", self.styles['HeaderRepublic'])])
+            header_data.append([Paragraph("Department of Education", self.styles['HeaderDepartment'])])
+            header_data.append([Paragraph("REGION I", self.styles['HeaderRegion'])])
+            header_data.append([Paragraph("<u>SCHOOLS DIVISION OF LA UNION</u>", self.styles['HeaderDivision'])])
+
+            header_table = Table(header_data, colWidths=[6*inch])
+            header_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ]))
+            story.append(header_table)
+            story.append(Spacer(1, 6))
+            story.append(HorizontalLine(6*inch, thickness=0.5, color=colors.black))
+            story.append(Spacer(1, 12))
+        except Exception as e:
+            logger.error(f"Error creating official header: {e}")
+            story.append(Paragraph("Department of Education - Region I", self.styles['HeaderDivision']))
+            story.append(Spacer(1, 12))
+        return story
+
+    def _create_official_footer(self):
+        """Create official footer with logos and contact information"""
+        story = []
+        
+        try:
+            # DepEd Matatag logo
+            deped_matatag_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'Deped_logo.png')
+            deped_matatag_logo = Image(deped_matatag_path, width=1.2*inch, height=0.8*inch) if os.path.exists(deped_matatag_path) else "DepED MATATAG"
+
+            # SDO La Union logo
+            sdo_la_union_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
+            sdo_la_union_logo = Image(sdo_la_union_path, width=1.0*inch, height=1.0*inch) if os.path.exists(sdo_la_union_path) else "SDO La Union"
+
+            # Contact info
+            contact_info = Paragraph(
+                "Address: Flores St. Catbangen, City of San Fernando, La Union 2500<br/>"
+                "Telephone Number: (072)607-6801<br/>"
+                "<font color='#0F4C81'>■</font> DepEd Tayo – La Union SDO<br/>"
+                "<font color='#D32F2F'>■</font> la.union@deped.gov.ph",
+                self.styles['FooterText']
+            )
+
+            footer_data = [[
+                deped_matatag_logo,
+                sdo_la_union_logo,
+                contact_info
+            ]]
+
+            # Match number of columns with width specs (3 columns)
+            footer_table = Table(footer_data, colWidths=[1.8*inch, 1.6*inch, 3.6*inch])
+            footer_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ALIGN', (0, 0), (2, 0), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ]))
+
+            story.append(footer_table)
+            tagline = "Excellence We Profess, Care We Cultivate, Love We Share, Kindness We Embrace, Humility We Live."
+            story.append(Spacer(1, 6))
+            story.append(Paragraph(tagline, self.styles['FooterTagline']))
+        except Exception as e:
+            logger.error(f"Error creating official footer: {e}")
+            story.append(Paragraph("Department of Education - La Union SDO", self.styles['FooterText']))
+        
+        return story
+
+    def generate_demand_letter_pdf(self, request_obj, unliquidated_data, due_date):
+        """
+        Generate professional Demand Letter PDF matching exact specifications
+        
+        Args:
+            request_obj: RequestManagement instance
+            unliquidated_data: List of dictionaries with unliquidated items
+            due_date: Due date for settlement (string)
+            
+        Returns:
+            PDF content as bytes
+        """
+        try:
+            logger.info(f"Starting professional Demand Letter generation for request: {request_obj.request_id}")
+
+            # Create a BytesIO buffer to hold the PDF
+            buffer = io.BytesIO()
+
+            # Create the PDF document with 1-inch margins
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=letter,
+                rightMargin=72,  # 1 inch
+                leftMargin=72,   # 1 inch
+                topMargin=72,    # 1 inch
+                bottomMargin=72  # 1 inch
+            )
+
+            logger.debug("Professional Demand Letter document template created")
+
+            # Build the PDF content
+            story = []
+
+            # Official, centered header with static images
+            story.extend(self._create_official_header())
+
+            # Add date (empty field as in template)
+            current_date = datetime.now().strftime("%B %d, %Y")
+            story.append(Paragraph(f"DATE: _________________________", self.styles['DemandBodyLeft']))
+            story.append(Spacer(1, 12))
+
+            # Add demand letter title
+            story.append(Paragraph("DEMAND LETTER", self.styles['DemandTitle']))
+            story.append(Paragraph("(Re: LIQUIDATION)", self.styles['DemandTitle']))
+            story.append(Paragraph("_________________________", self.styles['DemandBodyLeft']))
+            story.append(Spacer(1, 12))
+
+            # Add recipient information
+            school = getattr(request_obj.user, 'school', None)
+            if school:
+                district = getattr(school, 'district', None)
+                if district:
+                    story.append(Paragraph("Public Schools District Supervisor", self.styles['DemandBodyLeft']))
+                    story.append(Paragraph(f"{district.districtName} District", self.styles['DemandBodyLeft']))
+                    story.append(Spacer(1, 6))
+            
+            story.append(Paragraph("ATTENTION: ________________________", self.styles['DemandBodyLeft']))
+            story.append(Spacer(1, 6))
+            
+            if school:
+                story.append(Paragraph("> School Head", self.styles['DemandBodyLeft']))
+                story.append(Paragraph(f"> {school.schoolName}", self.styles['DemandBodyLeft']))
+            
+            story.append(Spacer(1, 12))
+            story.append(Paragraph("Sir/Mam,", self.styles['DemandBodyLeft']))
+            story.append(Spacer(1, 12))
+
+            # Add main content
+            content_text = (
+                f"This is to inform you that as of _________________________, records of "
+                f"the Accounting Office show that the following downloaded cash advances "
+                f"remain unliquidated and have already been overdue despite the issuance "
+                f"of the previous demand letter."
+            )
+            story.append(Paragraph(content_text, self.styles['DemandBody']))
+            story.append(Spacer(1, 12))
+
+            # Add unliquidated items table
+            try:
+                story.extend(self._create_professional_unliquidated_table(unliquidated_data))
+                logger.debug("Professional unliquidated table created successfully")
+            except Exception as e:
+                logger.error(f"Error creating professional unliquidated table: {e}")
+                story.append(Paragraph("Error creating unliquidated items table", self.styles['DemandBody']))
+
+            story.append(Spacer(1, 12))
+
+            # Add demand section
+            demand_text = (
+                f"Anent this, <b>DEMAND</b> is hereby made to settle the aforementioned unliquidated "
+                f"cash advance/s by submitting the necessary documents to the Accounting Office and to "
+                f"refund amount in excess thereof (if any) to the Cashier <b>on or before {due_date}</b>."
+            )
+            story.append(Paragraph(demand_text, self.styles['DemandBody']))
+            story.append(Spacer(1, 12))
+
+            # Add CSC guidelines
+            csc_text = (
+                "CSC Resolution No. 1900929 dated August 13, 2019, circularized via CSC "
+                "Memo Circular No. 23 s. 2019 provided the revised guidelines on the "
+                "settlement of cash advance and the penalty to be imposed for failure of "
+                "an Accountable Officer to liquidate cash advance within the prescribed "
+                "period which includes among others:"
+            )
+            story.append(Paragraph(csc_text, self.styles['DemandBody']))
+            story.append(Spacer(1, 6))
+
+            # Add section 5.4
+            section_text = (
+                "Section 5.4 An Accountable shall be held liable for Gross Neglect of "
+                "Duty and imposed the penalty of dismissal from the service for the "
+                "first offense in any of the following instances:"
+            )
+            story.append(Paragraph(section_text, self.styles['DemandBody']))
+            story.append(Spacer(1, 6))
+
+            # Add bullet points
+            bullets = [
+                "a. The Accountable Officer who, after formal demand letter by the State Auditor or Audit Team Leader, fails to make any liquidation, whether partial of full, of the cash advances within the prescribed period stated in the formal demand letter;",
+                "b. The Accountable Officer who, after formal demand letter by the State Auditor or Audit Team Leader, makes a partial liquidation (regardless of the amount) of the cash advance but failed to present any justifying circumstance and has no intention to fully liquidate; and",
+                "c. The Accountable Officer mentioned in Section 5.2 (c) and 5.3 (c) defaulted in the payment of the unliquidated cash advance."
+            ]
+            
+            for bullet in bullets:
+                story.append(Paragraph(bullet, self.styles['DemandBodyIndent']))
+                story.append(Spacer(1, 3))
+
+            story.append(Spacer(1, 6))
+
+            # Add COA guidelines
+            coa_text = (
+                "As provided under COA Circular 97-002 dated February 10, 1997, failure "
+                "to comply shall constitute as a valid ground for the withholding of "
+                "salaries and/or payment of any money due the Accountable Officer. "
+                "Further, this may be a ground for filing of necessary action, "
+                "administrative, civil or criminal in any court/tribunal pursuant to the "
+                "governing laws, rules and regulations and such shall also affect the "
+                "performance rating of the concerned Accountable Officer."
+            )
+            story.append(Paragraph(coa_text, self.styles['DemandBody']))
+            story.append(Spacer(1, 12))
+
+            # Add closing
+            story.append(Paragraph("Please give this matter your preferential attention.", self.styles['DemandBody']))
+            story.append(Spacer(1, 24))
+
+            # Add signature section
+            try:
+                story.extend(self._create_professional_signature_section())
+                logger.debug("Professional signature section created successfully")
+            except Exception as e:
+                logger.error(f"Error creating professional signature section: {e}")
+                story.append(Paragraph("Signature section error", self.styles['DemandBody']))
+
+            story.append(Spacer(1, 24))
+
+            # Add receipt section
+            story.append(Paragraph("Original Copy Received:", self.styles['DemandBodyLeft']))
+            story.append(Spacer(1, 18))
+            story.append(Paragraph("Signature Over Printed Name of", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("Accountable Officer", self.styles['DemandBodyLeft']))
+            story.append(Spacer(1, 12))
+
+            # Add carbon copy
+            story.append(Paragraph("cc: ATTY. PAMELA DE GUZMAN", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("Legal Office", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("La Union Schools Division Office", self.styles['DemandBodyLeft']))
+            story.append(Spacer(1, 6))
+            story.append(Paragraph("JONALYN D. MANONGDO", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("State Auditor IV / Audit Team Leader", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("Commission on Audit", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("NGS Cluster 5-Audit Group A", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("Regional Office I, Government Center", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("Sevilla, San Fernando City", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("2500, La Union", self.styles['DemandBodyLeft']))
+
+            # Add official footer (kept on the same page; if you prefer at bottom of page, integrate via PageTemplate)
+            story.append(Spacer(1, 12))
+            story.extend(self._create_official_footer())
+            
+            # Build the PDF
+            logger.debug("Building professional Demand Letter PDF...")
+            doc.build(story)
+
+            # Get the PDF content
+            pdf_content = buffer.getvalue()
+            buffer.close()
+
+            logger.info(f"Professional Demand Letter PDF generated successfully. Size: {len(pdf_content)} bytes")
+            return pdf_content
+
+        except Exception as e:
+            logger.error(f"Critical error generating professional Demand Letter PDF: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            raise
+
+    def _create_professional_unliquidated_table(self, unliquidated_data):
+        """Create professional table for unliquidated items"""
+        story = []
+        
+        # Table data
+        table_data = [
+            [
+                Paragraph('Check/ADA No/s.', self.styles['DemandTableHeader']),
+                Paragraph('Issue Date', self.styles['DemandTableHeader']),
+                Paragraph('Particulars', self.styles['DemandTableHeader']),
+                Paragraph('Balance', self.styles['DemandTableHeader'])
+            ]
+        ]
+        
+        # Add data rows
+        total_balance = 0
+        for item in unliquidated_data:
+            table_data.append([
+                Paragraph(item.get('check_ada_no', ''), self.styles['DemandTableCell']),
+                Paragraph(item.get('issue_date', ''), self.styles['DemandTableCell']),
+                Paragraph(item.get('particulars', ''), self.styles['DemandTableCell']),
+                Paragraph(f"₱{float(item.get('balance', 0)):,.2f}", self.styles['DemandTableCellRight'])
+            ])
+            total_balance += float(item.get('balance', 0))
+        
+        # Add total row
+        table_data.append([
+            Paragraph('TOTAL UNLIQUIDATED BALANCES', self.styles['DemandTableHeader']),
+            '',
+            '',
+            Paragraph(f"₱{total_balance:,.2f}", self.styles['DemandTableHeader'])
+        ])
+        
+        # Create table with appropriate column widths
+        col_widths = [1.5*inch, 1.0*inch, 3.0*inch, 1.2*inch]
+        table = Table(table_data, colWidths=col_widths)
+        
+        # Professional table styling
+        table.setStyle(TableStyle([
+            # Header row
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F4C81')),  # DepEd blue
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
+            
+            # Data rows
+            ('ALIGN', (0, 1), (2, -2), 'LEFT'),
+            ('ALIGN', (3, 1), (3, -2), 'RIGHT'),
+            ('FONTNAME', (0, 1), (-1, -2), 'Times-Roman'),
+            
+            # Total row
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#D32F2F')),  # DepEd red
+            ('FONTNAME', (0, -1), (-1, -1), 'Times-Bold'),
+            ('ALIGN', (0, -1), (2, -1), 'LEFT'),
+            ('ALIGN', (3, -1), (3, -1), 'RIGHT'),
+            
+            # Grid lines
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        story.append(table)
+        return story
+
+    def _create_professional_signature_section(self):
+        """Create professional signature section"""
+        story = []
+        
+        # Get superintendent
+        from .models import User
+        superintendent = User.objects.filter(role='superintendent', is_active=True).first()
+        
+        if superintendent:
+            superintendent_name = f"{superintendent.first_name.upper()} {superintendent.last_name.upper()}"
+            title = "Schools Division Superintendent"
+            position = "La Union Schools Division Office"
+        else:
+            superintendent_name = "JORGE M. REINANTE, CSEE, CEO VI, CESO V"
+            title = "Schools Division Superintendent"
+            position = "La Union Schools Division Office"
+        
+        story.append(Paragraph(superintendent_name, self.styles['DemandBodyBold']))
+        story.append(Paragraph(title, self.styles['DemandBody']))
+        story.append(Paragraph(position, self.styles['DemandBody']))
+        
+        return story
+
+
+def generate_demand_letter_pdf(request_obj, unliquidated_data, due_date):
+    """
+    Main function to generate professional Demand Letter PDF
+    
+    Args:
+        request_obj: RequestManagement instance
+        unliquidated_data: List of dictionaries with unliquidated items
+        due_date: Due date for settlement (string)
+        
+    Returns:
+        PDF content as bytes
+    """
+    try:
+        logger.info(f"generate_demand_letter_pdf called for request: {request_obj.request_id}")
+        generator = DemandLetterGenerator()
+        result = generator.generate_demand_letter_pdf(request_obj, unliquidated_data, due_date)
+        logger.info("Professional Demand Letter PDF generation completed successfully")
+        return result
+    except Exception as e:
+        logger.error(f"Error in generate_demand_letter_pdf: {e}")
         logger.error(f"Error type: {type(e).__name__}")
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
