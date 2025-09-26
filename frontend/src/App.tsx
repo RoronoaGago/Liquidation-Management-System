@@ -41,6 +41,8 @@ import BackupRestorePage from "./pages/BackupRestorePage";
 import GenerateAgeingReport from "./pages/GenerateAgeingReport";
 import GenerateLiquidationReport from "./pages/GenerateLiquidationReport";
 import AuditLogPage from "./pages/AuditLogPage";
+import HelpCenter from "./pages/HelpCenter";
+import HelpArticlePage from "./pages/HelpArticlePage";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -79,6 +81,13 @@ const App = () => {
             />
             <Route path="/backup-restore" element={<BackupRestorePage />} />
             <Route path="/audit-logs" element={<AuditLogPage />} />
+          </Route>
+          <Route element={<RequireAuth />}>
+            <Route path="/help" element={<HelpCenter />} />
+            <Route
+              path="/help/article/:articleId"
+              element={<HelpArticlePage />}
+            />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>

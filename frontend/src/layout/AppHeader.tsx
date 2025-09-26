@@ -83,7 +83,6 @@ const AppHeader: React.FC = () => {
             )}
             {/* Cross Icon */}
           </button>
-
           <Link to="/" className="lg:hidden">
             <img
               className="dark:hidden w-12 h-12"
@@ -96,7 +95,6 @@ const AppHeader: React.FC = () => {
               alt="Logo"
             />
           </Link>
-
           <button
             onClick={toggleApplicationMenu}
             className="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-20 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
@@ -118,12 +116,7 @@ const AppHeader: React.FC = () => {
           </button>
 
           <div className="hidden lg:block">
-            <h1 className="text-xl font-bold">
-              Maintenance and Other Operating Expenses Liquidation Management
-              System
-            </h1>
-
-            {/* <form>
+            <form>
               <div className="relative">
                 <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
                   <svg
@@ -154,7 +147,7 @@ const AppHeader: React.FC = () => {
                   <span> K </span>
                 </button>
               </div>
-            </form> */}
+            </form>
           </div>
         </div>
         <div

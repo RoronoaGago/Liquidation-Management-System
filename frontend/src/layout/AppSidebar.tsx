@@ -32,7 +32,8 @@ import {
   DatabaseBackupIcon,
   CalendarIcon,
   FileIcon,
-  LogsIcon, // <-- Add this
+  LogsIcon,
+  HelpCircleIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AuditLogPage from "../pages/AuditLogPage";
@@ -209,6 +210,20 @@ const allNavItems: NavItem[] = [
       "liquidator",
       "accountant",
     ], // All roles
+  },
+  {
+    icon: <HelpCircleIcon />,
+    name: "Help Center",
+    path: "/help",
+    roles: [
+      "admin",
+      "school_head",
+      "school_admin",
+      "district_admin",
+      "superintendent",
+      "liquidator",
+      "accountant",
+    ],
   },
 ];
 
