@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -134,6 +135,8 @@ const PriortySubmissionsPage = () => {
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
+  const location = useLocation();
+  const navigate = useNavigate();
   const [submissionHistory, setSubmissionHistory] = useState<
     HistoryItem[] | null
   >(null);
@@ -301,6 +304,18 @@ const PriortySubmissionsPage = () => {
     filterOptions.municipality,
     filterOptions.searchTerm, // Add this since it's backend filtered now
   ]);
+
+  // Auto-open a specific request modal when navigated with state { requestId }
+  useEffect(() => {
+    const requestId = (location.state as any)?.requestId as string | undefined;
+    if (!requestId) return;
+    const match = submissionsState.find((s) => s.request_id === requestId);
+    if (match) {
+      setViewedSubmission(match);
+      // Clear state so it doesn't reopen on close/back
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, submissionsState, navigate, location.pathname]);
   useEffect(() => {
     // Update municipality options when legislative district changes
     if (
