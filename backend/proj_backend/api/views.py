@@ -1124,38 +1124,36 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
-        instance.save()
-
         # Log audit for liquidation status changes
-        from .audit_utils import log_audit_event
-        old_status = instance._old_status
-        new_status = instance.status
 
-        if old_status != new_status:
-            # Determine action type based on status change
-            action = 'update'
-            if new_status == 'approved_district':
-                action = 'approve_district'
-            elif new_status == 'approved_liquidator':
-                action = 'approve_liquidator'
-            elif new_status == 'liquidated':
-                action = 'liquidate'
-            elif new_status == 'resubmit':
-                action = 'reject'
-            elif new_status == 'submitted':
-                action = 'submit'
+        # old_status = instance._old_status
+        # new_status = instance.status
 
-            # log_audit_event(
-            #     request=request,
-            #     action=action,
-            #     module='liquidation',
-            #     description=f"Changed liquidation {instance.LiquidationID} status from {old_status} to {new_status}",
-            #     object_id=instance.LiquidationID,
-            #     object_type='LiquidationManagement',
-            #     object_name=f"Liquidation {instance.LiquidationID}",
-            #     old_values={'status': old_status},
-            #     new_values={'status': new_status}
-            # )
+        # if old_status != new_status:
+        #     # Determine action type based on status change
+        #     action = 'update'
+        #     if new_status == 'approved_district':
+        #         action = 'approve_district'
+        #     elif new_status == 'approved_liquidator':
+        #         action = 'approve_liquidator'
+        #     elif new_status == 'liquidated':
+        #         action = 'liquidate'
+        #     elif new_status == 'resubmit':
+        #         action = 'reject'
+        #     elif new_status == 'submitted':
+        #         action = 'submit'
+
+        # log_audit_event(
+        #     request=request,
+        #     action=action,
+        #     module='liquidation',
+        #     description=f"Changed liquidation {instance.LiquidationID} status from {old_status} to {new_status}",
+        #     object_id=instance.LiquidationID,
+        #     object_type='LiquidationManagement',
+        #     object_name=f"Liquidation {instance.LiquidationID}",
+        #     old_values={'status': old_status},
+        #     new_values={'status': new_status}
+        # )
 
         return Response(serializer.data)
 

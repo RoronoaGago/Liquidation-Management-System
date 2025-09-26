@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import datetime, timedelta, date
 from simple_history.models import HistoricalRecords
+from .json_utils import DecimalJSONEncoder  # Import your custom encoder
 import string
 import logging
 # Configure logging
@@ -513,7 +514,7 @@ class RequestManagement(models.Model):
         if (not hasattr(self, '_status_changed_by')
                 and not self._skip_auto_status
                 and self.request_monthyear
-                ):
+            ):
             today = date.today()
             try:
                 req_year, req_month = map(
@@ -1075,8 +1076,10 @@ class AuditLog(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     # For changes tracking
-    old_values = models.JSONField(null=True, blank=True)
-    new_values = models.JSONField(null=True, blank=True)
+    old_values = models.JSONField(
+        null=True, blank=True, encoder=DecimalJSONEncoder)
+    new_values = models.JSONField(
+        null=True, blank=True, encoder=DecimalJSONEncoder)
 
     class Meta:
         ordering = ['-timestamp']

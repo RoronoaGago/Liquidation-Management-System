@@ -1404,12 +1404,12 @@ const ActiveRequestsWidget = ({
             >
               View All Requests
             </DropdownItem>
-            <DropdownItem
+            {/* <DropdownItem
               onItemClick={closeDropdown}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               Export Data
-            </DropdownItem>
+            </DropdownItem> */}
           </Dropdown>
         </div>
       }
@@ -1671,7 +1671,7 @@ const AdminDashboard = () => {
                 </Button>
               </>
             )}
-            {!editMode && (
+            {/* {!editMode && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1680,7 +1680,7 @@ const AdminDashboard = () => {
                 <Download className="h-4 w-4" />
                 Export
               </Button>
-            )}
+            )} */}
           </div>
         </div>
       </div>

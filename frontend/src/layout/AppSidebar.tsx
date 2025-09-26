@@ -532,9 +532,7 @@ const AppSidebar: React.FC = () => {
         </Link>
       </div>
       {(isExpanded || isHovered || isMobileOpen) && (
-        <h1 className="text-xl mb-4 font-bold">
-          Maintenance and Other Operating Expenses Liquidation Management System
-        </h1>
+        <h1 className="text-xl mb-4 font-bold">MOOE System</h1>
       )}
 
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
