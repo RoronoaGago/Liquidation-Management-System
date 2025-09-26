@@ -1,0 +1,1 @@
+pip install django-cors-headers djangorestframework-simplejwt django-celery-results django-celery-beat django-simple-history mysqlclient geoip2 user-agents django-auditlog openpyxl
