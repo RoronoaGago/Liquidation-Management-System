@@ -3154,89 +3154,266 @@ def update_e_signature(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def generate_liquidation_report(request):
+def generate_liquidation_report(request, LiquidationID):
     """
-    Generate liquidation report with summary statistics
+    Generate a liquidation report in Excel format matching the Appendix-44-LR-1 template
+    with data automatically populated from the system
     """
     try:
-        # Get query parameters
-        status_filter = request.GET.get('status', 'all')
-        start_date = request.GET.get('start_date')
-        end_date = request.GET.get('end_date')
-        legislative_district = request.GET.get('legislative_district')
-        municipality = request.GET.get('municipality')
-        school_district = request.GET.get('school_district')
-        school_ids = request.GET.get('school_ids')
-        export = request.GET.get('export')
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 50))
+        liquidation = LiquidationManagement.objects.get(
+            LiquidationID=LiquidationID)
+        request_obj = liquidation.request
+        user = request_obj.user
+        school = user.school
 
-        # Get summary statistics
-        summary_stats = get_liquidation_summary_stats(
-            start_date=start_date,
-            end_date=end_date,
-            legislative_district=legislative_district,
-            municipality=municipality,
-            school_district=school_district,
-            school_ids=school_ids
+        # Create workbook and worksheet
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "LR"
+
+        # Set column widths to match the template
+        column_widths = {
+            'A': 30.71, 'B': 36.25, 'C': 33.39, 'D': 8.43, 'E': 8.43,
+            'F': 8.43, 'G': 8.43, 'H': 8.43, 'I': 8.43, 'J': 8.43, 'K': 8.43
+        }
+
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+
+        # Define border styles
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
         )
 
-        # Get report data
-        report_data = generate_liquidation_report_data(
-            status_filter=status_filter,
-            start_date=start_date,
-            end_date=end_date,
-            legislative_district=legislative_district,
-            municipality=municipality,
-            school_district=school_district,
-            school_ids=school_ids
+        # Define fonts
+        base_font = Font(name='Times New Roman', size=10)
+        bold_font = Font(name='Times New Roman', size=10, bold=True)
+
+        # Add template content (matching the provided Excel structure)
+        # Appendix 44 in cell C1
+        ws['C1'] = "Appendix 44"
+        ws['C1'].font = base_font
+        ws['C1'].alignment = Alignment(horizontal='right')
+
+        # Liquidation Report title
+        ws['A3'] = "LIQUIDATION REPORT"
+        ws['A3'].font = Font(name='Times New Roman', size=14, bold=True)
+        ws.merge_cells('A3:C3')
+        ws['A3'].alignment = Alignment(horizontal='center')
+
+        # Serial number and date
+        ws['C4'] = f"Serial No.: {liquidation.LiquidationID}"
+        ws['C4'].font = base_font
+
+        current_date = timezone.now().strftime("%Y-%m-%d")
+        ws['C5'] = f"Date: {current_date}"
+        ws['C5'].font = base_font
+
+        # Period covered - use the request month/year
+        if request_obj.request_monthyear:
+            period_covered = request_obj.request_monthyear
+        else:
+            period_covered = timezone.now().strftime("%Y-%m")
+        ws['A5'] = f"Period Covered {period_covered}"
+        ws['A5'].font = base_font
+
+        # Entity name and fund cluster
+        entity_name = school.schoolName if school else "N/A"
+        ws['A7'] = f"Entity Name :  {entity_name}"
+        ws['A7'].font = base_font
+
+        # For fund cluster, we'll use a default value or leave it blank
+        ws['A8'] = "Fund Cluster :  _____________________________________________"
+        ws['A8'].font = base_font
+
+        # Responsibility center code - use district code if available
+        responsibility_center = school.district.districtId if school and school.district else "N/A"
+        ws['C8'] = f"Responsibility Center Code: {responsibility_center}"
+        ws['C8'].font = base_font
+
+        # Table header
+        ws['A11'] = "PARTICULARS"
+        ws['A11'].font = bold_font
+        ws['A11'].border = thin_border
+        ws['A11'].alignment = Alignment(horizontal='center', vertical='center')
+
+        ws['C11'] = "AMOUNT"
+        ws['C11'].font = bold_font
+        ws['C11'].border = thin_border
+        ws['C11'].alignment = Alignment(horizontal='center', vertical='center')
+
+        # Add liquidation items
+        row = 12
+        total_amount = Decimal('0.00')
+        for lp in liquidation.liquidation_priorities.all():
+            ws[f'A{row}'] = lp.priority.expenseTitle
+            ws[f'A{row}'].font = base_font
+            ws[f'A{row}'].border = thin_border
+
+            ws[f'C{row}'] = float(lp.amount)
+            ws[f'C{row}'].font = base_font
+            ws[f'C{row}'].border = thin_border
+            ws[f'C{row}'].number_format = '#,##0.00'
+
+            total_amount += lp.amount  # Don't convert to float here
+            row += 1
+
+        # Add total amount
+        total_row = row + 2
+        ws[f'A{total_row}'] = "TOTAL AMOUNT SPENT"
+        ws[f'A{total_row}'].font = bold_font
+        ws[f'A{total_row}'].border = thin_border
+
+        ws[f'C{total_row}'] = float(total_amount)
+        ws[f'C{total_row}'].font = bold_font
+        ws[f'C{total_row}'].border = thin_border
+        ws[f'C{total_row}'].number_format = '#,##0.00'
+
+        # Add cash advance information
+        cash_advance_row = total_row + 2
+        ws[f'A{cash_advance_row}'] = "AMOUNT OF CASH ADVANCE PER DV NO.______DTD. ______"
+        ws[f'A{cash_advance_row}'].font = base_font
+        ws[f'A{cash_advance_row}'].border = thin_border
+
+        # Calculate cash advance amount (sum of requested amounts)
+        cash_advance_amount = sum(
+            rp.amount for rp in request_obj.requestpriority_set.all()
         )
+        ws[f'C{cash_advance_row}'] = float(cash_advance_amount)
+        ws[f'C{cash_advance_row}'].font = base_font
+        ws[f'C{cash_advance_row}'].border = thin_border
+        ws[f'C{cash_advance_row}'].number_format = '#,##0.00'
 
-        # Handle export
-        if export == 'excel':
-            filters = {
-                'status': status_filter,
-                'start_date': start_date,
-                'end_date': end_date,
-                'legislative_district': legislative_district,
-                'municipality': municipality,
-                'school_district': school_district
-            }
-            return generate_liquidation_excel_report(report_data, filters)
-        elif export == 'csv':
-            filters = {
-                'status': status_filter,
-                'start_date': start_date,
-                'end_date': end_date,
-                'legislative_district': legislative_district,
-                'municipality': municipality,
-                'school_district': school_district
-            }
-            return generate_liquidation_csv_report(report_data, filters)
+        # Add refund information
+        refund_row = cash_advance_row + 2
+        ws[f'A{refund_row}'] = "AMOUNT REFUNDED PER OR NO. ________DTD. ___________"
+        ws[f'A{refund_row}'].font = base_font
+        ws[f'A{refund_row}'].border = thin_border
 
-        # Paginate results for non-export requests
-        paginator = LiquidationReportPagination()
-        paginated_data = paginator.paginate_queryset(report_data, request)
+        refund_amount = cash_advance_amount - total_amount  # Both are Decimal now
+        ws[f'C{refund_row}'] = float(refund_amount) if refund_amount > 0 else 0
+        ws[f'C{refund_row}'].font = base_font
+        ws[f'C{refund_row}'].border = thin_border
+        ws[f'C{refund_row}'].number_format = '#,##0.00'
 
-        return Response({
-            'summary': summary_stats,
-            'results': {
-                'count': len(report_data),
-                'next': paginator.get_next_link(),
-                'previous': paginator.get_previous_link(),
-                'results': paginated_data,
-                'total_count': len(report_data),
-                'filters': {
-                    'status': status_filter,
-                    'start_date': start_date,
-                    'end_date': end_date,
-                    'legislative_district': legislative_district,
-                    'municipality': municipality,
-                    'school_district': school_district
-                }
-            }
-        })
+        # Add amount to be reimbursed
+        reimbursement_row = refund_row + 2
+        ws[f'A{reimbursement_row}'] = "AMOUNT TO BE REIMBURSED"
+        ws[f'A{reimbursement_row}'].font = base_font
+        ws[f'A{reimbursement_row}'].border = thin_border
 
+        reimbursement_amount = total_amount - cash_advance_amount
+        ws[f'C{reimbursement_row}'] = float(
+            reimbursement_amount) if reimbursement_amount > 0 else 0
+        ws[f'C{reimbursement_row}'].font = base_font
+        ws[f'C{reimbursement_row}'].border = thin_border
+        ws[f'C{reimbursement_row}'].number_format = '#,##0.00'
+
+        # Add certification section
+        cert_row = reimbursement_row + 3
+        ws[f'A{cert_row}'] = "Certified: Correctness of the above data"
+        ws[f'A{cert_row}'].font = bold_font
+        ws[f'A{cert_row}'].border = thin_border
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'B{cert_row}'] = "Certified: Purpose of travel / cash advance duly accomplished"
+        ws[f'B{cert_row}'].font = bold_font
+        ws[f'B{cert_row}'].border = thin_border
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'C{cert_row}'] = "Certified: Supporting documents complete and proper"
+        ws[f'C{cert_row}'].font = bold_font
+        ws[f'C{cert_row}'].border = thin_border
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add signature lines with user names if available
+        cert_row += 2
+
+        # Claimant (the user who submitted the request)
+        claimant_name = f"{user.first_name} {user.last_name}" if user else "________________________"
+        ws[f'A{cert_row}'] = claimant_name
+        ws[f'A{cert_row}'].font = base_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Immediate Supervisor (could be district admin or school head)
+        # For now, we'll leave it blank as it's not directly in the model
+        ws[f'B{cert_row}'] = "________________________"
+        ws[f'B{cert_row}'].font = base_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Head, Accounting Division Unit (could be division accountant)
+        # For now, we'll leave it blank as it's not directly in the model
+        ws[f'C{cert_row}'] = "________________________"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add position titles
+        cert_row += 1
+        ws[f'A{cert_row}'] = "Signature over Printed Name"
+        ws[f'A{cert_row}'].font = base_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'B{cert_row}'] = "Signature over Printed Name"
+        ws[f'B{cert_row}'].font = base_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'C{cert_row}'] = "Signature over Printed Name"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add role titles
+        cert_row += 1
+        ws[f'A{cert_row}'] = "Claimant"
+        ws[f'A{cert_row}'].font = base_font
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'B{cert_row}'] = "Immediate Supervisor"
+        ws[f'B{cert_row}'].font = base_font
+        ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
+
+        ws[f'C{cert_row}'] = "Head, Accounting Division Unit"
+        ws[f'C{cert_row}'].font = base_font
+        ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add JEV number - we don't have this in the model, so leave blank
+        cert_row += 2
+        ws[f'C{cert_row}'] = "JEV No.: ___________________"
+        ws[f'C{cert_row}'].font = base_font
+
+        # Add date lines
+        cert_row += 1
+        ws[f'A{cert_row}'] = "Date: ______________________"
+        ws[f'A{cert_row}'].font = base_font
+
+        ws[f'B{cert_row}'] = "Date: _____________________"
+        ws[f'B{cert_row}'].font = base_font
+
+        ws[f'C{cert_row}'] = "Date:  _____________________"
+        ws[f'C{cert_row}'].font = base_font
+
+        # Apply borders to all relevant cells
+        for row in ws.iter_rows(min_row=1, max_row=cert_row, min_col=1, max_col=3):
+            for cell in row:
+                if cell.value:
+                    cell.border = thin_border
+
+        # Create HTTP response with Excel file
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="liquidation_report_{LiquidationID}.xlsx"'
+
+        wb.save(response)
+        return response
+
+    except LiquidationManagement.DoesNotExist:
+        return Response(
+            {'error': 'Liquidation not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
     except Exception as e:
         logger.error(
             f"Error generating liquidation report: {str(e)}", exc_info=True)
