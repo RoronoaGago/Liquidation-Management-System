@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'api',
-    'proj_backend.api',  # your app
     'django_celery_results',  # For storing Celery task results
     'django_celery_beat',     # For scheduled tasks
     'simple_history',  # For tracking model history

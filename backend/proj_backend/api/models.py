@@ -788,6 +788,13 @@ class LiquidationManagement(models.Model):
 
 
 class LiquidationDocument(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('resubmitted', 'Resubmitted'),
+    ]
+
     liquidation = models.ForeignKey(
         LiquidationManagement,
         on_delete=models.CASCADE,
@@ -809,8 +816,22 @@ class LiquidationDocument(models.Model):
         null=True,
         related_name='uploaded_documents'
     )
-    is_approved = models.BooleanField(null=True, default=None)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
     reviewer_comment = models.TextField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_documents'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    # Keep is_approved for backward compatibility, but it will be deprecated
+    is_approved = models.BooleanField(null=True, default=None)
 
     class Meta:
         unique_together = ('liquidation', 'request_priority', 'requirement')
@@ -819,11 +840,37 @@ class LiquidationDocument(models.Model):
         return f"Document for {self.requirement} in {self.request_priority}"
 
     def save(self, *args, **kwargs):
+        from django.utils import timezone
+        
         # Ensure the document belongs to the same request as the liquidation
         if self.request_priority.request != self.liquidation.request:
             raise ValueError(
                 "Document's priority must belong to the liquidation's request")
+        
+        # Handle status transitions and maintain backward compatibility
+        if hasattr(self, '_old_status'):
+            old_status = self._old_status
+        else:
+            old_status = None
+            
+        # Auto-set reviewed_at when status changes to approved/rejected
+        if (old_status != self.status and 
+            self.status in ['approved', 'rejected'] and 
+            not self.reviewed_at):
+            self.reviewed_at = timezone.now()
+        
+        # Maintain backward compatibility with is_approved
+        if self.is_approved is None:
+            if self.status == 'approved':
+                self.is_approved = True
+            elif self.status == 'rejected':
+                self.is_approved = False
+        
         super().save(*args, **kwargs)
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._old_status = self.status if self.pk else None
 
 
 class Notification(models.Model):
