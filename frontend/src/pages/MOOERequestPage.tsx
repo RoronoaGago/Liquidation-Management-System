@@ -413,11 +413,14 @@ const MOOERequestPage = () => {
   useEffect(() => {
     const checkPastLiquidation = async () => {
       try {
+        console.log("Making request to:", api.defaults.baseURL + "last-liquidated-request/");
         const res = await api.get("last-liquidated-request/");
+        console.log("Response received:", res);
         if (res.data && res.data.priorities) {
           setHasPastLiquidation(true);
         }
       } catch (err) {
+        console.error("Error in checkPastLiquidation:", err);
         setHasPastLiquidation(false);
       }
     };
