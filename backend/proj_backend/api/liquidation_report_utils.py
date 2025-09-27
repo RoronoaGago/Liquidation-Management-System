@@ -188,6 +188,91 @@ def generate_liquidation_csv_report(report_data, filters):
     return response
 
 
+def get_liquidation_summary_stats(
+    start_date=None,
+    end_date=None,
+    legislative_district=None,
+    municipality=None,
+    school_district=None,
+    school_ids=None
+):
+    """Get summary statistics for liquidation dashboard"""
+
+    # Start with all liquidations
+    queryset = LiquidationManagement.objects.select_related(
+        'request__user__school__district'
+    ).all()
+
+    # Apply date range filter
+    if start_date and end_date:
+        start_datetime = timezone.make_aware(
+            timezone.datetime.combine(start_date, timezone.datetime.min.time()))
+        end_datetime = timezone.make_aware(
+            timezone.datetime.combine(end_date, timezone.datetime.max.time()))
+        queryset = queryset.filter(
+            created_at__gte=start_datetime,
+            created_at__lte=end_datetime
+        )
+
+    # Apply legislative district filter
+    if legislative_district:
+        queryset = queryset.filter(
+            request__user__school__district__legislativeDistrict=legislative_district
+        )
+
+    # Apply municipality filter
+    if municipality:
+        queryset = queryset.filter(
+            request__user__school__district__municipality=municipality
+        )
+
+    # Apply school district filter
+    if school_district:
+        queryset = queryset.filter(
+            request__user__school__district__districtId=school_district
+        )
+
+    # Apply school IDs filter
+    if school_ids:
+        school_id_list = school_ids.split(',') if isinstance(
+            school_ids, str) else school_ids
+        queryset = queryset.filter(
+            request__user__school__schoolId__in=school_id_list
+        )
+
+    # Calculate summary statistics
+    total_liquidations = queryset.count()
+
+    # Liquidated status
+    liquidated_count = queryset.filter(status='liquidated').count()
+
+    # Pending review statuses (all review-related statuses)
+    pending_review_statuses = [
+        'submitted',
+        'under_review_district',
+        'approved_district',
+        'under_review_liquidator',
+        'approved_liquidator',
+        'under_review_division'
+    ]
+    pending_review_count = queryset.filter(
+        status__in=pending_review_statuses).count()
+
+    # Needs revision
+    needs_revision_count = queryset.filter(status='resubmit').count()
+
+    # Draft status
+    draft_count = queryset.filter(status='draft').count()
+
+    return {
+        'total_liquidations': total_liquidations,
+        'liquidated': liquidated_count,
+        'pending_review': pending_review_count,
+        'needs_revision': needs_revision_count,
+        'draft': draft_count
+    }
+
+
 def generate_liquidation_excel_report(report_data, filters):
     """Generate Excel report for liquidation data"""
     # Create Excel workbook
