@@ -49,6 +49,7 @@ const ManageSchools = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [schools, setSchools] = useState<any[]>([]);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [totalSchools, setTotalSchools] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -75,7 +76,9 @@ const ManageSchools = () => {
   });
   const [districtOptions, setDistrictOptions] = useState<string[]>([]);
   // Add district options state
-const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([]);
+  const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>(
+    []
+  );
   const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
   const [legislativeDistricts, setLegislativeDistricts] = useState<{
     [key: string]: string[];
@@ -85,13 +88,13 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
   >([]);
 
   useEffect(() => {
-  if (districts && Array.isArray(districts)) {
-    const activeDistricts = districts
-      .filter(district => district.is_active)
-      .map(district => district.districtId);
-    setDistrictFilterOptions(activeDistricts);
-  }
-}, [districts]);
+    if (districts && Array.isArray(districts)) {
+      const activeDistricts = districts
+        .filter((district) => district.is_active)
+        .map((district) => district.districtId);
+      setDistrictFilterOptions(activeDistricts);
+    }
+  }, [districts]);
   const isFormValid =
     requiredFields.every((field) => {
       const value = formData[field as keyof SchoolFormData];
@@ -113,7 +116,7 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
         params.legislative_district = filterOptions.legislative_district;
       if (filterOptions.municipality)
         params.municipality = filterOptions.municipality;
-       if (filterOptions.district) params.district = filterOptions.district; // Use 'district' not 'districtId'
+      if (filterOptions.district) params.district = filterOptions.district; // Use 'district' not 'districtId'
       if (sortConfig) {
         params.ordering =
           sortConfig.direction === "asc"
@@ -293,15 +296,28 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
       toast.error("Please fill in all required fields correctly!");
       return;
     }
+
+    // Open confirmation dialog instead of submitting directly
+    setIsConfirmDialogOpen(true);
+  };
+  // New function to handle confirmed submission
+  const handleConfirmedSubmit = async () => {
     console.log("Submitting form data:", formData);
     setIsSubmitting(true);
+    setIsConfirmDialogOpen(false);
 
     try {
-      await api.post("http://127.0.0.1:8000/api/schools/", {
-        ...formData,
-        district: formData.districtId,
-        headers: { "Content-Type": "application/json" },
-      });
+      await api.post(
+        "http://127.0.0.1:8000/api/schools/",
+        {
+          ...formData,
+          district: formData.districtId,
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
       await fetchSchools();
       toast.success("School Added Successfully!", {
         position: "top-center",
@@ -315,6 +331,7 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
         theme: "light",
         transition: Bounce,
       });
+
       setFormData({
         schoolId: "",
         schoolName: "",
@@ -560,6 +577,7 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
                     onClick={(e) => {
                       e.preventDefault();
                       setIsDialogOpen(false);
+                      setIsConfirmDialogOpen(false);
                       setErrors({});
                       setFormData({
                         schoolId: "",
@@ -589,6 +607,50 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
                   </Button>
                 </div>
               </form>
+            </DialogContent>
+          </Dialog>
+          {/* Add School Confirmation Dialog */}
+          <Dialog
+            open={isConfirmDialogOpen}
+            onOpenChange={setIsConfirmDialogOpen}
+          >
+            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+              <DialogHeader className="mb-8">
+                <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+                  Confirm School Creation
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-gray-600 dark:text-gray-400">
+                  Are you sure you want to add this new school?
+                </p>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsConfirmDialogOpen(false)}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={handleConfirmedSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2Icon className="animate-spin size-4" />
+                        Adding...
+                      </span>
+                    ) : (
+                      "Confirm"
+                    )}
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

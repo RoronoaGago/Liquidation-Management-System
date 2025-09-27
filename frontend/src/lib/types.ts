@@ -28,7 +28,7 @@ export interface School {
   district: District; // Existing field for display
   municipality: string;
   legislativeDistrict: string;
-  is_active?: boolean;
+  is_active: boolean;
 }
 export type User = {
   id: number;

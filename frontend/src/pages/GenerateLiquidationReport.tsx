@@ -30,6 +30,14 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 
 const { RangePicker } = DatePicker;
 
+// Add this interface for summary stats
+interface LiquidationSummary {
+  total_liquidations: number;
+  liquidated: number;
+  pending_review: number;
+  needs_revision: number;
+  draft: number;
+}
 interface LiquidationReportItem {
   liquidation_id: string;
   request_id: string;
@@ -56,6 +64,7 @@ interface LiquidationReportResponse {
   results: LiquidationReportItem[];
   total_count: number;
   filters: any;
+  summary?: LiquidationSummary;
 }
 
 const tabs = ["Monthly", "Quarterly", "Custom"];
@@ -99,6 +108,9 @@ const statusIcons: Record<string, React.ReactNode> = {
 export default function GenerateLiquidationReport() {
   const [activeTab, setActiveTab] = useState<string>("Monthly");
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
+  const [summaryData, setSummaryData] = useState<LiquidationSummary | null>(
+    null
+  );
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
@@ -181,6 +193,10 @@ export default function GenerateLiquidationReport() {
       const res = await api.get("reports/liquidation/", { params });
       // Handle both response structures
       const responseData = res.data;
+      console.log(responseData);
+      if (responseData.summary) {
+        setSummaryData(responseData.summary);
+      }
       if (responseData.results && Array.isArray(responseData.results)) {
         // If results is directly an array
         setReportData({
@@ -216,6 +232,8 @@ export default function GenerateLiquidationReport() {
       setPageSize(size);
     } catch (err: any) {
       setError("Failed to fetch liquidation report");
+      setReportData(null);
+      setSummaryData(null);
       setReportData(null);
     } finally {
       setLoading(false);
@@ -406,7 +424,55 @@ export default function GenerateLiquidationReport() {
     ? Math.ceil(reportData.count / pageSize)
     : 0;
   const report = reportData?.results || []; // Directly access results array
+  // Add summary cards component
+  const SummaryCards = () => {
+    if (!summaryData) return null;
 
+    const cards = [
+      {
+        title: "Total Liquidations",
+        value: summaryData.total_liquidations,
+        icon: <FileText className="h-5 w-5" />,
+        color: "bg-blue-50 border-blue-200 text-blue-700",
+      },
+      {
+        title: "Liquidated",
+        value: summaryData.liquidated,
+        icon: <CheckCircle className="h-5 w-5" />,
+        color: "bg-green-50 border-green-200 text-green-700",
+      },
+      {
+        title: "Pending Review",
+        value: summaryData.pending_review,
+        icon: <Clock className="h-5 w-5" />,
+        color: "bg-yellow-50 border-yellow-200 text-yellow-700",
+      },
+      {
+        title: "Needs Revision",
+        value: summaryData.needs_revision,
+        icon: <AlertCircle className="h-5 w-5" />,
+        color: "bg-red-50 border-red-200 text-red-700",
+      },
+    ];
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {cards.map((card, index) => (
+          <div key={index} className={`rounded-lg border p-4 ${card.color}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">{card.title}</p>
+                <p className="text-2xl font-bold mt-1">{card.value}</p>
+              </div>
+              <div className="p-2 rounded-full bg-white bg-opacity-50">
+                {card.icon}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Generate Liquidation Report" />
@@ -624,6 +690,8 @@ export default function GenerateLiquidationReport() {
             </div>
           )}
 
+          {/* Add Summary Cards */}
+          <SummaryCards />
           <div className="overflow-x-auto border rounded-lg bg-white mb-6">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">

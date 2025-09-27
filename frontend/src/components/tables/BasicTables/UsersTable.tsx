@@ -711,7 +711,7 @@ export default function UsersTable({
               </select>
             </div>
 
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label htmlFor="date-range-start" className="text-sm font-medium">
                 Date Joined Range
               </Label>
@@ -747,7 +747,7 @@ export default function UsersTable({
                   <CalenderIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
               </div>
-            </div>
+            </div> */}
 
             <div className="md:col-span-3 flex justify-end gap-2">
               <Button
