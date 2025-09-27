@@ -86,23 +86,44 @@ const DivisionDistrictAdaDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Fetch all liquidations for district ADA
+      // Fetch all liquidations for district ADA - use same approach as LiquidationReportPage
+      // For dashboard, we need ALL liquidations regardless of status to calculate completion rates
       const liquidationsRes = await api.get("liquidations/", {
-        params: { page_size: 1000 }
+        params: { 
+          page_size: 1000,
+          ordering: "-created_at",
+          // Explicitly request all statuses to bypass role-based filtering
+          status: "draft,submitted,under_review_district,under_review_liquidator,under_review_division,resubmit,approved_district,approved_liquidator,liquidated"
+        }
       });
-      const liquidations = liquidationsRes.data?.results || liquidationsRes.data || [];
+      const liquidations = liquidationsRes.data || [];
+      
+      // Debug: Log the liquidation data structure
+      console.log("Liquidations API response:", liquidationsRes);
+      console.log("Liquidations data:", liquidations);
+      console.log("Sample liquidation structure:", liquidations[0]);
 
       // Fetch all schools
       const schoolsRes = await api.get("schools/", {
         params: { page_size: 1000 }
       });
       const schools = schoolsRes.data?.results || schoolsRes.data || [];
+      
+      // Debug: Log schools data
+      console.log("Schools API response:", schoolsRes);
+      console.log("Schools data:", schools);
+      console.log("Total schools:", schools.length);
 
       // Fetch all requests for timeline and performance data
       const requestsRes = await api.get("requests/", {
         params: { page_size: 1000 }
       });
       const requests = requestsRes.data?.results || requestsRes.data || [];
+      
+      // Debug: Log requests data
+      console.log("Requests API response:", requestsRes);
+      console.log("Requests data:", requests);
+      console.log("Total requests:", requests.length);
 
       // Process pending liquidations (status: submitted, under_review_district, under_review_liquidator)
       const pendingLiquidations: PendingLiquidation[] = liquidations
@@ -112,7 +133,7 @@ const DivisionDistrictAdaDashboard = () => {
           const schoolName = request?.user?.school?.schoolName || "";
           const schoolId = request?.user?.school?.schoolId || "";
           const totalAmount = (l.liquidation_priorities || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-          const submittedDate = l.created_at || request?.created_at || "";
+          const submittedDate = l.date_submitted || l.submitted_at || l.created_at || request?.created_at || "";
           const daysSinceSubmission = submittedDate ? Math.max(0, Math.round((Date.now() - new Date(submittedDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
           
           return {
@@ -131,11 +152,41 @@ const DivisionDistrictAdaDashboard = () => {
 
       // Calculate division completion data
       const totalSchools = schools.length;
-      const schoolsWithLiquidations = new Set(liquidations.map((l: any) => l.request?.user?.school?.schoolId).filter(Boolean)).size;
-      const approvedLiquidations = liquidations.filter((l: any) => l.status === 'liquidated').length;
+      
+      // Debug: Log school IDs from liquidations
+      const schoolIdsFromLiquidations = liquidations.map((l: any) => {
+        const schoolId = l.request?.user?.school?.schoolId;
+        console.log(`Liquidation ${l.LiquidationID} -> School ID: ${schoolId}`, l.request?.user?.school);
+        return schoolId;
+      }).filter(Boolean);
+      
+      // Get unique school IDs that have liquidations (any status)
+      const schoolsWithLiquidations = new Set(schoolIdsFromLiquidations).size;
+      
+      const approvedLiquidations = liquidations.filter((l: any) => 
+        ['approved_district', 'approved_liquidator', 'liquidated'].includes(l.status)
+      ).length;
       const pendingLiquidationsCount = pendingLiquidations.length;
       const rejectedLiquidations = liquidations.filter((l: any) => l.status === 'resubmit').length;
       const completionRate = totalSchools > 0 ? Math.round((schoolsWithLiquidations / totalSchools) * 100) : 0;
+      
+      // Debug: Log completion calculation
+      const statusBreakdown = liquidations.reduce((acc: any, l: any) => {
+        acc[l.status] = (acc[l.status] || 0) + 1;
+        return acc;
+      }, {});
+      
+      console.log("Completion calculation:", {
+        totalSchools,
+        schoolsWithLiquidations,
+        schoolIdsFromLiquidations,
+        completionRate,
+        liquidationsCount: liquidations.length,
+        approvedLiquidations,
+        pendingLiquidationsCount,
+        rejectedLiquidations,
+        statusBreakdown
+      });
 
       // Generate liquidation timeline (last 6 months)
       const liquidationTimeline: LiquidationTimelineData[] = [];
@@ -145,15 +196,18 @@ const DivisionDistrictAdaDashboard = () => {
         const month = date.toLocaleDateString('en-US', { month: 'short' });
         
         const monthLiquidations = liquidations.filter((l: any) => {
-          const liquidationDate = new Date(l.created_at);
+          // Use date_submitted first, then fallback to created_at
+          const liquidationDate = new Date(l.date_submitted || l.submitted_at || l.created_at);
           return liquidationDate.getMonth() === date.getMonth() && liquidationDate.getFullYear() === date.getFullYear();
         });
 
         const submitted = monthLiquidations.length;
-        const approved = monthLiquidations.filter((l: any) => l.status === 'liquidated').length;
+        const approved = monthLiquidations.filter((l: any) => 
+          ['approved_district', 'approved_liquidator', 'liquidated'].includes(l.status)
+        ).length;
         const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
         const avgProcessingTime = submitted > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
-          const created = new Date(l.created_at);
+          const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
           const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
           return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
         }, 0) / submitted) : 0;
@@ -170,7 +224,7 @@ const DivisionDistrictAdaDashboard = () => {
 
       // Calculate average ADA approval days
       const adaApprovalDays = liquidations.length > 0 ? Math.round(liquidations.reduce((sum: number, l: any) => {
-        const created = new Date(l.created_at);
+        const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
         const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
         return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
       }, 0) / liquidations.length) : 0;
