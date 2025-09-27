@@ -15,7 +15,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { FileText, CheckCircle, TrendingUp, School, Clock } from "lucide-react";
+import { FileText, CheckCircle, TrendingUp, School } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import  Badge  from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
@@ -28,7 +28,6 @@ interface DashboardData {
   divisionCompletion: DivisionCompletionData;
   liquidationTimeline: LiquidationTimelineData[];
   schoolPerformance: SchoolPerformanceData[];
-  adaAvgApprovalDays: number;
 }
 
 interface PendingLiquidation {
@@ -54,7 +53,7 @@ interface DivisionCompletionData {
 }
 
 interface LiquidationTimelineData {
-  month: string;
+  month: string; // Shows months within current quarter (e.g., "Jul", "Aug", "Sep" for Q3)
   submitted: number;
   approved: number;
   rejected: number;
@@ -72,6 +71,7 @@ interface SchoolPerformanceData {
 }
 
 const COLORS = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"];
+
 
 const DivisionDistrictAdaDashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -188,17 +188,36 @@ const DivisionDistrictAdaDashboard = () => {
         statusBreakdown
       });
 
-      // Generate liquidation timeline (last 6 months)
+      // Generate liquidation timeline for current quarter (showing months within the quarter)
       const liquidationTimeline: LiquidationTimelineData[] = [];
       const currentDate = new Date();
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-        const month = date.toLocaleDateString('en-US', { month: 'short' });
+      
+      // Helper function to get quarter info
+      const getQuarterInfo = (date: Date) => {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const quarter = Math.floor(month / 3) + 1;
+        return { year, quarter };
+      };
+      
+      // Get current quarter info
+      const currentQuarter = getQuarterInfo(currentDate);
+      const quarterStartMonth = (currentQuarter.quarter - 1) * 3;
+      
+      // Show the 3 months of the current quarter
+      for (let i = 0; i < 3; i++) {
+        const monthIndex = quarterStartMonth + i;
+        const monthDate = new Date(currentQuarter.year, monthIndex, 1);
+        const monthName = monthDate.toLocaleDateString('en-US', { month: 'short' });
         
         const monthLiquidations = liquidations.filter((l: any) => {
           // Use date_submitted first, then fallback to created_at
           const liquidationDate = new Date(l.date_submitted || l.submitted_at || l.created_at);
-          return liquidationDate.getMonth() === date.getMonth() && liquidationDate.getFullYear() === date.getFullYear();
+          const liquidationYear = liquidationDate.getFullYear();
+          const liquidationMonth = liquidationDate.getMonth();
+          
+          // Check if liquidation is in this specific month
+          return liquidationYear === currentQuarter.year && liquidationMonth === monthIndex;
         });
 
         const submitted = monthLiquidations.length;
@@ -213,7 +232,7 @@ const DivisionDistrictAdaDashboard = () => {
         }, 0) / submitted) : 0;
 
         liquidationTimeline.push({
-          month,
+          month: monthName,
           submitted,
           approved,
           rejected,
@@ -222,12 +241,6 @@ const DivisionDistrictAdaDashboard = () => {
       }
 
 
-      // Calculate average ADA approval days
-      const adaApprovalDays = liquidations.length > 0 ? Math.round(liquidations.reduce((sum: number, l: any) => {
-        const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
-        const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
-        return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
-      }, 0) / liquidations.length) : 0;
 
       const dashboardData: DashboardData = {
         pendingLiquidations,
@@ -241,7 +254,6 @@ const DivisionDistrictAdaDashboard = () => {
         },
         liquidationTimeline,
         schoolPerformance: [],
-        adaAvgApprovalDays: adaApprovalDays,
       };
 
       setData(dashboardData);
@@ -260,7 +272,6 @@ const DivisionDistrictAdaDashboard = () => {
         },
         liquidationTimeline: [],
         schoolPerformance: [],
-        adaAvgApprovalDays: 0,
       });
     } finally {
       setLoading(false);
@@ -310,7 +321,7 @@ const DivisionDistrictAdaDashboard = () => {
       </div>
 
       {/* Metrics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Schools</CardTitle>
@@ -349,16 +360,6 @@ const DivisionDistrictAdaDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">{data?.divisionCompletion.completionRate}%</div>
             <p className="text-xs text-muted-foreground">Schools with liquidations</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ADA Approval Time</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data?.adaAvgApprovalDays} days</div>
-            <p className="text-xs text-muted-foreground">Avg time to fully approve</p>
           </CardContent>
         </Card>
       </div>
@@ -421,7 +422,7 @@ const DivisionDistrictAdaDashboard = () => {
         {/* Liquidation Timeline */}
         <Card>
           <CardHeader>
-            <CardTitle>Liquidation Timeline</CardTitle>
+            <CardTitle>Liquidation Timeline (Current Quarter)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
