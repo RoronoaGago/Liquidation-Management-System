@@ -411,7 +411,8 @@ class PDFGenerator:
             story.append(Spacer(1, 15))
 
             # Salutation
-            story.append(Paragraph("Sir:", self.styles['BodyText']))
+            story.append(Paragraph("Dear Superintendent:",
+                         self.styles['BodyText']))
             story.append(Spacer(1, 10))
 
             # Request content
@@ -689,38 +690,21 @@ class PDFGenerator:
         return story
 
     def _create_simple_signature_section(self, request_obj, superintendent, accountant):
-        """Create signature section that always includes the school head's signature"""
+        """Create signature section with proper business rule logic"""
         story = []
-
-        # Get the school head (request submitter) and their e-signature
-        school_head = request_obj.user
-        school_head_signature = None
-
-        # Try to get the school head's e-signature
-        if school_head.e_signature:
-            try:
-                # Get signature as base64
-                if hasattr(school_head.e_signature, 'path') and os.path.exists(school_head.e_signature.path):
-                    with open(school_head.e_signature.path, 'rb') as sig_file:
-                        sig_data = sig_file.read()
-                        sig_base64 = base64.b64encode(sig_data).decode('utf-8')
-                        school_head_signature = self.create_signature_image(
-                            f"data:image/png;base64,{sig_base64}",
-                            width=2*inch,
-                            height=0.5*inch
-                        )
-            except Exception as e:
-                logger.error(f"Error loading school head signature: {e}")
-
         story.append(Spacer(1, 100))
 
-        # --- Left Column: School Head ---
+        # Get approval status based on business rules
+        status = request_obj.status
+
+        # --- Left Column: School Head (ALWAYS visible - submitted by school head) ---
         left_column = []
         left_column.append(
             Paragraph("Prepared by:", self.styles['SignatureLabel']))
         left_column.append(Spacer(1, 15))
 
-        # Add signature image if available, otherwise use line
+        school_head = request_obj.user
+        school_head_signature = self._get_user_signature(school_head)
         if school_head_signature:
             left_column.append(school_head_signature)
         else:
@@ -733,92 +717,64 @@ class PDFGenerator:
         left_column.append(
             Paragraph("School Head", self.styles['SignatureTitle']))
 
-        # --- Middle Column: Accountant ---
+        # --- Middle Column: Superintendent (visible when APPROVED or later) ---
         middle_column = []
         middle_column.append(
-            Paragraph("Certified Correct:", self.styles['SignatureLabel']))
+            Paragraph("Approved by:", self.styles['SignatureLabel']))
         middle_column.append(Spacer(1, 15))
 
-        # Add accountant signature if available
-        accountant_signature = None
-        if accountant and accountant.e_signature:
-            try:
-                if hasattr(accountant.e_signature, 'path') and os.path.exists(accountant.e_signature.path):
-                    with open(accountant.e_signature.path, 'rb') as sig_file:
-                        sig_data = sig_file.read()
-                        sig_base64 = base64.b64encode(sig_data).decode('utf-8')
-                        accountant_signature = self.create_signature_image(
-                            f"data:image/png;base64,{sig_base64}",
-                            width=2*inch,
-                            height=0.5*inch
-                        )
-            except Exception as e:
-                logger.error(f"Error loading accountant signature: {e}")
-
-        if accountant_signature:
-            middle_column.append(accountant_signature)
+        # Superintendent signature shows when status is approved or beyond
+        superintendent_signature = self._get_user_signature(
+            superintendent) if superintendent else None
+        if superintendent_signature and status in ['approved', 'downloaded', 'unliquidated', 'liquidated']:
+            middle_column.append(superintendent_signature)
         else:
             middle_column.append(
-                Paragraph("_" * 20, self.styles['SignatureLabel']))
-
-        if accountant:
-            accountant_name = f"{accountant.first_name.upper()} {accountant.last_name.upper()}"
-            middle_column.append(
-                Paragraph(accountant_name, self.styles['SignatureName']))
-        else:
-            middle_column.append(
-                Paragraph("[ACCOUNTANT NAME]", self.styles['SignatureName']))
-
-        middle_column.append(
-            Paragraph("Accountant III", self.styles['SignatureTitle']))
-
-        # --- Right Column: Superintendent ---
-        right_column = []
-        right_column.append(
-            Paragraph("Approved by:", self.styles['SignatureLabel']))
-        right_column.append(Spacer(1, 15))
-
-        # Add superintendent signature if available
-        superintendent_signature = None
-        if superintendent and superintendent.e_signature:
-            try:
-                if hasattr(superintendent.e_signature, 'path') and os.path.exists(superintendent.e_signature.path):
-                    with open(superintendent.e_signature.path, 'rb') as sig_file:
-                        sig_data = sig_file.read()
-                        sig_base64 = base64.b64encode(sig_data).decode('utf-8')
-                        superintendent_signature = self.create_signature_image(
-                            f"data:image/png;base64,{sig_base64}",
-                            width=2*inch,
-                            height=0.5*inch
-                        )
-            except Exception as e:
-                logger.error(f"Error loading superintendent signature: {e}")
-
-        if superintendent_signature:
-            right_column.append(superintendent_signature)
-        else:
-            right_column.append(
                 Paragraph("_" * 20, self.styles['SignatureLabel']))
 
         if superintendent:
             superintendent_name = f"{superintendent.first_name.upper()} {superintendent.last_name.upper()}"
-            right_column.append(
+            middle_column.append(
                 Paragraph(superintendent_name, self.styles['SignatureName']))
         else:
-            right_column.append(
+            middle_column.append(
                 Paragraph("[SUPERINTENDENT NAME]", self.styles['SignatureName']))
 
-        right_column.append(
+        middle_column.append(
             Paragraph("Schools Division Superintendent", self.styles['SignatureTitle']))
+
+        # --- Right Column: Accountant (visible when DOWNLOADED or beyond) ---
+        right_column = []
+        right_column.append(Paragraph("Certified Correct:",
+                            self.styles['SignatureLabel']))
+        right_column.append(Spacer(1, 15))
+
+        # Accountant signature shows when status is downloaded or beyond (after accountant processes)
+        accountant_signature = self._get_user_signature(
+            accountant) if accountant else None
+        if accountant_signature and status in ['downloaded', 'unliquidated', 'liquidated']:
+            right_column.append(accountant_signature)
+        else:
+            right_column.append(
+                Paragraph("_" * 20, self.styles['SignatureLabel']))
+
+        if accountant:
+            accountant_name = f"{accountant.first_name.upper()} {accountant.last_name.upper()}"
+            right_column.append(
+                Paragraph(accountant_name, self.styles['SignatureName']))
+        else:
+            right_column.append(
+                Paragraph("[ACCOUNTANT NAME]", self.styles['SignatureName']))
+
+        right_column.append(
+            Paragraph("Accountant III", self.styles['SignatureTitle']))
 
         # --- Combine into row ---
         signature_data = [[left_column, middle_column, right_column]]
-
-        # Table with 3 equal columns
         signature_table = Table(signature_data, colWidths=[
                                 2.5*inch, 2.5*inch, 2.5*inch])
         signature_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('TOPPADDING', (0, 0), (-1, -1), 12),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
@@ -826,6 +782,34 @@ class PDFGenerator:
 
         story.append(signature_table)
         return story
+
+    def _get_user_signature(self, user):
+        """Helper to get user signature image"""
+        if user and user.e_signature:
+            try:
+                if hasattr(user.e_signature, 'path') and os.path.exists(user.e_signature.path):
+                    with open(user.e_signature.path, 'rb') as sig_file:
+                        sig_data = sig_file.read()
+                        sig_base64 = base64.b64encode(sig_data).decode('utf-8')
+                        return self.create_signature_image(
+                            f"data:image/png;base64,{sig_base64}",
+                            width=2*inch,
+                            height=0.5*inch
+                        )
+            except Exception as e:
+                logger.error(
+                    f"Error loading signature for user {user.id}: {e}")
+        return None
+
+    def _get_approval_status(self, request_obj):
+        """Determine which signatures should be visible based on request status"""
+        status = request_obj.status
+
+        return {
+            'school_head_visible': True,  # Always visible (submitted)
+            'superintendent_visible': status in ['approved', 'downloaded', 'unliquidated', 'liquidated'],
+            'accountant_visible': status in ['downloaded', 'unliquidated', 'liquidated']
+        }
 
 
 class HorizontalLine(Flowable):

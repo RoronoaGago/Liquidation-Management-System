@@ -75,6 +75,8 @@ interface DashboardData {
   schoolPerformance: SchoolPerformanceData[];
   categorySpending: CategoryData[];
   documentCompliance: ComplianceData[];
+  overallCompliance: number; // NEW
+  complianceTrend?: number; // NEW
   topPriorities: PriorityData[];
   activeRequests: ActiveRequestItem[];
   liquidationMetrics: {
@@ -121,12 +123,11 @@ interface StatusData {
 }
 
 interface TimelineData {
-  month: string;
+  quarter: string; // Changed from month to quarter
   avgProcessingTime: number;
   approved: number;
   rejected: number;
 }
-
 interface SchoolPerformanceData {
   schoolId: string;
   schoolName: string;
@@ -198,53 +199,49 @@ const COLORS = [
 // In the defaultLayouts object, update the compliance widget position and size
 const defaultLayouts: DashboardLayout = {
   lg: [
-    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 }, // Increased from h:2 to h:4
-    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 4 }, // y starts at 4 instead of
-    { i: "budget", x: 0, y: 8, w: 6, h: 6, minW: 4, minH: 4 }, // rows 8-13
-    { i: "status", x: 6, y: 8, w: 6, h: 6, minW: 4, minH: 4 }, // rows 8-13
-    { i: "performance", x: 0, y: 14, w: 12, h: 8, minW: 6, minH: 6 }, // rows 14-21
-    { i: "categories", x: 0, y: 22, w: 6, h: 6, minW: 4, minH: 6 }, // rows 22-29
-    { i: "topSchools", x: 6, y: 22, w: 6, h: 6, minW: 4, minH: 6 }, // rows 22-29
-    { i: "actions", x: 8, y: 22, w: 6, h: 8, minW: 4, minH: 6 }, // rows 22-29
-    { i: "compliance", x: 0, y: 30, w: 6, h: 8, minW: 6, minH: 6 }, // rows 30-37
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 5 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   md: [
-    { i: "metrics", x: 0, y: 0, w: 8, h: 2, minW: 4, minH: 2 },
-    { i: "budget", x: 0, y: 2, w: 8, h: 6, minW: 4, minH: 4 },
-    { i: "status", x: 0, y: 8, w: 8, h: 6, minW: 4, minH: 4 },
-    { i: "timeline", x: 0, y: 14, w: 8, h: 6, minW: 6, minH: 4 },
-    { i: "performance", x: 0, y: 20, w: 8, h: 8, minW: 6, minH: 6 },
-    { i: "categories", x: 0, y: 28, w: 8, h: 8, minW: 4, minH: 6 },
-    { i: "actions", x: 0, y: 36, w: 8, h: 8, minW: 4, minH: 6 },
-    // Updated for medium screens
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   sm: [
-    { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
-    { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "timeline", x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 20, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "categories", x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "actions", x: 0, y: 36, w: 4, h: 8, minW: 4, minH: 6 },
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   xs: [
-    { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
-    { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "timeline", x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 20, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "categories", x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "actions", x: 0, y: 36, w: 4, h: 8, minW: 4, minH: 6 },
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   xxs: [
-    { i: "metrics", x: 0, y: 0, w: 4, h: 2, minW: 4, minH: 2 },
-    { i: "budget", x: 0, y: 2, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "status", x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "timeline", x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 20, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "categories", x: 0, y: 28, w: 4, h: 8, minW: 4, minH: 6 },
-    { i: "actions", x: 0, y: 36, w: 4, minW: 4, minH: 6, h: 8 },
-    // Updated for extra extra small screens
+    { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
+    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
+    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
 };
 
@@ -307,31 +304,6 @@ const TopSchoolsWidget = ({
       title="🚀 Fastest Liquidating Schools"
       subtitle="Top 5 schools by average liquidation time"
       editMode={editMode}
-      actions={
-        <div className="relative inline-block">
-          <button className="dropdown-toggle no-drag" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Export Data
-            </DropdownItem>
-          </Dropdown>
-        </div>
-      }
     >
       <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
         {items.slice(0, 5).map((school, index) => (
@@ -379,9 +351,7 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
           <AlertCircle className="h-5 w-5 text-gray-800 dark:text-white/90" />
         ),
         value: `${data?.activeRequests?.length || 0}`,
-        description: `${
-          data?.activeRequests?.filter((a) => a.priority === "high").length || 0
-        } high priority`,
+        description: "Currently being processed",
         bgColor: "bg-gray-100 dark:bg-gray-800",
       },
       {
@@ -407,17 +377,12 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
       {
         title: "Document Compliance",
         icon: <FileText className="h-5 w-5 text-gray-800 dark:text-white/90" />,
-        value: `${
-          data?.documentCompliance && data.documentCompliance.length > 0
-            ? (
-                data.documentCompliance.reduce(
-                  (acc, curr) => acc + curr.complianceRate,
-                  0
-                ) / data.documentCompliance.length
-              ).toFixed(1)
-            : 0
-        }%`,
-        description: "+3.1% from previous period",
+        value: `${data?.overallCompliance?.toFixed(1) || 0}%`,
+        description: data?.complianceTrend
+          ? `${
+              data.complianceTrend >= 0 ? "+" : ""
+            }${data.complianceTrend.toFixed(1)}% from previous period`
+          : "No trend data",
         bgColor: "bg-gray-100 dark:bg-gray-800",
       },
     ].map((metric, index) => (
@@ -456,218 +421,78 @@ const BudgetWidget = ({
   editMode: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"utilization" | "categories">(
-    "utilization"
-  ); // NEW
+  // Remove the viewMode state since we only need utilization view now
 
   const toggleDropdown = () => setIsOpen(!isOpen);
   const closeDropdown = () => setIsOpen(false);
 
-  // NEW: Prepare data for the category stacked bar chart
-  const getCategoryChartData = () => {
-    if (!data?.categoryBreakdown) return [];
-
-    return data.categoryBreakdown.map((monthData) => {
-      const result: any = { month: monthData.month };
-
-      // Sum all planned values for the total bar
-      result["Total Planned"] = 0;
-      result["Total Actual"] = 0;
-
-      // Add each category
-      Object.entries(monthData).forEach(([key, value]) => {
-        if (key !== "month" && typeof value === "object") {
-          result[`${key} (Planned)`] = value.planned;
-          result[`${key} (Actual)`] = value.actual;
-          result["Total Planned"] += value.planned;
-          result["Total Actual"] += value.actual;
-        }
-      });
-
-      return result;
-    });
-  };
+  // Remove the getCategoryChartData function since it's no longer needed
 
   return (
     <WidgetContainer
       title="Budget Analysis"
-      subtitle="Planned vs. actual spending over time"
+      subtitle="Planned vs. actual spending"
       editMode={editMode}
-      actions={
-        <div className="flex items-center gap-2">
-          {/* NEW: View mode toggle */}
-          <div className="flex rounded-lg border border-gray-200 p-1 dark:border-gray-700">
-            <button
-              onClick={() => setViewMode("utilization")}
-              className={`rounded-md px-2 py-1 text-sm ${
-                viewMode === "utilization"
-                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Utilization
-            </button>
-            <button
-              onClick={() => setViewMode("categories")}
-              className={`rounded-md px-2 py-1 text-sm ${
-                viewMode === "categories"
-                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}
-            >
-              Categories
-            </button>
-          </div>
-
-          <div className="relative inline-block">
-            <button
-              className="dropdown-toggle no-drag"
-              onClick={toggleDropdown}
-            >
-              <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-            </button>
-            <Dropdown
-              isOpen={isOpen}
-              onClose={closeDropdown}
-              className="w-40 p-2"
-            >
-              <DropdownItem
-                onItemClick={closeDropdown}
-                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-              >
-                View More
-              </DropdownItem>
-              <DropdownItem
-                onItemClick={closeDropdown}
-                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-              >
-                Delete
-              </DropdownItem>
-            </Dropdown>
-          </div>
-        </div>
-      }
     >
+      {/* Keep only the utilization view (Line Chart) */}
       <div className="h-[300px]">
-        {viewMode === "utilization" ? (
-          // Utilization View (Line Chart)
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data?.budgetUtilization || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#6B7280" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#6B7280" }}
-                tickFormatter={(value) => `₱${value / 1000}k`}
-              />
-              <Tooltip
-                formatter={(value, name) => {
-                  const formattedValue = `₱${Number(value).toLocaleString()}`;
-                  if (
-                    name === "plannedUtilizationRate" ||
-                    name === "actualUtilizationRate"
-                  ) {
-                    return [
-                      `${Number(value).toFixed(1)}%`,
-                      name.includes("planned") ? "Planned %" : "Actual %",
-                    ];
-                  }
-                  return [formattedValue, name];
-                }}
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #E4E7EC",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                }}
-              />
-              <Legend />
-              {/* Planned Amount */}
-              <Line
-                type="monotone"
-                dataKey="planned"
-                stroke="#465FFF"
-                strokeWidth={2}
-                name="Planned Amount"
-                dot={{ r: 4 }}
-              />
-              {/* Actual Amount */}
-              <Line
-                type="monotone"
-                dataKey="actual"
-                stroke="#00C49F"
-                strokeWidth={2}
-                name="Actual Amount"
-                dot={{ r: 4 }}
-              />
-              {/* Utilization Rates (on a second Y-axis if needed) */}
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          // Category View (Stacked Bar Chart)
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={getCategoryChartData()}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#6B7280" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#6B7280" }}
-                tickFormatter={(value) => `₱${value / 1000}k`}
-              />
-              <Tooltip
-                formatter={(value, name) => [
-                  `₱${Number(value).toLocaleString()}`,
-                  name,
-                ]}
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #E4E7EC",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                }}
-              />
-              <Legend />
-              {/* You would dynamically generate these based on your categories */}
-              <Bar
-                dataKey="Total Planned"
-                stackId="a"
-                fill="#465FFF"
-                name="Total Planned"
-              />
-              <Bar
-                dataKey="Total Actual"
-                stackId="a"
-                fill="#9CB9FF"
-                name="Total Actual"
-              />
-              {/* Example for one category - you'd need to generate these dynamically */}
-              <Bar
-                dataKey="Travel Expenses (Planned)"
-                stackId="a"
-                fill="#8884D8"
-                name="Travel (Planned)"
-              />
-              <Bar
-                dataKey="Travel Expenses (Actual)"
-                stackId="a"
-                fill="#82CA9D"
-                name="Travel (Actual)"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data?.budgetUtilization || []}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
+            <XAxis
+              dataKey="month"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: "#6B7280" }}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: "#6B7280" }}
+              tickFormatter={(value) => `₱${value / 1000}k`}
+            />
+            <Tooltip
+              formatter={(value, name) => {
+                const formattedValue = `₱${Number(value).toLocaleString()}`;
+                if (
+                  name === "plannedUtilizationRate" ||
+                  name === "actualUtilizationRate"
+                ) {
+                  return [
+                    `${Number(value).toFixed(1)}%`,
+                    name.includes("planned") ? "Planned %" : "Actual %",
+                  ];
+                }
+                return [formattedValue, name];
+              }}
+              contentStyle={{
+                backgroundColor: "#fff",
+                border: "1px solid #E4E7EC",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              }}
+            />
+            <Legend />
+            {/* Planned Amount */}
+            <Line
+              type="monotone"
+              dataKey="planned"
+              stroke="#465FFF"
+              strokeWidth={2}
+              name="Planned Amount"
+              dot={{ r: 4 }}
+            />
+            {/* Actual Amount */}
+            <Line
+              type="monotone"
+              dataKey="actual"
+              stroke="#00C49F"
+              strokeWidth={2}
+              name="Actual Amount"
+              dot={{ r: 4 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </WidgetContainer>
   );
@@ -687,6 +512,68 @@ const StatusWidget = ({
 
   const distribution = data?.requestStatusDistribution ?? [];
 
+  // Enhanced color scheme with better contrast
+  const PIE_COLORS = [
+    "#465FFF", // Blue - primary brand color
+    "#00C49F", // Teal - good for approved/completed
+    "#FF8042", // Orange - for pending/processing
+    "#FFBB28", // Yellow - for warnings
+    "#8884D8", // Purple - alternate color
+    "#FF6B6B", // Red - for rejected/errors
+  ];
+
+  // Custom tooltip component
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+          <p className="font-medium text-gray-900 dark:text-white">
+            {capitalizeFirstLetter(payload[0].name)}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {payload[0].value} requests
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {payload[0].payload.percentage.toFixed(1)}% of total
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom label component to show values inside pie segments
+  const renderCustomizedLabel = ({
+    cx,
+    cy,
+    midAngle,
+    innerRadius,
+    outerRadius,
+    percent,
+    index,
+  }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    // Only show label if segment is large enough
+    if (percent < 0.05) return null;
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor={x > cx ? "start" : "end"}
+        dominantBaseline="central"
+        className="text-xs font-medium"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   // Helper function to capitalize first letter
   const capitalizeFirstLetter = (str: string) => {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
@@ -695,65 +582,66 @@ const StatusWidget = ({
   return (
     <WidgetContainer
       title="Request Status Distribution"
+      subtitle="Breakdown of requests by current status"
       editMode={editMode}
-      actions={
-        <div className="relative inline-block">
-          <button className="dropdown-toggle no-drag" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Delete
-            </DropdownItem>
-          </Dropdown>
-        </div>
-      }
     >
-      <div className="h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={distribution}
-              cx="50%"
-              cy="50%"
-              outerRadius={100}
-              fill="#8884d8"
-              dataKey="count"
-              label={({ status, percentage }) =>
-                `${capitalizeFirstLetter(status)} (${percentage.toFixed(2)}%)`
-              }
-            >
+      <div className="h-[300px] flex flex-col">
+        {distribution.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+            No status data available
+          </div>
+        ) : (
+          <>
+            <div className="h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={distribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={48}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="count"
+                    nameKey="status"
+                    label={renderCustomizedLabel}
+                    labelLine={false}
+                  >
+                    {distribution.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={PIE_COLORS[index % PIE_COLORS.length]}
+                        stroke="#fff"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Custom Legend */}
+            <div className="mt-4 grid grid-cols-2 gap-2 px-2">
               {distribution.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
+                <div key={entry.status} className="flex items-center text-xs">
+                  <div
+                    className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
+                    style={{
+                      backgroundColor: PIE_COLORS[index % PIE_COLORS.length],
+                    }}
+                  />
+                  <span className="text-gray-700 dark:text-gray-300 truncate">
+                    {capitalizeFirstLetter(entry.status)}
+                  </span>
+                  <span className="ml-auto font-medium text-gray-900 dark:text-white">
+                    {entry.count}
+                  </span>
+                </div>
               ))}
-            </Pie>
-            <Tooltip
-              formatter={(value, name) => [`${value} requests`, name]}
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #E4E7EC",
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+            </div>
+          </>
+        )}
       </div>
     </WidgetContainer>
   );
@@ -766,47 +654,18 @@ const TimelineWidget = ({
   data: DashboardData | null;
   editMode: boolean;
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  const closeDropdown = () => setIsOpen(false);
-
   return (
     <WidgetContainer
-      title="Liquidation Processing Timeline"
+      title="Liquidation Processing Timeline (Quarterly)"
+      subtitle="Average processing time by quarter"
       editMode={editMode}
-      actions={
-        <div className="relative inline-block">
-          <button className="dropdown-toggle no-drag" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Delete
-            </DropdownItem>
-          </Dropdown>
-        </div>
-      }
     >
-      <div className="h-[300px]">
+      <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data?.liquidationTimeline || []}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
             <XAxis
-              dataKey="month"
+              dataKey="quarter" // Changed from 'month' to 'quarter'
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 12, fill: "#6B7280" }}
@@ -816,6 +675,7 @@ const TimelineWidget = ({
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 12, fill: "#6B7280" }}
+              domain={[0, "auto"]}
             />
             <YAxis
               yAxisId="right"
@@ -825,6 +685,12 @@ const TimelineWidget = ({
               tick={{ fontSize: 12, fill: "#6B7280" }}
             />
             <Tooltip
+              formatter={(value, name) => {
+                if (name === "Avg. Processing Time (days)") {
+                  return [`${Number(value).toFixed(1)} days`, name];
+                }
+                return [value, name];
+              }}
               contentStyle={{
                 backgroundColor: "#fff",
                 border: "1px solid #E4E7EC",
@@ -832,12 +698,7 @@ const TimelineWidget = ({
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
             />
-            <Legend
-              verticalAlign="top"
-              height={36}
-              iconType="circle"
-              iconSize={10}
-            />
+            <Legend />
             <Line
               yAxisId="left"
               type="monotone"
@@ -851,7 +712,7 @@ const TimelineWidget = ({
               yAxisId="right"
               type="monotone"
               dataKey="approved"
-              stroke="#9CB9FF"
+              stroke="#00C49F"
               strokeWidth={2}
               name="Completed Liquidations"
             />
@@ -862,7 +723,7 @@ const TimelineWidget = ({
   );
 };
 
-const PerformanceWidget = ({
+const SchoolPerformanceWidget = ({
   data,
   editMode,
 }: {
@@ -870,20 +731,145 @@ const PerformanceWidget = ({
   editMode: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"overview" | "speed" | "compliance">(
+    "speed"
+  );
+
+  // Add sorting state
+  const [sortField, setSortField] = useState<
+    "totalRequests" | "approvalRate" | "avgProcessingTime" | "budgetUtilization"
+  >("avgProcessingTime");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const toggleDropdown = () => setIsOpen(!isOpen);
   const closeDropdown = () => setIsOpen(false);
 
-  const rows = data?.schoolPerformance ?? [];
+  const performanceRows = data?.schoolPerformance ?? [];
+  const fastestSchools = data?.topSchoolsBySpeed ?? [];
+  const complianceData = data?.schoolDocumentCompliance ?? [];
+
+  // Filter out schools with no requests before sorting
+  const schoolsWithRequests = useMemo(() => {
+    return performanceRows.filter((school) => school.totalRequests > 0);
+  }, [performanceRows]);
+
+  // Sort performance data based on current sort field and direction
+  const sortedPerformanceRows = useMemo(() => {
+    return [...schoolsWithRequests].sort((a, b) => {
+      let aValue: number, bValue: number;
+
+      switch (sortField) {
+        case "approvalRate":
+          aValue = (a.approvedRequests / Math.max(a.totalRequests, 1)) * 100;
+          bValue = (b.approvedRequests / Math.max(b.totalRequests, 1)) * 100;
+          break;
+        default:
+          aValue = a[sortField];
+          bValue = b[sortField];
+      }
+
+      return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
+    });
+  }, [schoolsWithRequests, sortField, sortDirection]);
+
+  // Get schools with no requests separately
+  const schoolsWithNoRequests = useMemo(() => {
+    return performanceRows.filter((school) => school.totalRequests === 0);
+  }, [performanceRows]);
+
+  // Get top 5 fastest schools (only those with requests)
+  const topFastestSchools = useMemo(() => {
+    return fastestSchools
+      .filter((school) => school.avgProcessingDays > 0) // Filter out schools with 0 processing time
+      .sort((a, b) => a.avgProcessingDays - b.avgProcessingDays)
+      .slice(0, 5)
+      .map((school, index) => ({
+        ...school,
+        rank: index + 1,
+      }));
+  }, [fastestSchools]);
+
+  const getComplianceColor = (rate: number) => {
+    if (rate >= 90) return "text-green-600 dark:text-green-400";
+    if (rate >= 70) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  const getComplianceStatus = (rate: number) => {
+    if (rate >= 90) return "Excellent";
+    if (rate >= 70) return "Good";
+    if (rate >= 50) return "Fair";
+    return "Poor";
+  };
+
+  // Handle column header click for sorting
+  const handleSort = (field: typeof sortField) => {
+    if (field === sortField) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new field with default ascending direction
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  // Render sort indicator
+  const renderSortIndicator = (field: typeof sortField) => {
+    if (field !== sortField) return null;
+
+    return sortDirection === "asc" ? (
+      <TrendingUp className="ml-1 h-3 w-3" />
+    ) : (
+      <TrendingDown className="ml-1 h-3 w-3" />
+    );
+  };
 
   return (
     <WidgetContainer
-      title="School Performance Metrics"
-      subtitle="Performance metrics across different schools"
+      title="School Performance"
+      subtitle="Comprehensive school performance metrics"
       editMode={editMode}
       actions={
-        <div className="flex items-center gap-3">
-          <Button
+        <div className="flex items-center gap-2 custom-scrollbar">
+          {/* View mode toggle */}
+          <div className="flex rounded-lg border border-gray-200 p-1 dark:border-gray-700">
+            {/* <button
+              onClick={() => setViewMode("overview")}
+              className={`rounded-md px-2 py-1 text-sm ${
+                viewMode === "overview"
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+              title="Overview"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </button> */}
+            <button
+              onClick={() => setViewMode("speed")}
+              className={`rounded-md px-2 py-1 text-sm ${
+                viewMode === "speed"
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+              title="Processing Speed"
+            >
+              <Clock className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("compliance")}
+              className={`rounded-md px-2 py-1 text-sm ${
+                viewMode === "compliance"
+                  ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+              title="Document Compliance"
+            >
+              <FileText className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* <Button
             variant="outline"
             size="sm"
             className="no-drag inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
@@ -891,6 +877,7 @@ const PerformanceWidget = ({
             <Download className="mr-2 h-4 w-4" />
             Export CSV
           </Button>
+
           <div className="relative inline-block">
             <button
               className="dropdown-toggle no-drag"
@@ -916,89 +903,245 @@ const PerformanceWidget = ({
                 Delete
               </DropdownItem>
             </Dropdown>
-          </div>
+          </div> */}
         </div>
       }
     >
-      <div className="overflow-auto max-h-[400px] rounded-md border border-gray-200 dark:border-gray-800">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50 sticky top-0 z-10">
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                School
-              </th>
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                Total Requests
-              </th>
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                Approval Rate
-              </th>
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                Avg. Liquidation Time
-              </th>
-              <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                Budget Utilization
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows?.map((school, index) => (
-              <tr
-                key={school.schoolId}
-                className={index % 2 === 0 ? "bg-muted/30" : ""}
-              >
-                <td className="p-3 font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                  <span className="inline-block max-w-[220px] truncate">
-                    {school.schoolName}
-                  </span>
-                </td>
-                <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {school.totalRequests}
-                </td>
-                <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  <div className="flex items-center">
-                    {(
-                      (school.approvedRequests /
-                        Math.max(school.totalRequests, 1)) *
-                      100
-                    ).toFixed(1)}
-                    %
-                    {school.rejectionRate > 20 ? (
-                      <TrendingDown className="ml-2 h-4 w-4 text-red-500" />
-                    ) : (
-                      <TrendingUp className="ml-2 h-4 w-4 text-green-500" />
-                    )}
-                  </div>
-                </td>
-                <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {school.avgProcessingTime.toFixed(1)} days
-                </td>
-                <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  <div className="flex items-center">
-                    {school.budgetUtilization}%
-                    <div className="ml-2 w-24 bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full"
-                        style={{ width: `${school.budgetUtilization}%` }}
-                      />
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td
-                  className="p-3 text-gray-500 dark:text-gray-400"
-                  colSpan={5}
+      {viewMode === "overview" ? (
+        // Overview Table View
+        <div className="overflow-auto max-h-[400px] rounded-md border border-gray-200 dark:border-gray-800 custom-scrollbar">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50 sticky top-0 z-10">
+                <th className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400">
+                  School
+                </th>
+                <th
+                  className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleSort("totalRequests")}
                 >
-                  No data available.
-                </td>
+                  <div className="flex items-center">
+                    Total Requests
+                    {renderSortIndicator("totalRequests")}
+                  </div>
+                </th>
+                <th
+                  className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleSort("approvalRate")}
+                >
+                  <div className="flex items-center">
+                    Approval Rate
+                    {renderSortIndicator("approvalRate")}
+                  </div>
+                </th>
+                <th
+                  className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleSort("avgProcessingTime")}
+                >
+                  <div className="flex items-center">
+                    Avg. Processing Time
+                    {renderSortIndicator("avgProcessingTime")}
+                  </div>
+                </th>
+                <th
+                  className="p-3 text-left font-medium text-gray-500 text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleSort("budgetUtilization")}
+                >
+                  <div className="flex items-center">
+                    Budget Utilization
+                    {renderSortIndicator("budgetUtilization")}
+                  </div>
+                </th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {sortedPerformanceRows?.map((school, index) => (
+                <tr
+                  key={school.schoolId}
+                  className={index % 2 === 0 ? "bg-muted/30" : ""}
+                >
+                  <td className="p-3 font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                    <span className="inline-block max-w-[220px] truncate">
+                      {school.schoolName}
+                    </span>
+                  </td>
+                  <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    {school.totalRequests}
+                  </td>
+                  <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    <div className="flex items-center">
+                      {school.totalRequests > 0
+                        ? (
+                            (school.approvedRequests / school.totalRequests) *
+                            100
+                          ).toFixed(1)
+                        : 0}
+                      % %
+                      {school.rejectionRate > 20 ? (
+                        <TrendingDown className="ml-2 h-4 w-4 text-red-500" />
+                      ) : (
+                        <TrendingUp className="ml-2 h-4 w-4 text-green-500" />
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    {school.avgProcessingTime.toFixed(1)} days
+                  </td>
+                  <td className="p-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    <div className="flex items-center">
+                      {school.budgetUtilization}%
+                      <div className="ml-2 w-24 bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                        <div
+                          className="bg-blue-500 h-2 rounded-full"
+                          style={{ width: `${school.budgetUtilization}%` }}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {/* Show schools with no requests at the bottom */}
+              {schoolsWithNoRequests.length > 0 && (
+                <>
+                  <tr className="bg-gray-50 dark:bg-gray-800/30">
+                    <td
+                      colSpan={5}
+                      className="p-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400"
+                    >
+                      Schools with no requests
+                    </td>
+                  </tr>
+                  {schoolsWithNoRequests.map((school, index) => (
+                    <tr
+                      key={school.schoolId}
+                      className={index % 2 === 0 ? "bg-muted/20" : ""}
+                    >
+                      <td className="p-3 font-medium text-gray-600 text-theme-sm dark:text-gray-400">
+                        <span className="inline-block max-w-[220px] truncate">
+                          {school.schoolName}
+                        </span>
+                      </td>
+                      <td className="p-3 text-gray-400 text-theme-sm dark:text-gray-500">
+                        0
+                      </td>
+                      <td className="p-3 text-gray-400 text-theme-sm dark:text-gray-500">
+                        -
+                      </td>
+                      <td className="p-3 text-gray-400 text-theme-sm dark:text-gray-500">
+                        -
+                      </td>
+                      <td className="p-3 text-gray-400 text-theme-sm dark:text-gray-500">
+                        -
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              )}
+
+              {performanceRows.length === 0 && (
+                <tr>
+                  <td
+                    className="p-3 text-gray-500 dark:text-gray-400"
+                    colSpan={5}
+                  >
+                    No performance data available.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : viewMode === "speed" ? (
+        // Fastest Processing Schools View
+        <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+            Top 5 schools by average liquidation time
+          </div>
+          {topFastestSchools.map((school, index) => (
+            <div
+              key={school.schoolId}
+              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800"
+            >
+              <div className="flex items-center min-w-0">
+                <div className="w-8 h-8 flex items-center justify-center bg-blue-100 rounded-full mr-3 dark:bg-blue-900/20 shrink-0">
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                    #{school.rank}
+                  </span>
+                </div>
+                <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90 truncate">
+                  {school.schoolName}
+                </span>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="font-semibold text-green-600 text-theme-sm dark:text-green-400">
+                  {school.avgProcessingDays.toFixed(1)} days
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  avg. processing
+                </div>
+              </div>
+            </div>
+          ))}
+          {topFastestSchools.length === 0 && (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              No processing speed data available.
+            </div>
+          )}
+        </div>
+      ) : (
+        // Document Compliance View
+        <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+            Document compliance by school
+          </div>
+          {complianceData.slice(0, 8).map((school) => (
+            <div
+              key={school.schoolId}
+              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800"
+            >
+              <div className="flex items-center min-w-0 flex-1">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90 truncate">
+                    {school.schoolName}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {school.uploadedDocuments}/{school.requiredDocuments}{" "}
+                    documents
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right shrink-0 ml-3">
+                <div
+                  className={`font-semibold text-theme-sm ${getComplianceColor(
+                    school.complianceRate
+                  )}`}
+                >
+                  {school.complianceRate.toFixed(1)}%
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {getComplianceStatus(school.complianceRate)}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {complianceData.length === 0 && (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              No document compliance data available.
+            </div>
+          )}
+
+          {complianceData.length > 8 && (
+            <div className="text-center pt-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                +{complianceData.length - 8} more schools
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </WidgetContainer>
   );
 };
@@ -1020,6 +1163,7 @@ const CategoriesWidget = ({
   const topCategories = useMemo(() => {
     const items = data?.categorySpending ?? [];
     return items
+      .filter((category) => category.percentage > 0) // Filter out 0% categories
       .sort((a, b) => b.totalAmount - a.totalAmount)
       .slice(0, 5)
       .map((category, index) => ({
@@ -1112,8 +1256,9 @@ const CategoriesWidget = ({
                 innerRadius={60}
                 fill="#8884d8"
                 dataKey="totalAmount"
-                label={({ category, percentage }) =>
-                  `${category} (${percentage}%)`
+                label={
+                  ({ category, percentage }) =>
+                    `${category} (${percentage.toFixed(2)}%)` // Changed this line
                 }
                 labelLine={false}
               >
@@ -1178,7 +1323,7 @@ const CategoriesWidget = ({
                   ₱{category.totalAmount.toLocaleString()}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {category.percentage}% of total
+                  {category.percentage.toFixed(2)}% of total line
                 </div>
               </div>
             </div>
@@ -1193,114 +1338,7 @@ const CategoriesWidget = ({
     </WidgetContainer>
   );
 };
-const SchoolComplianceWidget = ({
-  data,
-  editMode,
-}: {
-  data: DashboardData | null;
-  editMode: boolean;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
 
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  const closeDropdown = () => setIsOpen(false);
-
-  const items = data?.schoolDocumentCompliance ?? [];
-
-  const getComplianceColor = (rate: number) => {
-    if (rate >= 90) return "text-green-600 dark:text-green-400";
-    if (rate >= 70) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
-  };
-
-  const getComplianceStatus = (rate: number) => {
-    if (rate >= 90) return "Excellent";
-    if (rate >= 70) return "Good";
-    if (rate >= 50) return "Fair";
-    return "Poor";
-  };
-
-  return (
-    <WidgetContainer
-      title="School Document Compliance"
-      subtitle="Document upload progress by school"
-      editMode={editMode}
-      actions={
-        <div className="relative inline-block">
-          <button className="dropdown-toggle no-drag" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              View More
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Export Data
-            </DropdownItem>
-          </Dropdown>
-        </div>
-      }
-    >
-      <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
-        {items.slice(0, 8).map((school) => (
-          <div
-            key={school.schoolId}
-            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800"
-          >
-            <div className="flex items-center min-w-0 flex-1">
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90 truncate">
-                  {school.schoolName}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {school.uploadedDocuments}/{school.requiredDocuments}{" "}
-                  documents
-                </div>
-              </div>
-            </div>
-
-            <div className="text-right shrink-0 ml-3">
-              <div
-                className={`font-semibold text-theme-sm ${getComplianceColor(
-                  school.complianceRate
-                )}`}
-              >
-                {school.complianceRate.toFixed(1)}%
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {getComplianceStatus(school.complianceRate)}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {items.length === 0 && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            No document compliance data available.
-          </div>
-        )}
-
-        {items.length > 8 && (
-          <div className="text-center pt-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              +{items.length - 8} more schools
-            </span>
-          </div>
-        )}
-      </div>
-    </WidgetContainer>
-  );
-};
 const ActiveRequestsWidget = ({
   data,
   editMode,
@@ -1366,17 +1404,17 @@ const ActiveRequestsWidget = ({
             >
               View All Requests
             </DropdownItem>
-            <DropdownItem
+            {/* <DropdownItem
               onItemClick={closeDropdown}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               Export Data
-            </DropdownItem>
+            </DropdownItem> */}
           </Dropdown>
         </div>
       }
     >
-      <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
+      <div className="space-y-3 overflow-auto max-h-[400px] pr-1 custom-scrollbar">
         {items.slice(0, 5).map((request) => (
           <div
             key={request.id}
@@ -1430,7 +1468,7 @@ const ActiveRequestsWidget = ({
 const AdminDashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<string>("last_quarter");
+  const [timeRange, setTimeRange] = useState<string>("last_month");
   const [activeView, setActiveView] = useState<string>("overview");
   const [refreshing, setRefreshing] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -1529,22 +1567,19 @@ const AdminDashboard = () => {
     switch (widgetId) {
       case "metrics":
         return <MetricsWidget data={data} />;
-      case "budget":
-        return <BudgetWidget data={data} editMode={editMode} />;
+      // case "budget":
+      //   return <BudgetWidget data={data} editMode={editMode} />;
       case "status":
         return <StatusWidget data={data} editMode={editMode} />;
       case "timeline":
         return <TimelineWidget data={data} editMode={editMode} />;
-      case "performance":
-        return <PerformanceWidget data={data} editMode={editMode} />;
+      case "performance": // This now includes both performance and fastest schools
+        return <SchoolPerformanceWidget data={data} editMode={editMode} />;
       case "categories":
         return <CategoriesWidget data={data} editMode={editMode} />;
       case "actions":
         return <ActiveRequestsWidget data={data} editMode={editMode} />;
-      case "compliance":
-        return <SchoolComplianceWidget data={data} editMode={editMode} />;
-      case "topSchools":
-        return <TopSchoolsWidget data={data} editMode={editMode} />;
+      // Remove the "topSchools" case since it's now merged
       default:
         return null;
     }
@@ -1636,7 +1671,7 @@ const AdminDashboard = () => {
                 </Button>
               </>
             )}
-            {!editMode && (
+            {/* {!editMode && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1645,7 +1680,7 @@ const AdminDashboard = () => {
                 <Download className="h-4 w-4" />
                 Export
               </Button>
-            )}
+            )} */}
           </div>
         </div>
       </div>
@@ -1710,9 +1745,9 @@ const AdminDashboard = () => {
         <div key="metrics" className="rounded-2xl">
           {renderWidget("metrics")}
         </div>
-        <div key="budget" className="rounded-2xl">
+        {/* <div key="budget" className="rounded-2xl">
           {renderWidget("budget")}
-        </div>
+        </div> */}
         <div key="status" className="rounded-2xl">
           {renderWidget("status")}
         </div>
@@ -1728,9 +1763,9 @@ const AdminDashboard = () => {
         <div key="actions" className="rounded-2xl">
           {renderWidget("actions")}
         </div>
-        <div key="compliance" className="rounded-2xl">
+        {/* <div key="compliance" className="rounded-2xl">
           {renderWidget("compliance")}
-        </div>
+        </div> */}
         <div key="topSchools" className="rounded-2xl">
           {renderWidget("topSchools")}
         </div>
@@ -1749,7 +1784,11 @@ const AdminDashboard = () => {
             <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={saveLayout} disabled={!layoutDirty}>
+            <Button
+              onClick={saveLayout}
+              disabled={!layoutDirty}
+              variant="default"
+            >
               Save Layout
             </Button>
           </div>

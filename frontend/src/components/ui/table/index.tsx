@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, CSSProperties } from "react"; // Add CSSProperties import
 
 // Props for Table
 interface TableProps {
@@ -32,11 +32,12 @@ interface TableCellProps {
   isHeader?: boolean; // If true, renders as <th>, otherwise <td>
   className?: string; // Optional className for styling
   colSpan?: number; // Optional colspan for the cell
+  style?: CSSProperties; // Add style prop
 }
 
 // Table Component
 const Table: React.FC<TableProps> = ({ children, className }) => {
-  return <table className={`min-w-full  ${className}`}>{children}</table>;
+  return <table className={`min-w-full ${className}`}>{children}</table>;
 };
 
 // TableHeader Component
@@ -66,14 +67,14 @@ const TableRow: React.FC<TableRowProps> = ({
 // TableCell Component
 const TableCell: React.FC<TableCellProps> = ({
   children,
-
   isHeader = false,
   className,
   colSpan,
+  style, // Add style prop
 }) => {
   const CellTag = isHeader ? "th" : "td";
   return (
-    <CellTag className={` ${className}`} colSpan={colSpan}>
+    <CellTag className={` ${className}`} colSpan={colSpan} style={style}>
       {children}
     </CellTag>
   );

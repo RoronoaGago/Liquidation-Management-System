@@ -44,10 +44,9 @@ export default function SignInForm() {
       // Instead, directly log in:
       await login(credentials.email, credentials.password);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Login failed");
-    } finally {
-      setIsLoading(false);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      setError("Invalid email or password");
     }
   };
 

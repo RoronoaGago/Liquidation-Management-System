@@ -1,23 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { Routes, Route, Navigate } from "react-router";
+import { useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import AppLayout from "./layout/AppLayout";
-// import NotAuthorized from "./pages/NotAuthorized";
 import SignIn from "./pages/AuthPages/SignIn";
 
-// Pages
 import Home from "./pages/Dashboard/Home";
 import ManageUsers from "./pages/ManageUsers";
 
 import RequestDetailPage from "./pages/RequestDetailPage";
-// import Liquidation from "./pages/Liquidation";
-// import StudentPerformanceReport from "./pages/StudentPerformanceReport";
 import UserProfile from "./pages/UserProfiles";
-// import MyClasses from "./pages/MyClasses";
 import ManageListOfPrioritiesPage from "./pages/ManageListOfPrioritiesPage";
 import NotAuthorized from "./pages/NotAuthorized";
-import FundRequestApproval from "./pages/FundRequestApproval";
 import ListOfPrioritiesPage from "./pages/MOOERequestPage";
 import ManageSchools from "./pages/ManageSchools";
 import PriortySubmissionsPage from "./pages/PriortySubmissionsPage";
@@ -27,17 +21,23 @@ import ManageRequirementsPage from "./pages/ManageRequirementsPage";
 import MOOERequestPage from "./pages/MOOERequestPage";
 import MOOERequestHistory from "./pages/MOOERequestHistory";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
-import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
 import SetupModal from "./components/common/SetupModal";
-import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
+import SchoolHeadDashboard from "./pages/SchoolHeadDashboard";
 import ManageDistricts from "./pages/ManageDistricts";
-import GenerateReport from "./pages/GenerateReport";
 import AdminDashboard from "./pages/AdminDashboard";
 import LiquidatorReviewPage from "./pages/LiquidatorReviewPage";
 import DivisionReviewPage from "./pages/DivisionReviewPage";
+import BackupRestorePage from "./pages/BackupRestorePage";
+import GenerateAgeingReport from "./pages/GenerateAgeingReport";
+import GenerateLiquidationReport from "./pages/GenerateLiquidationReport";
+import AuditLogPage from "./pages/AuditLogPage";
+import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashboard";
+import DivisionDistrictAdaDashboard from "./pages/DivisionDistrictAdaDashboard";
+import DivisionAccountantDashboard from "./pages/DivisionAccountantDashboard";
+import DivisionLiquidatorDashboard from "./pages/DivisionLiquidatorDashboard";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -54,7 +54,24 @@ const App = () => {
           <Route element={<RequireAuth />}>
             <Route
               path="/"
-              element={user?.role === "admin" ? <AdminDashboard /> : <Home />}
+              element={
+                user?.role === "admin" ? (
+                  <AdminDashboard />
+                ) : user?.role === "school_head" ? (
+                  <SchoolHeadDashboard />
+                ) : user?.role === "superintendent" ? (
+                  <DivisionSuperintendentDashboard />
+                ) : user?.role === "district_admin" ? (
+                  <DivisionDistrictAdaDashboard />
+                ) : user?.role === "accountant" ? (
+                  <DivisionAccountantDashboard />
+                ) : user?.role === "liquidator" ? (
+                  <DivisionLiquidatorDashboard />
+                ) : (
+
+                  <Home />
+                )
+              }
             />
             <Route path="/profile" element={<UserProfile />} />
           </Route>
@@ -69,7 +86,13 @@ const App = () => {
             />
             <Route path="/requirements" element={<ManageRequirementsPage />} />
             <Route path="/school-districts" element={<ManageDistricts />} />
-            <Route path="/generate-report" element={<GenerateReport />} />
+            <Route path="/report/aging" element={<GenerateAgeingReport />} />
+            <Route
+              path="/report/liquidation"
+              element={<GenerateLiquidationReport />}
+            />
+            <Route path="/backup-restore" element={<BackupRestorePage />} />
+            <Route path="/audit-logs" element={<AuditLogPage />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={["district_admin"]} />}>

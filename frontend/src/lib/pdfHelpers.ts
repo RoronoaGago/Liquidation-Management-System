@@ -17,12 +17,12 @@ import { generateApprovedRequestPDF, canGeneratePDF } from "@/services/pdfServic
  */
 export const handleServerSideExport = async (submission: Submission): Promise<{ success: boolean; message?: string; error?: string }> => {
     // Check if request is approved
-    if (!canGeneratePDF(submission)) {
-        return {
-            success: false,
-            error: 'Request must be approved first to generate PDF'
-        };
-    }
+    // if (!canGeneratePDF(submission)) {
+    //     return {
+    //         success: false,
+    //         error: 'Request must be approved first to generate PDF'
+    //     };
+    // }
 
     try {
         const result = await generateApprovedRequestPDF(submission.request_id);

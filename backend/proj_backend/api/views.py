@@ -1,49 +1,75 @@
+from api.models import (
+    User, School, Requirement, ListOfPriority, RequestManagement,
+    RequestPriority, LiquidationManagement, LiquidationDocument,
+    Notification, SchoolDistrict, Backup, AuditLog
+)
+from .models import RequestManagement
+import io
+from openpyxl.drawing.image import Image
+from openpyxl import Workbook
+import sys
+import zipfile
+import subprocess
+import tempfile
+import shutil
+import os
+import random
+from django.db.models import Sum
+from django.utils.timezone import localtime
+from openpyxl.styles import Font, Alignment
+import openpyxl
+from .models import User
+from django.contrib.auth import authenticate
+from rest_framework.permissions import AllowAny
+from dateutil.relativedelta import relativedelta
+from .utils import generate_otp, send_otp_email
+from django.utils.crypto import get_random_string
+from django.contrib.auth import update_session_auth_hash
+import string
+from rest_framework.pagination import PageNumberPagination
+from django.db import transaction
+from django.db import IntegrityError
+import logging
+from rest_framework import serializers
+from django.core import serializers as django_serializers
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer, BackupSerializer, AuditLogSerializer
+from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog, School, SchoolDistrict, Requirement, ListOfPriority, RequestManagement, RequestPriority,  Notification, Backup, AuditLog, GeneratedPDF, PriorityRequirement
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import generics
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
+from datetime import datetime, timedelta
+from .serializers import CustomTokenObtainPairSerializer
+from django.http import JsonResponse
+from rest_framework.permissions import IsAuthenticated
+from urllib import request
+from .models import School, RequestManagement
+from .serializers import UnliquidatedSchoolReportSerializer
+from datetime import date
+from django.conf import settings
+import csv
+from django.http import HttpResponse, FileResponse
+from django.http import HttpResponse
 from decimal import Decimal
 from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
+import json
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
-from django.http import HttpResponse
-import csv
-from datetime import date
-from .serializers import UnliquidatedSchoolReportSerializer
-from .models import School, RequestManagement
-from urllib import request
-from rest_framework.permissions import IsAuthenticated
-from django.http import JsonResponse
-from .serializers import CustomTokenObtainPairSerializer
-from datetime import datetime, timedelta
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework import generics
-from django.utils import timezone
-from django.shortcuts import get_object_or_404
-from django.db.models import Q
-from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from rest_framework.permissions import IsAuthenticated, AllowAny
-import logging
-from django.db import transaction
-from rest_framework.pagination import PageNumberPagination
-import string
-from django.contrib.auth import update_session_auth_hash
-from django.utils.crypto import get_random_string
-from .utils import generate_otp, send_otp_email
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from django.contrib.auth import authenticate
-from django.utils import timezone
-from .models import User
-import openpyxl
-from openpyxl.styles import Font, Alignment
-from django.http import HttpResponse
-from django.utils.timezone import localtime
-import random
+from .unliquidated_requests_report_utils import (
+    AgingReportPagination,
+    generate_aging_report_data,
+    generate_aging_csv_report,
+    generate_aging_excel_report,
+    get_aging_period
+)
 
 
 logger = logging.getLogger(__name__)
@@ -79,6 +105,19 @@ class CustomTokenRefreshView(TokenRefreshView):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def logout(request):
+    """
+    Logout endpoint with audit trail
+    """
+    user = request.user
+
+    # Audit for logout is handled by auth signal receiver
+
+    return Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def change_password(request):
     user = request.user
     old_password = request.data.get('old_password')
@@ -93,6 +132,8 @@ def change_password(request):
     user.set_password(new_password)
     user.password_change_required = False
     user.save()
+
+    # Rely on signals for user update; no manual CRUD audit here
 
     # Update the token to prevent automatic logout
     refresh = RefreshToken.for_user(user)
@@ -115,6 +156,7 @@ def user_list(request):
     """
     List all users or create a new user with enhanced filtering
     """
+    
     if request.method == 'GET':
         # Get filter parameters from query string
         show_archived = request.query_params.get(
@@ -184,9 +226,96 @@ def user_list(request):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def school_head_dashboard(request):
+    """
+    Dashboard data for School Head users
+    """
+    if request.user.role != 'school_head':
+        return Response({"error": "Only school heads can access this endpoint"}, status=403)
+    
+    try:
+        # Get user's school
+        school = request.user.school
+        
+        # Get pending request if exists
+        pending_request = RequestManagement.objects.filter(
+            user=request.user,
+            status='pending'
+        ).first()
+        
+        # Get active liquidation if exists
+        active_liquidation = LiquidationManagement.objects.filter(
+            request__user=request.user
+        ).exclude(status='liquidated').first()
+        
+        # Get priority breakdown for pending request
+        priority_breakdown = []
+        if pending_request:
+            priorities = RequestPriority.objects.filter(request=pending_request)
+            total_amount = priorities.aggregate(total=Sum('amount'))['total'] or 0
+            
+            for priority in priorities:
+                percentage = (priority.amount / total_amount * 100) if total_amount > 0 else 0
+                priority_breakdown.append({
+                    'priority': priority.priority.expenseTitle,
+                    'amount': float(priority.amount),
+                    'percentage': float(percentage),
+                    'color': get_random_color(),
+                    'name': priority.priority.expenseTitle
+                })
+        
+        # Get liquidation progress
+        liquidation_progress = {
+            'priorities': [],
+            'totalPriorities': 0,
+            'completedPriorities': 0,
+            'completionPercentage': 0
+        }
+        
+        if active_liquidation:
+            # Calculate liquidation progress logic here
+            pass
+        
+        # Get financial metrics
+        financial_metrics = {
+            'totalDownloadedAmount': 0,
+            'totalLiquidatedAmount': 0,
+            'liquidationPercentage': 0,
+            'remainingAmount': 0
+        }
+        
+        # Build response
+        response_data = {
+            'liquidationProgress': liquidation_progress,
+            'financialMetrics': financial_metrics,
+            'recentLiquidations': [],
+            'priorityBreakdown': priority_breakdown,
+            'requestStatus': {
+                'hasPendingRequest': pending_request is not None,
+                'hasActiveLiquidation': active_liquidation is not None,
+                'pendingRequest': RequestManagementSerializer(pending_request).data if pending_request else None
+            }
+        }
 
+        # Add school max_budget if user has a school
+        if school:
+            response_data['school_max_budget'] = school.max_budget
+
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in school head dashboard: {str(e)}")
+        return Response({"error": "Failed to load dashboard data"}, status=500)
+
+# Helper function for random colors
+def get_random_color():
+    colors = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"]
+    return random.choice(colors)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def user_detail(request, pk):
     """
@@ -250,7 +379,23 @@ def user_detail(request, pk):
             serializer = UserSerializer(
                 user, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
+                is_archiving = 'is_active' in request.data and not request.data[
+                    'is_active'] and user.is_active
+                is_restoring = 'is_active' in request.data and request.data[
+                    'is_active'] and not user.is_active
+
                 serializer.save()
+
+                # Log the action
+                from .audit_utils import log_audit_event
+                action = 'update'
+                if is_archiving:
+                    action = 'archive'
+                elif is_restoring:
+                    action = 'restore'
+
+                # Rely on signals for archive/restore update logs
+
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -318,6 +463,9 @@ class SchoolListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
+
+        # Audit will be handled by signals
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -339,6 +487,22 @@ class SchoolRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SchoolSerializer
     lookup_field = 'schoolId'
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        old_is_active = instance.is_active
+
+        response = super().update(request, *args, **kwargs)
+
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        school_name = f"{instance.schoolName} ({instance.schoolId})"
+
+        response = super().destroy(request, *args, **kwargs)
+
+        return response
+
 
 class RequirementListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = RequirementSerializer
@@ -359,6 +523,9 @@ class RequirementListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
+
+        # Audit handled by signals
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -366,6 +533,22 @@ class RequirementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
     queryset = Requirement.objects.all()
     serializer_class = RequirementSerializer
     lookup_field = 'requirementID'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        old_is_active = instance.is_active
+
+        response = super().update(request, *args, **kwargs)
+
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        requirement_name = instance.requirementTitle
+
+        response = super().destroy(request, *args, **kwargs)
+
+        return response
 
 
 class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
@@ -388,6 +571,9 @@ class ListOfPriorityListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
+
+        # Audit handled by signals
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -395,6 +581,22 @@ class ListOfPriorityRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     queryset = ListOfPriority.objects.all()
     serializer_class = ListOfPrioritySerializer
     lookup_field = 'LOPID'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        old_is_active = instance.is_active
+
+        response = super().update(request, *args, **kwargs)
+
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        priority_name = instance.expenseTitle
+
+        response = super().destroy(request, *args, **kwargs)
+
+        return response
 
 
 class RequestManagementListView(generics.ListAPIView):
@@ -548,7 +750,7 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
             # Regular users only see their own requests
             queryset = queryset.filter(user=user)
 
-        return queryset.order_by('-created_at')
+        return queryset.select_related('user', 'user__school').order_by('-created_at')
 
 
 class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -601,19 +803,26 @@ class ApproveRequestView(generics.UpdateAPIView):
             instance.reviewed_by = request.user
             instance.reviewed_at = timezone.now()
 
-            print(f"New status before save: {instance.status}")  # Debug log
+            # Save only the updated fields
+            instance.save(update_fields=[
+                'status',
+                'date_approved',
+                'reviewed_by',
+                'reviewed_at'
+            ])
+            print(f"Status after save: {instance.status}")  # Debug log
 
-            try:
-                instance.save(update_fields=[
-                    'status',
-                    'date_approved',
-                    'reviewed_by',
-                    'reviewed_at'
-                ])
-                print(f"Status after save: {instance.status}")  # Debug log
-            except Exception as e:
-                print(f"Save failed: {str(e)}")  # Debug log
-                raise
+            # Log approval AFTER save
+            # from .audit_utils import log_audit_event
+            # log_audit_event(
+            #     request=request,
+            #     action='approve',
+            #     module='request',
+            #     description=f"Approved request {instance.request_id}",
+            #     object_id=instance.request_id,
+            #     object_type='RequestManagement',
+            #     object_name=f"Request {instance.request_id}"
+            # )
 
             # Verify in database
             refreshed = RequestManagement.objects.get(pk=instance.pk)
@@ -633,6 +842,8 @@ class RejectRequestView(generics.UpdateAPIView):
         instance._old_status = instance.status  # CRITICAL: Track previous state
         instance._status_changed_by = request.user
         instance._skip_auto_status = True  # Add this line
+        # Avoid duplicate signal audit; manual business log below
+        instance._skip_signal_audit = True
 
         # Permission check
         if request.user.role not in ['admin', 'superintendent']:
@@ -664,7 +875,16 @@ class RejectRequestView(generics.UpdateAPIView):
         # Explicit save
         instance.save(
             update_fields=['status', 'rejection_comment', 'rejection_date'])
-
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=request,
+            action='reject',
+            module='request',
+            description=f"Rejected request {instance.request_id}",
+            object_id=instance.request_id,
+            object_type='RequestManagement',
+            object_name=f"Request {instance.request_id}"
+        )
         return Response(self.get_serializer(instance).data)
 
 
@@ -786,10 +1006,23 @@ def resubmit_request(request, request_id):
             )
 
         # Reset status and clear rejection fields
+        req._skip_signal_audit = True
         req.status = 'pending'
         # req.rejection_comment = None
         # req.rejection_date = None
         req.save()
+
+        # Log audit for resubmission
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=request,
+            action='resubmit',
+            module='request',
+            description=f"Resubmitted request {req.request_id}",
+            object_id=req.request_id,
+            object_type='RequestManagement',
+            object_name=f"Request {req.request_id}"
+        )
 
         # --- Notification logic ---
         from .models import Notification
@@ -814,39 +1047,98 @@ class LiquidationManagementListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        queryset = LiquidationManagement.objects.select_related(
+            'request', 'request__user', 'request__user__school', 'request__user__school__district'
+        )
+
+        # Optional status filtering (comma-separated)
+        status_param = self.request.query_params.get('status')
+        status_list = None
+        if status_param:
+            status_list = [s.strip()
+                           for s in status_param.split(',') if s.strip()]
+
+        # Role-scoped base queryset and default statuses when none provided
         if user.role == 'district_admin':
-            # District admins see submitted, under_review_district, and resubmit liquidations from their district
             if user.school_district:
-                return LiquidationManagement.objects.filter(
-                    status__in=['submitted',
-                                'under_review_district', 'resubmit'],
+                queryset = queryset.filter(
                     request__user__school__district=user.school_district
                 )
-            return LiquidationManagement.objects.filter(
-                status__in=['submitted', 'under_review_district', 'resubmit']
-            )
+            default_statuses = ['submitted',
+                                'under_review_district', 'resubmit']
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
+
         elif user.role == 'liquidator':
-            # Liquidators see liquidations approved by district and under their review
-            return LiquidationManagement.objects.filter(
-                status__in=['under_review_liquidator', 'approved_district']
-            )
+            default_statuses = ['under_review_liquidator', 'approved_district']
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
+
         elif user.role == 'accountant':
-            # Division accountants see liquidations approved by liquidators and under their review
-            return LiquidationManagement.objects.filter(
-                status__in=['under_review_division', 'approved_liquidator']
-            )
+            default_statuses = ['under_review_division', 'approved_liquidator']
+            queryset = queryset.filter(
+                status__in=(status_list or default_statuses))
+
         elif user.role == 'school_head':
-            # School heads see their liquidations in various states (except completed ones)
-            return LiquidationManagement.objects.filter(
-                request__user=user
-            ).exclude(
-                status__in=['liquidated']
-            ).order_by('-created_at')
-        # All other users see all liquidations
-        return LiquidationManagement.objects.all()
+            queryset = queryset.filter(request__user=user).exclude(
+                status__in=['liquidated'])
+
+        # Other roles (admin etc.) - allow optional status filter
+        else:
+            if status_list:
+                queryset = queryset.filter(status__in=status_list)
+
+        # Additional optional filters similar to requests list
+        legislative_district = self.request.query_params.get(
+            'legislative_district')
+        if legislative_district:
+            queryset = queryset.filter(
+                request__user__school__district__legislativeDistrict=legislative_district
+            )
+
+        municipality = self.request.query_params.get('municipality')
+        if municipality:
+            queryset = queryset.filter(
+                request__user__school__district__municipality=municipality
+            )
+
+        district_param = self.request.query_params.get('district')
+        if district_param:
+            queryset = queryset.filter(
+                request__user__school__district__districtId=district_param
+            )
+
+        # Date range filter on created_at
+        start_date_param = self.request.query_params.get('start_date')
+        end_date_param = self.request.query_params.get('end_date')
+        if start_date_param and end_date_param:
+            queryset = queryset.filter(
+                created_at__date__gte=start_date_param,
+                created_at__date__lte=end_date_param
+            )
+
+        ordering = self.request.query_params.get('ordering')
+        if ordering:
+            queryset = queryset.order_by(ordering)
+        else:
+            queryset = queryset.order_by('-created_at')
+
+        return queryset
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        liquidation = serializer.save(user=self.request.user)
+
+        # Log audit for liquidation creation
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=self.request,
+            action='create',
+            module='liquidation',
+            description=f"Created liquidation {liquidation.LiquidationID} for request {liquidation.request.request_id}",
+            object_id=liquidation.LiquidationID,
+            object_type='LiquidationManagement',
+            object_name=f"Liquidation {liquidation.LiquidationID}"
+        )
 
 
 class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -919,7 +1211,37 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
-        instance.save()
+        # Log audit for liquidation status changes
+
+        # old_status = instance._old_status
+        # new_status = instance.status
+
+        # if old_status != new_status:
+        #     # Determine action type based on status change
+        #     action = 'update'
+        #     if new_status == 'approved_district':
+        #         action = 'approve_district'
+        #     elif new_status == 'approved_liquidator':
+        #         action = 'approve_liquidator'
+        #     elif new_status == 'liquidated':
+        #         action = 'liquidate'
+        #     elif new_status == 'resubmit':
+        #         action = 'reject'
+        #     elif new_status == 'submitted':
+        #         action = 'submit'
+
+        # log_audit_event(
+        #     request=request,
+        #     action=action,
+        #     module='liquidation',
+        #     description=f"Changed liquidation {instance.LiquidationID} status from {old_status} to {new_status}",
+        #     object_id=instance.LiquidationID,
+        #     object_type='LiquidationManagement',
+        #     object_name=f"Liquidation {instance.LiquidationID}",
+        #     old_values={'status': old_status},
+        #     new_values={'status': new_status}
+        # )
+
         return Response(serializer.data)
 
     def perform_update(self, serializer):
@@ -1015,9 +1337,23 @@ def submit_for_liquidation(request, request_id):
 
             # First update the request status to 'downloaded' and set date_downloaded
             request_obj._status_changed_by = request.user
+            # Avoid duplicate signal audit; we will log business event manually
+            request_obj._skip_signal_audit = True
             request_obj.status = 'downloaded'
             request_obj.downloaded_at = download_date  # Use the selected date
             request_obj.save(update_fields=['status', 'downloaded_at'])
+
+            # Log audit for download status change
+            from .audit_utils import log_audit_event
+            log_audit_event(
+                request=request,
+                action='download',
+                module='request',
+                description=f"Downloaded request {request_obj.request_id} for liquidation",
+                object_id=request_obj.request_id,
+                object_type='RequestManagement',
+                object_name=f"Request {request_obj.request_id}"
+            )
 
             # Create liquidation record
             liquidation, created = LiquidationManagement.objects.get_or_create(
@@ -1032,8 +1368,22 @@ def submit_for_liquidation(request, request_id):
                 )
 
             # Update request status to 'unliquidated' as final state
+            request_obj._skip_signal_audit = True
             request_obj.status = 'unliquidated'
             request_obj.save(update_fields=['status'])
+
+            # Log audit for unliquidated status change
+            log_audit_event(
+                request=request,
+                action='update',
+                module='request',
+                description=f"Changed request {request_obj.request_id} status to unliquidated",
+                object_id=request_obj.request_id,
+                object_type='RequestManagement',
+                object_name=f"Request {request_obj.request_id}",
+                old_values={'status': 'downloaded'},
+                new_values={'status': 'unliquidated'}
+            )
 
             serializer = LiquidationManagementSerializer(liquidation)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -1110,9 +1460,21 @@ def submit_liquidation(request, LiquidationID):
 
             # Update status to submitted and track who changed it
             liquidation._status_changed_by = request.user
+            # Avoid duplicate signal audit; we log business event manually
+            liquidation._skip_signal_audit = True
             liquidation.status = 'submitted'
             liquidation.date_submitted = timezone.now()
             liquidation.save()
+            from .audit_utils import log_audit_event
+            log_audit_event(
+                request=request,
+                action='submit',
+                module='liquidation',
+                description=f"Submitted liquidation {LiquidationID}",
+                object_id=LiquidationID,
+                object_type='LiquidationManagement',
+                object_name=f"Liquidation {LiquidationID}"
+            )
 
             # Create notification for the reviewer
             # Notification.objects.create(
@@ -1227,6 +1589,7 @@ def batch_update_school_budgets(request):
 
     updated_ids = []
     errors = []
+    updated_schools = []
 
     with transaction.atomic():
         for upd in updates:
@@ -1236,9 +1599,15 @@ def batch_update_school_budgets(request):
             try:
                 school = School.objects.get(schoolId=school_id)
                 if max_budget is not None and float(max_budget) >= 0:
+                    old_budget = school.max_budget
                     school.max_budget = float(max_budget)
                     school.save()
                     updated_ids.append(school_id)
+                    updated_schools.append({
+                        'school': school,
+                        'old_budget': old_budget,
+                        'new_budget': school.max_budget
+                    })
                 else:
                     errors.append(
                         {"schoolId": school_id, "error": "Invalid budget"})
@@ -1247,6 +1616,24 @@ def batch_update_school_budgets(request):
                     {"schoolId": school_id, "error": "School not found"})
             except Exception as e:
                 errors.append({"schoolId": school_id, "error": str(e)})
+
+    # Log audit for batch update (business event)
+    if updated_schools:
+        from .audit_utils import log_audit_event
+        for update_info in updated_schools:
+            school = update_info['school']
+            # Suppress signal audit for this save already happened; log business event only
+            log_audit_event(
+                request=request,
+                action='batch_update',
+                module='school',
+                description=f"Batch updated budget for school {school.schoolName} ({school.schoolId}) from {update_info['old_budget']} to {update_info['new_budget']}",
+                object_id=school.schoolId,
+                object_type='School',
+                object_name=f"{school.schoolName} ({school.schoolId})",
+                old_values={'max_budget': update_info['old_budget']},
+                new_values={'max_budget': update_info['new_budget']}
+            )
 
     return Response({
         "updated": updated_ids,
@@ -1347,7 +1734,7 @@ def request_history(request, request_id):
                 "last_name": h.user.last_name if h.user else "",
                 "school": {
                     "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
-                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "",
+                    "schoolName": h.user.school.schoolName if h_user and h.user.school else "", # type: ignore
                 } if h.user and h.user.school else None,
             } if h.user else None,
             "request_id": h.request_id,
@@ -1448,6 +1835,9 @@ class SchoolDistrictListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
+
+        # Audit handled by signals
+
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -1455,6 +1845,22 @@ class SchoolDistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     queryset = SchoolDistrict.objects.all()
     serializer_class = SchoolDistrictSerializer
     lookup_field = 'districtId'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        old_is_active = instance.is_active
+
+        response = super().update(request, *args, **kwargs)
+
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        district_name = f"{instance.districtName} ({instance.districtId})"
+
+        response = super().destroy(request, *args, **kwargs)
+
+        return response
 
 
 @api_view(['PATCH'])
@@ -1464,10 +1870,13 @@ def archive_school_district(request, districtId):
     """
     try:
         school_district = SchoolDistrict.objects.get(districtId=districtId)
+        old_is_active = school_district.is_active
         is_active = request.data.get("is_active", None)
         if is_active is not None:
             school_district.is_active = is_active
             school_district.save()
+            # Audit handled by signals
+
             return Response({"status": "updated", "is_active": school_district.is_active})
         return Response({"error": "Missing is_active field"}, status=400)
     except SchoolDistrict.DoesNotExist:
@@ -1553,71 +1962,19 @@ def resend_otp(request):
         return Response({'message': 'User not found'}, status=404)
 
 
-# views.py
-# views.py
-
-
-class AgingReportPagination(PageNumberPagination):
-    page_size = 50
-    page_size_query_param = 'page_size'
-    max_page_size = 1000
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def schools_with_unliquidated_requests(request):
-    days_threshold = request.GET.get('days', '30')  # Get days threshold
-    export_format = request.GET.get('export')  # Check if export requested
-    page_size = request.GET.get('page_size', 50)  # Get page size
+    days_threshold = request.GET.get('days', '30')
+    export_format = request.GET.get('export')
+    page_size = request.GET.get('page_size', 50)
 
-    # Get all unliquidated requests
-    unliquidated_requests = RequestManagement.objects.filter(
-        status='unliquidated')
+    aging_data = generate_aging_report_data(days_threshold)
 
-    # Calculate aging for each request
-    today = timezone.now().date()
-    aging_data = []
-
-    for req in unliquidated_requests:
-        if req.downloaded_at:
-            days_elapsed = (today - req.downloaded_at.date()).days
-        else:
-            # Fallback to created_at if downloaded_at is not available
-            days_elapsed = (today - req.created_at.date()).days
-
-        # Apply threshold filter
-        if days_threshold == 'all' or int(days_threshold) <= days_elapsed:
-            aging_data.append({
-                'request_id': req.request_id,
-                'school_id': req.user.school.schoolId if req.user and req.user.school else '',
-                'school_name': req.user.school.schoolName if req.user and req.user.school else '',
-                'downloaded_at': req.downloaded_at.date() if req.downloaded_at else req.created_at.date(),
-                'days_elapsed': days_elapsed,
-                'aging_period': get_aging_period(days_elapsed),
-                'amount': sum(rp.amount for rp in req.requestpriority_set.all())
-            })
-
-    # Handle CSV export - return all data without pagination
     if export_format == 'csv':
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="aging_report_{days_threshold}_days.csv"'
-
-        writer = csv.writer(response)
-        writer.writerow(['School ID', 'School Name', 'Request ID', 'Downloaded At',
-                         'Days Elapsed', 'Aging Period', 'Amount'])
-
-        for item in aging_data:
-            writer.writerow([
-                item['school_id'],
-                item['school_name'],
-                item['request_id'],
-                item['downloaded_at'],
-                item['days_elapsed'],
-                item['aging_period'],
-                item['amount']
-            ])
-
-        return response
+        return generate_aging_csv_report(aging_data, days_threshold)
+    elif export_format == 'excel':
+        return generate_aging_excel_report(aging_data, days_threshold)
 
     # Apply pagination for regular API response
     paginator = AgingReportPagination()
@@ -1641,21 +1998,6 @@ def schools_with_unliquidated_requests(request):
     })
 
 
-def get_aging_period(days):
-    if days <= 30:
-        return "0-30 days"
-    elif days <= 60:
-        return "31-60 days"
-    elif days <= 90:
-        return "61-90 days"
-    elif days <= 120:
-        return "91-120 days"
-    elif days <= 180:
-        return "121-180 days"
-    else:
-        return "180+ days"
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_dashboard(request):
@@ -1664,7 +2006,7 @@ def admin_dashboard(request):
         return Response({"error": "Only administrators can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
 
     # Get time range parameter
-    time_range = request.GET.get('time_range', 'last_quarter')
+    time_range = request.GET.get('time_range', 'last_month')
 
     # Calculate date range based on parameter
     end_date = timezone.now()
@@ -1677,23 +2019,26 @@ def admin_dashboard(request):
     elif time_range == 'last_year':
         start_date = end_date - timedelta(days=365)
     else:
-        start_date = end_date - timedelta(days=90)  # Default to last quarter
+        # Default to last month
+        start_date = end_date - timedelta(days=30)
 
     budget_utilization = []
-    category_breakdown = []  # NEW: For stacked bar chart
+    category_breakdown = []
     months = []
-    current = start_date
+    current = start_date.replace(day=1)  # Start at beginning of month
 
     while current <= end_date:
         month_str = current.strftime('%Y-%m')
         months.append(month_str)
-        current = current + timedelta(days=30)  # Approximate month
+        current = current + relativedelta(months=1)
 
+    # Fixed budget utilization calculation
     for month in months:
-        # Get all requests for this month
+        year, month_num = map(int, month.split('-'))
+
+        # Get requests FOR this month (request_monthyear)
         month_requests = RequestManagement.objects.filter(
-            created_at__year=month[:4],
-            created_at__month=month[5:7]
+            request_monthyear=month
         )
 
         # --- 1. Planned (Requested) Amounts ---
@@ -1704,16 +2049,17 @@ def admin_dashboard(request):
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         # --- 2. Actual (Liquidated) Amounts ---
-        # Find liquidations that were submitted for requests made in this month
+        # Use liquidations for requests OF this month that are completed
         month_liquidations = LiquidationManagement.objects.filter(
-            request__in=month_requests,
-            status='liquidated'  # Only count completed liquidations
+            request__request_monthyear=month,
+            status='liquidated'
         )
+
         total_actual = 0
         for liquidation in month_liquidations:
-            # Sum the amounts from the LiquidationPriority records
-            total_actual += liquidation.liquidation_priorities.aggregate(total=Sum('amount'))[
-                'total'] or 0
+            liquidation_amount = liquidation.liquidation_priorities.aggregate(
+                total=Sum('amount'))['total'] or 0
+            total_actual += liquidation_amount
 
         # --- 3. Utilization Rates ---
         planned_utilization_rate = (
@@ -1721,7 +2067,16 @@ def admin_dashboard(request):
         actual_utilization_rate = (
             total_actual / total_allocated * 100) if total_allocated > 0 else 0
 
-        # --- 4. Category Breakdown for this month (NEW) ---
+        budget_utilization.append({
+            'month': month,
+            'allocated': float(total_allocated),
+            'planned': float(total_planned),
+            'actual': float(total_actual),
+            'plannedUtilizationRate': float(planned_utilization_rate),
+            'actualUtilizationRate': float(actual_utilization_rate)
+        })
+
+        # --- 4. Category Breakdown for this month ---
         category_data_for_month = {}
         for category_key, category_name in ListOfPriority.CATEGORY_CHOICES:
             # Get planned amount for this category
@@ -1746,19 +2101,9 @@ def admin_dashboard(request):
                 'actual': float(actual_for_category)
             }
 
-        budget_utilization.append({
-            'month': month,
-            'allocated': float(total_allocated),
-            'planned': float(total_planned),        # NEW
-            'actual': float(total_actual),          # NEW
-            'plannedUtilizationRate': float(planned_utilization_rate),  # NEW
-            'actualUtilizationRate': float(actual_utilization_rate)    # NEW
-        })
-
-        # Append category data for the stacked chart
         category_breakdown.append({
             'month': month,
-            **category_data_for_month  # Unpacks the dictionary of categories
+            **category_data_for_month
         })
 
     # 2. Request Status Distribution
@@ -1778,57 +2123,93 @@ def admin_dashboard(request):
             'percentage': float(percentage)
         })
 
-   # 3. Liquidation Timeline - FIXED calculation
+    # 3. FIXED Liquidation Timeline - QUARTERLY instead of monthly
     liquidation_timeline = []
-    for month in months:
-        month_liquidations = LiquidationManagement.objects.filter(
-            created_at__year=month[:4],
-            created_at__month=month[5:7],
+
+    # Generate quarterly periods instead of monthly
+    current = start_date.replace(day=1)
+    quarterly_periods = []
+
+    while current <= end_date:
+        # Get quarter
+        quarter = (current.month - 1) // 3 + 1
+        quarter_str = f"Q{quarter} {current.year}"
+        quarterly_periods.append(quarter_str)
+        # Move to next quarter
+        current = current + relativedelta(months=3)
+
+    for quarter in quarterly_periods:
+        # Extract year and quarter from string like "Q3 2025"
+        quarter_num = int(quarter[1])
+        year = int(quarter.split(' ')[1])
+
+        # Calculate month range for this quarter
+        start_month = (quarter_num - 1) * 3 + 1
+        end_month = start_month + 2
+
+        # Get requests for this quarter
+        quarter_requests = RequestManagement.objects.filter(
+            request_monthyear__regex=rf'^{year}-({"|".join([f"{m:02d}" for m in range(
+                start_month, end_month+1)])})'
+        )
+
+        # Get liquidations for these requests
+        quarter_liquidations = LiquidationManagement.objects.filter(
+            request__in=quarter_requests,
             status='liquidated'
         )
 
         total_seconds = 0
         count = 0
 
-        for liquidation in month_liquidations:
+        for liquidation in quarter_liquidations:
             if liquidation.date_liquidated and liquidation.created_at:
-                # Calculate time difference properly - from liquidation creation to completion
                 time_diff = liquidation.date_liquidated - liquidation.created_at
-                total_seconds += time_diff.total_seconds()
-                count += 1
+                if 0 < time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                    total_seconds += time_diff.total_seconds()
+                    count += 1
 
-        avg_seconds = total_seconds / count if count > 0 else 0
-        avg_days = avg_seconds / (24 * 60 * 60)  # Convert seconds to days
-
-        approved_count = month_liquidations.count()
-        rejected_count = LiquidationManagement.objects.filter(
-            created_at__year=month[:4],
-            created_at__month=month[5:7],
-            status='resubmit'
-        ).count()
+        # Calculate average processing time in days for the quarter
+        avg_days = (total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
 
         liquidation_timeline.append({
-            'month': month,
+            'quarter': quarter,  # Changed from 'month' to 'quarter'
             'avgProcessingTime': float(avg_days),
-            'approved': approved_count,
-            'rejected': rejected_count
+            'approved': count,
+            'rejected': 0
         })
 
-    # 4. School Performance - FIXED: Use liquidation created_at instead of request created_at
+    # 4. FIXED School Performance - Correct approval rate calculation
     school_performance = []
     schools = School.objects.all()
 
     for school in schools:
         school_requests = RequestManagement.objects.filter(user__school=school)
         total_requests = school_requests.count()
-        approved_requests = school_requests.filter(status='approved').count()
+
+        # CORRECTED: Calculate approved requests properly
+        # Get all request IDs that are either approved or have liquidations
+        approved_request_ids = set(school_requests.filter(
+            status='approved').values_list('request_id', flat=True))
+
+        liquidated_request_ids = set(LiquidationManagement.objects.filter(
+            request__user__school=school,
+            status='liquidated'
+        ).values_list('request_id', flat=True))
+
+        all_approved_request_ids = approved_request_ids.union(
+            liquidated_request_ids)
+        approved_requests = len(all_approved_request_ids)
+
         rejected_requests = school_requests.filter(status='rejected').count()
 
+        # Calculate approval rate properly
+        approval_rate = (approved_requests / total_requests *
+                         100) if total_requests > 0 else 0
         rejection_rate = (rejected_requests / total_requests *
                           100) if total_requests > 0 else 0
 
-        # Calculate average processing time for this school - FIXED: Use liquidation creation date
-        # Calculate average processing time for this school - FIXED
+        # Calculate average processing time for this school
         school_liquidations = LiquidationManagement.objects.filter(
             request__user__school=school,
             status='liquidated'
@@ -1840,11 +2221,13 @@ def admin_dashboard(request):
         for liquidation in school_liquidations:
             if liquidation.date_liquidated and liquidation.created_at:
                 time_diff = liquidation.date_liquidated - liquidation.created_at
-                total_seconds += time_diff.total_seconds()
-                count += 1
+                # Filter out unrealistic times
+                if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                    total_seconds += time_diff.total_seconds()
+                    count += 1
 
-        avg_processing_days = (
-            total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
+        avg_processing_days = (total_seconds / (24 * 60 * 60)
+                               ) / count if count > 0 else 0
 
         # Calculate budget utilization for this school
         school_utilized = RequestPriority.objects.filter(
@@ -1858,7 +2241,7 @@ def admin_dashboard(request):
             'schoolId': school.schoolId,
             'schoolName': school.schoolName,
             'totalRequests': total_requests,
-            'approvedRequests': approved_requests,
+            'approvedRequests': approved_requests,  # Use the correctly calculated value
             'rejectionRate': float(rejection_rate),
             'avgProcessingTime': float(avg_processing_days),
             'budgetUtilization': float(budget_utilization_rate)
@@ -1878,10 +2261,9 @@ def admin_dashboard(request):
         percentage = (category_total / total_all_categories *
                       100) if total_all_categories > 0 else 0
 
-        # Simple trend calculation (compare with previous period)
+        # Simple trend calculation
         trend = 'stable'
         if category_total > 0:
-            # This is a simplified trend calculation
             trend = 'up' if category_total > 10000 else 'down'
 
         category_spending.append({
@@ -1893,20 +2275,51 @@ def admin_dashboard(request):
 
     # Sort by total amount descending
     category_spending.sort(key=lambda x: x['totalAmount'], reverse=True)
-    category_spending = category_spending[:5]  # Limit to top 5
+    category_spending = category_spending[:5]
 
     # 6. Document Compliance
     document_compliance = []
-    requirements = Requirement.objects.all()
+    liquidations_in_period = LiquidationManagement.objects.filter(
+        created_at__range=(start_date, end_date)
+    )
 
+    total_compliance_rates = []
+    for liquidation in liquidations_in_period:
+        total_required_docs = 0
+        total_approved_docs = 0
+
+        for rp in liquidation.request.requestpriority_set.all():
+            required_docs = rp.priority.requirements.filter(
+                is_required=True).count()
+            total_required_docs += required_docs
+
+            approved_docs = LiquidationDocument.objects.filter(
+                liquidation=liquidation,
+                request_priority=rp,
+                requirement__is_required=True,
+                is_approved=True
+            ).count()
+            total_approved_docs += approved_docs
+
+        if total_required_docs > 0:
+            liquidation_compliance_rate = (
+                total_approved_docs / total_required_docs) * 100
+            total_compliance_rates.append(liquidation_compliance_rate)
+
+    overall_compliance_rate = sum(
+        total_compliance_rates) / len(total_compliance_rates) if total_compliance_rates else 0
+
+    requirements = Requirement.objects.all()
     for requirement in requirements:
         total_submitted = LiquidationDocument.objects.filter(
-            requirement=requirement
+            requirement=requirement,
+            uploaded_at__range=(start_date, end_date)
         ).count()
 
         compliant = LiquidationDocument.objects.filter(
             requirement=requirement,
-            is_approved=True
+            is_approved=True,
+            uploaded_at__range=(start_date, end_date)
         ).count()
 
         compliance_rate = (compliant / total_submitted *
@@ -1916,8 +2329,13 @@ def admin_dashboard(request):
             'requirement': requirement.requirementTitle,
             'totalSubmitted': total_submitted,
             'compliant': compliant,
-            'complianceRate': float(compliance_rate)
+            'complianceRate': float(compliance_rate),
+            'type': 'requirement_level'
         })
+
+    overall_current_compliance = overall_compliance_rate
+    overall_previous_compliance = 0
+    overall_trend = overall_current_compliance - overall_previous_compliance
 
     # 7. Top Priorities
     top_priorities = []
@@ -1929,7 +2347,6 @@ def admin_dashboard(request):
     ).order_by('-total_amount')[:10]
 
     for priority in priorities:
-        # Simple trend calculation
         trend = 'stable'
         if priority['total_amount']:
             trend = 'up' if priority['total_amount'] > 5000 else 'down'
@@ -1941,27 +2358,24 @@ def admin_dashboard(request):
             'trend': trend
         })
 
-    # 8. Active Requests - REPLACED Pending Actions with Active Requests
+    # 8. Active Requests
     active_requests = []
-
-    # Get all requests that are in active states (not completed/rejected)
     active_request_states = ['pending',
                              'approved', 'downloaded', 'unliquidated']
     active_requests_data = RequestManagement.objects.filter(
-        status__in=active_request_states)
+        status__in=active_request_states
+    )
 
     for request in active_requests_data:
         days_active = (timezone.now() - request.created_at).days
 
-        # Determine priority based on status and age
         if request.status == 'pending':
             priority = 'high' if days_active > 7 else 'medium' if days_active > 3 else 'low'
-        elif request.status == 'approved':
-            priority = 'high' if days_active > 5 else 'medium'
+        elif request.status == 'unliquidated':
+            priority = 'high' if days_active > 25 else 'medium' if days_active > 15 else 'low'
         else:
             priority = 'medium'
 
-        # Get school information
         school_name = request.user.school.schoolName if request.user and request.user.school else "Unknown School"
         user_name = request.user.get_full_name() if request.user else "Unknown User"
 
@@ -1977,36 +2391,31 @@ def admin_dashboard(request):
             'userName': user_name
         })
 
-    # Sort by priority and timestamp
     priority_order = {'high': 0, 'medium': 1, 'low': 2}
     active_requests.sort(key=lambda x: (
         priority_order[x['priority']], x['timestamp']))
 
-    # 9. Additional Liquidation Metrics - NEW
-    # Debug: Check for liquidations with unrealistic dates
+    # 9. Liquidation Metrics
     liquidated_liquidations = LiquidationManagement.objects.filter(
         status='liquidated',
         date_liquidated__isnull=False,
         created_at__isnull=False
     )
 
-    # Filter out liquidations with unrealistic processing times (more than 1 year)
     realistic_liquidations = []
     for liq in liquidated_liquidations:
         if liq.date_liquidated and liq.created_at:
             time_diff = liq.date_liquidated - liq.created_at
-            # Only include liquidations with processing time less than 365 days
             if time_diff.total_seconds() < (365 * 24 * 60 * 60):
                 realistic_liquidations.append(liq)
 
-    # Calculate average from realistic liquidations only
     if realistic_liquidations:
         total_seconds = sum((liq.date_liquidated - liq.created_at).total_seconds()
                             for liq in realistic_liquidations)
         avg_seconds = total_seconds / len(realistic_liquidations)
-        avg_liquidation_time = avg_seconds
+        avg_liquidation_time_days = avg_seconds / (24 * 60 * 60)
     else:
-        avg_liquidation_time = 0
+        avg_liquidation_time_days = 0
 
     liquidation_metrics = {
         'total_liquidations': LiquidationManagement.objects.count(),
@@ -2014,45 +2423,14 @@ def admin_dashboard(request):
         'pending_liquidations': LiquidationManagement.objects.exclude(status='liquidated').count(),
         'completion_rate': (LiquidationManagement.objects.filter(status='liquidated').count() /
                             LiquidationManagement.objects.count() * 100) if LiquidationManagement.objects.count() > 0 else 0,
-        'avg_liquidation_time': avg_liquidation_time
+        'avg_liquidation_time_days': float(avg_liquidation_time_days)
     }
 
-    # Convert avg_liquidation_time to days
-    if hasattr(liquidation_metrics['avg_liquidation_time'], 'days'):
-        liquidation_metrics['avg_liquidation_time_days'] = liquidation_metrics['avg_liquidation_time'].days
-    else:
-        liquidation_metrics['avg_liquidation_time_days'] = float(
-            liquidation_metrics['avg_liquidation_time']) / (24 * 60 * 60) if liquidation_metrics['avg_liquidation_time'] else 0
-
-    # Debug information - show some sample data
-    sample_liquidations = []
-    for liq in liquidated_liquidations[:3]:  # Show first 3 liquidations
-        if liq.date_liquidated and liq.created_at:
-            time_diff = liq.date_liquidated - liq.created_at
-            sample_liquidations.append({
-                'liquidation_id': liq.LiquidationID,
-                'created_at': liq.created_at.isoformat(),
-                'date_liquidated': liq.date_liquidated.isoformat(),
-                'time_diff_seconds': time_diff.total_seconds(),
-                'time_diff_days': time_diff.total_seconds() / (24 * 60 * 60)
-            })
-
-    liquidation_metrics['debug_info'] = {
-        'total_liquidated_count': len(liquidated_liquidations),
-        'realistic_liquidations_count': len(realistic_liquidations),
-        'avg_seconds_raw': liquidation_metrics['avg_liquidation_time'],
-        'avg_days_calculated': liquidation_metrics['avg_liquidation_time_days'],
-        'sample_liquidations': sample_liquidations
-    }
-
-    # 10. Top Schools by Liquidation Speed - NEW (Fixed with realistic time filtering)
+    # 10. Top Schools by Speed
     top_schools_by_speed = []
-
-    # Get all schools and calculate realistic processing times manually
     all_schools = School.objects.all()
 
     for school in all_schools:
-        # Get liquidations for this school that are liquidated
         school_liquidations = LiquidationManagement.objects.filter(
             request__user__school=school,
             status='liquidated',
@@ -2060,17 +2438,14 @@ def admin_dashboard(request):
             created_at__isnull=False
         )
 
-        # Filter out unrealistic processing times (more than 1 year)
         realistic_processing_times = []
         for liq in school_liquidations:
             if liq.date_liquidated and liq.created_at:
                 time_diff = liq.date_liquidated - liq.created_at
-                # Only include liquidations with processing time less than 365 days
                 if time_diff.total_seconds() < (365 * 24 * 60 * 60):
                     realistic_processing_times.append(
                         time_diff.total_seconds())
 
-        # Calculate average from realistic times only
         if realistic_processing_times:
             avg_seconds = sum(realistic_processing_times) / \
                 len(realistic_processing_times)
@@ -2082,25 +2457,31 @@ def admin_dashboard(request):
                 'avgProcessingDays': float(avg_days)
             })
 
-    # Sort by processing time (ascending = fastest first) and take top 5
     top_schools_by_speed.sort(key=lambda x: x['avgProcessingDays'])
     top_schools_by_speed = top_schools_by_speed[:5]
 
-    # 11. School Document Compliance - NEW
+    # 11. FIXED School Document Compliance - Only show schools with liquidations
     school_document_compliance = []
-    all_schools_for_compliance = School.objects.all()
+    # Only get schools that have liquidations
+    liquidation_school_ids = LiquidationManagement.objects.values_list(
+        'request__user__school_id', flat=True
+    ).distinct()
+    schools_with_liquidations = School.objects.filter(
+        schoolId__in=liquidation_school_ids)  # ← Use schoolId instead of id
 
-    for school in all_schools_for_compliance:
-        # Get all liquidations for this school
+    for school in schools_with_liquidations:
         school_liquidations = LiquidationManagement.objects.filter(
             request__user__school=school
         )
+
+        # Skip if no liquidations
+        if not school_liquidations.exists():
+            continue
 
         total_required_docs = 0
         total_uploaded_docs = 0
 
         for liquidation in school_liquidations:
-            # For each liquidation, count required and uploaded documents
             for rp in liquidation.request.requestpriority_set.all():
                 required_docs = rp.priority.requirements.filter(
                     is_required=True).count()
@@ -2110,7 +2491,6 @@ def admin_dashboard(request):
                 ).count()
 
                 total_required_docs += required_docs
-                # Cap at required
                 total_uploaded_docs += min(uploaded_docs, required_docs)
 
         compliance_rate = (total_uploaded_docs / total_required_docs *
@@ -2125,19 +2505,19 @@ def admin_dashboard(request):
             'pendingDocuments': max(0, total_required_docs - total_uploaded_docs)
         })
 
-    # Sort by compliance rate (descending)
     school_document_compliance.sort(
         key=lambda x: x['complianceRate'], reverse=True)
-    # Prepare response data
 
     response_data = {
         'budgetUtilization': budget_utilization,
-        'categoryBreakdown': category_breakdown,  # NEW
+        'categoryBreakdown': category_breakdown,
         'requestStatusDistribution': request_status_distribution,
         'liquidationTimeline': liquidation_timeline,
         'schoolPerformance': school_performance,
         'categorySpending': category_spending,
         'documentCompliance': document_compliance,
+        'overallCompliance': float(overall_compliance_rate),
+        'complianceTrend': float(overall_trend),
         'topPriorities': top_priorities,
         'activeRequests': active_requests,
         'liquidationMetrics': liquidation_metrics,
@@ -2146,6 +2526,655 @@ def admin_dashboard(request):
     }
 
     return Response(response_data)
+# ------------------- Backup & Restore -------------------
+
+
+def _is_safe_path(path: str) -> bool:
+    """
+    Validate that path is safe and doesn't contain traversal attempts
+    """
+    if not path or not isinstance(path, str):
+        return False
+
+    # Normalize path and check for traversal attempts
+    normalized = os.path.normpath(path)
+
+    # Check for dangerous patterns
+    # Platform-aware invalid pattern checks
+    if os.name == 'nt':
+        # On Windows, allow drive letter colon (e.g., C:\), but disallow reserved characters
+        invalid_chars = ['|', '<', '>', '"']
+        if any(ch in normalized for ch in invalid_chars):
+            return False
+        # Reject device paths
+        if ('\\\\.\\' in normalized) or ('\\\\?\\' in normalized):
+            return False
+        # Basic traversal check
+        if '..' in normalized or '~' in normalized:
+            return False
+    else:
+        dangerous_patterns = [
+            '..', '~',  # Directory traversal
+            '/dev/', '/proc/', '/sys/',  # Linux system paths
+            '|', '<', '>', '"',  # Invalid characters
+        ]
+        for pattern in dangerous_patterns:
+            if pattern in normalized:
+                return False
+    # Additional checks for absolute paths
+    if os.path.isabs(normalized):
+        # Allow only certain safe directories if needed
+        allowed_prefixes = ['/backups/']
+        # Include server-configured default backup dir if present
+        try:
+            default_dir = getattr(settings, 'BACKUP_SETTINGS', {}).get(
+                'DEFAULT_BACKUP_DIR')
+            if default_dir:
+                # Normalize to same style
+                allowed_prefixes.append(os.path.normpath(
+                    default_dir) + (os.sep if not default_dir.endswith(os.sep) else ''))
+        except Exception:
+            pass
+        if os.name == 'nt':
+            allowed_prefixes.extend(['C:\\Backups\\', 'D:\\Backups\\'])
+        if not any(normalized.startswith(prefix) for prefix in allowed_prefixes):
+            return False
+
+    return True
+
+
+MODEL_BACKUP_ORDER = [
+    # Level 1: Independent models (no foreign keys)
+    (SchoolDistrict, 'SchoolDistrict'),
+    (Requirement, 'Requirement'),
+    (ListOfPriority, 'ListOfPriority'),
+
+    # Level 2: Depend on Level 1
+    (School, 'School'),  # Depends on SchoolDistrict
+    # Depends on ListOfPriority, Requirement
+    (PriorityRequirement, 'PriorityRequirement'),
+
+    # Level 3: Depend on Level 2
+    (User, 'User'),  # Depends on School, SchoolDistrict
+
+    # Level 4: Depend on Level 3
+    (RequestManagement, 'RequestManagement'),  # Depends on User
+    (Backup, 'Backup'),  # Depends on User
+    (AuditLog, 'AuditLog'),  # Depends on User
+    (Notification, 'Notification'),  # Depends on User
+
+    # Level 5: Depend on Level 4
+    # Depends on RequestManagement, ListOfPriority
+    (RequestPriority, 'RequestPriority'),
+    (GeneratedPDF, 'GeneratedPDF'),  # Depends on RequestManagement, User
+
+    # Level 6: Depend on Level 5
+    # Depends on RequestManagement
+    (LiquidationManagement, 'LiquidationManagement'),
+
+    # Level 7: Depend on Level 6
+    # Depends on LiquidationManagement, ListOfPriority
+    (LiquidationPriority, 'LiquidationPriority'),
+    # Depends on LiquidationManagement, RequestPriority, Requirement
+    (LiquidationDocument, 'LiquidationDocument'),
+]
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def initiate_backup(request):
+    """
+    Generate a backup archive with improved error handling.
+    """
+    try:
+        format = request.data.get("format", "json")
+        include_media = request.data.get("include_media", True)
+
+        # Create backup record
+        backup = Backup.objects.create(
+            initiated_by=request.user,
+            format=format,
+            include_media=include_media,
+            status='pending'
+        )
+
+        # Create HTTP response with ZIP file
+        response = HttpResponse(content_type='application/zip')
+        filename = f"backup_{backup.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        with zipfile.ZipFile(response, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add metadata
+            metadata = {
+                'created_at': timezone.now().isoformat(),
+                'created_by': request.user.email,
+                'format': format,
+                'include_media': include_media,
+                'model_versions': {}
+            }
+
+            # Export data as JSON using the corrected model order
+            for model, model_name in MODEL_BACKUP_ORDER:
+                try:
+                    # Use natural keys if available for better serialization
+                    data = django_serializers.serialize(
+                        "json",
+                        model.objects.all(),
+                        use_natural_foreign_keys=False
+                    )
+                    zipf.writestr(f"data/{model_name}.json", data)
+
+                    # Store model version info
+                    metadata['model_versions'][model_name] = {
+                        'count': model.objects.all().count(),
+                        'exported_at': timezone.now().isoformat()
+                    }
+
+                    logger.info(
+                        f"Backed up {model_name}: {model.objects.all().count()} records")
+                except Exception as e:
+                    logger.error(f"Failed to backup {model_name}: {e}")
+                    # Continue with other models instead of failing completely
+                    continue
+
+            # Add metadata file
+            zipf.writestr('metadata.json', json.dumps(metadata, indent=2))
+
+            # Include media files if requested
+            if include_media:
+                try:
+                    media_root = settings.MEDIA_ROOT
+                    if os.path.exists(media_root):
+                        media_files_added = 0
+                        for root, dirs, files in os.walk(media_root):
+                            for file in files:
+                                # Skip temporary and hidden files
+                                if file.startswith(('.', '~')) or file.endswith('.tmp'):
+                                    continue
+
+                                abs_path = os.path.join(root, file)
+                                rel_path = os.path.relpath(
+                                    abs_path, media_root)
+
+                                try:
+                                    with open(abs_path, 'rb') as f:
+                                        file_content = f.read()
+                                    zipf.writestr(
+                                        f"media/{rel_path}", file_content)
+                                    media_files_added += 1
+                                except (IOError, OSError) as e:
+                                    logger.warning(
+                                        f"Could not read media file {abs_path}: {e}")
+                                    continue
+
+                        logger.info(
+                            f"Added {media_files_added} media files to backup")
+                    else:
+                        logger.warning(
+                            f"Media root {media_root} does not exist")
+                except Exception as e:
+                    logger.error(f"Media backup failed: {e}")
+                    # Don't fail the entire backup if media fails
+
+        # Update backup record (signals will audit the CRUD change)
+        backup.status = 'success'
+        backup.file_size = len(response.content)
+        backup.save()
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Backup failed: {e}", exc_info=True)
+
+        # Update backup record with failure
+        if 'backup' in locals():
+            backup.status = 'failed'
+            backup.message = str(e)
+            backup.save()
+
+        return Response(
+            {"detail": "Backup failed", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def initiate_restore(request):
+    """
+    Restore the system from an uploaded backup archive (.zip).
+    """
+    # Store current user info before any operations
+    current_user_id = request.user.id
+    current_user_email = request.user.email
+
+    # Require explicit confirmation
+    if not request.data.get("confirm_wipe", False):
+        return Response(
+            {
+                "detail": "Restore will replace existing data. "
+                "Include 'confirm_wipe': true in your request to proceed.",
+                "warning": "This action cannot be undone."
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    temp_dir = None
+    try:
+        file_obj = request.FILES.get("file")
+        if not file_obj:
+            return Response(
+                {"detail": "No backup file uploaded"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate file type
+        if not file_obj.name.endswith('.zip'):
+            return Response(
+                {"detail": "Only ZIP files are supported for restore"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create temporary directory for extraction
+        temp_dir = tempfile.mkdtemp()
+        archive_path = os.path.join(temp_dir, file_obj.name)
+
+        # Save uploaded file
+        with open(archive_path, "wb+") as dest:
+            for chunk in file_obj.chunks():
+                dest.write(chunk)
+
+        # Extract archive
+        with zipfile.ZipFile(archive_path, "r") as zipf:
+            zipf.extractall(temp_dir)
+
+        # Restore logic
+        data_dir = os.path.join(temp_dir, 'data')
+
+        if not os.path.exists(data_dir):
+            return Response(
+                {"detail": "Backup file is corrupted or invalid"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # NEW APPROACH: Use smaller transactions per model instead of one giant transaction
+        restored_counts = {}
+        file_record_counts = {}
+        critical_failures = {}
+        critical_models = {"SchoolDistrict",
+                           "Requirement", "ListOfPriority", "School", "User", "RequestManagement"}
+        errors = []
+
+        try:
+            # Step 1: Create a backup of current data (optional safety measure)
+            safety_backup = {}
+            for model, model_name in MODEL_BACKUP_ORDER:
+                safety_backup[model_name] = list(model.objects.all().values())
+
+            # Step 2: Restore data in correct order with conflict resolution
+            for model, model_name in MODEL_BACKUP_ORDER:
+                file_path = os.path.join(data_dir, f"{model_name}.json")
+                if not os.path.exists(file_path):
+                    logger.warning(f"Backup file not found: {file_path}")
+                    continue
+
+                logger.info(f"Restoring {model_name} from {file_path}")
+
+                # Use a separate transaction for each model
+                try:
+                    with transaction.atomic():
+                        objects_processed = 0
+
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            data = f.read()
+
+                        # DEBUG: Check the structure of the serialized data
+                        import json
+                        parsed_data = json.loads(data)
+                        file_record_counts[model_name] = len(
+                            parsed_data) if isinstance(parsed_data, list) else 0
+                        if parsed_data:
+                            logger.info(
+                                f"First object structure: {list(parsed_data[0].keys())}")
+                            if 'pk' in parsed_data[0]:
+                                logger.info(
+                                    f"PK found: {parsed_data[0]['pk']}")
+                            else:
+                                logger.warning(
+                                    "PK not found in serialized data!")
+
+                        # Use Django's deserializer
+                        for obj in django_serializers.deserialize("json", data):
+                            try:
+                                # SPECIAL HANDLING FOR USER MODEL (handle duplicates)
+                                if model.__name__ == 'User':
+                                    try:
+                                        temp_password = obj.object.password
+                                        email = obj.object.email
+                                        original_pk = getattr(obj, 'pk', None)
+                                    except Exception:
+                                        temp_password = None
+                                        email = None
+                                        original_pk = None
+
+                                    try:
+                                        # Check if user with this email already exists
+                                        existing_user = model.objects.filter(
+                                            email=email).first() if email else None
+
+                                        if existing_user:
+                                            # Update existing user with data from backup
+                                            logger.info(
+                                                f"Updating existing user by email: {email}")
+                                            for field in obj.object._meta.fields:
+                                                if field.primary_key or field.name == 'password':
+                                                    continue
+                                                try:
+                                                    setattr(existing_user, field.name, getattr(
+                                                        obj.object, field.name))
+                                                except Exception as field_error:
+                                                    logger.warning(
+                                                        f"Error setting field {field.name}: {field_error}")
+
+                                            existing_user.save()
+                                            objects_processed += 1
+
+                                            # Handle password if needed
+                                            if temp_password and not str(temp_password).startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
+                                                existing_user.set_password(
+                                                    temp_password)
+                                                existing_user.save(
+                                                    update_fields=['password'])
+                                        else:
+                                            # Create new user
+                                            logger.info(
+                                                f"Creating new user: {email}")
+
+                                            # Try to preserve original PK if possible
+                                            if original_pk and not model.objects.filter(pk=original_pk).exists():
+                                                obj.object.pk = original_pk
+
+                                            with transaction.atomic():
+                                                obj.save()
+                                                objects_processed += 1
+
+                                            # Handle password if needed
+                                            if temp_password and not str(temp_password).startswith(('pbkdf2_', 'bcrypt$', 'argon2$')):
+                                                obj.object.set_password(
+                                                    temp_password)
+                                                with transaction.atomic():
+                                                    obj.object.save(
+                                                        update_fields=['password'])
+
+                                    except IntegrityError as e:
+                                        logger.warning(
+                                            f"Integrity error for user {email}: {e}")
+                                        # Try fallback: create without original PK
+                                        try:
+                                            user_data = obj.object.__dict__.copy()
+                                            user_data.pop('_state', None)
+                                            # Remove PK to avoid conflict
+                                            user_data.pop('id', None)
+
+                                            password = user_data.pop(
+                                                'password', None)
+                                            new_user = model(**user_data)
+                                            if password:
+                                                new_user.set_password(password)
+                                            new_user.save()
+                                            objects_processed += 1
+                                            logger.info(
+                                                f"Created user with auto-generated PK: {email}")
+                                        except Exception as fallback_error:
+                                            logger.error(
+                                                f"Fallback creation failed for {email}: {fallback_error}")
+                                            errors.append(
+                                                f"User {email}: {str(fallback_error)}")
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Error restoring User object (pk={original_pk}): {e}")
+                                        errors.append(
+                                            f"User object (pk={original_pk}): {str(e)}")
+                                else:
+                                    # Default path for non-User models via deserializer
+                                    try:
+                                        # Use a savepoint per object so one failure doesn't poison the batch
+                                        with transaction.atomic():
+                                            obj.save()
+                                            objects_processed += 1
+                                    except IntegrityError as e:
+                                        logger.error(
+                                            f"Integrity error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
+                                        # Targeted FK fallbacks for known models
+                                        fallback_applied = False
+                                        try:
+                                            if model_name == 'RequestManagement':
+                                                changed = False
+                                                for attr in ['reviewed_by', 'reviewed_by_district', 'reviewed_by_liquidator', 'reviewed_by_division']:
+                                                    if hasattr(obj.object, attr):
+                                                        try:
+                                                            setattr(
+                                                                obj.object, attr, None)
+                                                            changed = True
+                                                        except Exception:
+                                                            pass
+                                                if changed:
+                                                    with transaction.atomic():
+                                                        obj.save()
+                                                        objects_processed += 1
+                                                        fallback_applied = True
+                                            elif model_name == 'Backup':
+                                                if hasattr(obj.object, 'initiated_by'):
+                                                    setattr(
+                                                        obj.object, 'initiated_by', None)
+                                                    with transaction.atomic():
+                                                        obj.save()
+                                                        objects_processed += 1
+                                                        fallback_applied = True
+                                            elif model_name == 'Notification':
+                                                changed = False
+                                                if hasattr(obj.object, 'sender'):
+                                                    setattr(
+                                                        obj.object, 'sender', None)
+                                                    changed = True
+                                                if hasattr(obj.object, 'receiver'):
+                                                    setattr(
+                                                        obj.object, 'receiver', None)
+                                                    changed = True
+                                                if changed:
+                                                    with transaction.atomic():
+                                                        obj.save()
+                                                        objects_processed += 1
+                                                        fallback_applied = True
+                                            elif model_name in ['GeneratedPDF', 'LiquidationManagement', 'LiquidationDocument']:
+                                                # Skip if parent FK missing; these depend on RequestManagement/Liquidation
+                                                logger.warning(
+                                                    f"Skipping {model_name} due to missing parent FK (pk={getattr(obj, 'pk', None)})")
+                                                fallback_applied = True  # treat as handled to avoid double-counting
+                                        except Exception as fb_err:
+                                            logger.warning(
+                                                f"Fallback failed for {model_name} (pk={getattr(obj, 'pk', None)}): {fb_err}")
+
+                                        if not fallback_applied:
+                                            errors.append(
+                                                f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Error restoring {model_name} object (pk={getattr(obj, 'pk', None)}): {e}")
+                                        errors.append(
+                                            f"{model_name} object (pk={getattr(obj, 'pk', None)}): {str(e)}")
+
+                            except IntegrityError as e:
+                                logger.warning(
+                                    f"Integrity error for {model_name} object: {e}")
+                                # Try to create without PK
+                                try:
+                                    data_dict = obj.object.__dict__.copy()
+                                    data_dict.pop('id', None)
+                                    data_dict.pop('_state', None)
+                                    model.objects.create(**data_dict)
+                                    objects_processed += 1
+                                    logger.info(
+                                        f"Created {model_name} with auto PK after integrity error")
+                                except Exception as e2:
+                                    logger.error(
+                                        f"Failed to restore {model_name} object (pk={getattr(obj.object, 'pk', None)}): {e2}")
+                                    errors.append(
+                                        f"{model_name} object: {str(e2)}")
+                            except Exception as e:
+                                logger.error(
+                                    f"Error restoring {model_name} object (pk={getattr(obj.object, 'pk', None)}): {e}")
+                                errors.append(
+                                    f"{model_name} object (pk={getattr(obj.object, 'pk', None)}): {str(e)}")
+
+                        restored_counts[model_name] = objects_processed
+                        logger.info(
+                            f"Successfully processed {objects_processed} {model_name} records")
+
+                        # Flag critical failure if a critical model had data in file but restored zero
+                        if model_name in critical_models and file_record_counts.get(model_name, 0) > 0 and objects_processed == 0:
+                            critical_failures[model_name] = {
+                                'file_records': file_record_counts.get(model_name, 0),
+                                'restored': 0
+                            }
+
+                except Exception as model_error:
+                    logger.error(
+                        f"Error processing {model_name}: {model_error}")
+                    errors.append(f"{model_name}: {str(model_error)}")
+
+            # Step 3: Restore media files
+            media_dir = os.path.join(temp_dir, 'media')
+            if os.path.exists(media_dir):
+                media_root = settings.MEDIA_ROOT
+                for root, dirs, files in os.walk(media_dir):
+                    for file in files:
+                        src_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(src_path, media_dir)
+                        dest_path = os.path.join(media_root, rel_path)
+
+                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        shutil.copy2(src_path, dest_path)
+                        logger.info(f"Restored media file: {rel_path}")
+
+            # Cleanup temporary files
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+
+            # If any critical models failed to restore, return 500 with details
+            if critical_failures:
+                response_data = {
+                    "detail": "Restore failed for critical models",
+                    "critical_failures": critical_failures,
+                    "summary": restored_counts,
+                    "warnings": errors,
+                    "auto_login": False
+                }
+                return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # Try to maintain user session
+            try:
+                restored_user = User.objects.get(email=current_user_email)
+                refresh = RefreshToken.for_user(restored_user)
+
+                response_data = {
+                    "detail": f"Restore completed successfully from {file_obj.name}",
+                    "summary": restored_counts,
+                    "auto_login": True,
+                    "tokens": {
+                        "access": str(refresh.access_token),
+                        "refresh": str(refresh)
+                    }
+                }
+
+                if errors:
+                    response_data["warnings"] = errors
+
+                return Response(response_data, status=status.HTTP_200_OK)
+
+            except User.DoesNotExist:
+                response_data = {
+                    "detail": f"Restore completed successfully from {file_obj.name}",
+                    "summary": restored_counts,
+                    "auto_login": False,
+                    "note": "Please login with your credentials."
+                }
+
+                if errors:
+                    response_data["warnings"] = errors
+
+                return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as restore_error:
+            logger.error(f"Restore failed: {restore_error}")
+
+            # Attempt safety rollback with separate transactions
+            rollback_errors = []
+            try:
+                # Restore from safety backup in reverse order
+                for model, model_name in reversed(MODEL_BACKUP_ORDER):
+                    try:
+                        with transaction.atomic():
+                            # Clear current data
+                            model.objects.all().delete()
+
+                            # Restore from backup
+                            if model_name in safety_backup:
+                                for obj_data in safety_backup[model_name]:
+                                    try:
+                                        model.objects.create(**obj_data)
+                                    except Exception as e:
+                                        rollback_errors.append(
+                                            f"Failed to restore {model_name} object: {e}")
+                    except Exception as e:
+                        rollback_errors.append(
+                            f"Failed to restore {model_name}: {e}")
+
+                if not rollback_errors:
+                    logger.info("Safety backup restored successfully")
+                else:
+                    logger.error(
+                        f"Safety rollback had errors: {rollback_errors}")
+
+            except Exception as rollback_error:
+                logger.error(f"Safety rollback failed: {rollback_error}")
+                rollback_errors.append(str(rollback_error))
+
+            error_response = {
+                "detail": "Restore failed",
+                "error": str(restore_error),
+                "auto_login": False
+            }
+
+            if rollback_errors:
+                error_response["rollback_errors"] = rollback_errors
+
+            return Response(error_response, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except Exception as e:
+        logger.error(f"Restore failed: {e}", exc_info=True)
+        # Cleanup on error
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+        return Response(
+            {
+                "detail": "Restore failed",
+                "error": str(e),
+                "auto_login": False
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_backups(request):
+    if request.user.role != 'admin':
+        return Response({"detail": "Only administrators can view backups."}, status=status.HTTP_403_FORBIDDEN)
+    qs = Backup.objects.all()
+    serializer = BackupSerializer(qs, many=True)
+    return Response(serializer.data)
 
 
 @api_view(['PATCH'])
@@ -2157,6 +3186,18 @@ def update_e_signature(request):
         return Response({"error": "No e-signature file provided."}, status=400)
     user.e_signature = e_signature
     user.save(update_fields=['e_signature'])
+
+    # Log audit for e-signature update
+    from .audit_utils import log_audit_event
+    log_audit_event(
+        request=request,
+        action='update',
+        module='user',
+        description=f"Updated e-signature for user {user.get_full_name()}",
+        object_id=user.pk,
+        object_type='User',
+        object_name=user.get_full_name()
+    )
 
     # Generate new token with updated e_signature
     from rest_framework_simplejwt.tokens import RefreshToken
@@ -2195,8 +3236,6 @@ def update_e_signature(request):
         "refresh": str(refresh)
     })
 
-
-# Add to views.py
 
 # Add to views.py
 
@@ -2474,7 +3513,9 @@ def generate_liquidation_report(request, LiquidationID):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_next_available_month(request):
-    """Get the next available month for the user to submit a request"""
+    """
+    Returns the next available month for the current user to submit a request.
+    """
     user = request.user
 
     # Create a temporary request object to use the method
@@ -2498,36 +3539,68 @@ def get_next_available_month(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def debug_liquidation_times(request):
-    """Debug endpoint to check liquidation time calculations"""
-    liquidated_liquidations = LiquidationManagement.objects.filter(
-        status='liquidated',
-        date_liquidated__isnull=False,
-        created_at__isnull=False
-    ).order_by('-created_at')[:10]  # Get last 10 liquidations
+    """More permissive debug endpoint"""
+    try:
+        # First try the original filter
+        liquidated_liquidations = LiquidationManagement.objects.filter(
+            status='liquidated',
+            date_liquidated__isnull=False,
+            created_at__isnull=False
+        ).order_by('-created_at')[:10]
 
-    debug_data = []
-    for liq in liquidated_liquidations:
-        if liq.date_liquidated and liq.created_at:
-            time_diff = liq.date_liquidated - liq.created_at
+        # If no results, try a less restrictive filter
+        if not liquidated_liquidations.exists():
+            liquidated_liquidations = LiquidationManagement.objects.filter(
+                date_liquidated__isnull=False,
+                created_at__isnull=False
+            ).order_by('-created_at')[:10]
+
+        # If still no results, get ANY records
+        if not liquidated_liquidations.exists():
+            liquidated_liquidations = LiquidationManagement.objects.all().order_by(
+                '-created_at')[:10]
+
+        debug_data = []
+        for liq in liquidated_liquidations:
+            time_diff = None
+            days_diff = 0
+
+            if liq.date_liquidated and liq.created_at:
+                time_diff = liq.date_liquidated - liq.created_at
+                days_diff = time_diff.total_seconds() / (24 * 60 * 60)
+
             debug_data.append({
                 'liquidation_id': liq.LiquidationID,
-                'created_at': liq.created_at.isoformat(),
-                'date_liquidated': liq.date_liquidated.isoformat(),
-                'time_diff_seconds': time_diff.total_seconds(),
-                'time_diff_days': time_diff.total_seconds() / (24 * 60 * 60),
-                'is_realistic': time_diff.total_seconds() < (365 * 24 * 60 * 60)
+                'status': liq.status,
+                'created_at': liq.created_at.isoformat() if liq.created_at else None,
+                'date_liquidated': liq.date_liquidated.isoformat() if liq.date_liquidated else None,
+                'time_diff_seconds': time_diff.total_seconds() if time_diff else None,
+                'time_diff_days': days_diff,
+                'has_both_dates': liq.date_liquidated is not None and liq.created_at is not None
             })
 
-    return Response({
-        'total_liquidated': liquidated_liquidations.count(),
-        'sample_data': debug_data
-    })
+        return Response({
+            'total_records': LiquidationManagement.objects.count(),
+            'filtered_records': liquidated_liquidations.count(),
+            'sample_data': debug_data,
+            'filter_used': 'liquidated status with both dates' if liquidated_liquidations.exists() else 'fallback to any records'
+        })
+
+    except Exception as e:
+        return Response({
+            'error': str(e),
+            'message': 'Error retrieving liquidation data'
+        }, status=500)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def check_request_eligibility(request):
-    """Check if user is eligible to submit a new request"""
+    """
+    Check if the current user is eligible to submit a request for a given month.
+    Pass ?month=YYYY-MM as a query parameter.
+    Returns {'eligible': bool, 'reason': str | null}.
+    """
     user = request.user
     target_month = request.query_params.get('month')  # Format: YYYY-MM
 
@@ -2609,12 +3682,12 @@ def generate_approved_request_pdf(request, request_id):
             )
 
         # Check if request is approved
-        if req.status != 'approved':
-            return HttpResponse(
-                '{"error": "Request must be approved first to generate PDF"}',
-                content_type='application/json',
-                status=400
-            )
+        # if req.status != 'approved':
+        #     return HttpResponse(
+        #         '{"error": "Request must be approved first to generate PDF"}',
+        #         content_type='application/json',
+        #         status=400
+        #     )
 
         # Generate PDF with actual signatures
         pdf_content = generate_request_pdf_with_signatures(req)
@@ -2665,49 +3738,155 @@ def generate_approved_request_pdf(request, request_id):
             status=500
         )
 
-@api_view(['POST'])
+
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def generate_demand_letter(request, request_id):
+def liquidation_report(request):
     """
-    Generate Demand Letter PDF for unliquidated cash advances
+    Generate liquidation report with filtering and export capabilities
+    Similar to unliquidated requests report but for liquidations
     """
-    try:
-        from .pdf_utils import generate_demand_letter_pdf
-        from django.shortcuts import get_object_or_404
-        
-        # Get the request object
-        req = get_object_or_404(RequestManagement, request_id=request_id)
-        
-        # Check permission
-        if request.user.role not in ['admin', 'superintendent', 'accountant']:
-            return Response(
-                {"error": "You don't have permission to generate demand letters"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        # Get data from request
-        unliquidated_data = request.data.get('unliquidated_data', [])
-        due_date = request.data.get('due_date', '')
-        
-        if not unliquidated_data or not due_date:
-            return Response(
-                {"error": "Missing required data: unliquidated_data and due_date"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Generate PDF
-        pdf_content = generate_demand_letter_pdf(req, unliquidated_data, due_date)
-        
-        # Create HTTP response
-        response = HttpResponse(pdf_content, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="demand_letter_{request_id}.pdf"'
-        response['Content-Length'] = len(pdf_content)
-        
-        return response
-        
-    except Exception as e:
-        logger.error(f"Error generating demand letter for request {request_id}: {str(e)}")
-        return Response(
-            {"error": "Failed to generate demand letter. Please try again."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    from .liquidation_report_utils import (
+        generate_liquidation_report_data,
+        generate_liquidation_csv_report,
+        generate_liquidation_excel_report,
+        LiquidationReportPagination
+    )
+    from datetime import datetime
+
+    # Get filter parameters
+    status_filter = request.GET.get('status', 'all')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    legislative_district = request.GET.get('legislative_district')
+    municipality = request.GET.get('municipality')
+    school_district = request.GET.get('school_district')
+    school_ids = request.GET.get('school_ids')
+    export_format = request.GET.get('export')
+    page_size = request.GET.get('page_size', 50)
+
+    # Validate date format
+    if start_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid start_date format. Use YYYY-MM-DD"}, status=400)
+
+    if end_date:
+        try:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid end_date format. Use YYYY-MM-DD"}, status=400)
+
+    # Generate report data
+    report_data = generate_liquidation_report_data(
+        status_filter=status_filter,
+        start_date=start_date,
+        end_date=end_date,
+        legislative_district=legislative_district,
+        municipality=municipality,
+        school_district=school_district,
+        school_ids=school_ids
+    )
+
+    # Prepare filters for export
+    filters = {
+        'status': status_filter,
+        'start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
+        'end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
+        'legislative_district': legislative_district,
+        'municipality': municipality,
+        'school_district': school_district,
+        'school_ids': school_ids
+    }
+
+    # Handle export formats
+    if export_format == 'csv':
+        return generate_liquidation_csv_report(report_data, filters)
+    elif export_format == 'excel':
+        return generate_liquidation_excel_report(report_data, filters)
+
+    # Apply pagination for regular API response
+    paginator = LiquidationReportPagination()
+    paginator.page_size = int(page_size)
+    paginated_data = paginator.paginate_queryset(report_data, request)
+
+    # Calculate status counts for filters
+    status_counts = {}
+    for item in report_data:
+        status = item['status']
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    return paginator.get_paginated_response({
+        'results': paginated_data,
+        'total_count': len(report_data),
+        'filters': {
+            'status_filter': status_filter,
+            'start_date': filters['start_date'],
+            'end_date': filters['end_date'],
+            'legislative_district': legislative_district,
+            'municipality': municipality,
+            'school_district': school_district,
+            'school_ids': school_ids,
+            'status_counts': status_counts
+        }
+    })
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = '__all__'
+
+
+class AuditLogListView(generics.ListAPIView):
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
+
+    def get_queryset(self):
+        if not self.request.user.role == 'admin':
+            raise PermissionDenied("Only administrators can view audit logs")
+
+        queryset = AuditLog.objects.all().select_related('user')
+
+        # Filter by module
+        module = self.request.query_params.get('module')
+        if module:
+            queryset = queryset.filter(module=module)
+
+        # Filter by action
+        action = self.request.query_params.get('action')
+        if action:
+            queryset = queryset.filter(action=action)
+
+        # Filter by user
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        # Filter by date range
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        if start_date and end_date:
+            queryset = queryset.filter(timestamp__date__range=[
+                                       start_date, end_date])
+
+        # Search in description
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(description__icontains=search)
+
+        # Filter by object type
+        object_type = self.request.query_params.get('object_type')
+        if object_type:
+            queryset = queryset.filter(object_type=object_type)
+
+        # Filter by object ID
+        object_id = self.request.query_params.get('object_id')
+        if object_id:
+            queryset = queryset.filter(object_id=object_id)
+
+        return queryset.order_by('-timestamp')

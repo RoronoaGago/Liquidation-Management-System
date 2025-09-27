@@ -98,11 +98,24 @@ interface LiquidationReportTableProps {
   liquidations: Liquidation[];
   loading: boolean;
   refreshList: () => Promise<void>;
+  onView?: (liq: Liquidation) => Promise<void> | void;
+  // When false, hides only the component-level search input (keeps page-size control)
+  showSearchBar?: boolean;
+  // When false, hides the items-per-page selector control
+  showPageSizeControl?: boolean;
+  // Controlled items per page (if provided, internal control is hidden/ignored)
+  itemsPerPage?: number;
+  onItemsPerPageChange?: (value: number) => void;
 }
 
 const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   liquidations,
   refreshList,
+  onView,
+  showSearchBar = true,
+  showPageSizeControl = true,
+  itemsPerPage: controlledItemsPerPage,
+  onItemsPerPageChange,
 }) => {
   const [selected, setSelected] = useState<Liquidation | null>(null);
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
@@ -112,7 +125,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   const [viewDoc, setViewDoc] = useState<Document | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [uncontrolledItemsPerPage, setUncontrolledItemsPerPage] = useState(10);
+  const itemsPerPage = controlledItemsPerPage ?? uncontrolledItemsPerPage;
   const [currentPage, setCurrentPage] = useState(1);
   const [isEditingComment, setIsEditingComment] = useState(false); // Add this state
   const [sortConfig, setSortConfig] = useState<{
@@ -196,31 +210,17 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     return sortedLiquidations.slice(start, start + itemsPerPage);
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
-  // Replace the handleView function:
+  // View handler delegates to parent if provided; otherwise just navigate
   const handleView = async (liq: Liquidation) => {
     if (viewLoading) return;
     setViewLoading(liq.LiquidationID);
     try {
-      // Change status based on current status and user role
-      if (liq.status === "submitted") {
-        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-          status: "under_review_district",
-        });
-        await refreshList(); // Refresh the list to show new status
-      } else if (liq.status === "approved_district") {
-        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-          status: "under_review_liquidator",
-        });
-        await refreshList(); // Refresh the list to show new status
-      } else if (liq.status === "approved_liquidator") {
-        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-          status: "under_review_division",
-        });
-        await refreshList(); // Refresh the list to show new status
+      if (onView) {
+        await onView(liq);
       }
       navigate(`/liquidations/${liq.LiquidationID}`);
     } catch (err) {
-      toast.error("Failed to update status");
+      toast.error("Failed to open liquidation");
     } finally {
       setViewLoading(null);
     }
@@ -289,51 +289,60 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     <div>
       {/* Search and controls */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-        <div className="flex-1 relative">
-          <Input
-            type="text"
-            placeholder="Search liquidations..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full pl-10"
-          />
-          {/* Optional: Add a search icon inside the input */}
-          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-            <svg
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
+        {showSearchBar && (
+          <div className="flex-1 relative">
+            <Input
+              type="text"
+              placeholder="Search liquidations..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-10"
+            />
+            {/* Optional: Add a search icon inside the input */}
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <svg
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+            </span>
+          </div>
+        )}
+        {showPageSizeControl && (
+          <div className="flex gap-2 items-center mt-2 md:mt-0">
+            <label className="text-sm text-gray-600 dark:text-gray-400">
+              Items per page:
+            </label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (onItemsPerPageChange) {
+                  onItemsPerPageChange(next);
+                } else {
+                  setUncontrolledItemsPerPage(next);
+                }
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-md"
             >
-              <circle cx="11" cy="11" r="8" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-          </span>
-        </div>
-        <div className="flex gap-2 items-center mt-2 md:mt-0">
-          <label className="text-sm text-gray-600 dark:text-gray-400">
-            Items per page:
-          </label>
-          <select
-            value={itemsPerPage}
-            onChange={(e) => {
-              setItemsPerPage(Number(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-md"
-          >
-            {ITEMS_PER_PAGE_OPTIONS.map((num) => (
-              <option key={num} value={num}>
-                Show {num}
-              </option>
-            ))}
-          </select>
-        </div>
+              {ITEMS_PER_PAGE_OPTIONS.map((num) => (
+                <option key={num} value={num}>
+                  Show {num}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -545,12 +554,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                         }
                         onClick={() => handleView(liq)}
                         className="text-blue-600 p-0"
-                        disabled={
-                          liq.status === "resubmit" ||
-                          liq.status === "liquidated" ||
-                          liq.status === "completed" ||
-                          viewLoading === liq.LiquidationID
-                        }
+                        disabled={viewLoading === liq.LiquidationID}
                         loading={viewLoading === liq.LiquidationID}
                       >
                         {viewLoading === liq.LiquidationID

@@ -6,5 +6,6 @@ class ApiConfig(AppConfig):
     name = 'api'
 
     def ready(self):
-        print("API app ready!")  # Should see this when runserver starts
         import api.signals
+        import api.audit_signals
+        print("API app ready!")  # Should see this when runserver starts

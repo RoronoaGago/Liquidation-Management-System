@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -128,10 +131,12 @@ const getPriorityDiffs = (
 };
 
 const PriortySubmissionsPage = () => {
-  const [activeTab, setActiveTab] = useState<"pending" | "approved">("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
+  const location = useLocation();
+  const navigate = useNavigate();
   const [submissionHistory, setSubmissionHistory] = useState<
     HistoryItem[] | null
   >(null);
@@ -171,6 +176,7 @@ const PriortySubmissionsPage = () => {
     start_date: "",
     end_date: "",
   });
+  const [filterStatus, setFilterStatus] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   // Add these state variables near your other state declarations
 
@@ -200,13 +206,31 @@ const PriortySubmissionsPage = () => {
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
 
+  // In PriortySubmissionsPage.tsx - Update the fetchSubmissions function
+
   const fetchSubmissions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const status = activeTab === "pending" ? "pending" : "approved";
+      let statusParam: string;
+      let defaultOrdering = "-created_at"; // Default ordering
+
+      if (activeTab === "pending") {
+        statusParam = "pending";
+      } else if (activeTab === "history") {
+        // For history tab, get approved and later statuses, ordered by date_approved
+        statusParam = "approved,downloaded,unliquidated,liquidated";
+        // Order by date_approved descending to get latest approved at top
+        defaultOrdering = "-date_approved"; // Latest approved first
+      } else {
+        statusParam = "";
+      }
+
       const params: any = {
-        status,
+        status: statusParam,
+        ordering: sortConfig
+          ? `${sortConfig.direction === "desc" ? "-" : ""}${sortConfig.key}`
+          : defaultOrdering, // Use default ordering for history tab
       };
 
       // Add filters to params - backend will handle the complex filtering
@@ -233,6 +257,20 @@ const PriortySubmissionsPage = () => {
 
       const submissionsData = res.data.results || res.data || [];
       console.log("API response:", submissionsData); // Debug log
+
+      // For history tab, ensure it's sorted by date_approved descending
+      if (activeTab === "history") {
+        submissionsData.sort((a: any, b: any) => {
+          const aDate = a.date_approved
+            ? new Date(a.date_approved)
+            : new Date(0);
+          const bDate = b.date_approved
+            ? new Date(b.date_approved)
+            : new Date(0);
+          return bDate.getTime() - aDate.getTime(); // Latest first
+        });
+      }
+
       setSubmissionsState(submissionsData);
 
       // Fetch schools for display purposes (not filtering)
@@ -248,6 +286,13 @@ const PriortySubmissionsPage = () => {
     }
   };
   useEffect(() => {
+    setFilterOptions((prev) => ({
+      ...prev,
+      status: filterStatus,
+    }));
+    setCurrentPage(1);
+  }, [filterStatus]);
+  useEffect(() => {
     fetchSubmissions();
   }, [
     activeTab,
@@ -259,6 +304,18 @@ const PriortySubmissionsPage = () => {
     filterOptions.municipality,
     filterOptions.searchTerm, // Add this since it's backend filtered now
   ]);
+
+  // Auto-open a specific request modal when navigated with state { requestId }
+  useEffect(() => {
+    const requestId = (location.state as any)?.requestId as string | undefined;
+    if (!requestId) return;
+    const match = submissionsState.find((s) => s.request_id === requestId);
+    if (match) {
+      setViewedSubmission(match);
+      // Clear state so it doesn't reopen on close/back
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, submissionsState, navigate, location.pathname]);
   useEffect(() => {
     // Update municipality options when legislative district changes
     if (
@@ -383,6 +440,13 @@ const PriortySubmissionsPage = () => {
     }));
     setCurrentPage(1);
   }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
+  // Update sortConfig when activeTab changes
+  useEffect(() => {
+    setSortConfig({
+      key: activeTab === "history" ? "date_approved" : "created_at",
+      direction: "desc",
+    });
+  }, [activeTab]);
   // Approve handler
   const handleApprove = async (submission: Submission) => {
     setActionLoading("approve");
@@ -510,11 +574,15 @@ const PriortySubmissionsPage = () => {
   }, [filteredSubmissions, sortConfig]);
 
   const requestSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key) {
-      direction = sortConfig.direction === "asc" ? "desc" : "asc";
-    }
-    setSortConfig({ key, direction });
+    setSortConfig((prev) => {
+      if (prev && prev.key === key) {
+        return {
+          key,
+          direction: prev.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return { key, direction: "desc" };
+    });
   };
 
   // Pagination
@@ -567,7 +635,7 @@ const PriortySubmissionsPage = () => {
       : diffs.filter((d) => d.change !== "unchanged");
     return (
       <div>
-        <div className="flex items-center mb-2 gap-2">
+        <div className="flex items-center mb-2 gap-2 ml-2">
           <FileDiff className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <span className="font-semibold text-blue-800 dark:text-blue-200">
             Resubmission Changes
@@ -744,14 +812,15 @@ const PriortySubmissionsPage = () => {
       status: "",
       school: "",
       district: "",
-      legislative_district: "", // Add this
-      municipality: "", // Add this
+      legislative_district: "",
+      municipality: "",
       start_date: "",
       end_date: "",
     });
     setFilterLegislativeDistrict("");
     setFilterMunicipality("");
     setFilterDistrict("");
+    setFilterStatus(""); // Add this line
     setCurrentPage(1);
   };
 
@@ -773,13 +842,13 @@ const PriortySubmissionsPage = () => {
         </button>
         <button
           className={`px-4 py-2 font-medium ${
-            activeTab === "approved"
+            activeTab === "history"
               ? "text-blue-600 border-b-2 border-blue-600"
               : "text-gray-500"
           }`}
-          onClick={() => setActiveTab("approved")}
+          onClick={() => setActiveTab("history")}
         >
-          Approved Requests
+          Request History
         </button>
       </div>
 
@@ -834,6 +903,27 @@ const PriortySubmissionsPage = () => {
         {/* School-based Filters - Similar to ManageSchools */}
         {showFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            {/* Status Filter - Only show in history tab */}
+            {activeTab === "history" && (
+              <div className="space-y-2">
+                <Label htmlFor="filter-status" className="text-sm font-medium">
+                  Status
+                </Label>
+                <select
+                  id="filter-status"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="approved">Approved</option>
+                  <option value="downloaded">Downloaded</option>
+                  <option value="unliquidated">Unliquidated</option>
+                  <option value="liquidated">Liquidated</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            )}
             {/* Legislative District Filter */}
             <div className="space-y-2">
               <Label
@@ -950,6 +1040,7 @@ const PriortySubmissionsPage = () => {
                     start_date: "",
                     end_date: "",
                   }));
+                  setFilterStatus(""); // Add this line
                 }}
                 startIcon={<X className="size-4" />}
               >
@@ -967,6 +1058,7 @@ const PriortySubmissionsPage = () => {
         loading={loading}
         error={error}
         sortConfig={sortConfig}
+        activeTab={activeTab}
         requestSort={requestSort}
         currentUserRole={user?.role}
       />
@@ -1139,46 +1231,81 @@ const PriortySubmissionsPage = () => {
                 submissionHistory &&
                 submissionHistory.length > 1 &&
                 getPreviousRejected(submissionHistory) && (
-                  <div className="border border-blue-200 dark:border-blue-900/30 rounded-lg p-4 bg-blue-50/50 dark:bg-blue-900/10 shadow-sm">
-                    <div className="mb-2 flex items-center gap-2">
-                      <Info className="h-4 w-4 text-blue-700" />
-                      <span className="font-medium text-blue-800 dark:text-blue-200">
-                        This is a resubmission. Below is a comparison with the
-                        previous version.
-                      </span>
-                    </div>
-                    {/* Summary of the previous rejection */}
-                    <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangleIcon className="h-5 w-5 text-yellow-500" />
-                        <span className="font-medium text-yellow-800 dark:text-yellow-200">
-                          Previous Rejection:
-                        </span>
-                        <span className="text-xs text-gray-500 ml-2">
-                          {formatDateString(
-                            getPreviousRejected(submissionHistory)
-                              ?.rejection_date
-                          )}
-                        </span>
+                  <div className="border border-blue-200/80 dark:border-blue-800 rounded-xl p-5 bg-gradient-to-br from-blue-50/80 to-blue-100/30 dark:from-blue-950/20 dark:to-blue-900/10 shadow-sm backdrop-blur-sm">
+                    {/* Header Section */}
+                    <div className="flex items-start gap-3 mb-4 p-3 bg-white/50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-800/50">
+                      <div className="flex-shrink-0 w-5 h-5 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
+                        <Info className="h-3 w-3 text-blue-600 dark:text-blue-300" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 rounded-full">
-                          Reason:
+                      <div>
+                        <span className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
+                          Resubmission Notice
                         </span>
-                        <span className="italic text-yellow-900 dark:text-yellow-200">
-                          {
-                            getPreviousRejected(submissionHistory)
-                              ?.rejection_comment
-                          }
-                        </span>
+                        <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
+                          This is a resubmission. Below is a comparison with the
+                          previous version.
+                        </p>
                       </div>
                     </div>
-                    {/* Diff table */}
-                    <HistoryComparisonTable
-                      prev={getPreviousRejected(submissionHistory)?.priorities}
-                      curr={submissionHistory[0]?.priorities}
-                      showAll={showAllDiffs}
-                    />
+
+                    {/* Rejection Summary Card */}
+                    <div className="mb-5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="flex-shrink-0 w-6 h-6 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                          <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <span className="font-semibold text-amber-900 dark:text-amber-200 text-sm uppercase tracking-wide">
+                          Previous Rejection Summary
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-900/30 px-2 py-1 rounded">
+                              Date Rejected
+                            </span>
+                            <span className="text-sm text-amber-900 dark:text-amber-200 font-medium">
+                              {formatDateString(
+                                getPreviousRejected(submissionHistory)
+                                  ?.rejection_date
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-900/30 px-2 py-1 rounded flex-shrink-0">
+                              Reason
+                            </span>
+                            <span className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+                              {
+                                getPreviousRejected(submissionHistory)
+                                  ?.rejection_comment
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Comparison Section */}
+                    <div className="bg-white/30 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-800/30 rounded-lg p-1">
+                      <div className="flex items-center justify-between p-3 border-b border-blue-100 dark:border-blue-800/30">
+                        <span className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
+                          Version Comparison
+                        </span>
+                        {/* Optional: Add a toggle button here if needed */}
+                      </div>
+                      <HistoryComparisonTable
+                        prev={
+                          getPreviousRejected(submissionHistory)?.priorities
+                        }
+                        curr={submissionHistory[0]?.priorities}
+                        showAll={showAllDiffs}
+                      />
+                    </div>
                   </div>
                 )
               )}
@@ -1293,27 +1420,24 @@ const PriortySubmissionsPage = () => {
                   type="button"
                   variant="outline"
                   onClick={async () => {
-                    if (viewedSubmission.status === "approved") {
-                      // Use server-side PDF generation for approved requests
-                      const result = await handleServerSideExport(viewedSubmission);
-                      if (result.success) {
-                        toast.success(result.message || "PDF generated successfully!");
-                      } else {
-                        toast.error(result.error || "Failed to generate PDF");
-                      }
-                    } else {
-                      // Use legacy client-side generation for non-approved requests
-                      handleExport(
-                        viewedSubmission,
-                        user?.first_name || "user",
-                        user?.last_name || "name"
+                    // Use server-side PDF generation for approved requests
+                    const result = await handleServerSideExport(
+                      viewedSubmission
+                    );
+                    if (result.success) {
+                      toast.success(
+                        result.message || "PDF generated successfully!"
                       );
+                    } else {
+                      toast.error(result.error || "Failed to generate PDF");
                     }
                   }}
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  {viewedSubmission.status === "approved" ? "Download Official PDF" : "Export PDF"}
+                  {viewedSubmission.status === "pending"
+                    ? "Export PDF"
+                    : "Download Official PDF"}
                 </Button>
 
                 {viewedSubmission.status === "pending" && (

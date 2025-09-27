@@ -1229,118 +1229,107 @@ const LiquidationPage = () => {
 
                         {/* Uploaded Requirements */}
                         {uploadedReqs.length > 0 &&
-                          uploadedReqs
-                            .filter((req) => {
-                              const doc = getUploadedDocument(
-                                expense.id,
-                                req.requirementID
-                              );
-                              return (
-                                doc &&
-                                (request.status !== "resubmit" ||
-                                  doc.is_approved === false)
-                              );
-                            })
-                            .map((req) => {
-                              const uploadedDoc = getUploadedDocument(
-                                expense.id,
-                                req.requirementID
-                              );
-                              return (
-                                <div
-                                  key={`uploaded-${expense.id}-${req.requirementID}`}
-                                  id={`requirement-${expense.id}-${req.requirementID}`}
-                                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg ${
-                                    uploadedDoc?.is_approved === false
-                                      ? "bg-red-50 dark:bg-red-900/10 border-l-4 border-red-400"
-                                      : "bg-gray-50 dark:bg-gray-700/30"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex-shrink-0">
-                                      {uploadedDoc?.is_approved === false ? (
-                                        <AlertCircle className="h-5 w-5 text-red-500" />
+                          uploadedReqs.map((req) => {
+                            const uploadedDoc = getUploadedDocument(
+                              expense.id,
+                              req.requirementID
+                            );
+                            if (!uploadedDoc) return null;
+                            return (
+                              <div
+                                key={`uploaded-${expense.id}-${req.requirementID}`}
+                                id={`requirement-${expense.id}-${req.requirementID}`}
+                                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg ${
+                                  uploadedDoc?.is_approved === false
+                                    ? "bg-red-50 dark:bg-red-900/10 border-l-4 border-red-400"
+                                    : "bg-gray-50 dark:bg-gray-700/30"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0">
+                                    {uploadedDoc?.is_approved === false ? (
+                                      <AlertCircle className="h-5 w-5 text-red-500" />
+                                    ) : (
+                                      <CheckCircle className="h-5 w-5 text-green-500" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900 dark:text-white">
+                                      {req.requirementTitle}
+                                    </p>
+                                    <div className="flex gap-2 mt-1">
+                                      {req.is_required ? (
+                                        <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
+                                          Required
+                                        </span>
                                       ) : (
-                                        <CheckCircle className="h-5 w-5 text-green-500" />
+                                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
+                                          Optional
+                                        </span>
                                       )}
                                     </div>
-                                    <div>
-                                      <p className="font-medium text-gray-900 dark:text-white">
-                                        {req.requirementTitle}
-                                      </p>
-                                      <div className="flex gap-2 mt-1">
-                                        {req.is_required ? (
-                                          <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
-                                            Required
-                                          </span>
-                                        ) : (
-                                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
-                                            Optional
-                                          </span>
-                                        )}
-                                      </div>
 
-                                      {uploadedDoc?.is_approved === false && (
-                                        <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/10 rounded">
-                                          <div className="flex items-start gap-2">
-                                            <div>
-                                              <p className="text-sm font-medium text-red-700 dark:text-red-300">
-                                                Rejected:{" "}
-                                                {uploadedDoc.reviewer_comment}
-                                              </p>
-                                              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                                Please re-upload a revised
-                                                version.
-                                              </p>
-                                            </div>
+                                    {uploadedDoc?.is_approved === false && (
+                                      <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/10 rounded">
+                                        <div className="flex items-start gap-2">
+                                          <div>
+                                            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                                              Rejected:{" "}
+                                              {uploadedDoc.reviewer_comment}
+                                            </p>
+                                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                              Please re-upload a revised
+                                              version.
+                                            </p>
                                           </div>
                                         </div>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        removeFile(
-                                          String(expense.id),
-                                          String(req.requirementID)
-                                        )
-                                      }
-                                      disabled={
-                                        request.status !== "draft" &&
-                                        request.status !== "resubmit"
-                                      }
-                                    >
-                                      Remove
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      startIcon={
-                                        <DownloadIcon className="h-4 w-4" />
-                                      }
-                                      onClick={() => {
-                                        if (uploadedDoc?.document_url) {
-                                          window.open(
-                                            uploadedDoc.document_url,
-                                            "_blank"
-                                          );
-                                        } else {
-                                          toast.info(
-                                            `No file available for ${req.requirementTitle}`
-                                          );
-                                        }
-                                      }}
-                                    >
-                                      View
-                                    </Button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-                              );
-                            })}
+
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      removeFile(
+                                        String(expense.id),
+                                        String(req.requirementID)
+                                      )
+                                    }
+                                    disabled={
+                                      request.status !== "draft" &&
+                                      request.status !== "resubmit"
+                                    }
+                                  >
+                                    Remove
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    startIcon={
+                                      <DownloadIcon className="h-4 w-4" />
+                                    }
+                                    onClick={() => {
+                                      if (uploadedDoc?.document_url) {
+                                        window.open(
+                                          uploadedDoc.document_url,
+                                          "_blank"
+                                        );
+                                      } else {
+                                        toast.info(
+                                          `No file available for ${req.requirementTitle}`
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    View
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
                       </div>
                     </div>
                   </div>
