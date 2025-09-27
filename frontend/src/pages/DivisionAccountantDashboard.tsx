@@ -64,6 +64,7 @@ interface DashboardMetrics {
   totalAmountPendingLiquidations: number;
   totalApprovedRequests: number;
   completionRate: number;
+  totalRefundAmount: number;
 }
 
 interface ApprovedRequest {
@@ -125,19 +126,7 @@ const DivisionAccountantDashboard = () => {
       }
 
       // Expense categories from admin dashboard (may 403 for non-admin users)
-      try {
-        const adminRes = await api.get("admin-dashboard/");
-        const categorySpending = adminRes.data?.categorySpending || [];
-        expenseStatistics = categorySpending.map((c: any) => ({
-          category: c.category,
-          amount: Number(c.totalAmount || 0),
-          percentage: Number(c.percentage || 0),
-          count: Number(c.frequency || 0),
-          trend: (c.trend || "stable") as "up" | "down" | "stable",
-        }));
-      } catch (e) {
-        console.warn("Admin dashboard not available; skipping expense stats", e);
-      }
+      // Removed - using client-side calculation from all requests instead
 
       // Requests to download table (approved requests only, newest first)
       try {
@@ -152,17 +141,35 @@ const DivisionAccountantDashboard = () => {
           totalAmount: (r.priorities || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0),
           createdAt: r.created_at,
         }));
+      } catch (e) {
+        console.warn("Failed to fetch approved requests", e);
+      }
 
-        // Build "Most Used Priorities" (top 5 by usage count) for the chart legend
-        const priorityCounts: Record<string, number> = {};
-        for (const r of reqs) {
-          const rps = Array.isArray(r.priorities) ? r.priorities : [];
-          for (const p of rps) {
-            const title = p?.priority?.expenseTitle || "Unknown";
-            priorityCounts[title] = (priorityCounts[title] || 0) + 1;
+      // Fetch all request priorities to count most used priorities (regardless of request status)
+      try {
+        // Get all requests with their priorities to count usage
+        const allRequestsRes = await api.get("requests/", {
+          params: { ordering: "-created_at" },
+        });
+        const allRequests = (allRequestsRes.data?.results || allRequestsRes.data || []) as any[];
+        
+        // Extract all priorities from all requests
+        const allPriorities: any[] = [];
+        for (const request of allRequests) {
+          if (request.priorities && Array.isArray(request.priorities)) {
+            allPriorities.push(...request.priorities);
           }
         }
+        
+        // Count priorities by expenseTitle
+        const priorityCounts: Record<string, number> = {};
+        for (const p of allPriorities) {
+          const title = p?.priority?.expenseTitle || "Unknown";
+          priorityCounts[title] = (priorityCounts[title] || 0) + 1;
+        }
+        
         const totalCount = Object.values(priorityCounts).reduce((s, n) => s + n, 0);
+        
         const topFive = Object.entries(priorityCounts)
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5)
@@ -175,7 +182,20 @@ const DivisionAccountantDashboard = () => {
           }));
         expenseStatistics = topFive;
       } catch (e) {
-        console.warn("Failed to fetch approved requests", e);
+        console.warn("Failed to fetch request priorities", e);
+      }
+
+      // Ensure we have some data for the pie chart
+      if (!expenseStatistics || expenseStatistics.length === 0) {
+        expenseStatistics = [
+          {
+            category: "No data available",
+            amount: 0,
+            percentage: 100,
+            count: 0,
+            trend: "stable" as const,
+          }
+        ];
       }
 
       // Completed liquidations (status=liquidated)
@@ -189,6 +209,28 @@ const DivisionAccountantDashboard = () => {
         console.warn("Failed to fetch completed liquidations", e);
       }
 
+      // Calculate total amount pending liquidation (similar to SchoolHeadDashboard approach)
+      let totalAmountPendingLiquidations = 0;
+      try {
+        // Get all requests to calculate total downloaded amounts
+        const allRequestsRes = await api.get("requests/", {
+          params: { ordering: "-created_at" },
+        });
+        const allRequests = (allRequestsRes.data?.results || allRequestsRes.data || []) as any[];
+        
+        // Calculate total downloaded amount from all requests (similar to SchoolHeadDashboard)
+        totalAmountPendingLiquidations = allRequests.reduce((sum: number, request: any) => {
+          const requestAmount = (request.priorities || []).reduce((reqSum: number, p: any) => {
+            return reqSum + Number(p.amount || 0);
+          }, 0);
+          return sum + requestAmount;
+        }, 0);
+        
+        console.log("Total amount from all requests:", totalAmountPendingLiquidations);
+      } catch (e) {
+        console.warn("Failed to fetch requests for amount calculation", e);
+      }
+
       const pendingCount = pendingLiquidations.length;
       const completionRate = (completedCount + pendingCount) > 0
         ? (completedCount / (completedCount + pendingCount)) * 100
@@ -200,9 +242,10 @@ const DivisionAccountantDashboard = () => {
         approvedRequests,
         dashboardMetrics: {
           totalPendingLiquidations: pendingLiquidations.length,
-          totalAmountPendingLiquidations: pendingLiquidations.reduce((s, x) => s + (Number(x.totalAmount) || 0), 0),
+          totalAmountPendingLiquidations,
           totalApprovedRequests: approvedRequests.length,
           completionRate,
+          totalRefundAmount: totalAmountPendingLiquidations, // Use the same value for now
         },
       });
     } catch (error) {
@@ -216,6 +259,7 @@ const DivisionAccountantDashboard = () => {
           totalAmountPendingLiquidations: 0,
           totalApprovedRequests: 0,
           completionRate: 0,
+          totalRefundAmount: 0,
         },
       });
     } finally {
@@ -327,7 +371,7 @@ const DivisionAccountantDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">₱{(data?.dashboardMetrics.totalAmountPendingLiquidations || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Total amount awaiting liquidation</p>
+            <p className="text-xs text-muted-foreground">Total amount from all requests (initial cash advance)</p>
           </CardContent>
         </Card>
 
