@@ -99,7 +99,9 @@ const ManageSchools = () => {
     requiredFields.every((field) => {
       const value = formData[field as keyof SchoolFormData];
       return typeof value === "string" ? value.trim() !== "" : value !== "";
-    }) && Object.keys(errors).length === 0;
+    }) && 
+    /^\d+$/.test(formData.schoolId) && // School ID must be numbers only
+    Object.keys(errors).length === 0;
 
   // Fetch schools from backend with pagination, filtering, sorting
   const fetchSchools = async () => {
@@ -109,8 +111,9 @@ const ManageSchools = () => {
       const params: any = {
         page: currentPage,
         page_size: itemsPerPage,
-        archived: showArchived,
+        archived: showArchived.toString(),
       };
+      console.log("Fetching schools with params:", params);
       if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
       if (filterOptions.legislative_district)
         params.legislative_district = filterOptions.legislative_district;
@@ -131,7 +134,8 @@ const ManageSchools = () => {
       ]);
 
       const schoolsData = schoolsResponse.data.results || schoolsResponse.data;
-      console.log(schoolsData);
+      console.log("Schools data received:", schoolsData);
+      console.log("Show archived:", showArchived);
       const districtsData =
         districtsResponse.data.results || districtsResponse.data;
       console.log(districtsData);
@@ -147,7 +151,7 @@ const ManageSchools = () => {
         ) => {
           acc[district.districtId] = {
             districtName: district.districtName,
-            is_active: district.is_active,
+            is_active: district.is_active ?? true, // Default to true if undefined
           };
           return acc;
         },
@@ -270,7 +274,17 @@ const ManageSchools = () => {
 
     debounceTimeout.current = setTimeout(() => {
       const newErrors = { ...errors };
-      if (requiredFields.includes(name) && !value.trim()) {
+      
+      // School ID validation - only numbers
+      if (name === "schoolId") {
+        if (!value.trim()) {
+          newErrors[name] = "This field is required.";
+        } else if (!/^\d+$/.test(value)) {
+          newErrors[name] = "School ID must contain only numbers.";
+        } else {
+          delete newErrors[name];
+        }
+      } else if (requiredFields.includes(name) && !value.trim()) {
         newErrors[name] = "This field is required.";
       } else {
         delete newErrors[name];
@@ -289,6 +303,11 @@ const ManageSchools = () => {
         finalErrors[field] = "This field is required.";
       }
     });
+    
+    // Additional validation for school ID
+    if (!/^\d+$/.test(formData.schoolId)) {
+      finalErrors.schoolId = "School ID must contain only numbers.";
+    }
 
     setErrors(finalErrors);
 
@@ -449,9 +468,11 @@ const ManageSchools = () => {
                     id="schoolId"
                     name="schoolId"
                     className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="School ID"
+                    placeholder="School ID (numbers only)"
                     value={formData.schoolId}
                     onChange={handleChange}
+                    pattern="[0-9]*"
+                    inputMode="numeric"
                   />
                   {errors.schoolId && (
                     <p className="text-red-500 text-sm">{errors.schoolId}</p>
