@@ -19,7 +19,8 @@ import { FileText, CheckCircle, TrendingUp, School, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import  Badge  from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
-// Using dummy data for demo purposes; no backend calls needed
+import api from "@/api/axios";
+import { useNavigate } from "react-router-dom";
 
 // Types for our data
 interface DashboardData {
@@ -27,12 +28,12 @@ interface DashboardData {
   divisionCompletion: DivisionCompletionData;
   liquidationTimeline: LiquidationTimelineData[];
   schoolPerformance: SchoolPerformanceData[];
-  documentCompliance: DocumentComplianceData[];
   adaAvgApprovalDays: number;
 }
 
 interface PendingLiquidation {
   id: string;
+  liquidationId: string;
   schoolName: string;
   schoolId: string;
   submittedDate: string;
@@ -70,84 +71,12 @@ interface SchoolPerformanceData {
   budgetUtilization: number;
 }
 
-interface DocumentComplianceData {
-  requirement: string;
-  totalSubmitted: number;
-  compliant: number;
-  complianceRate: number;
-}
-
 const COLORS = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"];
-
-const DUMMY_DATA: DashboardData = {
-  pendingLiquidations: [
-    {
-      id: "LQ-001",
-      schoolName: "San Isidro Elementary School",
-      schoolId: "300123",
-      submittedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "under_review",
-      amount: 125000,
-      priorityCount: 3,
-      documentCount: 8,
-      daysSinceSubmission: 3,
-    },
-    {
-      id: "LQ-002",
-      schoolName: "Mabini High School",
-      schoolId: "300456",
-      submittedDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "submitted",
-      amount: 98000,
-      priorityCount: 2,
-      documentCount: 6,
-      daysSinceSubmission: 8,
-    },
-    {
-      id: "LQ-003",
-      schoolName: "Bonifacio Integrated School",
-      schoolId: "300789",
-      submittedDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "under_review",
-      amount: 210500,
-      priorityCount: 4,
-      documentCount: 10,
-      daysSinceSubmission: 14,
-    },
-  ],
-  divisionCompletion: {
-    totalSchools: 45,
-    schoolsWithLiquidation: 38,
-    approvedLiquidations: 22,
-    pendingLiquidations: 11,
-    rejectedLiquidations: 5,
-    completionRate: Math.round((38 / 45) * 100),
-  },
-  liquidationTimeline: [
-    { month: "Jan", submitted: 12, approved: 8, rejected: 2, avgProcessingTime: 7 },
-    { month: "Feb", submitted: 15, approved: 10, rejected: 1, avgProcessingTime: 6 },
-    { month: "Mar", submitted: 18, approved: 12, rejected: 3, avgProcessingTime: 8 },
-    { month: "Apr", submitted: 14, approved: 9, rejected: 2, avgProcessingTime: 7 },
-    { month: "May", submitted: 20, approved: 15, rejected: 1, avgProcessingTime: 6 },
-    { month: "Jun", submitted: 16, approved: 11, rejected: 2, avgProcessingTime: 7 },
-  ],
-  schoolPerformance: [
-    { schoolId: "300123", schoolName: "San Isidro ES", totalRequests: 10, approvedRequests: 8, rejectionRate: 10, avgProcessingTime: 6, budgetUtilization: 85 },
-    { schoolId: "300456", schoolName: "Mabini HS", totalRequests: 12, approvedRequests: 9, rejectionRate: 8, avgProcessingTime: 7, budgetUtilization: 78 },
-    { schoolId: "300789", schoolName: "Bonifacio IS", totalRequests: 8, approvedRequests: 6, rejectionRate: 12, avgProcessingTime: 5, budgetUtilization: 90 },
-    { schoolId: "300321", schoolName: "Rizal ES", totalRequests: 9, approvedRequests: 7, rejectionRate: 11, avgProcessingTime: 6, budgetUtilization: 82 },
-  ],
-  documentCompliance: [
-    { requirement: "Receipts", totalSubmitted: 40, compliant: 36, complianceRate: 90 },
-    { requirement: "SOAs", totalSubmitted: 38, compliant: 34, complianceRate: 89 },
-    { requirement: "Travel Orders", totalSubmitted: 30, compliant: 27, complianceRate: 90 },
-  ],
-  adaAvgApprovalDays: 4,
-};
 
 const DivisionDistrictAdaDashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   
 
   useEffect(() => {
@@ -156,54 +85,134 @@ const DivisionDistrictAdaDashboard = () => {
 
   const fetchDashboardData = async () => {
     setLoading(true);
-    // Simulate network latency
-    setTimeout(() => {
-      setData(DUMMY_DATA);
-      setLoading(false);
-    }, 600);
-  };
+    try {
+      // Fetch all liquidations for district ADA
+      const liquidationsRes = await api.get("liquidations/", {
+        params: { page_size: 1000 }
+      });
+      const liquidations = liquidationsRes.data?.results || liquidationsRes.data || [];
 
-  const handleApproveLiquidation = async (liquidationId: string) => {
-    // Update local state to reflect approval
-    setData((prev) => {
-      if (!prev) return prev;
-      const remaining = prev.pendingLiquidations.filter((l) => l.id !== liquidationId);
-      const approvedLiquidations = prev.divisionCompletion.approvedLiquidations + 1;
-      const pendingLiquidations = Math.max(prev.divisionCompletion.pendingLiquidations - 1, 0);
-      return {
-        ...prev,
-        pendingLiquidations: remaining,
+      // Fetch all schools
+      const schoolsRes = await api.get("schools/", {
+        params: { page_size: 1000 }
+      });
+      const schools = schoolsRes.data?.results || schoolsRes.data || [];
+
+      // Fetch all requests for timeline and performance data
+      const requestsRes = await api.get("requests/", {
+        params: { page_size: 1000 }
+      });
+      const requests = requestsRes.data?.results || requestsRes.data || [];
+
+      // Process pending liquidations (status: submitted, under_review_district, under_review_liquidator)
+      const pendingLiquidations: PendingLiquidation[] = liquidations
+        .filter((l: any) => ['submitted', 'under_review_district', 'under_review_liquidator'].includes(l.status))
+        .map((l: any) => {
+          const request = l.request;
+          const schoolName = request?.user?.school?.schoolName || "";
+          const schoolId = request?.user?.school?.schoolId || "";
+          const totalAmount = (l.liquidation_priorities || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+          const submittedDate = l.created_at || request?.created_at || "";
+          const daysSinceSubmission = submittedDate ? Math.max(0, Math.round((Date.now() - new Date(submittedDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+          
+          return {
+            id: String(l.LiquidationID),
+            liquidationId: l.LiquidationID,
+            schoolName,
+            schoolId,
+            submittedDate,
+            status: l.status,
+            amount: totalAmount,
+            priorityCount: (l.liquidation_priorities || []).length,
+            documentCount: (l.documents || []).length,
+            daysSinceSubmission,
+          };
+        });
+
+      // Calculate division completion data
+      const totalSchools = schools.length;
+      const schoolsWithLiquidations = new Set(liquidations.map((l: any) => l.request?.user?.school?.schoolId).filter(Boolean)).size;
+      const approvedLiquidations = liquidations.filter((l: any) => l.status === 'liquidated').length;
+      const pendingLiquidationsCount = pendingLiquidations.length;
+      const rejectedLiquidations = liquidations.filter((l: any) => l.status === 'resubmit').length;
+      const completionRate = totalSchools > 0 ? Math.round((schoolsWithLiquidations / totalSchools) * 100) : 0;
+
+      // Generate liquidation timeline (last 6 months)
+      const liquidationTimeline: LiquidationTimelineData[] = [];
+      const currentDate = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        const month = date.toLocaleDateString('en-US', { month: 'short' });
+        
+        const monthLiquidations = liquidations.filter((l: any) => {
+          const liquidationDate = new Date(l.created_at);
+          return liquidationDate.getMonth() === date.getMonth() && liquidationDate.getFullYear() === date.getFullYear();
+        });
+
+        const submitted = monthLiquidations.length;
+        const approved = monthLiquidations.filter((l: any) => l.status === 'liquidated').length;
+        const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
+        const avgProcessingTime = submitted > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
+          const created = new Date(l.created_at);
+          const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
+          return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+        }, 0) / submitted) : 0;
+
+        liquidationTimeline.push({
+          month,
+          submitted,
+          approved,
+          rejected,
+          avgProcessingTime,
+        });
+      }
+
+
+      // Calculate average ADA approval days
+      const adaApprovalDays = liquidations.length > 0 ? Math.round(liquidations.reduce((sum: number, l: any) => {
+        const created = new Date(l.created_at);
+        const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
+        return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+      }, 0) / liquidations.length) : 0;
+
+      const dashboardData: DashboardData = {
+        pendingLiquidations,
         divisionCompletion: {
-          ...prev.divisionCompletion,
+          totalSchools,
+          schoolsWithLiquidation: schoolsWithLiquidations,
           approvedLiquidations,
-          pendingLiquidations,
-          schoolsWithLiquidation: prev.divisionCompletion.schoolsWithLiquidation,
-          completionRate: prev.divisionCompletion.completionRate,
+          pendingLiquidations: pendingLiquidationsCount,
+          rejectedLiquidations,
+          completionRate,
         },
+        liquidationTimeline,
+        schoolPerformance: [],
+        adaAvgApprovalDays: adaApprovalDays,
       };
-    });
+
+      setData(dashboardData);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      // Set empty data on error
+      setData({
+        pendingLiquidations: [],
+        divisionCompletion: {
+          totalSchools: 0,
+          schoolsWithLiquidation: 0,
+          approvedLiquidations: 0,
+          pendingLiquidations: 0,
+          rejectedLiquidations: 0,
+          completionRate: 0,
+        },
+        liquidationTimeline: [],
+        schoolPerformance: [],
+        adaAvgApprovalDays: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRejectLiquidation = async (liquidationId: string, _reason: string) => {
-    // Update local state to reflect rejection
-    setData((prev) => {
-      if (!prev) return prev;
-      const remaining = prev.pendingLiquidations.filter((l) => l.id !== liquidationId);
-      const rejectedLiquidations = prev.divisionCompletion.rejectedLiquidations + 1;
-      const pendingLiquidations = Math.max(prev.divisionCompletion.pendingLiquidations - 1, 0);
-      return {
-        ...prev,
-        pendingLiquidations: remaining,
-        divisionCompletion: {
-          ...prev.divisionCompletion,
-          rejectedLiquidations,
-          pendingLiquidations,
-          schoolsWithLiquidation: prev.divisionCompletion.schoolsWithLiquidation,
-          completionRate: prev.divisionCompletion.completionRate,
-        },
-      };
-    });
-  };
 
   if (loading) {
     return (
@@ -322,14 +331,33 @@ const DivisionDistrictAdaDashboard = () => {
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
-                    label={(props: any) => `${props.name}: ${(props.percent * 100).toFixed(0)}%`}
+                    label={false}
                   >
                     {COLORS.map((color, index) => (
                       <Cell key={`cell-${index}`} fill={color} />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [
+                      `${value} schools`,
+                      name
+                    ]}
+                    contentStyle={{
+                      backgroundColor: "#fff",
+                      border: "1px solid #E4E7EC",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                  <Legend 
+                    formatter={(value, entry) => {
+                      const payload: any = entry && (entry as any).payload;
+                      const total = (data?.divisionCompletion.totalSchools || 0);
+                      const count = payload?.value || 0;
+                      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                      return `${value}: ${percentage}%`;
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -419,36 +447,24 @@ const DivisionDistrictAdaDashboard = () => {
                         color={
                           liquidation.status === "submitted"
                             ? "secondary"
-                            : liquidation.status === "under_review"
+                            : liquidation.status === "under_review_district"
                             ? "primary"
+                            : liquidation.status === "under_review_liquidator"
+                            ? "warning"
                             : "success"
                         }
                       >
-                        {liquidation.status.replace("_", " ")}
+                        {liquidation.status.replace(/_/g, " ")}
                       </Badge>
                     </td>
                     <td className="p-3">
                       <div className="flex space-x-2">
                         <Button
                           size="sm"
-                          onClick={() => handleApproveLiquidation(liquidation.id)}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
                           variant="outline"
-                          onClick={() => {
-                            const reason = prompt("Please provide a reason for rejection:");
-                            if (reason) {
-                              handleRejectLiquidation(liquidation.id, reason);
-                            }
-                          }}
+                          onClick={() => navigate("/pre-auditing", { state: { liquidationId: liquidation.liquidationId } })}
                         >
-                          Reject
-                        </Button>
-                        <Button size="sm" variant="ghost">
-                          <FileText className="h-4 w-4" />
+                          View
                         </Button>
                       </div>
                     </td>
@@ -467,28 +483,6 @@ const DivisionDistrictAdaDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* School Performance */}
-      <Card>
-        <CardHeader>
-          <CardTitle>School Performance</CardTitle>
-        </CardHeader>
-          <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.schoolPerformance || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="schoolName" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="approvedRequests" fill="#465FFF" name="Approved liquidation reports" />
-                <Bar dataKey="avgProcessingTime" fill="#00C49F" name="Average Liquidation Time (days)" />
-                <Bar dataKey="budgetUtilization" fill="#FFBB28" name="Report Completion (%)" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

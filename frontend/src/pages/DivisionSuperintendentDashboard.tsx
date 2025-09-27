@@ -131,6 +131,7 @@ const MOOERequestsWidget = ({
 
 const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
   const distribution = data?.requestStatusDistribution || [];
+  const totalCount = distribution.reduce((sum, item) => sum + item.count, 0);
 
   return (
     <Card>
@@ -138,6 +139,9 @@ const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
         <CardTitle className="text-lg font-semibold text-gray-800">
           MOOE Requests Status Breakdown
         </CardTitle>
+        <p className="text-sm text-gray-500">
+          Total requests from api_requestmanagement: {totalCount}
+        </p>
       </CardHeader>
       <CardContent>
         <div className="h-64">
@@ -151,17 +155,24 @@ const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
                 fill="#8884d8"
                 dataKey="count"
                 labelLine={false}
-                label={({ status, percent }) => {
+                label={({ status, count }) => {
                   const title = String(status || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-                  const pct = Math.round((Number(percent) || 0) * 100);
-                  return `${title}: ${pct}%`;
+                  return `${title}: ${count}`;
                 }}
               >
                 {distribution.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Legend verticalAlign="bottom" height={24} />
+              <Legend 
+                verticalAlign="bottom" 
+                height={24}
+                formatter={(value, entry) => {
+                  const payload: any = entry && (entry as any).payload;
+                  const count = payload?.count || 0;
+                  return `${value}: ${count}`;
+                }}
+              />
               <Tooltip
                 formatter={(value: number | string, name: string) => [
                   `${value} requests`,
@@ -194,17 +205,27 @@ const DivisionSuperintendent = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Fetch all requests visible to superintendent
-      const res = await api.get("requests/");
+      // Fetch all requests visible to superintendent - ensure we get all records
+      const res = await api.get("requests/", {
+        params: { page_size: 1000 } // Get more records to ensure we capture all
+      });
       const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      
+      console.log("Total requests fetched:", list.length);
+      console.log("Sample request data:", list.slice(0, 2));
 
-      // Build request status distribution
+      // Build request status distribution - count all statuses from api_requestmanagement
       const statusCounts: Record<string, number> = {};
       list.forEach((r: any) => {
         const status = (r.status || "").toLowerCase();
         statusCounts[status] = (statusCounts[status] || 0) + 1;
       });
-      const requestStatusDistribution = Object.keys(statusCounts).map((k) => ({ status: k, count: statusCounts[k] }));
+      
+      console.log("Status counts:", statusCounts);
+      const requestStatusDistribution = Object.keys(statusCounts).map((k) => ({ 
+        status: k, 
+        count: statusCounts[k] 
+      }));
 
       // Pending requests only for table
       const pending = list.filter((r: any) => (r.status || "").toLowerCase() === "pending");
