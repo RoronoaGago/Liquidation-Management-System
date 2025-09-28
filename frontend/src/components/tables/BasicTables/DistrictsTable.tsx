@@ -341,7 +341,12 @@ export default function DistrictsTable({
     if (!selectedDistrict) return;
     setIsSubmitting(true);
     try {
-      const submitData = {
+      const submitData: {
+        districtName: string;
+        municipality: string;
+        legislativeDistrict: string;
+        logo_base64?: string;
+      } = {
         districtName: selectedDistrict.districtName,
         municipality: selectedDistrict.municipality,
         legislativeDistrict: selectedDistrict.legislativeDistrict,
