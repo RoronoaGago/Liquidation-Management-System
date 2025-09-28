@@ -152,22 +152,26 @@ const DivisionDistrictAdaDashboard = () => {
 
       // Calculate division completion data
       const totalSchools = schools.length;
-      
-      // Debug: Log school IDs from liquidations
-      const schoolIdsFromLiquidations = liquidations
-  .filter((l: any) => l.status === 'submitted') // Only include 'submitted' status
-  .map((l: any) => {
-    const schoolId = l.request?.user?.school?.schoolId;
-    console.log(`Liquidation ${l.LiquidationID} -> School ID: ${schoolId}`, l.request?.user?.school);
-    return schoolId;
-  })
-  .filter(Boolean);
-      // Get unique school IDs that have liquidations (any status)
-      const schoolsWithLiquidations = new Set(schoolIdsFromLiquidations).size;
-      
-      const approvedLiquidations = liquidations.filter((l: any) => 
-        ['approved_district', 'approved_liquidator', 'liquidated'].includes(l.status)
-      ).length;
+
+      // For completion rate: count schools with at least one liquidation with status 'approved_district'
+      const schoolIdsFromApprovedDistrict = liquidations
+        .filter((l: any) => l.status === 'approved_district')
+        .map((l: any) => l.request?.user?.school?.schoolId)
+        .filter(Boolean);
+      const schoolsWithLiquidations = new Set(schoolIdsFromApprovedDistrict).size;
+
+      // For "No Submission": count schools with NO liquidation with status in ['submitted', 'approved_district', 'resubmit', 'liquidated']
+      const submittedStatuses = ['submitted', 'approved_district', 'resubmit', 'liquidated'];
+      const schoolIdsWithSubmission = new Set(
+        liquidations
+          .filter((l: any) => submittedStatuses.includes(l.status))
+          .map((l: any) => l.request?.user?.school?.schoolId)
+          .filter(Boolean)
+      );
+      const noSubmissionCount = totalSchools - schoolIdsWithSubmission.size;
+
+      // For approved liquidations: only count 'approved_district'
+      const approvedLiquidations = liquidations.filter((l: any) => l.status === 'approved_district').length;
       const pendingLiquidationsCount = pendingLiquidations.length;
       const rejectedLiquidations = liquidations.filter((l: any) => l.status === 'resubmit').length;
       const completionRate = totalSchools > 0 ? Math.round((schoolsWithLiquidations / totalSchools) * 100) : 0;
@@ -181,7 +185,6 @@ const DivisionDistrictAdaDashboard = () => {
       console.log("Completion calculation:", {
         totalSchools,
         schoolsWithLiquidations,
-        schoolIdsFromLiquidations,
         completionRate,
         liquidationsCount: liquidations.length,
         approvedLiquidations,
@@ -193,7 +196,6 @@ const DivisionDistrictAdaDashboard = () => {
       // Generate liquidation timeline for current quarter (showing months within the quarter)
       const liquidationTimeline: LiquidationTimelineData[] = [];
       const currentDate = new Date();
-      
       // Helper function to get quarter info
       const getQuarterInfo = (date: Date) => {
         const year = date.getFullYear();
@@ -201,42 +203,42 @@ const DivisionDistrictAdaDashboard = () => {
         const quarter = Math.floor(month / 3) + 1;
         return { year, quarter };
       };
-      
       // Get current quarter info
       const currentQuarter = getQuarterInfo(currentDate);
       const quarterStartMonth = (currentQuarter.quarter - 1) * 3;
-      
       // Show the 3 months of the current quarter
       for (let i = 0; i < 3; i++) {
-  const monthIndex = quarterStartMonth + i;
-  const monthDate = new Date(currentQuarter.year, monthIndex, 1);
-  const monthName = monthDate.toLocaleDateString('en-US', { month: 'short' });
+        const monthIndex = quarterStartMonth + i;
+        const monthDate = new Date(currentQuarter.year, monthIndex, 1);
+        const monthName = monthDate.toLocaleDateString('en-US', { month: 'short' });
 
-  const monthLiquidations = liquidations.filter((l: any) => {
-    const liquidationDate = new Date(l.date_submitted || l.submitted_at || l.created_at);
-    return liquidationDate.getFullYear() === currentQuarter.year && liquidationDate.getMonth() === monthIndex;
-  });
+        const monthLiquidations = liquidations.filter((l: any) => {
+          const liquidationDate = new Date(l.date_submitted || l.submitted_at || l.created_at);
+          return liquidationDate.getFullYear() === currentQuarter.year && liquidationDate.getMonth() === monthIndex;
+        });
 
-  // Only count liquidations with status 'submitted'
-  const submitted = monthLiquidations.filter((l: any) => l.status === 'submitted').length;
-  const approved = monthLiquidations.filter((l: any) => 
-    ['approved_district', 'approved_liquidator', 'liquidated'].includes(l.status)
-  ).length;
-  const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
-  const avgProcessingTime = monthLiquidations.length > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
-    const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
-    const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
-    return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
-  }, 0) / monthLiquidations.length) : 0;
+        // For submitted: count liquidations with status 'submitted' and 'approved_district'
+        const submitted = monthLiquidations.filter((l: any) =>
+          ['submitted', 'approved_district', 'under_review_district'].includes(l.status)
+        ).length;
+        const approved = monthLiquidations.filter((l: any) =>
+          ['approved_district', 'approved_liquidator', 'liquidated'].includes(l.status)
+        ).length;
+        const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
+        const avgProcessingTime = monthLiquidations.length > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
+          const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
+          const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
+          return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+        }, 0) / monthLiquidations.length) : 0;
 
-  liquidationTimeline.push({
-    month: monthName,
-    submitted,
-    approved,
-    rejected,
-    avgProcessingTime,
-  });
-}
+        liquidationTimeline.push({
+          month: monthName,
+          submitted,
+          approved,
+          rejected,
+          avgProcessingTime,
+        });
+      }
 
 
 
@@ -278,6 +280,14 @@ const DivisionDistrictAdaDashboard = () => {
 
 
   if (loading) {
+    // Make noSubmissionCount available in render
+    const noSubmissionCount = data?.divisionCompletion
+      ? data.divisionCompletion.totalSchools -
+        (data.divisionCompletion.schoolsWithLiquidation +
+          data.divisionCompletion.pendingLiquidations +
+          data.divisionCompletion.rejectedLiquidations)
+      : 0;
+  
     return (
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
@@ -303,6 +313,14 @@ const DivisionDistrictAdaDashboard = () => {
       </div>
     );
   }
+
+  // Calculate noSubmissionCount for PieChart
+  const noSubmissionCount = data?.divisionCompletion
+    ? data.divisionCompletion.totalSchools -
+      (data.divisionCompletion.schoolsWithLiquidation +
+        data.divisionCompletion.pendingLiquidations +
+        data.divisionCompletion.rejectedLiquidations)
+    : 0;
 
   return (
     <div className="p-6">
@@ -377,7 +395,7 @@ const DivisionDistrictAdaDashboard = () => {
                       { name: "Approved", value: data?.divisionCompletion.approvedLiquidations || 0 },
                       { name: "Pending", value: data?.divisionCompletion.pendingLiquidations || 0 },
                       { name: "Rejected", value: data?.divisionCompletion.rejectedLiquidations || 0 },
-                      { name: "No Submission", value: (data?.divisionCompletion.totalSchools || 0) - (data?.divisionCompletion.schoolsWithLiquidation || 0) },
+                      { name: "No Submission", value: noSubmissionCount },
                     ]}
                     cx="50%"
                     cy="50%"
