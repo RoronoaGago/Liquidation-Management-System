@@ -52,7 +52,7 @@ export const helpArticles: HelpArticle[] = [
         id: "admin-manage-users",
         title: "Managing Users in the System",
         description: "Learn how to add, edit, and manage user accounts and permissions",
-        content: "# Managing Users\n\n## Adding New Users\n1. Navigate to the Users page from the sidebar\n2. Click the 'Add User' button\n3. Fill in the required user information\n4. Assign the appropriate role and permissions\n5. Save the user account\n\n## User Roles Explained\n- **Admin**: Full system access\n- **School Head**: School-level management\n- **District Admin**: District-level oversight\n- **Accountant**: Financial management",
+        content: "# Managing Users\n\n## Adding New Users\n1. Go to Manage users and click Add New User.\n2. Fill out the form and click Add to complete the process.\n3. A confirmation dialog will appear. Click confirm to add the new user.\n4. The system will then display a success message confirming the result.\n5. Save the user account\n\n## User Roles Explained\n- **Admin**: Full system access\n- **School Head**: School-level management\n- **District Admin**: District-level oversight\n- **Accountant**: Financial management",
         category: "user-management",
         roles: ["admin"],
         relatedArticles: ["admin-user-roles", "admin-permissions"],
@@ -65,15 +65,29 @@ export const helpArticles: HelpArticle[] = [
         steps: [
             {
                 number: 1,
-                title: "Access User Management",
-                description: "Click on 'Manage Users' from the main navigation sidebar",
+                title: "Access Manage Users Page",
+                description: "Go to Manage users and click Add New User",
                 image: "/help/images/navigate-users.png",
                 alt: "Sidebar navigation showing Users option"
             },
             {
                 number: 2,
-                title: "Add New User",
-                description: "Click the 'Add User' button in the top right corner",
+                title: "Fill User Details",
+                description: "Fill out the form and click Add to complete the process.",
+                image: "/help/images/add-user-button.png",
+                alt: "Add User button highlighted"
+            },
+            {
+                number: 3,
+                title: "Confirm User Addition",
+                description: "A confirmation dialog will appear. Click confirm to add the new user.",
+                image: "/help/images/add-user-button.png",
+                alt: "Add User button highlighted"
+            },
+            {
+                number: 4,
+                title: "View Success Message",
+                description: "The system will then display a success message confirming the result.",
                 image: "/help/images/add-user-button.png",
                 alt: "Add User button highlighted"
             }

@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router";
 import desktopLogo from "../images/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
+  BoxCubeIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -33,7 +34,8 @@ import {
   CalendarIcon,
   FileIcon,
   LogsIcon,
-  HelpCircleIcon, // <-- Add this
+  HelpCircleIcon,
+  PieChartIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AuditLogPage from "../pages/AuditLogPage";
@@ -227,31 +229,31 @@ const allNavItems: NavItem[] = [
   },
 ];
 
-// const othersItems: NavItem[] = [
-//   {
-//     icon: <PieChartIcon />,
-//     name: "Charts",
-//     roles: ["admin", "school_head"],
-//     subItems: [
-//       {
-//         name: "Line Chart",
-//         path: "/line-chart",
-//         pro: false,
-//         roles: ["admin", "school_head"],
-//       },
-//       { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
-//     ],
-//   },
-//   {
-//     icon: <BoxCubeIcon />,
-//     name: "UI Elements",
-//     roles: ["admin"],
-//     subItems: [
-//       { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
-//       { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
-//     ],
-//   },
-// ];
+const othersItems = [
+  {
+    icon: <PieChartIcon />,
+    name: "Charts",
+    roles: ["admin", "school_head"],
+    subItems: [
+      {
+        name: "Line Chart",
+        path: "/line-chart",
+        pro: false,
+        roles: ["admin", "school_head"],
+      },
+      { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
+    ],
+  },
+  {
+    icon: <BoxCubeIcon />,
+    name: "UI Elements",
+    roles: ["admin"],
+    subItems: [
+      { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
+      { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
+    ],
+  },
+];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -571,7 +573,7 @@ const AppSidebar: React.FC = () => {
             </div>
 
             {/* Others menu section */}
-            {/* {filteredOthersItems.length > 0 && (
+            {filteredOthersItems.length > 0 && (
               <div className="">
                 <h2
                   className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
@@ -588,7 +590,7 @@ const AppSidebar: React.FC = () => {
                 </h2>
                 {renderMenuItems(filteredOthersItems, "others")}
               </div>
-            )} */}
+            )}
           </div>
         </nav>
       </div>
