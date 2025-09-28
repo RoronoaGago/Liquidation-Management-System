@@ -693,6 +693,7 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
         source='requirement', read_only=True)
     request_priority_obj = RequestPrioritySerializer(
         source='request_priority', read_only=True)
+    reviewed_by = UserSerializer(read_only=True)
     # liquidation_document_id = serializers.CharField(read_only=True)
 
     class Meta:
@@ -708,7 +709,10 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
             'document_url',
             'uploaded_at',
             'uploaded_by',
-            'is_approved',
+            'status',
+            'reviewed_by',
+            'reviewed_at',
+            'is_approved',  # Keep for backward compatibility
             'reviewer_comment',
             'request_priority_id',
             'requirement_id',
@@ -716,6 +720,9 @@ class LiquidationDocumentSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'document': {'write_only': True},
             'liquidation': {'read_only': True},
+            'status': {'read_only': True},
+            'reviewed_by': {'read_only': True},
+            'reviewed_at': {'read_only': True},
         }
 
     def get_document_url(self, obj):
