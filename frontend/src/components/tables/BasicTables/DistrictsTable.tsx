@@ -934,6 +934,62 @@ export default function DistrictsTable({
                 )}
               </div>
               <div className="space-y-2">
+                <Label htmlFor="edit-logo" className="text-base">
+                  District Logo *
+                </Label>
+                <div className="flex items-center gap-4">
+                  {selectedDistrict.logo || selectedDistrict.logo_url ? (
+                    <div className="relative">
+                      <img
+                        src={selectedDistrict.logo || selectedDistrict.logo_url}
+                        className="w-16 h-16 rounded-full object-cover"
+                        alt="Preview"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDistrict((prev) => ({
+                            ...prev!,
+                            logo: "",
+                            logo_url: "",
+                          }));
+                          if (editLogoInputRef.current)
+                            editLogoInputRef.current.value = "";
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                        aria-label="Remove district logo"
+                      >
+                        <XIcon />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                      <PlusIcon className="w-8 h-8 text-gray-500" />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    id="edit-logo"
+                    name="logo"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                    ref={editLogoInputRef}
+                  />
+                  <Label
+                    htmlFor="edit-logo"
+                    className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  >
+                    {selectedDistrict.logo || selectedDistrict.logo_url
+                      ? "Change Logo"
+                      : "Upload Logo"}
+                  </Label>
+                </div>
+                {formErrors.logo && (
+                  <p className="text-red-500 text-sm">{formErrors.logo}</p>
+                )}
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="districtName" className="text-base">
                   School District Name *
                 </Label>
@@ -1002,62 +1058,7 @@ export default function DistrictsTable({
                   </p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-logo" className="text-base">
-                  District Logo *
-                </Label>
-                <div className="flex items-center gap-4">
-                  {selectedDistrict.logo || selectedDistrict.logo_url ? (
-                    <div className="relative">
-                      <img
-                        src={selectedDistrict.logo || selectedDistrict.logo_url}
-                        className="w-16 h-16 rounded-full object-cover"
-                        alt="Preview"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedDistrict((prev) => ({
-                            ...prev!,
-                            logo: "",
-                            logo_url: "",
-                          }));
-                          if (editLogoInputRef.current)
-                            editLogoInputRef.current.value = "";
-                        }}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
-                        aria-label="Remove district logo"
-                      >
-                        <XIcon />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
-                      <PlusIcon className="w-8 h-8 text-gray-500" />
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    id="edit-logo"
-                    name="logo"
-                    accept="image/*"
-                    onChange={handleLogoChange}
-                    className="hidden"
-                    ref={editLogoInputRef}
-                  />
-                  <Label
-                    htmlFor="edit-logo"
-                    className="cursor-pointer px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
-                  >
-                    {selectedDistrict.logo || selectedDistrict.logo_url
-                      ? "Change Logo"
-                      : "Upload Logo"}
-                  </Label>
-                </div>
-                {formErrors.logo && (
-                  <p className="text-red-500 text-sm">{formErrors.logo}</p>
-                )}
-              </div>
+
               <div className="flex justify-end gap-3 pt-4">
                 <Button
                   type="button"
