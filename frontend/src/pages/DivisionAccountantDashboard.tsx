@@ -200,8 +200,8 @@ const DivisionAccountantDashboard = () => {
         ];
       }
 
+      // Fetch all schools
       try {
-        // Fetch all schools
         const schoolsRes = await api.get("schools/", { params: { page_size: 1000 } });
         const schools = schoolsRes.data?.results || schoolsRes.data || [];
         totalSchools = schools.length;
@@ -209,14 +209,12 @@ const DivisionAccountantDashboard = () => {
         console.warn("Failed to fetch schools", e);
       }
 
-      // Fetch completed liquidations (status=liquidated)
+      // Fetch all liquidations with status 'liquidated'
       try {
         const liqCompletedRes = await api.get("liquidations/", {
           params: { status: "liquidated", ordering: "-created_at" },
         });
         const completedLiquidations = liqCompletedRes.data?.results || liqCompletedRes.data || [];
-        const completedCount = completedLiquidations.length;
-        // Get unique school IDs from completed liquidations
         liquidatedSchoolIds = new Set(
           completedLiquidations
             .map((l: any) => l.request?.user?.school?.schoolId)
@@ -226,7 +224,7 @@ const DivisionAccountantDashboard = () => {
         console.warn("Failed to fetch completed liquidations", e);
       }
 
-      // Calculate completion rate based on all schools
+      // Calculate completion rate based on liquidated accounts
       const completionRate = totalSchools > 0
         ? (liquidatedSchoolIds.size / totalSchools) * 100
         : 0;
@@ -245,7 +243,7 @@ const DivisionAccountantDashboard = () => {
         approvedRequests,
         dashboardMetrics: {
           totalPendingLiquidations: pendingLiquidations.length,
-          totalAmountPendingLiquidations: totalAmountPendingLiquidations,
+          totalAmountPendingLiquidations,
           totalApprovedRequests: approvedRequests.length,
           completionRate,
           totalRefundAmount: totalAmountPendingLiquidations,
