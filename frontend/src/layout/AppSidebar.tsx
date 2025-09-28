@@ -213,6 +213,32 @@ const allNavItems: NavItem[] = [
       "accountant",
     ], // All roles
   },
+];
+
+const othersItems = [
+  // {
+  //   icon: <PieChartIcon />,
+  //   name: "Charts",
+  //   roles: ["admin", "school_head"],
+  //   subItems: [
+  //     {
+  //       name: "Line Chart",
+  //       path: "/line-chart",
+  //       pro: false,
+  //       roles: ["admin", "school_head"],
+  //     },
+  //     { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
+  //   ],
+  // },
+  // {
+  //   icon: <BoxCubeIcon />,
+  //   name: "UI Elements",
+  //   roles: ["admin"],
+  //   subItems: [
+  //     { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
+  //     { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
+  //   ],
+  // },
   {
     icon: <HelpCircleIcon />,
     name: "Help Center",
@@ -225,32 +251,6 @@ const allNavItems: NavItem[] = [
       "superintendent",
       "liquidator",
       "accountant",
-    ],
-  },
-];
-
-const othersItems = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    roles: ["admin", "school_head"],
-    subItems: [
-      {
-        name: "Line Chart",
-        path: "/line-chart",
-        pro: false,
-        roles: ["admin", "school_head"],
-      },
-      { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    roles: ["admin"],
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
-      { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
     ],
   },
 ];
@@ -308,12 +308,12 @@ const AppSidebar: React.FC = () => {
   };
 
   const [navItems, setNavItems] = useState<NavItem[]>([]);
-  const [filteredOthersItems] = useState<NavItem[]>([]);
+  const [filteredOthersItems, setFilteredOthersItems] = useState<NavItem[]>([]);
 
   useEffect(() => {
     // Filter items whenever userRole changes
     setNavItems(filterItemsByRole(allNavItems));
-    // setFilteredOthersItems(filterItemsByRole(othersItems));
+    setFilteredOthersItems(filterItemsByRole(othersItems));
     console.log(user?.role);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
