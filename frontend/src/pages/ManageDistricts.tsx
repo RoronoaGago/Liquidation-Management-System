@@ -71,7 +71,13 @@ const ManageDistricts = () => {
 
   const isFormValid =
     requiredFields.every(
-      (field) => formData[field as keyof DistrictFormData]?.trim() !== ""
+      (field) => {
+        const value = formData[field as keyof DistrictFormData];
+        if (field === 'logo') {
+          return value && value.toString().trim() !== "";
+        }
+        return value && value.toString().trim() !== "";
+      }
     ) && Object.keys(errors).length === 0;
 
   // Fetch districts from backend with pagination, filtering, sorting
@@ -154,8 +160,21 @@ const ManageDistricts = () => {
     }));
 
     const newErrors = { ...errors };
-    if (requiredFields.includes(name) && !value.trim()) {
-      newErrors[name] = "This field is required.";
+    if (requiredFields.includes(name)) {
+      if (name === 'logo') {
+        // For logo, check if there's a value in formData.logo
+        if (!formData.logo || formData.logo.toString().trim() === "") {
+          newErrors[name] = "This field is required.";
+        } else {
+          delete newErrors[name];
+        }
+      } else {
+        if (!value.trim()) {
+          newErrors[name] = "This field is required.";
+        } else {
+          delete newErrors[name];
+        }
+      }
     } else {
       delete newErrors[name];
     }
@@ -173,6 +192,13 @@ const ManageDistricts = () => {
           ...prevData,
           logo: result,
         }));
+        
+        // Clear logo error when a file is selected
+        setErrors((prevErrors) => {
+          const newErrors = { ...prevErrors };
+          delete newErrors.logo;
+          return newErrors;
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -184,8 +210,15 @@ const ManageDistricts = () => {
     // Validation logic (existing code)
     const finalErrors: Record<string, string> = {};
     requiredFields.forEach((field) => {
-      if (!formData[field as keyof DistrictFormData]?.trim()) {
-        finalErrors[field] = "This field is required.";
+      const value = formData[field as keyof DistrictFormData];
+      if (field === 'logo') {
+        if (!value || value.toString().trim() === "") {
+          finalErrors[field] = "This field is required.";
+        }
+      } else {
+        if (!value || value.toString().trim() === "") {
+          finalErrors[field] = "This field is required.";
+        }
       }
     });
 

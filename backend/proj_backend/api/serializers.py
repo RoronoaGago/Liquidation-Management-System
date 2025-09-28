@@ -98,10 +98,21 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"logo_base64": "Invalid image format"})
             else:
-                # Handle case where the format is missing
-                logger.warning("Base64 string missing format prefix")
-                raise serializers.ValidationError(
-                    {"logo_base64": "Invalid image format"})
+                # Handle case where the format is missing - try to decode as raw base64
+                try:
+                    # Assume it's a raw base64 string, try to decode it
+                    decoded_data = base64.b64decode(logo_base64)
+                    # Try to determine file extension from the decoded data
+                    # For now, default to png
+                    data = ContentFile(
+                        decoded_data,
+                        name=f'district_{instance.districtId}_{uuid.uuid4()}.png'
+                    )
+                    instance.logo = data
+                except (ValueError, binascii.Error) as e:
+                    logger.error(f"Invalid base64 image format: {e}")
+                    raise serializers.ValidationError(
+                        {"logo_base64": "Invalid image format"})
 
         instance.save()
         return instance
