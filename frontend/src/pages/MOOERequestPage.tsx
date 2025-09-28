@@ -17,6 +17,7 @@ import {
   Copy,
   BadgeCheck,
 } from "lucide-react";
+
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
 import { ListOfPriority, ListofPriorityData } from "@/lib/types";
@@ -57,6 +58,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const MOOERequestPage = () => {
+  const [agreed, setAgreed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const [priorities, setPriorities] = useState<ListofPriorityData[]>([]);
@@ -88,6 +90,7 @@ const MOOERequestPage = () => {
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
   const [isAdvanceRequest, setIsAdvanceRequest] = useState(false);
   const [targetMonth, setTargetMonth] = useState("");
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
 
   // State for submit confirmation dialog
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
@@ -854,144 +857,189 @@ const MOOERequestPage = () => {
 
       {/* Submit Confirmation Dialog */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <DialogContent className="w-full max-w-[100vw] sm:max-w-md rounded-lg flex flex-col max-h-[90vh] xl:max-w-2xl">
-          <div className="p-6 space-y-4 overflow-y-auto">
-            {/* Header with icon */}
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-                Confirm MOOE Request Submission
-              </h2>
-            </div>
+  <DialogContent className="w-full sm:max-w-md xl:max-w-2xl rounded-lg flex flex-col overflow-y-auto">
+    <div className="p-6 space-y-4">
+      {/* Header with icon */}
+      <div className="flex items-center gap-3 mb-2">
+        <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        </div>
+        <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+          Confirm MOOE Request Submission
+        </h2>
+      </div>
 
-            <div className="max-h-[50vh] overflow-y-auto space-y-4">
-              {/* Budget Compliance Check */}
-              <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-100 dark:border-green-900/20">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                    Allocated Budget:
-                  </span>
-                  <span className="font-bold text-green-800 dark:text-green-200">
-                    ₱{allocatedBudget.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                    Request Total:
-                  </span>
-                  <span className="font-bold text-green-800 dark:text-green-200">
-                    ₱{totalAmount.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              {isAdvanceRequest && (
-                <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-100 dark:border-blue-900/20">
-                  <Info className="h-4 w-4 flex-shrink-0 text-blue-500 dark:text-blue-400 mt-0.5" />
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    This is an <strong>advance request</strong> for{" "}
-                    {targetMonth}. It will be automatically converted to pending
-                    status when the month arrives.
-                  </p>
-                </div>
-              )}
-              {/* Success checkmark if full budget is used */}
-              {totalAmount === allocatedBudget && (
-                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/10 rounded border border-green-100 dark:border-green-900/20">
-                  <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    The budget allocated was fully utilized.
-                  </p>
-                </div>
-              )}
+      {/* Budget Compliance Check */}
+      <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-100 dark:border-green-900/20">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium text-green-800 dark:text-green-200">
+            Allocated Budget:
+          </span>
+          <span className="font-bold text-green-800 dark:text-green-200">
+            ₱{allocatedBudget.toLocaleString()}
+          </span>
+        </div>
+        <div className="flex justify-between items-center mt-1">
+          <span className="text-sm font-medium text-green-800 dark:text-green-200">
+            Request Total:
+          </span>
+          <span className="font-bold text-green-800 dark:text-green-200">
+            ₱{totalAmount.toLocaleString()}
+          </span>
+        </div>
+      </div>
 
-              {/* Warning if budget is not fully used */}
-              {totalAmount < allocatedBudget && (
-                <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-900/10 rounded border border-amber-100 dark:border-amber-900/20">
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-500 dark:text-amber-400 mt-0.5" />
-                  <p className="text-xs text-amber-700 dark:text-amber-300">
-                    You have{" "}
-                    <strong>
-                      ₱{(allocatedBudget - totalAmount).toLocaleString()}
-                    </strong>{" "}
-                    remaining. Ensure that the full allocated budget is utilized
-                    before submission.
-                  </p>
-                </div>
-              )}
+{/* Agreement Section - Checkbox with Link */}
+<div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-900/20">
+  <input
+    type="checkbox"
+    id="mooe-agreement"
+    checked={agreed}
+    onChange={(e) => setAgreed(e.target.checked)}
+    className="h-4 w-4 mt-1 text-brand-600 focus:ring-brand-500 border-gray-300 rounded"
+  />
+  <div className="flex-1">
+    <label htmlFor="mooe-agreement" className="text-sm font-medium text-amber-800 dark:text-amber-200 cursor-pointer">
+      I agree to the liquidation {" "}
+      <button
+        type="button"
+        onClick={() => setShowTermsDialog(true)}
+        className="text-brand-600 dark:text-brand-400 hover:underline font-medium"
+      >
+        Terms of Service
+      </button>
+    </label>
+  </div>
+</div>
 
-              {/* Selected Items Summary */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Selected Expenses ({Object.keys(selected).length}):
-                </h3>
-                <div className="max-h-[40vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md">
-                  <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {Object.entries(selected).map(([expenseTitle, amount]) => (
-                      <li key={expenseTitle} className="px-3 py-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[180px]">
-                            {expenseTitle}
-                          </span>
-                          <span className="text-sm font-mono font-medium">
-                            ₱{amount || "0"}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Button
-                variant="outline"
-                onClick={() => setShowSubmitDialog(false)}
-                className="px-4 py-2"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={async () => {
-                  setShowSubmitDialog(false);
-                  await handleSubmit(new Event("submit") as any);
-                }}
-                disabled={
-                  actionLoading || submitting || totalAmount < allocatedBudget
-                }
-                className="px-4 py-2"
-              >
-                {actionLoading || submitting ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Submitting...
-                  </span>
-                ) : (
-                  "Confirm & Submit"
-                )}
-              </Button>
-            </div>
+{/* Terms of Service Dialog */}
+<Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
+  <DialogContent className="w-full max-w-[95vw] sm:max-w-2xl rounded-lg flex flex-col max-h-[90vh]">
+    <DialogHeader>
+      <DialogTitle className="text-xl">MOOE Request Terms of Service</DialogTitle>
+      <DialogDescription className="text-base">
+        Please read and understand the following terms and conditions regarding the MOOE request process.
+      </DialogDescription>
+    </DialogHeader>
+    <div className="mt-4 max-h-[60vh] overflow-y-auto px-1">
+      <div className="space-y-4 text-[1.1rem] text-gray-700 dark:text-gray-300">
+        <p>
+          By submitting this MOOE request, you acknowledge and consent to the following procedures:
+        </p>
+        <div className="space-y-3">
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg">
+            <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2 text-lg">Approval Process:</h4>
+            <p>
+              This request will be forwarded to the Division Superintendent for approval. Once approved, the Division Accountant will facilitate the release of funds, initiating a 30-day liquidation period.
+            </p>
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
+            <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2 text-lg">Liquidation Timeline:</h4>
+            <p>
+              Failure to submit the required liquidation documents within 30 days from the date of fund release will result in the issuance of a demand letter, requiring immediate compliance.
+            </p>
+          </div>
+          <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
+            <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2 text-lg">Liquidation Review Process:</h4>
+            <p>
+              Once the liquidation report is prepared, it will undergo pre-audit by the District Administrative Assistant, followed by a review and approval process by the Division Liquidator. The finalization of liquidation will then be completed by the Division Accountant. Please note that no new MOOE requests may be submitted until this process is fully completed.
+            </p>
+          </div>
+        </div>
+        <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg mt-4">
+          <p className="text-base text-gray-600 dark:text-gray-400">
+            <strong>Note:</strong> By checking the agreement checkbox, you confirm that you have read, understood, and agreed to comply with these terms and conditions.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div className="mt-4 flex justify-end">
+      <Button
+        variant="primary"
+        onClick={() => {
+          setShowTermsDialog(false);
+          setAgreed(true); // Check the agreement checkbox
+        }}
+      >
+        I Understand
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+      {/* Selected Items Summary */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Selected Expenses ({Object.keys(selected).length}):
+        </h3>
+        <div className="max-h-[40vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md">
+          <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+            {Object.entries(selected).map(([expenseTitle, amount]) => (
+              <li key={expenseTitle} className="px-3 py-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[180px]">
+                    {expenseTitle}
+                  </span>
+                  <span className="text-sm font-mono font-medium">
+                    ₱{amount || "0"}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowSubmitDialog(false);
+            setAgreed(false);
+          }}
+          className="px-4 py-2"
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={async () => {
+            setShowSubmitDialog(false);
+            await handleSubmit(new Event("submit") as any);
+            setAgreed(false);
+          }}
+          disabled={
+            actionLoading || submitting || totalAmount < allocatedBudget || !agreed
+          }
+          className="px-4 py-2"
+        >
+          {actionLoading || submitting ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Submitting...
+            </span>
+          ) : (
+            "Confirm & Submit"
+          )}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
       <div className="mt-8">
         {!isFormDisabled && (
