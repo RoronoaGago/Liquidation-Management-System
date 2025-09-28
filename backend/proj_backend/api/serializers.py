@@ -4,7 +4,7 @@ from auditlog.models import LogEntry
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog, YearlyBudgetAllocation, BudgetAllocationNotification
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
@@ -962,3 +962,105 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
     def get_formatted_timestamp(self, obj):
         return obj.timestamp.strftime("%Y-%m-%d %H:%M:%S") if obj.timestamp else None
+
+
+class YearlyBudgetAllocationSerializer(serializers.ModelSerializer):
+    school_name = serializers.CharField(source='school.schoolName', read_only=True)
+    school_id = serializers.CharField(source='school.schoolId', read_only=True)
+    allocated_by_name = serializers.SerializerMethodField()
+    monthly_budget = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = YearlyBudgetAllocation
+        fields = [
+            'id',
+            'school',
+            'school_name',
+            'school_id',
+            'year',
+            'yearly_budget',
+            'monthly_budget',
+            'allocated_by',
+            'allocated_by_name',
+            'allocated_at',
+            'is_active',
+            'notes'
+        ]
+        read_only_fields = ['id', 'allocated_at']
+    
+    def get_allocated_by_name(self, obj):
+        if obj.allocated_by:
+            return obj.allocated_by.get_full_name()
+        return None
+
+
+class BudgetAllocationNotificationSerializer(serializers.ModelSerializer):
+    acknowledged_by_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BudgetAllocationNotification
+        fields = [
+            'id',
+            'year',
+            'notification_sent_date',
+            'is_acknowledged',
+            'acknowledged_at',
+            'acknowledged_by',
+            'acknowledged_by_name'
+        ]
+        read_only_fields = ['id', 'notification_sent_date']
+    
+    def get_acknowledged_by_name(self, obj):
+        if obj.acknowledged_by:
+            return obj.acknowledged_by.get_full_name()
+        return None
+
+
+class SchoolWithBudgetSerializer(serializers.ModelSerializer):
+    district = SchoolDistrictSerializer(read_only=True)
+    current_yearly_budget = serializers.SerializerMethodField()
+    monthly_budget = serializers.SerializerMethodField()
+    effective_budget = serializers.SerializerMethodField()
+    has_yearly_allocation = serializers.SerializerMethodField()
+    yearly_allocation_year = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = School
+        fields = [
+            'schoolId',
+            'schoolName',
+            'municipality',
+            'district',
+            'legislativeDistrict',
+            'is_active',
+            'max_budget',
+            'current_yearly_budget',
+            'monthly_budget',
+            'effective_budget',
+            'has_yearly_allocation',
+            'yearly_allocation_year',
+            'last_liquidated_month',
+            'last_liquidated_year'
+        ]
+    
+    def get_current_yearly_budget(self, obj):
+        year = self.context.get('year')
+        return obj.get_current_yearly_budget(year)
+    
+    def get_monthly_budget(self, obj):
+        year = self.context.get('year')
+        return obj.get_monthly_budget(year)
+    
+    def get_effective_budget(self, obj):
+        year = self.context.get('year')
+        return obj.get_effective_budget(year)
+    
+    def get_has_yearly_allocation(self, obj):
+        year = self.context.get('year')
+        return obj.has_yearly_allocation(year)
+    
+    def get_yearly_allocation_year(self, obj):
+        year = self.context.get('year')
+        if obj.has_yearly_allocation(year):
+            return year
+        return None

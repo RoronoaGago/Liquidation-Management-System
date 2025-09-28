@@ -31,6 +31,7 @@ import LiquidatorsPage from "./pages/LiquidatorsPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
+import BudgetAllocationNotification from "./components/BudgetAllocationNotification";
 import SetupModal from "./components/common/SetupModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard"; // Add this import
 import ManageDistricts from "./pages/ManageDistricts";
@@ -204,6 +205,7 @@ const App = () => {
         </Routes>
         <SetupModal />
         <LiquidationReminder />
+        <BudgetAllocationNotification />
         {/* Enhanced contextual help - replaces the old ContextualHelpButton */}
         <DynamicContextualHelp variant="floating" showQuickTips={true} />
       </HelpProvider>

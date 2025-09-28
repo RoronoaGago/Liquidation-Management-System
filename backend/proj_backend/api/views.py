@@ -1,7 +1,7 @@
 from api.models import (
     User, School, Requirement, ListOfPriority, RequestManagement,
     RequestPriority, LiquidationManagement, LiquidationDocument,
-    Notification, SchoolDistrict, Backup, AuditLog
+    Notification, SchoolDistrict, Backup, AuditLog, YearlyBudgetAllocation, BudgetAllocationNotification
 )
 from .models import RequestManagement
 import io
@@ -3822,3 +3822,289 @@ class AuditLogListView(generics.ListAPIView):
             queryset = queryset.filter(object_id=object_id)
 
         return queryset.order_by('-timestamp')
+
+
+# Budget Allocation Views
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def budget_allocation_status(request):
+    """Get the current status of budget allocations for the current year"""
+    from .budget_utils import get_budget_allocation_status
+    
+    year = request.query_params.get('year', timezone.now().year)
+    try:
+        year = int(year)
+    except (ValueError, TypeError):
+        year = timezone.now().year
+    
+    status = get_budget_allocation_status(year)
+    return Response(status)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def schools_without_budget_allocation(request):
+    """Get schools that don't have yearly budget allocation for the current year"""
+    from .budget_utils import get_schools_without_yearly_allocation
+    
+    year = request.query_params.get('year', timezone.now().year)
+    try:
+        year = int(year)
+    except (ValueError, TypeError):
+        year = timezone.now().year
+    
+    schools = get_schools_without_yearly_allocation(year)
+    serializer = SchoolSerializer(schools, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_yearly_budget_allocations(request):
+    """Create yearly budget allocations for multiple schools"""
+    from .budget_utils import create_yearly_budget_allocations
+    from .serializers import YearlyBudgetAllocationSerializer
+    
+    # Check if user is accountant
+    if request.user.role != 'accountant':
+        return Response(
+            {'error': 'Only accountants can allocate budgets'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    year = request.data.get('year', timezone.now().year)
+    school_budgets = request.data.get('school_budgets', [])
+    notes = request.data.get('notes', '')
+    
+    if not school_budgets:
+        return Response(
+            {'error': 'School budgets data is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Add notes to each school budget if not provided
+    for budget_data in school_budgets:
+        if 'notes' not in budget_data:
+            budget_data['notes'] = notes
+    
+    try:
+        created_allocations, errors = create_yearly_budget_allocations(
+            school_budgets, year, request.user
+        )
+        
+        # Log audit for budget allocation
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=request,
+            action='budget_allocation',
+            module='school',
+            description=f"Allocated yearly budgets for {len(created_allocations)} schools for year {year}",
+            object_id=str(year),
+            object_type='YearlyBudgetAllocation',
+            object_name=f"Budget Allocation for {year}"
+        )
+        
+        # Serialize created allocations
+        serializer = YearlyBudgetAllocationSerializer(created_allocations, many=True)
+        
+        return Response({
+            'created_allocations': serializer.data,
+            'errors': errors,
+            'total_created': len(created_allocations),
+            'total_errors': len(errors)
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        logger.error(f"Error creating yearly budget allocations: {e}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def yearly_budget_allocations(request):
+    """Get yearly budget allocations for a specific year"""
+    from .serializers import YearlyBudgetAllocationSerializer
+    
+    year = request.query_params.get('year', timezone.now().year)
+    try:
+        year = int(year)
+    except (ValueError, TypeError):
+        year = timezone.now().year
+    
+    allocations = YearlyBudgetAllocation.objects.filter(
+        year=year,
+        is_active=True
+    ).select_related('school', 'allocated_by')
+    
+    serializer = YearlyBudgetAllocationSerializer(allocations, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_budget_allocation_notification(request):
+    """Check if there's a pending budget allocation notification"""
+    from .budget_utils import should_send_budget_allocation_notification, create_budget_allocation_notification
+    
+    current_year = timezone.now().year
+    
+    # Check if notification should be sent
+    if should_send_budget_allocation_notification(current_year):
+        notification = create_budget_allocation_notification(current_year)
+        if notification:
+            return Response({
+                'has_notification': True,
+                'year': current_year,
+                'message': f'Budget allocation required for year {current_year}'
+            })
+    
+    # Check if there's an unacknowledged notification
+    unacknowledged = BudgetAllocationNotification.objects.filter(
+        year=current_year,
+        is_acknowledged=False
+    ).first()
+    
+    if unacknowledged:
+        return Response({
+            'has_notification': True,
+            'year': current_year,
+            'message': f'Budget allocation notification pending for year {current_year}'
+        })
+    
+    return Response({'has_notification': False})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def acknowledge_budget_allocation_notification(request):
+    """Acknowledge a budget allocation notification"""
+    year = request.data.get('year', timezone.now().year)
+    
+    try:
+        year = int(year)
+    except (ValueError, TypeError):
+        year = timezone.now().year
+    
+    # Check if user is accountant
+    if request.user.role != 'accountant':
+        return Response(
+            {'error': 'Only accountants can acknowledge budget notifications'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        notification = BudgetAllocationNotification.objects.get(year=year)
+        notification.is_acknowledged = True
+        notification.acknowledged_at = timezone.now()
+        notification.acknowledged_by = request.user
+        notification.save()
+        
+        return Response({'message': 'Notification acknowledged successfully'})
+        
+    except BudgetAllocationNotification.DoesNotExist:
+        return Response(
+            {'error': 'Budget allocation notification not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def unliquidated_requests_from_previous_year(request):
+    """Get unliquidated requests from the previous year"""
+    from .budget_utils import handle_unliquidated_requests_from_previous_year
+    
+    unliquidated_data = handle_unliquidated_requests_from_previous_year()
+    
+    # Convert to serializable format
+    result = {}
+    for school_id, data in unliquidated_data.items():
+        school = data['school']
+        requests = data['requests']
+        
+        result[school_id] = {
+            'school': {
+                'schoolId': school.schoolId,
+                'schoolName': school.schoolName,
+                'district': school.district.districtName if school.district else None
+            },
+            'unliquidated_requests': [
+                {
+                    'request_id': req.request_id,
+                    'request_monthyear': req.request_monthyear,
+                    'status': req.status,
+                    'user_name': req.user.get_full_name()
+                }
+                for req in requests
+            ],
+            'total_unliquidated': len(requests)
+        }
+    
+    return Response(result)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def schools_with_budget_info(request):
+    """Get schools with enhanced budget information including yearly allocations"""
+    from .serializers import SchoolWithBudgetSerializer
+    
+    year = request.query_params.get('year', timezone.now().year)
+    try:
+        year = int(year)
+    except (ValueError, TypeError):
+        year = timezone.now().year
+    
+    # Apply filters similar to existing school list view
+    queryset = School.objects.filter(is_active=True).select_related('district')
+    
+    # Apply search filter
+    search = request.query_params.get('search')
+    if search and len(search) >= 3:
+        from django.db import models
+        queryset = queryset.filter(
+            models.Q(schoolName__icontains=search) |
+            models.Q(schoolId__icontains=search) |
+            models.Q(municipality__icontains=search)
+        )
+    
+    # Apply district filter
+    district = request.query_params.get('district')
+    if district:
+        queryset = queryset.filter(district__districtId=district)
+    
+    # Apply legislative district filter
+    legislative_district = request.query_params.get('legislative_district')
+    if legislative_district:
+        queryset = queryset.filter(legislativeDistrict=legislative_district)
+    
+    # Apply municipality filter
+    municipality = request.query_params.get('municipality')
+    if municipality:
+        queryset = queryset.filter(municipality=municipality)
+    
+    # Pagination
+    page_size = int(request.query_params.get('page_size', 10))
+    page = int(request.query_params.get('page', 1))
+    
+    start = (page - 1) * page_size
+    end = start + page_size
+    
+    schools_page = queryset[start:end]
+    
+    serializer = SchoolWithBudgetSerializer(
+        schools_page, 
+        many=True, 
+        context={'request': request, 'year': year}
+    )
+    
+    return Response({
+        'results': serializer.data,
+        'count': queryset.count(),
+        'page': page,
+        'page_size': page_size,
+        'year': year
+    })

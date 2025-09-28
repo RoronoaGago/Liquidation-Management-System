@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report, budget_allocation_status, schools_without_budget_allocation, create_yearly_budget_allocations, yearly_budget_allocations, check_budget_allocation_notification, acknowledge_budget_allocation_notification, unliquidated_requests_from_previous_year, schools_with_budget_info
 
 
 from rest_framework_simplejwt.views import (
@@ -125,5 +125,15 @@ urlpatterns = [
     path('restore/', initiate_restore, name='initiate-restore'),
     path('backups/', list_backups, name='list-backups'),
     path('audit-logs/', views.AuditLogListView.as_view(), name='audit-logs'),
+
+    # Budget Allocation URLs
+    path('budget-allocation/status/', budget_allocation_status, name='budget-allocation-status'),
+    path('budget-allocation/schools-without/', schools_without_budget_allocation, name='schools-without-budget-allocation'),
+    path('budget-allocation/create/', create_yearly_budget_allocations, name='create-yearly-budget-allocations'),
+    path('budget-allocation/list/', yearly_budget_allocations, name='yearly-budget-allocations'),
+    path('budget-allocation/check-notification/', check_budget_allocation_notification, name='check-budget-allocation-notification'),
+    path('budget-allocation/acknowledge-notification/', acknowledge_budget_allocation_notification, name='acknowledge-budget-allocation-notification'),
+    path('budget-allocation/unliquidated-requests/', unliquidated_requests_from_previous_year, name='unliquidated-requests-previous-year'),
+    path('schools-with-budget-info/', schools_with_budget_info, name='schools-with-budget-info'),
 
 ]

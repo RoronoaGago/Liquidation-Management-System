@@ -191,7 +191,7 @@ const MOOERequestPage = () => {
     fetchData();
   }, []);
 
-  // Fetch school max_budget on mount
+  // Fetch school budget information on mount
   useEffect(() => {
     const fetchSchoolBudget = async () => {
       try {
@@ -201,8 +201,25 @@ const MOOERequestPage = () => {
           setAllocatedBudget(0);
           return;
         }
-        const schoolRes = await api.get(`/schools/${schoolId}/`);
-        setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
+        
+        // Try to get enhanced budget info first, fallback to regular school endpoint
+        try {
+          const budgetRes = await api.get(`/schools-with-budget-info/?search=${schoolId}`);
+          const schoolData = budgetRes.data.results?.find((school: any) => school.schoolId === schoolId);
+          
+          if (schoolData) {
+            // Use effective budget (yearly budget if available, otherwise max_budget)
+            setAllocatedBudget(Number(schoolData.effective_budget) || 0);
+          } else {
+            // Fallback to original method
+            const schoolRes = await api.get(`/schools/${schoolId}/`);
+            setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
+          }
+        } catch (budgetError) {
+          // Fallback to original method if new endpoint fails
+          const schoolRes = await api.get(`/schools/${schoolId}/`);
+          setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
+        }
       } catch (error) {
         setAllocatedBudget(0);
         console.error("Failed to fetch allocated budget:", error);

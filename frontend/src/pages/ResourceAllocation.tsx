@@ -67,6 +67,12 @@ type School = {
   hasUnliquidated?: boolean;
   last_liquidated_month?: number;
   last_liquidated_year?: number;
+  // New yearly budget fields
+  current_yearly_budget?: number;
+  monthly_budget?: number;
+  effective_budget?: number;
+  has_yearly_allocation?: boolean;
+  yearly_allocation_year?: number;
 };
 
 const ResourceAllocation = () => {
@@ -112,6 +118,12 @@ const ResourceAllocation = () => {
   const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
     string[]
   >([]);
+  
+  // Yearly budget allocation state
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [budgetAllocationMode, setBudgetAllocationMode] = useState<'yearly' | 'monthly'>('yearly');
+  const [showYearlyAllocation, setShowYearlyAllocation] = useState(false);
+  const [yearlyAllocationData, setYearlyAllocationData] = useState<any>(null);
   const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
     string[]
   >([]);
@@ -223,6 +235,7 @@ const ResourceAllocation = () => {
       const params: any = {
         page: currentPage,
         page_size: itemsPerPage,
+        year: currentYear, // Add year parameter for budget info
       };
       if (debouncedSearch.length >= MIN_SEARCH_LENGTH) {
         params.search = debouncedSearch;
@@ -232,7 +245,8 @@ const ResourceAllocation = () => {
       if (filterMunicipality) params.municipality = filterMunicipality;
       if (filterDistrict) params.district = filterDistrict;
 
-      const schoolsRes = await api.get("schools/", { params });
+      // Use the new endpoint that includes budget information
+      const schoolsRes = await api.get("schools-with-budget-info/", { params });
       console.log(schoolsRes.data.results);
       let schoolsData = schoolsRes.data.results || schoolsRes.data;
 
@@ -256,7 +270,8 @@ const ResourceAllocation = () => {
       });
       const initialBudgets = schoolsWithBacklog.reduce(
         (acc: Record<string, number>, school: School) => {
-          acc[school.schoolId] = school.max_budget || 0;
+          // Use effective budget (yearly if available, otherwise max_budget)
+          acc[school.schoolId] = school.effective_budget || school.max_budget || 0;
           return acc;
         },
         {} as Record<string, number>
@@ -454,30 +469,13 @@ const ResourceAllocation = () => {
 
     setIsSaving(true);
     try {
-      const updates = selectedSchools.map((schoolId) => {
-        const budget = Number(editingBudgets[schoolId]) || 0;
-        const original =
-          schools.find((s) => s.schoolId === schoolId)?.max_budget || 0;
-
-        return {
-          schoolId: String(schoolId),
-          max_budget: parseFloat(budget.toFixed(2)),
-          original_budget: original,
-          difference: parseFloat((budget - original).toFixed(2)),
-        };
-      });
-
-      // Validate large changes
-
-      await api.patch("/schools/batch_update/", { updates });
-      setShowSuccessDialog(true);
-      setTimeout(() => setShowSuccessDialog(false), 3000);
-
-      // Refresh data
-      await fetchData();
-      setSelectedSchools([]);
-      setExpandedCards([]);
-      setUndoStack([]);
+      if (budgetAllocationMode === 'yearly') {
+        // Save yearly budget allocations
+        await saveYearlyBudgets();
+      } else {
+        // Save monthly budgets (existing logic)
+        await saveMonthlyBudgets();
+      }
     } catch (error: any) {
       console.error("Error updating budgets:", error);
       toast.error(
@@ -489,6 +487,67 @@ const ResourceAllocation = () => {
       setIsSaving(false);
       setShowSaveConfirm(false);
     }
+  };
+
+  const saveYearlyBudgets = async () => {
+    const schoolBudgets = selectedSchools.map((schoolId) => {
+      const budget = Number(editingBudgets[schoolId]) || 0;
+      return {
+        school_id: schoolId,
+        yearly_budget: parseFloat(budget.toFixed(2)),
+      };
+    });
+
+    const response = await api.post("budget-allocation/create/", {
+      year: currentYear,
+      school_budgets: schoolBudgets,
+      notes: `Yearly budget allocation for ${currentYear}`
+    });
+
+    if (response.data.total_errors > 0) {
+      toast.error(
+        `Failed to update ${response.data.total_errors} schools. Please try again.`
+      );
+      return;
+    }
+
+    toast.success(
+      `Successfully allocated yearly budgets for ${response.data.total_created} schools.`
+    );
+
+    // Reset editing state
+    setEditingBudgets({});
+    setSelectedSchools([]);
+    setUndoStack([]);
+    setShowSaveConfirm(false);
+
+    // Refresh data
+    await fetchData();
+  };
+
+  const saveMonthlyBudgets = async () => {
+    const updates = selectedSchools.map((schoolId) => {
+      const budget = Number(editingBudgets[schoolId]) || 0;
+      const original =
+        schools.find((s) => s.schoolId === schoolId)?.max_budget || 0;
+
+      return {
+        schoolId: String(schoolId),
+        max_budget: parseFloat(budget.toFixed(2)),
+        original_budget: original,
+        difference: parseFloat((budget - original).toFixed(2)),
+      };
+    });
+
+    await api.patch("/schools/batch_update/", { updates });
+    setShowSuccessDialog(true);
+    setTimeout(() => setShowSuccessDialog(false), 3000);
+
+    // Refresh data
+    await fetchData();
+    setSelectedSchools([]);
+    setExpandedCards([]);
+    setUndoStack([]);
   };
 
   // 2. Modify the BulkConfirmationDialog to just show the action preview
@@ -746,6 +805,84 @@ const ResourceAllocation = () => {
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="Resource Allocation" />
+
+      {/* Yearly Budget Allocation Controls */}
+      <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20 p-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Budget Allocation Mode
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Choose between yearly or monthly budget allocation
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Year:
+              </label>
+              <select
+                value={currentYear}
+                onChange={(e) => setCurrentYear(parseInt(e.target.value))}
+                className="h-9 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              >
+                {Array.from({ length: 5 }, (_, i) => {
+                  const year = new Date().getFullYear() + i;
+                  return (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setBudgetAllocationMode('yearly')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  budgetAllocationMode === 'yearly'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                Yearly Budget
+              </button>
+              <button
+                onClick={() => setBudgetAllocationMode('monthly')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  budgetAllocationMode === 'monthly'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                Monthly Budget
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {budgetAllocationMode === 'yearly' && (
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-2">
+              <div className="text-blue-600 dark:text-blue-400 mt-0.5">
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="font-medium">Yearly Budget Allocation Mode</p>
+                <p className="mt-1">
+                  Set yearly budgets for schools (e.g., ₱120,000). 
+                  Monthly budgets will be automatically calculated (₱10,000/month).
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
@@ -1137,12 +1274,24 @@ const ResourceAllocation = () => {
                       <>
                         <div className="mt-4 flex items-center justify-between">
                           <div className="text-sm text-gray-600 dark:text-gray-300">
-                            Current Budget
+                            {budgetAllocationMode === 'yearly' ? 'Yearly Budget' : 'Current Budget'}
                           </div>
                           <div className="font-medium">
                             {formatCurrency(currentBudget)}
                           </div>
                         </div>
+                        
+                        {budgetAllocationMode === 'yearly' && school.has_yearly_allocation && (
+                          <div className="mt-1 flex items-center justify-between">
+                            <div className="text-sm text-blue-600 dark:text-blue-400">
+                              Monthly Budget
+                            </div>
+                            <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                              {formatCurrency(school.monthly_budget || 0)}
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="mt-1 flex items-center justify-between">
                           <div className="text-sm text-gray-600 dark:text-gray-300">
                             Previous Budget

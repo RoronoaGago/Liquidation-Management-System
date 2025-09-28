@@ -181,6 +181,53 @@ class School(models.Model):
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
 
+    def get_current_yearly_budget(self, year=None):
+        """
+        Get the current yearly budget allocation for this school.
+        If year is not provided, uses the current year.
+        """
+        if year is None:
+            year = timezone.now().year
+        
+        try:
+            allocation = self.yearly_budget_allocations.filter(
+                year=year, 
+                is_active=True
+            ).first()
+            return allocation.yearly_budget if allocation else 0
+        except:
+            return 0
+
+    def get_monthly_budget(self, year=None):
+        """
+        Get the monthly budget for this school based on yearly allocation.
+        If year is not provided, uses the current year.
+        """
+        yearly_budget = self.get_current_yearly_budget(year)
+        return yearly_budget / 12 if yearly_budget > 0 else 0
+
+    def get_effective_budget(self, year=None):
+        """
+        Get the effective budget for this school.
+        Falls back to max_budget if no yearly allocation exists (for backward compatibility).
+        """
+        yearly_budget = self.get_current_yearly_budget(year)
+        if yearly_budget > 0:
+            return yearly_budget
+        return self.max_budget
+
+    def has_yearly_allocation(self, year=None):
+        """
+        Check if this school has a yearly budget allocation for the given year.
+        """
+        if year is None:
+            year = timezone.now().year
+        
+        return self.yearly_budget_allocations.filter(
+            year=year, 
+            is_active=True
+        ).exists()
+
     def get_audit_description(self, created=False, action='create'):
         if action == 'archive':
             return f"Archived school {self.schoolName} ({self.schoolId})"
@@ -924,6 +971,71 @@ class SchoolDistrict(models.Model):
         return f"{action.capitalize()} district {self.districtName}"
 
 
+class YearlyBudgetAllocation(models.Model):
+    """
+    Model to track yearly budget allocations for schools.
+    Each record represents the budget allocation for a specific school for a specific year.
+    """
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(
+        'School',
+        on_delete=models.CASCADE,
+        related_name='yearly_budget_allocations'
+    )
+    year = models.PositiveSmallIntegerField(
+        help_text="Year for which this budget is allocated (e.g., 2024)"
+    )
+    yearly_budget = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        help_text="Total yearly budget allocated to the school"
+    )
+    allocated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='allocated_budgets',
+        help_text="Accountant who allocated this budget"
+    )
+    allocated_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this budget was allocated"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this budget allocation is currently active"
+    )
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional notes about this budget allocation"
+    )
+    
+    class Meta:
+        unique_together = ('school', 'year')
+        ordering = ['-year', 'school__schoolName']
+        indexes = [
+            models.Index(fields=['year', 'is_active']),
+            models.Index(fields=['school', 'year']),
+        ]
+
+    def __str__(self):
+        return f"{self.school.schoolName} - {self.year} Budget: ₱{self.yearly_budget:,.2f}"
+
+    @property
+    def monthly_budget(self):
+        """Calculate monthly budget by dividing yearly budget by 12"""
+        return self.yearly_budget / 12
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived yearly budget allocation for {self.school.schoolName} ({self.year})"
+        elif action == 'restore':
+            return f"Restored yearly budget allocation for {self.school.schoolName} ({self.year})"
+        return f"{action.capitalize()} yearly budget allocation for {self.school.schoolName} ({self.year})"
+
+
 class GeneratedPDF(models.Model):
     """
     Model to track PDF generation for audit trail and compliance
@@ -1027,6 +1139,44 @@ class Backup(models.Model):
 
 # Add to models.py
 # Add to models.py
+class BudgetAllocationNotification(models.Model):
+    """
+    Model to track budget allocation notifications for the first Monday of January.
+    """
+    id = models.AutoField(primary_key=True)
+    year = models.PositiveSmallIntegerField(
+        help_text="Year for which budget allocation is needed"
+    )
+    notification_sent_date = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this notification was sent"
+    )
+    is_acknowledged = models.BooleanField(
+        default=False,
+        help_text="Whether the accountant has acknowledged this notification"
+    )
+    acknowledged_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the accountant acknowledged this notification"
+    )
+    acknowledged_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='acknowledged_budget_notifications',
+        help_text="Accountant who acknowledged this notification"
+    )
+    
+    class Meta:
+        unique_together = ('year',)
+        ordering = ['-year']
+
+    def __str__(self):
+        return f"Budget Allocation Notification for {self.year}"
+
+
 class AuditLog(models.Model):
     ACTION_CHOICES = [
         ('create', 'Create'),
@@ -1048,6 +1198,7 @@ class AuditLog(models.Model):
         ('approve_division', 'Approve (Division)'),
         ('liquidate', 'Liquidate'),
         ('batch_update', 'Batch Update'),
+        ('budget_allocation', 'Budget Allocation'),
     ]
 
     MODULE_CHOICES = [
