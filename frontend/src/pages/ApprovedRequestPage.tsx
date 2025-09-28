@@ -36,11 +36,8 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 import { DatePicker } from "antd";
-import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
+import dayjs from "@/lib/dayjs";
 import { formatDateTime } from "@/lib/helpers";
-
-dayjs.extend(customParseFormat);
 
 // Helper function to map role keys to display names
 function getRoleDisplayName(roleKey: string): string {

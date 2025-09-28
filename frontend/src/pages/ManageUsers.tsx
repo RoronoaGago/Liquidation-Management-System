@@ -36,14 +36,10 @@ import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
 import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 import { DatePicker } from "antd";
-import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
+import dayjs from "@/lib/dayjs";
 import InlinePageHelp from "@/components/help/InlinePageHelp";
 import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 import { useHelpTrigger } from "@/context/HelpContext";
-
-// Extend dayjs with custom parse format
-dayjs.extend(customParseFormat);
 
 interface UserFormData {
   first_name: string;
