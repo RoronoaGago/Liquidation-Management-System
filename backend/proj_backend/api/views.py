@@ -1274,8 +1274,36 @@ class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
         ).first()
 
         if existing_doc:
-            serializer = self.get_serializer(
-                existing_doc, data=request.data, partial=True)
+            # If existing document is rejected, create a version before replacing
+            if existing_doc.status == 'rejected' or existing_doc.is_approved is False:
+                try:
+                    # Create version from rejected document
+                    version = existing_doc.create_version_from_rejected(
+                        request.data.get('document'), 
+                        request.user
+                    )
+                    
+                    # Return the updated document with version info
+                    serializer = self.get_serializer(existing_doc)
+                    response_data = serializer.data
+                    response_data['version_created'] = True
+                    response_data['version_id'] = version.id
+                    response_data['version_number'] = version.version_number
+                    
+                    return Response(
+                        response_data,
+                        status=status.HTTP_200_OK,
+                        headers=self.get_success_headers(serializer.data)
+                    )
+                except ValueError as e:
+                    return Response(
+                        {'error': str(e)},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                # For non-rejected documents, update normally
+                serializer = self.get_serializer(
+                    existing_doc, data=request.data, partial=True)
         else:
             serializer = self.get_serializer(data=request.data)
 
@@ -1294,6 +1322,33 @@ class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDes
     queryset = LiquidationDocument.objects.all()
     serializer_class = LiquidationDocumentSerializer
     permission_classes = [IsAuthenticated]
+    
+    def perform_update(self, serializer):
+        # Set the reviewer when status changes to approved/rejected
+        instance = serializer.instance
+        if 'status' in serializer.validated_data:
+            new_status = serializer.validated_data['status']
+            if new_status in ['approved', 'rejected'] and not instance.reviewed_by:
+                serializer.save(reviewed_by=self.request.user)
+            else:
+                serializer.save()
+        else:
+            serializer.save()
+
+
+class DocumentVersionListAPIView(generics.ListAPIView):
+    """
+    API view to retrieve document versions for comparison
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        document_id = self.kwargs.get('document_id')
+        return DocumentVersion.objects.filter(original_document_id=document_id)
+    
+    def get_serializer_class(self):
+        from .serializers import DocumentVersionSerializer
+        return DocumentVersionSerializer
 
 
 @api_view(['POST'])

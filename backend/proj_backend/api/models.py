@@ -858,6 +858,69 @@ class LiquidationManagement(models.Model):
                 liquidation.save(update_fields=['remaining_days'])
 
 
+class DocumentVersion(models.Model):
+    """
+    Model to track document versions for comparison purposes.
+    Stores rejected documents when new versions are uploaded.
+    """
+    VERSION_STATUS_CHOICES = [
+        ('rejected', 'Rejected'),
+        ('superseded', 'Superseded'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    original_document = models.ForeignKey(
+        'LiquidationDocument',
+        on_delete=models.CASCADE,
+        related_name='versions'
+    )
+    document_file = models.FileField(
+        upload_to='liquidation_documents/versions/%Y/%m/%d/',
+        validators=[FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])]
+    )
+    version_number = models.PositiveIntegerField(default=1)
+    status = models.CharField(
+        max_length=20,
+        choices=VERSION_STATUS_CHOICES,
+        default='rejected'
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='uploaded_document_versions'
+    )
+    reviewer_comment = models.TextField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_document_versions'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-version_number']
+        indexes = [
+            models.Index(fields=['original_document', 'version_number']),
+        ]
+    
+    def __str__(self):
+        return f"Version {self.version_number} of {self.original_document}"
+    
+    def save(self, *args, **kwargs):
+        # Calculate file size if document file is provided
+        if self.document_file and not self.file_size:
+            try:
+                self.file_size = self.document_file.size
+            except (OSError, ValueError):
+                pass
+        super().save(*args, **kwargs)
+
+
 class LiquidationDocument(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending Review'),
@@ -903,6 +966,9 @@ class LiquidationDocument(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
     # Keep is_approved for backward compatibility, but it will be deprecated
     is_approved = models.BooleanField(null=True, default=None)
+    # Track if this is a resubmission
+    is_resubmission = models.BooleanField(default=False)
+    resubmission_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         unique_together = ('liquidation', 'request_priority', 'requirement')
@@ -942,6 +1008,52 @@ class LiquidationDocument(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._old_status = self.status if self.pk else None
+    
+    def create_version_from_rejected(self, new_document_file, uploaded_by):
+        """
+        Create a new version from the current rejected document before replacing it.
+        """
+        if self.status != 'rejected':
+            raise ValueError("Can only create versions from rejected documents")
+        
+        # Get the next version number
+        last_version = self.versions.order_by('-version_number').first()
+        next_version = (last_version.version_number + 1) if last_version else 1
+        
+        # Create the version
+        version = DocumentVersion.objects.create(
+            original_document=self,
+            document_file=self.document,
+            version_number=next_version,
+            status='rejected',
+            uploaded_by=self.uploaded_by,
+            reviewer_comment=self.reviewer_comment,
+            reviewed_by=self.reviewed_by,
+            reviewed_at=self.reviewed_at
+        )
+        
+        # Update the current document
+        self.document = new_document_file
+        self.status = 'pending'
+        self.is_approved = None
+        self.reviewer_comment = None
+        self.reviewed_by = None
+        self.reviewed_at = None
+        self.uploaded_by = uploaded_by
+        self.uploaded_at = timezone.now()
+        self.is_resubmission = True
+        self.resubmission_count += 1
+        self.save()
+        
+        return version
+    
+    def get_latest_version(self):
+        """Get the latest version of this document"""
+        return self.versions.order_by('-version_number').first()
+    
+    def get_all_versions(self):
+        """Get all versions of this document ordered by version number"""
+        return self.versions.all().order_by('-version_number')
 
 
 class Notification(models.Model):
