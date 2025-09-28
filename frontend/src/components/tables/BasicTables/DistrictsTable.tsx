@@ -340,6 +340,13 @@ export default function DistrictsTable({
         ...(selectedDistrict.logo && { logo_base64: selectedDistrict.logo }),
       };
 
+      // Debug logging
+      if (selectedDistrict.logo) {
+        console.log("Logo data length:", selectedDistrict.logo.length);
+        console.log("Logo data preview:", selectedDistrict.logo.substring(0, 100));
+        console.log("Is data URL:", selectedDistrict.logo.startsWith('data:'));
+      }
+
       await api.put(
         `school-districts/${selectedDistrict.districtId}/`,
         submitData,
@@ -352,6 +359,7 @@ export default function DistrictsTable({
       setIsDialogOpen(false);
       setIsConfirmEditDialogOpen(false);
     } catch (error) {
+      console.error("Update error:", error);
       toast.error("Failed to update school district.");
     } finally {
       setIsSubmitting(false);

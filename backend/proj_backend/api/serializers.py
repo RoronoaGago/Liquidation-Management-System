@@ -52,11 +52,21 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
         instance = SchoolDistrict.objects.create(**validated_data)
 
         if logo_base64:
+            logger.info(f"Processing logo_base64 for creation, length: {len(logo_base64)}")
+            
             # Validate base64 format
             if ';base64,' in logo_base64:
                 try:
                     format, imgstr = logo_base64.split(';base64,')
                     ext = format.split('/')[-1]
+                    logger.info(f"Data URL format detected, extension: {ext}, base64 length: {len(imgstr)}")
+                    
+                    # Check if base64 string length is valid (multiple of 4)
+                    if len(imgstr) % 4 != 0:
+                        # Pad the string to make it valid
+                        imgstr += '=' * (4 - len(imgstr) % 4)
+                        logger.info(f"Padded base64 string, new length: {len(imgstr)}")
+                    
                     data = ContentFile(
                         base64.b64decode(imgstr),
                         name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
@@ -81,11 +91,22 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
 
         if logo_base64:
+            logger.info(f"Processing logo_base64, length: {len(logo_base64)}")
+            logger.info(f"First 100 chars: {logo_base64[:100]}")
+            
             # Validate base64 format
             if ';base64,' in logo_base64:
                 try:
                     format, imgstr = logo_base64.split(';base64,')
                     ext = format.split('/')[-1]
+                    logger.info(f"Data URL format detected, extension: {ext}, base64 length: {len(imgstr)}")
+                    
+                    # Check if base64 string length is valid (multiple of 4)
+                    if len(imgstr) % 4 != 0:
+                        # Pad the string to make it valid
+                        imgstr += '=' * (4 - len(imgstr) % 4)
+                        logger.info(f"Padded base64 string, new length: {len(imgstr)}")
+                    
                     data = ContentFile(
                         base64.b64decode(imgstr),
                         name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
@@ -94,16 +115,20 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
                 except (ValueError, IndexError, binascii.Error) as e:
                     # Handle invalid base64 format gracefully
                     logger.error(f"Invalid base64 image format: {e}")
-                    # You might want to raise a validation error here
                     raise serializers.ValidationError(
-                        {"logo_base64": "Invalid image format"})
+                        {"logo_base64": f"Invalid image format: {str(e)}"})
             else:
                 # Handle case where the format is missing - try to decode as raw base64
                 try:
-                    # Assume it's a raw base64 string, try to decode it
+                    logger.info(f"Raw base64 format detected, length: {len(logo_base64)}")
+                    
+                    # Check if base64 string length is valid (multiple of 4)
+                    if len(logo_base64) % 4 != 0:
+                        # Pad the string to make it valid
+                        logo_base64 += '=' * (4 - len(logo_base64) % 4)
+                        logger.info(f"Padded base64 string, new length: {len(logo_base64)}")
+                    
                     decoded_data = base64.b64decode(logo_base64)
-                    # Try to determine file extension from the decoded data
-                    # For now, default to png
                     data = ContentFile(
                         decoded_data,
                         name=f'district_{instance.districtId}_{uuid.uuid4()}.png'
@@ -112,7 +137,7 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
                 except (ValueError, binascii.Error) as e:
                     logger.error(f"Invalid base64 image format: {e}")
                     raise serializers.ValidationError(
-                        {"logo_base64": "Invalid image format"})
+                        {"logo_base64": f"Invalid image format: {str(e)}"})
 
         instance.save()
         return instance

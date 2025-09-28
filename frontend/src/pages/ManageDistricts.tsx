@@ -247,6 +247,13 @@ const ManageDistricts = () => {
         ...(pendingFormData.logo && { logo_base64: pendingFormData.logo }),
       };
 
+      // Debug logging
+      if (pendingFormData.logo) {
+        console.log("Logo data length:", pendingFormData.logo.length);
+        console.log("Logo data preview:", pendingFormData.logo.substring(0, 100));
+        console.log("Is data URL:", pendingFormData.logo.startsWith('data:'));
+      }
+
       await api.post("school-districts/", submitData, {
         headers: { "Content-Type": "application/json" },
       });
