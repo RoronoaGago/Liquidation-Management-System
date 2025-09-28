@@ -524,7 +524,7 @@ const DivisionDistrictAdaDashboard = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => navigate("/pre-auditing", { state: { liquidationId: liquidation.liquidationId } })}
+                          onClick={() => navigate("/liquidation-finalize", { state: { liquidationId: liquidation.liquidationId } })}
                         >
                           View
                         </Button>
