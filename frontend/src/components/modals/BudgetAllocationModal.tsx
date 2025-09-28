@@ -1,8 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button/Button';
-import { AlertTriangle, Calendar, DollarSign, Clock, CheckCircle } from 'lucide-react';
-import api from '@/api/axios';
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertTriangle,
+  Calendar,
+  DollarSign,
+  Clock,
+  CheckCircle,
+} from "lucide-react";
+import api from "@/api/axios";
+import Button from "../ui/button/Button";
 
 interface BudgetAllocationModalProps {
   isOpen: boolean;
@@ -15,7 +27,7 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
   isOpen,
   onClose,
   onProceed,
-  year
+  year,
 }) => {
   const [unliquidatedRequests, setUnliquidatedRequests] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -29,10 +41,12 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
   const fetchUnliquidatedRequests = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/budget-allocation/unliquidated-requests/');
+      const response = await api.get(
+        "/budget-allocation/unliquidated-requests/"
+      );
       setUnliquidatedRequests(response.data);
     } catch (error) {
-      console.error('Failed to fetch unliquidated requests:', error);
+      console.error("Failed to fetch unliquidated requests:", error);
       setUnliquidatedRequests({});
     } finally {
       setLoading(false);
@@ -44,25 +58,26 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
       // This will show the notification again tomorrow
       onClose();
     } catch (error) {
-      console.error('Error postponing notification:', error);
+      console.error("Error postponing notification:", error);
     }
   };
 
   const handleProceed = async () => {
     try {
       // Acknowledge the notification
-      await api.post('/budget-allocation/acknowledge-notification/', {
-        year: year
+      await api.post("/budget-allocation/acknowledge-notification/", {
+        year: year,
       });
       onProceed();
     } catch (error) {
-      console.error('Error acknowledging notification:', error);
+      console.error("Error acknowledging notification:", error);
       // Still proceed even if acknowledgment fails
       onProceed();
     }
   };
 
-  const hasUnliquidatedRequests = unliquidatedRequests && Object.keys(unliquidatedRequests).length > 0;
+  const hasUnliquidatedRequests =
+    unliquidatedRequests && Object.keys(unliquidatedRequests).length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -93,8 +108,9 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
                   Yearly Budget Allocation for {year}
                 </h3>
                 <p className="text-sm text-blue-800 dark:text-blue-200">
-                  As the first Monday of January, you need to allocate yearly budgets for all schools. 
-                  These budgets will be automatically divided by 12 to determine monthly allocations.
+                  As the first Monday of January, you need to allocate yearly
+                  budgets for all schools. These budgets will be automatically
+                  divided by 12 to determine monthly allocations.
                 </p>
               </div>
             </div>
@@ -104,7 +120,9 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
           {loading ? (
             <div className="flex items-center justify-center py-4">
               <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-amber-500"></div>
-              <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">Checking for unliquidated requests...</span>
+              <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">
+                Checking for unliquidated requests...
+              </span>
             </div>
           ) : hasUnliquidatedRequests ? (
             <div className="bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20 p-4">
@@ -115,22 +133,29 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
                     Unliquidated Requests Found
                   </h3>
                   <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-                    There are {Object.keys(unliquidatedRequests).length} schools with unliquidated requests from {year - 1}.
+                    There are {Object.keys(unliquidatedRequests).length} schools
+                    with unliquidated requests from {year - 1}.
                   </p>
                   <div className="max-h-32 overflow-y-auto space-y-2">
-                    {Object.entries(unliquidatedRequests).slice(0, 5).map(([schoolId, data]: [string, any]) => (
-                      <div key={schoolId} className="bg-white dark:bg-gray-800 rounded p-2 border border-amber-200 dark:border-amber-700">
-                        <div className="font-medium text-sm text-gray-900 dark:text-white">
-                          {data.school.schoolName}
+                    {Object.entries(unliquidatedRequests)
+                      .slice(0, 5)
+                      .map(([schoolId, data]: [string, any]) => (
+                        <div
+                          key={schoolId}
+                          className="bg-white dark:bg-gray-800 rounded p-2 border border-amber-200 dark:border-amber-700"
+                        >
+                          <div className="font-medium text-sm text-gray-900 dark:text-white">
+                            {data.school.schoolName}
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">
+                            {data.total_unliquidated} unliquidated request(s)
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-300">
-                          {data.total_unliquidated} unliquidated request(s)
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                     {Object.keys(unliquidatedRequests).length > 5 && (
                       <div className="text-xs text-amber-700 dark:text-amber-300">
-                        ... and {Object.keys(unliquidatedRequests).length - 5} more schools
+                        ... and {Object.keys(unliquidatedRequests).length - 5}{" "}
+                        more schools
                       </div>
                     )}
                   </div>
@@ -149,8 +174,8 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
                     No Outstanding Issues
                   </h3>
                   <p className="text-sm text-green-800 dark:text-green-200">
-                    All schools have completed their liquidations from the previous year. 
-                    You can proceed with budget allocation.
+                    All schools have completed their liquidations from the
+                    previous year. You can proceed with budget allocation.
                   </p>
                 </div>
               </div>
@@ -165,7 +190,9 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
             <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
               <li className="flex items-start gap-2">
                 <span className="font-medium">1.</span>
-                <span>You'll be redirected to the Resource Allocation page</span>
+                <span>
+                  You'll be redirected to the Resource Allocation page
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-medium">2.</span>
@@ -173,11 +200,16 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-medium">3.</span>
-                <span>Monthly budgets will be automatically calculated (₱10,000/month)</span>
+                <span>
+                  Monthly budgets will be automatically calculated
+                  (₱10,000/month)
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-medium">4.</span>
-                <span>Schools can then make requests using their monthly allocation</span>
+                <span>
+                  Schools can then make requests using their monthly allocation
+                </span>
               </li>
             </ul>
           </div>
@@ -187,8 +219,9 @@ const BudgetAllocationModal: React.FC<BudgetAllocationModalProps> = ({
             <div className="flex items-start gap-2">
               <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400 mt-0.5" />
               <div className="text-sm text-gray-600 dark:text-gray-300">
-                <span className="font-medium">Note:</span> If you choose "Do it Later", 
-                you'll receive this notification again tomorrow until you allocate the budgets.
+                <span className="font-medium">Note:</span> If you choose "Do it
+                Later", you'll receive this notification again tomorrow until
+                you allocate the budgets.
               </div>
             </div>
           </div>
