@@ -132,9 +132,9 @@ export default function DistrictsTable({
   const isFormValid = useMemo(() => {
     if (!selectedDistrict) return false;
     const requiredValid = requiredFields.every((field) =>
-      // For logo, check both logo and logo_url
+      // For logo, check if there's either a new upload (data URL) or existing logo_url
       field === "logo"
-        ? selectedDistrict.logo?.toString().trim() !== "" ||
+        ? (selectedDistrict.logo && selectedDistrict.logo.startsWith('data:')) ||
           selectedDistrict.logo_url?.toString().trim() !== ""
         : selectedDistrict[field as keyof District]?.toString().trim() !== ""
     );
@@ -286,15 +286,16 @@ export default function DistrictsTable({
     } else {
       delete newErrors[name];
     }
-    // For logo, check both logo and logo_url
-    if (
-      requiredFields.includes("logo") &&
-      !selectedDistrict.logo &&
-      !selectedDistrict.logo_url
-    ) {
-      newErrors.logo = "This field is required";
-    } else {
-      delete newErrors.logo;
+    // For logo, check if there's either a new upload (data URL) or existing logo_url
+    if (requiredFields.includes("logo")) {
+      const hasNewUpload = selectedDistrict.logo && selectedDistrict.logo.startsWith('data:');
+      const hasExistingLogo = selectedDistrict.logo_url && selectedDistrict.logo_url.trim() !== "";
+      
+      if (!hasNewUpload && !hasExistingLogo) {
+        newErrors.logo = "This field is required";
+      } else {
+        delete newErrors.logo;
+      }
     }
     setFormErrors(newErrors);
   };
@@ -311,6 +312,13 @@ export default function DistrictsTable({
           ...prev!,
           logo: result,
         }));
+        
+        // Clear logo error when a new file is uploaded
+        setFormErrors((prevErrors) => {
+          const newErrors = { ...prevErrors };
+          delete newErrors.logo;
+          return newErrors;
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -337,11 +345,13 @@ export default function DistrictsTable({
         districtName: selectedDistrict.districtName,
         municipality: selectedDistrict.municipality,
         legislativeDistrict: selectedDistrict.legislativeDistrict,
-        ...(selectedDistrict.logo && { logo_base64: selectedDistrict.logo }),
       };
 
-      // Debug logging
-      if (selectedDistrict.logo) {
+      // Only include logo_base64 if it's a new upload (data URL format)
+      if (selectedDistrict.logo && selectedDistrict.logo.startsWith('data:')) {
+        submitData.logo_base64 = selectedDistrict.logo;
+        
+        // Debug logging
         console.log("Logo data length:", selectedDistrict.logo.length);
         console.log("Logo data preview:", selectedDistrict.logo.substring(0, 100));
         console.log("Is data URL:", selectedDistrict.logo.startsWith('data:'));
