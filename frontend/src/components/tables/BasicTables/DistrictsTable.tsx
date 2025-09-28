@@ -62,9 +62,9 @@ interface DistrictsTableProps {
   setFilterOptions: React.Dispatch<React.SetStateAction<any>>;
   showArchived: boolean;
   setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
-  onRequestSort: Dispatch<
-    SetStateAction<{ key: string; direction: "desc" | "asc" } | null>
-  >;
+  onRequestSort: (
+    sortConfig: { key: string; direction: "asc" | "desc" } | null
+  ) => void;
   currentSort: { key: string; direction: "asc" | "desc" } | null;
   fetchDistricts: () => Promise<void>;
   loading?: boolean;
@@ -108,6 +108,8 @@ export default function DistrictsTable({
   const [municipalityOptions, setMunicipalityOptions] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isBulkArchiveDialogOpen, setIsBulkArchiveDialogOpen] = useState(false);
+  const [isConfirmEditDialogOpen, setIsConfirmEditDialogOpen] = useState(false);
   const [districtToArchive, setDistrictToArchive] = useState<District | null>(
     null
   );
@@ -186,6 +188,41 @@ export default function DistrictsTable({
 
   const isSelected = (districtId: string) => {
     return selectedDistricts.includes(districtId);
+  };
+
+  // Bulk archive/restore function
+  const handleBulkArchive = async (archive: boolean) => {
+    if (selectedDistricts.length === 0) return;
+    setIsSubmitting(true);
+
+    try {
+      await Promise.all(
+        selectedDistricts.map((districtId) =>
+          api.patch(`school-districts/${districtId}/`, {
+            is_active: !archive,
+          })
+        )
+      );
+
+      toast.success(
+        `${selectedDistricts.length} district${
+          selectedDistricts.length > 1 ? "s" : ""
+        } ${archive ? "archived" : "restored"} successfully!`
+      );
+
+      await fetchDistricts();
+      setSelectedDistricts([]);
+      setSelectAll(false);
+    } catch (error) {
+      toast.error(
+        `Failed to ${
+          archive ? "archive" : "restore"
+        } districts. Please try again.`
+      );
+    } finally {
+      setIsSubmitting(false);
+      setIsBulkArchiveDialogOpen(false);
+    }
   };
 
   const handleArchiveConfirm = async () => {
@@ -286,6 +323,14 @@ export default function DistrictsTable({
       toast.error("Please fix the errors in the form");
       return;
     }
+
+    // Show confirmation dialog instead of submitting directly
+    setIsConfirmEditDialogOpen(true);
+  };
+
+  // Add the confirmed edit function
+  const handleConfirmedEdit = async () => {
+    if (!selectedDistrict) return;
     setIsSubmitting(true);
     try {
       const submitData = {
@@ -305,6 +350,7 @@ export default function DistrictsTable({
       toast.success("School district updated!");
       await fetchDistricts();
       setIsDialogOpen(false);
+      setIsConfirmEditDialogOpen(false);
     } catch (error) {
       toast.error("Failed to update school district.");
     } finally {
@@ -388,6 +434,30 @@ export default function DistrictsTable({
             >
               {showArchived ? "View Active" : "View Archived"}
             </Button>
+
+            {selectedDistricts.length > 0 && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsBulkArchiveDialogOpen(true)}
+                  startIcon={
+                    isSubmitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : showArchived ? (
+                      <ArchiveRestore className="size-4" />
+                    ) : (
+                      <Archive className="size-4" />
+                    )
+                  }
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting
+                    ? "Processing..."
+                    : `${selectedDistricts.length} Selected`}
+                </Button>
+              </div>
+            )}
+
             <select
               value={itemsPerPage.toString()}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -784,6 +854,53 @@ export default function DistrictsTable({
           </Button>
         </div>
       </div>
+
+      {/* Edit Confirmation Dialog */}
+      <Dialog
+        open={isConfirmEditDialogOpen}
+        onOpenChange={setIsConfirmEditDialogOpen}
+      >
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+          <DialogHeader className="mb-8">
+            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+              Confirm Changes
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Are you sure you want to update this School District?
+            </p>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsConfirmEditDialogOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleConfirmedEdit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="animate-spin size-4" />
+                    Updating...
+                  </span>
+                ) : (
+                  "Confirm Update"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit District Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto">
@@ -961,11 +1078,11 @@ export default function DistrictsTable({
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
-                      <Loader2Icon className="animate-spin size-4" />
-                      Saving...
+                      <Loader2 className="animate-spin size-4" />
+                      Updating...
                     </span>
                   ) : (
-                    "Save Changes"
+                    "Update School District"
                   )}
                 </Button>
               </div>
@@ -973,164 +1090,174 @@ export default function DistrictsTable({
           )}
         </DialogContent>
       </Dialog>
+
       {/* Archive Confirmation Dialog */}
       <Dialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
           <DialogHeader className="mb-8">
             <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
               {districtToArchive?.is_active
-                ? "Archive School District"
-                : "Restore School District"}
+                ? "Archive District"
+                : "Restore District"}
             </DialogTitle>
           </DialogHeader>
-          {districtToArchive && (
-            <div className="space-y-4">
-              <p className="text-gray-600 dark:text-gray-400">
-                Are you sure you want to{" "}
-                {districtToArchive.is_active ? "archive" : "restore"} district{" "}
-                <strong>{districtToArchive.districtName}</strong>?
-              </p>
-              <div className="flex justify-end gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsArchiveDialogOpen(false);
-                    setDistrictToArchive(null);
-                  }}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  color={districtToArchive.is_active ? "warning" : "success"}
-                  onClick={handleArchiveConfirm}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="animate-spin size-4" />
-                      {districtToArchive.is_active
-                        ? "Archiving..."
-                        : "Restoring..."}
-                    </span>
-                  ) : districtToArchive.is_active ? (
-                    "Archive"
-                  ) : (
-                    "Restore"
-                  )}
-                </Button>
-              </div>
+
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Are you sure you want to{" "}
+              {districtToArchive?.is_active ? "archive" : "restore"} the school
+              district <strong>{districtToArchive?.districtName}</strong>?
+            </p>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsArchiveDialogOpen(false);
+                  setDistrictToArchive(null);
+                }}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant={districtToArchive?.is_active ? "error" : "success"}
+                onClick={handleArchiveConfirm}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="animate-spin size-4" />
+                    {districtToArchive?.is_active
+                      ? "Archiving..."
+                      : "Restoring..."}
+                  </span>
+                ) : districtToArchive?.is_active ? (
+                  "Archive District"
+                ) : (
+                  "Restore District"
+                )}
+              </Button>
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
-      {/* View District Details Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border-0 animate-in zoom-in-95">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700">
-            <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-blue-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+
+      {/* Bulk Archive Confirmation Dialog */}
+      <Dialog
+        open={isBulkArchiveDialogOpen}
+        onOpenChange={setIsBulkArchiveDialogOpen}
+      >
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+          <DialogHeader className="mb-8">
+            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+              {showArchived ? "Bulk Restore" : "Bulk Archive"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Are you sure you want to {showArchived ? "restore" : "archive"}{" "}
+              <strong>{selectedDistricts.length}</strong> school district
+              {selectedDistricts.length > 1 ? "s" : ""}?
+            </p>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsBulkArchiveDialogOpen(false)}
+                disabled={isSubmitting}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              </svg>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant={showArchived ? "success" : "error"}
+                onClick={() => handleBulkArchive(!showArchived)}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="animate-spin size-4" />
+                    {showArchived ? "Restoring..." : "Archiving..."}
+                  </span>
+                ) : showArchived ? (
+                  `Restore ${selectedDistricts.length} Districts`
+                ) : (
+                  `Archive ${selectedDistricts.length} Districts`
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View District Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+          <DialogHeader className="mb-8">
+            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
               School District Details
             </DialogTitle>
-            <DialogDescription className="text-gray-500 dark:text-gray-400 mt-1">
-              Comprehensive information about this school district
-            </DialogDescription>
           </DialogHeader>
 
           {districtToView && (
-            <div className="space-y-6 px-6 pb-6 pt-4">
-              {/* Header with logo and name */}
-              <div className="flex items-start gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                <div className="flex-shrink-0">
-                  {districtToView.logo_url ? (
-                    <img
-                      src={districtToView.logo_url}
-                      className="w-16 h-16 rounded-xl object-cover border-2 border-white dark:border-gray-600 shadow-sm"
-                      alt="District Logo"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center shadow-sm">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-8 h-8 text-gray-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-xl font-bold text-gray-800 dark:text-white truncate">
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                {districtToView.logo_url && (
+                  <img
+                    src={districtToView.logo_url}
+                    alt={`${districtToView.districtName} logo`}
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                )}
+                <div>
+                  <h3 className="text-xl font-semibold">
                     {districtToView.districtName}
-                  </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-mono">
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
                     ID: {districtToView.districtId}
                   </p>
                 </div>
               </div>
 
-              {/* Details section */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Municipality
-                    </Label>
-                    <p className="text-gray-800 dark:text-gray-200 mt-1 font-medium">
-                      {districtToView.municipality || "Not specified"}
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Legislative District
-                    </Label>
-                    <p className="text-gray-800 dark:text-gray-200 mt-1 font-medium">
-                      {districtToView.legislativeDistrict || "Not specified"}
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Status
-                      </Label>
-                      <p className="text-gray-800 dark:text-gray-200 mt-1 font-medium">
-                        {districtToView.is_active ? "Active" : "Archived"}
-                      </p>
-                    </div>
-                    <div
-                      className={`w-3 h-3 rounded-full ${
-                        districtToView.is_active
-                          ? "bg-green-500 animate-pulse"
-                          : "bg-red-500"
-                      }`}
-                    ></div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Municipality
+                  </label>
+                  <p className="text-gray-900 dark:text-white">
+                    {districtToView.municipality}
+                  </p>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Legislative District
+                  </label>
+                  <p className="text-gray-900 dark:text-white">
+                    {districtToView.legislativeDistrict}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Status
+                  </label>
+                  <Badge color={districtToView.is_active ? "success" : "error"}>
+                    {districtToView.is_active ? "Active" : "Archived"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsViewDialogOpen(false)}
+                >
+                  Close
+                </Button>
               </div>
             </div>
           )}

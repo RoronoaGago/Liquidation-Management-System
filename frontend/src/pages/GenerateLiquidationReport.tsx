@@ -155,6 +155,7 @@ export default function GenerateLiquidationReport() {
       }
 
       // Add date range based on active tab
+      // Add date range based on active tab
       if (activeTab === "Monthly") {
         const currentMonth = dayjs().format("YYYY-MM");
         params.start_date = dayjs(currentMonth)
@@ -175,6 +176,7 @@ export default function GenerateLiquidationReport() {
           .endOf("month")
           .format("YYYY-MM-DD");
       } else if (activeTab === "Custom" && dateRange) {
+        // Ensure dates are properly formatted
         params.start_date = dateRange[0];
         params.end_date = dateRange[1];
       }
@@ -194,11 +196,16 @@ export default function GenerateLiquidationReport() {
       // Handle both response structures
       const responseData = res.data;
       console.log(responseData);
+      // FIXED: Properly handle summary data
       if (responseData.summary) {
         setSummaryData(responseData.summary);
+      } else {
+        // Fallback if summary is not in the expected location
+        setSummaryData(null);
       }
+
+      // Handle results array
       if (responseData.results && Array.isArray(responseData.results)) {
-        // If results is directly an array
         setReportData({
           count: responseData.count,
           next: responseData.next,
@@ -206,19 +213,10 @@ export default function GenerateLiquidationReport() {
           results: responseData.results,
           total_count: responseData.total_count || responseData.count,
           filters: responseData.filters || {},
-        });
-      } else if (responseData.results && responseData.results.results) {
-        // If results has a nested results property
-        setReportData({
-          count: responseData.count,
-          next: responseData.next,
-          previous: responseData.previous,
-          results: responseData.results.results,
-          total_count: responseData.results.total_count || responseData.count,
-          filters: responseData.results.filters || {},
+          summary: responseData.summary, // Include summary here too for consistency
         });
       } else {
-        // Fallback
+        // Fallback handling
         setReportData({
           count: responseData.count || 0,
           next: responseData.next || null,
@@ -226,6 +224,7 @@ export default function GenerateLiquidationReport() {
           results: [],
           total_count: responseData.total_count || 0,
           filters: responseData.filters || {},
+          summary: responseData.summary,
         });
       }
       setCurrentPage(page);
@@ -425,31 +424,53 @@ export default function GenerateLiquidationReport() {
     : 0;
   const report = reportData?.results || []; // Directly access results array
   // Add summary cards component
+  // Update your SummaryCards component
   const SummaryCards = () => {
-    if (!summaryData) return null;
+    if (!summaryData) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[1, 2, 3, 4].map((index) => (
+            <div
+              key={index}
+              className="rounded-lg border border-gray-200 p-4 bg-gray-50 animate-pulse"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="h-4 bg-gray-300 rounded w-24 mb-2"></div>
+                  <div className="h-6 bg-gray-300 rounded w-16"></div>
+                </div>
+                <div className="p-2 rounded-full bg-gray-300">
+                  <div className="h-5 w-5"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
 
     const cards = [
       {
         title: "Total Liquidations",
-        value: summaryData.total_liquidations,
+        value: summaryData.total_liquidations || 0,
         icon: <FileText className="h-5 w-5" />,
         color: "bg-blue-50 border-blue-200 text-blue-700",
       },
       {
         title: "Liquidated",
-        value: summaryData.liquidated,
+        value: summaryData.liquidated || 0,
         icon: <CheckCircle className="h-5 w-5" />,
         color: "bg-green-50 border-green-200 text-green-700",
       },
       {
         title: "Pending Review",
-        value: summaryData.pending_review,
+        value: summaryData.pending_review || 0,
         icon: <Clock className="h-5 w-5" />,
         color: "bg-yellow-50 border-yellow-200 text-yellow-700",
       },
       {
         title: "Needs Revision",
-        value: summaryData.needs_revision,
+        value: summaryData.needs_revision || 0,
         icon: <AlertCircle className="h-5 w-5" />,
         color: "bg-red-50 border-red-200 text-red-700",
       },

@@ -36,7 +36,9 @@ const ManageDistricts = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pendingFormData, setPendingFormData] =
+    useState<DistrictFormData | null>(null);
   const [districts, setDistricts] = useState<any[]>([]);
   const [totalDistricts, setTotalDistricts] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -179,6 +181,7 @@ const ManageDistricts = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // Validation logic (existing code)
     const finalErrors: Record<string, string> = {};
     requiredFields.forEach((field) => {
       if (!formData[field as keyof DistrictFormData]?.trim()) {
@@ -193,19 +196,28 @@ const ManageDistricts = () => {
       return;
     }
 
+    // Show confirmation dialog instead of submitting immediately
+    setPendingFormData({ ...formData });
+    setShowConfirmation(true);
+  };
+
+  const confirmSubmit = async () => {
+    if (!pendingFormData) return;
+
     setIsSubmitting(true);
 
     try {
       const submitData = {
-        districtName: formData.districtName,
-        municipality: formData.municipality,
-        legislativeDistrict: formData.legislativeDistrict,
-        ...(formData.logo && { logo_base64: formData.logo }),
+        districtName: pendingFormData.districtName,
+        municipality: pendingFormData.municipality,
+        legislativeDistrict: pendingFormData.legislativeDistrict,
+        ...(pendingFormData.logo && { logo_base64: pendingFormData.logo }),
       };
 
       await api.post("school-districts/", submitData, {
         headers: { "Content-Type": "application/json" },
       });
+
       await fetchDistricts();
       toast.success("School District Added Successfully!", {
         position: "top-center",
@@ -219,6 +231,8 @@ const ManageDistricts = () => {
         theme: "light",
         transition: Bounce,
       });
+
+      // Reset form
       setFormData({
         districtName: "",
         municipality: "",
@@ -242,7 +256,14 @@ const ManageDistricts = () => {
       });
     } finally {
       setIsSubmitting(false);
+      setShowConfirmation(false);
+      setPendingFormData(null);
     }
+  };
+
+  const cancelSubmit = () => {
+    setShowConfirmation(false);
+    setPendingFormData(null);
   };
 
   return (
@@ -427,6 +448,46 @@ const ManageDistricts = () => {
                   </Button>
                 </div>
               </form>
+            </DialogContent>
+          </Dialog>
+          {/* Confirmation Dialog */}
+          <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+              <DialogHeader className="mb-4">
+                <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
+                  Confirm District Creation
+                </DialogTitle>
+                <DialogDescription className="text-gray-600 dark:text-gray-400">
+                  Are you sure you want to create the school district "
+                  {pendingFormData?.districtName}"?
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelSubmit}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={confirmSubmit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2Icon className="animate-spin size-4" />
+                      Creating...
+                    </span>
+                  ) : (
+                    "Confirm"
+                  )}
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

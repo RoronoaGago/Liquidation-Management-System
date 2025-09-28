@@ -77,10 +77,15 @@ export default function RequirementsTable({
   const [selectedRequirements, setSelectedRequirements] = useState<number[]>(
     []
   );
+  const [isConfirmEditDialogOpen, setIsConfirmEditDialogOpen] = useState(false);
   const [selectAll, setSelectAll] = useState(false);
 
   // Dialogs
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false); // Add this line
+  const [requirementToView, setRequirementToView] =
+    useState<Requirement | null>(null); // Add this line
+
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [isBulkArchiveDialogOpen, setIsBulkArchiveDialogOpen] = useState(false);
 
@@ -171,6 +176,11 @@ export default function RequirementsTable({
   const isSelected = (requirementID: number) =>
     selectedRequirements.includes(requirementID);
 
+  // Add this function for viewing requirements
+  const handleViewRequirement = (req: Requirement) => {
+    setRequirementToView(req);
+    setIsViewDialogOpen(true);
+  };
   // Archive/restore single
   const handleArchive = (req: Requirement) => {
     setRequirementToArchive(req);
@@ -247,6 +257,9 @@ export default function RequirementsTable({
     }
   };
 
+  // Add this state variable near the other dialog states
+
+  // Update the handleSubmit function to show confirmation dialog
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedRequirement) return;
@@ -254,13 +267,23 @@ export default function RequirementsTable({
       setFormErrors({ requirementTitle: "This field is required" });
       return;
     }
+
+    // Show confirmation dialog instead of submitting directly
+    setIsConfirmEditDialogOpen(true);
+  };
+
+  // Add the confirmed edit function
+  const handleConfirmedEdit = async () => {
+    if (!selectedRequirement) return;
     setIsSubmitting(true);
+
     try {
       const data = {
         requirementTitle: selectedRequirement.requirementTitle,
         is_required: selectedRequirement.is_required,
         is_active: selectedRequirement.is_active,
       };
+
       if (selectedRequirement.requirementID) {
         await api.put(
           `requirements/${selectedRequirement.requirementID}/`,
@@ -271,8 +294,10 @@ export default function RequirementsTable({
         await api.post("requirements/", data);
         toast.success("Requirement created!");
       }
+
       await fetchRequirements();
       setIsDialogOpen(false);
+      setIsConfirmEditDialogOpen(false);
     } catch {
       toast.error("Failed to save requirement.");
     } finally {
@@ -494,6 +519,7 @@ export default function RequirementsTable({
                   <TableRow
                     key={req.requirementID}
                     className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => handleViewRequirement(req)}
                   >
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                       <input
@@ -639,6 +665,98 @@ export default function RequirementsTable({
           </Button>
         </div>
       </div>
+      {/* View Requirement Dialog - Add this section */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-w-4xl">
+          <DialogHeader className="mb-6">
+            <div>
+              <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
+                {requirementToView?.requirementTitle}
+              </DialogTitle>
+              <DialogDescription className="text-gray-600 dark:text-gray-400">
+                Requirement Details
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+
+          {requirementToView && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
+                    Basic Information
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Requirement ID
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {requirementToView.requirementID}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Requirement Title
+                      </Label>
+                      <p className="text-gray-800 dark:text-gray-200 mt-1">
+                        {requirementToView.requirementTitle}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white border-b pb-2">
+                    Status & Type
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-baseline gap-2">
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-none">
+                        Type
+                      </Label>
+                      <Badge
+                        color={
+                          requirementToView.is_required
+                            ? "primary"
+                            : "secondary"
+                        }
+                      >
+                        {requirementToView.is_required
+                          ? "Required"
+                          : "Optional"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-none">
+                        Status
+                      </Label>
+                      <Badge
+                        color={
+                          requirementToView.is_active ? "success" : "error"
+                        }
+                      >
+                        {requirementToView.is_active ? "Active" : "Archived"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsViewDialogOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
@@ -682,7 +800,7 @@ export default function RequirementsTable({
                   <span>Required</span>
                 </label>
               </div>
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label className="text-base">Status</Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -716,7 +834,7 @@ export default function RequirementsTable({
                     <span>Archived</span>
                   </label>
                 </div>
-              </div>
+              </div> */}
               <div className="flex justify-end gap-3 pt-4">
                 <Button
                   type="button"
@@ -730,12 +848,63 @@ export default function RequirementsTable({
                   {isSubmitting ? (
                     <Loader2 className="animate-spin size-4" />
                   ) : (
-                    "Save"
+                    "Save Changes"
                   )}
                 </Button>
               </div>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isConfirmEditDialogOpen}
+        onOpenChange={setIsConfirmEditDialogOpen}
+      >
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+          <DialogHeader className="mb-8">
+            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+              Confirm{" "}
+              {selectedRequirement?.requirementID ? "Update" : "Creation"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Are you sure you want to{" "}
+              {selectedRequirement?.requirementID ? "update" : "create"} this
+              requirement?
+            </p>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsConfirmEditDialogOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleConfirmedEdit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="animate-spin size-4" />
+                    {selectedRequirement?.requirementID
+                      ? "Updating..."
+                      : "Creating..."}
+                  </span>
+                ) : (
+                  `Confirm ${
+                    selectedRequirement?.requirementID ? "Update" : "Create"
+                  }`
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       {/* Archive/Restore Dialog */}

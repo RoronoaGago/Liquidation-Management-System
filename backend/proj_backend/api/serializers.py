@@ -12,6 +12,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 import base64
 import uuid
+import binascii
 import string
 import logging
 from simple_history.utils import update_change_reason
@@ -48,18 +49,28 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         logo_base64 = validated_data.pop('logo_base64', None)
-
         instance = SchoolDistrict.objects.create(**validated_data)
 
         if logo_base64:
-            format, imgstr = logo_base64.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(
-                base64.b64decode(imgstr),
-                name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
-            )
-            instance.logo = data
-            instance.save()
+            # Validate base64 format
+            if ';base64,' in logo_base64:
+                try:
+                    format, imgstr = logo_base64.split(';base64,')
+                    ext = format.split('/')[-1]
+                    data = ContentFile(
+                        base64.b64decode(imgstr),
+                        name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
+                    )
+                    instance.logo = data
+                    instance.save()
+                except (ValueError, IndexError, binascii.Error) as e:
+                    logger.error(
+                        f"Invalid base64 image format during creation: {e}")
+                # You can choose to delete the instance or proceed without logo
+                # For now, we'll proceed without the logo
+            else:
+                logger.warning(
+                    "Base64 string missing format prefix during creation")
 
         return instance
 
@@ -70,13 +81,27 @@ class SchoolDistrictSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
 
         if logo_base64:
-            format, imgstr = logo_base64.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(
-                base64.b64decode(imgstr),
-                name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
-            )
-            instance.logo = data
+            # Validate base64 format
+            if ';base64,' in logo_base64:
+                try:
+                    format, imgstr = logo_base64.split(';base64,')
+                    ext = format.split('/')[-1]
+                    data = ContentFile(
+                        base64.b64decode(imgstr),
+                        name=f'district_{instance.districtId}_{uuid.uuid4()}.{ext}'
+                    )
+                    instance.logo = data
+                except (ValueError, IndexError, binascii.Error) as e:
+                    # Handle invalid base64 format gracefully
+                    logger.error(f"Invalid base64 image format: {e}")
+                    # You might want to raise a validation error here
+                    raise serializers.ValidationError(
+                        {"logo_base64": "Invalid image format"})
+            else:
+                # Handle case where the format is missing
+                logger.warning("Base64 string missing format prefix")
+                raise serializers.ValidationError(
+                    {"logo_base64": "Invalid image format"})
 
         instance.save()
         return instance

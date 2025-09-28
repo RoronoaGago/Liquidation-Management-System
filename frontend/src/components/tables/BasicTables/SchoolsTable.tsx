@@ -422,7 +422,7 @@ export default function SchoolsTable({
       toast.success(
         `${selectedSchools.length} school${
           selectedSchools.length > 1 ? "s" : ""
-        } ${restore ? "restored" : "archived"} successfully!`
+        } ${!restore ? "restored" : "archived"} successfully!`
       );
 
       await fetchSchools();

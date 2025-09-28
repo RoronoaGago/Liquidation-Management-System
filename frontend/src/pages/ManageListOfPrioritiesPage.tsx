@@ -21,6 +21,7 @@ import {
   LOPSortableField,
   SortDirection,
 } from "@/lib/types";
+import { Loader2 } from "lucide-react";
 
 interface LOPFormData {
   expenseTitle: string;
@@ -71,6 +72,7 @@ const ManageListOfPrioritiesPage = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [allLOPs, setAllLOPs] = useState<ListOfPriority[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -225,8 +227,10 @@ const ManageListOfPrioritiesPage = () => {
     });
   };
 
+  // Update the handleSubmit function
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     // Validate requirements
     if (formData.requirement_ids.length === 0) {
       setErrors((prev) => ({
@@ -236,21 +240,33 @@ const ManageListOfPrioritiesPage = () => {
       toast.error("Please select at least one requirement.");
       return;
     }
+
     if (!isFormValid) {
       toast.error("Please fill in all required fields correctly!");
       return;
     }
+
+    // Show confirmation dialog instead of submitting directly
+    setShowConfirmation(true);
+  };
+
+  // Add the confirmed submit function
+  const handleConfirmSubmit = async () => {
+    setShowConfirmation(false);
     setIsSubmitting(true);
+
     try {
       await axios.post(`${API_BASE_URL}/api/priorities/`, {
         ...formData,
         category: formData.category || "other_maintenance",
       });
+
       toast.success("List of Priority added successfully!", {
         position: "top-center",
         autoClose: 2000,
         transition: Bounce,
       });
+
       setFormData({
         expenseTitle: "",
         requirement_ids: [],
@@ -259,7 +275,7 @@ const ManageListOfPrioritiesPage = () => {
       });
       setErrors({});
       setIsDialogOpen(false);
-      setRequirementSearch(""); // Reset search
+      setRequirementSearch("");
       await fetchLOPs();
     } catch (error) {
       toast.error("Failed to add List of Priority. Please try again.");
@@ -428,6 +444,53 @@ const ManageListOfPrioritiesPage = () => {
                   </Button>
                 </div>
               </form>
+              {showConfirmation && (
+                <Dialog
+                  open={showConfirmation}
+                  onOpenChange={setShowConfirmation}
+                >
+                  <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+                    <DialogHeader className="mb-8">
+                      <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+                        Confirm Creation
+                      </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                      <p className="text-gray-600 dark:text-gray-400">
+                        Are you sure you want to create this new List of
+                        Priority?
+                      </p>
+
+                      <div className="flex justify-end gap-3 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowConfirmation(false)}
+                          disabled={isSubmitting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={handleConfirmSubmit}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="animate-spin size-4" />
+                              Creating...
+                            </span>
+                          ) : (
+                            "Confirm Creation"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </DialogContent>
           </Dialog>
         </div>
