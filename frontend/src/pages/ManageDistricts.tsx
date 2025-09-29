@@ -17,6 +17,7 @@ import { useState, useEffect, useRef } from "react";
 import api from "@/api/axios";
 import { Loader2Icon } from "lucide-react";
 import DistrictsTable from "@/components/tables/BasicTables/DistrictsTable";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 
 interface DistrictFormData {
   districtName: string;
@@ -36,7 +37,9 @@ const ManageDistricts = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pendingFormData, setPendingFormData] =
+    useState<DistrictFormData | null>(null);
   const [districts, setDistricts] = useState<any[]>([]);
   const [totalDistricts, setTotalDistricts] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -69,7 +72,13 @@ const ManageDistricts = () => {
 
   const isFormValid =
     requiredFields.every(
-      (field) => formData[field as keyof DistrictFormData]?.trim() !== ""
+      (field) => {
+        const value = formData[field as keyof DistrictFormData];
+        if (field === 'logo') {
+          return value && value.toString().trim() !== "";
+        }
+        return value && value.toString().trim() !== "";
+      }
     ) && Object.keys(errors).length === 0;
 
   // Fetch districts from backend with pagination, filtering, sorting
@@ -152,8 +161,21 @@ const ManageDistricts = () => {
     }));
 
     const newErrors = { ...errors };
-    if (requiredFields.includes(name) && !value.trim()) {
-      newErrors[name] = "This field is required.";
+    if (requiredFields.includes(name)) {
+      if (name === 'logo') {
+        // For logo, check if there's a value in formData.logo
+        if (!formData.logo || formData.logo.toString().trim() === "") {
+          newErrors[name] = "This field is required.";
+        } else {
+          delete newErrors[name];
+        }
+      } else {
+        if (!value.trim()) {
+          newErrors[name] = "This field is required.";
+        } else {
+          delete newErrors[name];
+        }
+      }
     } else {
       delete newErrors[name];
     }
@@ -171,6 +193,13 @@ const ManageDistricts = () => {
           ...prevData,
           logo: result,
         }));
+        
+        // Clear logo error when a file is selected
+        setErrors((prevErrors) => {
+          const newErrors = { ...prevErrors };
+          delete newErrors.logo;
+          return newErrors;
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -179,10 +208,18 @@ const ManageDistricts = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // Validation logic (existing code)
     const finalErrors: Record<string, string> = {};
     requiredFields.forEach((field) => {
-      if (!formData[field as keyof DistrictFormData]?.trim()) {
-        finalErrors[field] = "This field is required.";
+      const value = formData[field as keyof DistrictFormData];
+      if (field === 'logo') {
+        if (!value || value.toString().trim() === "") {
+          finalErrors[field] = "This field is required.";
+        }
+      } else {
+        if (!value || value.toString().trim() === "") {
+          finalErrors[field] = "This field is required.";
+        }
       }
     });
 
@@ -193,19 +230,35 @@ const ManageDistricts = () => {
       return;
     }
 
+    // Show confirmation dialog instead of submitting immediately
+    setPendingFormData({ ...formData });
+    setShowConfirmation(true);
+  };
+
+  const confirmSubmit = async () => {
+    if (!pendingFormData) return;
+
     setIsSubmitting(true);
 
     try {
       const submitData = {
-        districtName: formData.districtName,
-        municipality: formData.municipality,
-        legislativeDistrict: formData.legislativeDistrict,
-        ...(formData.logo && { logo_base64: formData.logo }),
+        districtName: pendingFormData.districtName,
+        municipality: pendingFormData.municipality,
+        legislativeDistrict: pendingFormData.legislativeDistrict,
+        ...(pendingFormData.logo && { logo_base64: pendingFormData.logo }),
       };
+
+      // Debug logging
+      if (pendingFormData.logo) {
+        console.log("Logo data length:", pendingFormData.logo.length);
+        console.log("Logo data preview:", pendingFormData.logo.substring(0, 100));
+        console.log("Is data URL:", pendingFormData.logo.startsWith('data:'));
+      }
 
       await api.post("school-districts/", submitData, {
         headers: { "Content-Type": "application/json" },
       });
+
       await fetchDistricts();
       toast.success("School District Added Successfully!", {
         position: "top-center",
@@ -219,6 +272,8 @@ const ManageDistricts = () => {
         theme: "light",
         transition: Bounce,
       });
+
+      // Reset form
       setFormData({
         districtName: "",
         municipality: "",
@@ -242,13 +297,21 @@ const ManageDistricts = () => {
       });
     } finally {
       setIsSubmitting(false);
+      setShowConfirmation(false);
+      setPendingFormData(null);
     }
+  };
+
+  const cancelSubmit = () => {
+    setShowConfirmation(false);
+    setPendingFormData(null);
   };
 
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Manage School Districts" />
       <div className="space-y-6">
+        <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex justify-end">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -427,6 +490,46 @@ const ManageDistricts = () => {
                   </Button>
                 </div>
               </form>
+            </DialogContent>
+          </Dialog>
+          {/* Confirmation Dialog */}
+          <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
+              <DialogHeader className="mb-4">
+                <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
+                  Confirm District Creation
+                </DialogTitle>
+                <DialogDescription className="text-gray-600 dark:text-gray-400">
+                  Are you sure you want to create the school district "
+                  {pendingFormData?.districtName}"?
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelSubmit}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={confirmSubmit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2Icon className="animate-spin size-4" />
+                      Creating...
+                    </span>
+                  ) : (
+                    "Confirm"
+                  )}
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

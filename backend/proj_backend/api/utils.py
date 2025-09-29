@@ -4,7 +4,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
 def generate_otp():
-    return str(random.randint(100000, 999999))
+    return ''.join(str(random.randint(0, 9)) for _ in range(6))
 
 def send_otp_email(user, otp):
     context = {

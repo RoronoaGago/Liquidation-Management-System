@@ -36,11 +36,10 @@ import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
 import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 import { DatePicker } from "antd";
-import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
-
-// Extend dayjs with custom parse format
-dayjs.extend(customParseFormat);
+import dayjs from "@/lib/dayjs";
+import InlinePageHelp from "@/components/help/InlinePageHelp";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
+import { useHelpTrigger } from "@/context/HelpContext";
 
 interface UserFormData {
   first_name: string;
@@ -74,6 +73,7 @@ const requiredFields = [
 ];
 
 const ManageUsers = () => {
+  const triggerHelp = useHelpTrigger();
   const [showArchived, setShowArchived] = useState(false);
   const [schools, setSchools] = useState<School[]>([]);
   const [districts, setDistricts] = useState<District[]>([]); // Added for districts
@@ -365,16 +365,16 @@ const ManageUsers = () => {
         if (error.response.data.email) {
           errorMessage = "Email already exists.";
         } else if (error.response.data.role) {
-          errorMessage = Array.isArray(error.response.data.role) 
-            ? error.response.data.role[0] 
+          errorMessage = Array.isArray(error.response.data.role)
+            ? error.response.data.role[0]
             : error.response.data.role;
         } else if (error.response.data.is_active) {
-          errorMessage = Array.isArray(error.response.data.is_active) 
-            ? error.response.data.is_active[0] 
+          errorMessage = Array.isArray(error.response.data.is_active)
+            ? error.response.data.is_active[0]
             : error.response.data.is_active;
         } else if (error.response.data.school_district) {
-          errorMessage = Array.isArray(error.response.data.school_district) 
-            ? error.response.data.school_district[0] 
+          errorMessage = Array.isArray(error.response.data.school_district)
+            ? error.response.data.school_district[0]
             : error.response.data.school_district;
         } else if (error.response.data.detail) {
           errorMessage = error.response.data.detail;
@@ -401,8 +401,18 @@ const ManageUsers = () => {
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Manage Users" />
       <div className="space-y-6">
+        {/* Inline help at the top */}
+      <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex justify-end">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (open) {
+                triggerHelp("Add New User");
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button
                 size="md"
@@ -740,6 +750,7 @@ const ManageUsers = () => {
           totalUsers={totalUsers}
         />
       </div>
+      {/* <InlinePageHelp className="mt-6" /> */}
     </div>
   );
 };

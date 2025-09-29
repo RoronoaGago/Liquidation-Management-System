@@ -23,6 +23,7 @@ import {
   firstDistrictMunicipalities,
 } from "@/lib/constants";
 import { District } from "@/lib/types";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 
 interface SchoolFormData {
   schoolId: string;
@@ -49,6 +50,7 @@ const ManageSchools = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [schools, setSchools] = useState<any[]>([]);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [totalSchools, setTotalSchools] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,9 @@ const ManageSchools = () => {
   });
   const [districtOptions, setDistrictOptions] = useState<string[]>([]);
   // Add district options state
-const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([]);
+  const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>(
+    []
+  );
   const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
   const [legislativeDistricts, setLegislativeDistricts] = useState<{
     [key: string]: string[];
@@ -85,18 +89,20 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
   >([]);
 
   useEffect(() => {
-  if (districts && Array.isArray(districts)) {
-    const activeDistricts = districts
-      .filter(district => district.is_active)
-      .map(district => district.districtId);
-    setDistrictFilterOptions(activeDistricts);
-  }
-}, [districts]);
+    if (districts && Array.isArray(districts)) {
+      const activeDistricts = districts
+        .filter((district) => district.is_active)
+        .map((district) => district.districtId);
+      setDistrictFilterOptions(activeDistricts);
+    }
+  }, [districts]);
   const isFormValid =
     requiredFields.every((field) => {
       const value = formData[field as keyof SchoolFormData];
       return typeof value === "string" ? value.trim() !== "" : value !== "";
-    }) && Object.keys(errors).length === 0;
+    }) && 
+    /^\d+$/.test(formData.schoolId) && // School ID must be numbers only
+    Object.keys(errors).length === 0;
 
   // Fetch schools from backend with pagination, filtering, sorting
   const fetchSchools = async () => {
@@ -106,14 +112,15 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
       const params: any = {
         page: currentPage,
         page_size: itemsPerPage,
-        archived: showArchived,
+        archived: showArchived.toString(),
       };
+      console.log("Fetching schools with params:", params);
       if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
       if (filterOptions.legislative_district)
         params.legislative_district = filterOptions.legislative_district;
       if (filterOptions.municipality)
         params.municipality = filterOptions.municipality;
-       if (filterOptions.district) params.district = filterOptions.district; // Use 'district' not 'districtId'
+      if (filterOptions.district) params.district = filterOptions.district; // Use 'district' not 'districtId'
       if (sortConfig) {
         params.ordering =
           sortConfig.direction === "asc"
@@ -128,7 +135,8 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
       ]);
 
       const schoolsData = schoolsResponse.data.results || schoolsResponse.data;
-      console.log(schoolsData);
+      console.log("Schools data received:", schoolsData);
+      console.log("Show archived:", showArchived);
       const districtsData =
         districtsResponse.data.results || districtsResponse.data;
       console.log(districtsData);
@@ -144,7 +152,7 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
         ) => {
           acc[district.districtId] = {
             districtName: district.districtName,
-            is_active: district.is_active,
+            is_active: district.is_active ?? true, // Default to true if undefined
           };
           return acc;
         },
@@ -267,7 +275,17 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
 
     debounceTimeout.current = setTimeout(() => {
       const newErrors = { ...errors };
-      if (requiredFields.includes(name) && !value.trim()) {
+      
+      // School ID validation - only numbers
+      if (name === "schoolId") {
+        if (!value.trim()) {
+          newErrors[name] = "This field is required.";
+        } else if (!/^\d+$/.test(value)) {
+          newErrors[name] = "School ID must contain only numbers.";
+        } else {
+          delete newErrors[name];
+        }
+      } else if (requiredFields.includes(name) && !value.trim()) {
         newErrors[name] = "This field is required.";
       } else {
         delete newErrors[name];
@@ -286,6 +304,11 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
         finalErrors[field] = "This field is required.";
       }
     });
+    
+    // Additional validation for school ID
+    if (!/^\d+$/.test(formData.schoolId)) {
+      finalErrors.schoolId = "School ID must contain only numbers.";
+    }
 
     setErrors(finalErrors);
 
@@ -293,15 +316,28 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
       toast.error("Please fill in all required fields correctly!");
       return;
     }
+
+    // Open confirmation dialog instead of submitting directly
+    setIsConfirmDialogOpen(true);
+  };
+  // New function to handle confirmed submission
+  const handleConfirmedSubmit = async () => {
     console.log("Submitting form data:", formData);
     setIsSubmitting(true);
+    setIsConfirmDialogOpen(false);
 
     try {
-      await api.post("http://127.0.0.1:8000/api/schools/", {
-        ...formData,
-        district: formData.districtId,
-        headers: { "Content-Type": "application/json" },
-      });
+      await api.post(
+        "http://127.0.0.1:8000/api/schools/",
+        {
+          ...formData,
+          district: formData.districtId,
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
       await fetchSchools();
       toast.success("School Added Successfully!", {
         position: "top-center",
@@ -315,6 +351,7 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
         theme: "light",
         transition: Bounce,
       });
+
       setFormData({
         schoolId: "",
         schoolName: "",
@@ -402,6 +439,7 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Manage Schools" />
       <div className="space-y-6">
+        <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex justify-end">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -432,9 +470,11 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
                     id="schoolId"
                     name="schoolId"
                     className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="School ID"
+                    placeholder="School ID (numbers only)"
                     value={formData.schoolId}
                     onChange={handleChange}
+                    pattern="[0-9]*"
+                    inputMode="numeric"
                   />
                   {errors.schoolId && (
                     <p className="text-red-500 text-sm">{errors.schoolId}</p>
@@ -560,6 +600,7 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
                     onClick={(e) => {
                       e.preventDefault();
                       setIsDialogOpen(false);
+                      setIsConfirmDialogOpen(false);
                       setErrors({});
                       setFormData({
                         schoolId: "",
@@ -589,6 +630,50 @@ const [districtFilterOptions, setDistrictFilterOptions] = useState<string[]>([])
                   </Button>
                 </div>
               </form>
+            </DialogContent>
+          </Dialog>
+          {/* Add School Confirmation Dialog */}
+          <Dialog
+            open={isConfirmDialogOpen}
+            onOpenChange={setIsConfirmDialogOpen}
+          >
+            <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+              <DialogHeader className="mb-8">
+                <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+                  Confirm School Creation
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-gray-600 dark:text-gray-400">
+                  Are you sure you want to add this new school?
+                </p>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsConfirmDialogOpen(false)}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={handleConfirmedSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2Icon className="animate-spin size-4" />
+                        Adding...
+                      </span>
+                    ) : (
+                      "Confirm"
+                    )}
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

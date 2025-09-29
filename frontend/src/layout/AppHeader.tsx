@@ -119,8 +119,7 @@ const AppHeader: React.FC = () => {
 
           <div className="hidden lg:block">
             <h1 className="text-xl font-bold">
-              Maintenance and Other Operating Expenses Liquidation Management
-              System
+              MOOE Liquidation Management System
             </h1>
 
             {/* <form>

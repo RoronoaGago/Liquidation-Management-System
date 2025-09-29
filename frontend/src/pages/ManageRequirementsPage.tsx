@@ -15,6 +15,8 @@ import Input from "@/components/form/input/InputField";
 import { Bounce, toast } from "react-toastify";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { Loader2 } from "lucide-react";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -36,6 +38,7 @@ const ManageRequirementsPage = () => {
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [formData, setFormData] = useState<Requirement>({
     requirementID: 0,
     requirementTitle: "",
@@ -104,7 +107,16 @@ const ManageRequirementsPage = () => {
       toast.error("Please fill in all required fields correctly!");
       return;
     }
+
+    // Show confirmation dialog instead of submitting directly
+    setShowConfirmation(true);
+  };
+
+  // Add the confirmed submit function
+  const handleConfirmSubmit = async () => {
+    setShowConfirmation(false);
     setIsSubmitting(true);
+
     try {
       await axios.post(`${API_BASE_URL}/api/requirements/`, formData);
       toast.success("Requirement added successfully!", {
@@ -133,6 +145,7 @@ const ManageRequirementsPage = () => {
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Manage Requirements" />
       <div className="space-y-6">
+        <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex justify-end">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -213,6 +226,54 @@ const ManageRequirementsPage = () => {
                   </Button>
                 </div>
               </form>
+
+              {/* Add Confirmation Dialog */}
+              {showConfirmation && (
+                <Dialog
+                  open={showConfirmation}
+                  onOpenChange={setShowConfirmation}
+                >
+                  <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+                    <DialogHeader className="mb-8">
+                      <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+                        Confirm Creation
+                      </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                      <p className="text-gray-600 dark:text-gray-400">
+                        Are you sure you want to create this new requirement?
+                      </p>
+
+                      <div className="flex justify-end gap-3 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowConfirmation(false)}
+                          disabled={isSubmitting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={handleConfirmSubmit}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="animate-spin size-4" />
+                              Creating...
+                            </span>
+                          ) : (
+                            "Confirm Creation"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </DialogContent>
           </Dialog>
         </div>

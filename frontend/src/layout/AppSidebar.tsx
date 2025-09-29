@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router";
 import desktopLogo from "../images/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
+  BoxCubeIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -31,7 +32,9 @@ import {
   DatabaseBackupIcon,
   CalendarIcon,
   FileIcon,
-  LogsIcon, // <-- Add this
+  LogsIcon,
+  HelpCircleIcon,
+  PieChartIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AuditLogPage from "../pages/AuditLogPage";
@@ -211,31 +214,45 @@ const allNavItems: NavItem[] = [
   },
 ];
 
-// const othersItems: NavItem[] = [
-//   {
-//     icon: <PieChartIcon />,
-//     name: "Charts",
-//     roles: ["admin", "school_head"],
-//     subItems: [
-//       {
-//         name: "Line Chart",
-//         path: "/line-chart",
-//         pro: false,
-//         roles: ["admin", "school_head"],
-//       },
-//       { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
-//     ],
-//   },
-//   {
-//     icon: <BoxCubeIcon />,
-//     name: "UI Elements",
-//     roles: ["admin"],
-//     subItems: [
-//       { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
-//       { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
-//     ],
-//   },
-// ];
+const othersItems = [
+  // {
+  //   icon: <PieChartIcon />,
+  //   name: "Charts",
+  //   roles: ["admin", "school_head"],
+  //   subItems: [
+  //     {
+  //       name: "Line Chart",
+  //       path: "/line-chart",
+  //       pro: false,
+  //       roles: ["admin", "school_head"],
+  //     },
+  //     { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
+  //   ],
+  // },
+  // {
+  //   icon: <BoxCubeIcon />,
+  //   name: "UI Elements",
+  //   roles: ["admin"],
+  //   subItems: [
+  //     { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
+  //     { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
+  //   ],
+  // },
+  {
+    icon: <HelpCircleIcon />,
+    name: "Help Center",
+    path: "/help",
+    roles: [
+      "admin",
+      "school_head",
+      "school_admin",
+      "district_admin",
+      "superintendent",
+      "liquidator",
+      "accountant",
+    ],
+  },
+];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -290,11 +307,13 @@ const AppSidebar: React.FC = () => {
   };
 
   const [navItems, setNavItems] = useState<NavItem[]>([]);
-  const [filteredOthersItems] = useState<NavItem[]>([]);
+  const [filteredOthersItems, setFilteredOthersItems] = useState<NavItem[]>([]);
 
   useEffect(() => {
     // Filter items whenever userRole changes
     setNavItems(filterItemsByRole(allNavItems));
+    setFilteredOthersItems(filterItemsByRole(othersItems));
+    console.log(user?.role);
     // setFilteredOthersItems(filterItemsByRole(othersItems));
     console.log('User role:', user?.role);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -531,7 +550,7 @@ const AppSidebar: React.FC = () => {
         </Link>
       </div>
       {(isExpanded || isHovered || isMobileOpen) && (
-        <h1 className="text-xl mb-4 font-bold">MOOE System</h1>
+        <h1 className="text-xl mb-4 font-bold">MOOELMS</h1>
       )}
 
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
@@ -555,7 +574,7 @@ const AppSidebar: React.FC = () => {
             </div>
 
             {/* Others menu section */}
-            {/* {filteredOthersItems.length > 0 && (
+            {filteredOthersItems.length > 0 && (
               <div className="">
                 <h2
                   className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
@@ -565,14 +584,14 @@ const AppSidebar: React.FC = () => {
                   }`}
                 >
                   {isExpanded || isHovered || isMobileOpen ? (
-                    "Others"
+                    "Utilities"
                   ) : (
                     <HorizontaLDots />
                   )}
                 </h2>
                 {renderMenuItems(filteredOthersItems, "others")}
               </div>
-            )} */}
+            )}
           </div>
         </nav>
       </div>
