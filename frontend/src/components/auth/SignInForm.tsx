@@ -143,7 +143,7 @@ export default function SignInForm() {
                 Sending OTP...
               </>
             ) : (
-              "Send Verification Code"
+              "Login"
             )}
           </button>
         </form>

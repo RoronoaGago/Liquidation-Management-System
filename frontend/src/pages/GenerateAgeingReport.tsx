@@ -76,40 +76,74 @@ export default function GenerateAgeingReport() {
       };
       const res = await api.get("reports/unliquidated-schools/", { params });
       const responseData = res.data;
-      
-      // Handle the response data structure
-      if (responseData.results && Array.isArray(responseData.results)) {
-        setReportData({
-          count: responseData.count,
-          next: responseData.next,
-          previous: responseData.previous,
-          results: responseData.results,
-          total_count: responseData.total_count || responseData.count,
-          filters: responseData.filters || {},
-        });
-      } else {
-        // Fallback handling
-        setReportData({
-          count: responseData.count || 0,
-          next: responseData.next || null,
-          previous: responseData.previous || null,
-          results: [],
-          total_count: responseData.total_count || 0,
-          filters: responseData.filters || {},
-        });
+
+      console.log("Raw API response:", responseData); // Debug log
+
+      // Handle the nested response structure
+      let results: AgingReportItem[] = [];
+      let totalCount = 0;
+
+      // Check for nested results structure
+      if (
+        responseData.results &&
+        responseData.results.results &&
+        Array.isArray(responseData.results.results)
+      ) {
+        results = responseData.results.results;
+        totalCount =
+          responseData.results.total_count ||
+          responseData.count ||
+          results.length;
       }
-      
+      // Fallback to direct results array
+      else if (responseData.results && Array.isArray(responseData.results)) {
+        results = responseData.results;
+        totalCount =
+          responseData.total_count || responseData.count || results.length;
+      }
+      // Fallback to direct array
+      else if (Array.isArray(responseData)) {
+        results = responseData;
+        totalCount = responseData.length;
+      }
+      // Fallback to data property
+      else if (responseData.data && Array.isArray(responseData.data)) {
+        results = responseData.data;
+        totalCount =
+          responseData.total_count || responseData.count || results.length;
+      }
+
+      console.log("Extracted results:", results); // Debug log
+
+      setReportData({
+        count: responseData.count || totalCount,
+        next: responseData.next || null,
+        previous: responseData.previous || null,
+        results: results,
+        total_count: totalCount,
+        filters: responseData.results?.filters || responseData.filters || {},
+      });
+
       // Generate summary data from the results
-      const results = responseData.results || [];
       const summary: AgingSummary = {
         total_requests: results.length,
-        demand_letter_ready: results.filter((item: AgingReportItem) => item.days_elapsed === 29).length,
-        overdue_30_60: results.filter((item: AgingReportItem) => item.days_elapsed >= 30 && item.days_elapsed <= 60).length,
-        overdue_61_90: results.filter((item: AgingReportItem) => item.days_elapsed >= 61 && item.days_elapsed <= 90).length,
-        overdue_91_plus: results.filter((item: AgingReportItem) => item.days_elapsed >= 91).length,
+        demand_letter_ready: results.filter(
+          (item: AgingReportItem) => item.days_elapsed === 29
+        ).length,
+        overdue_30_60: results.filter(
+          (item: AgingReportItem) =>
+            item.days_elapsed >= 30 && item.days_elapsed <= 60
+        ).length,
+        overdue_61_90: results.filter(
+          (item: AgingReportItem) =>
+            item.days_elapsed >= 61 && item.days_elapsed <= 90
+        ).length,
+        overdue_91_plus: results.filter(
+          (item: AgingReportItem) => item.days_elapsed >= 91
+        ).length,
       };
       setSummaryData(summary);
-      
+
       setCurrentPage(page);
       setPageSize(size);
     } catch (error) {
@@ -130,7 +164,10 @@ export default function GenerateAgeingReport() {
   const handleExportExcel = async () => {
     setExportLoading(true);
     try {
-      const params: Record<string, string> = { days: daysThreshold, export: "excel" };
+      const params: Record<string, string> = {
+        days: daysThreshold,
+        export: "excel",
+      };
       const response = await api.get("reports/unliquidated-schools/", {
         params,
         responseType: "blob",
@@ -138,19 +175,19 @@ export default function GenerateAgeingReport() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      
+
       let filename = "aging_report";
       if (daysThreshold === "demand_letter") {
         filename += "_demand_letter";
       } else {
         filename += `_${daysThreshold}_days`;
       }
-      
+
       link.setAttribute("download", `${filename}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      
+
       toast.success("Excel exported successfully");
     } catch (error) {
       console.error("Failed to export Excel:", error);
@@ -252,7 +289,8 @@ export default function GenerateAgeingReport() {
                 Aging Report
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                View and export schools with unliquidated requests by aging period.
+                View and export schools with unliquidated requests by aging
+                period.
               </p>
             </div>
           </div>
@@ -280,13 +318,13 @@ export default function GenerateAgeingReport() {
             </div>
 
             <div className="flex gap-4">
-              <Button
+              {/* <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
                 startIcon={<Filter className="size-4" />}
               >
                 Filters
-              </Button>
+              </Button> */}
 
               <Button
                 variant="primary"
@@ -404,28 +442,32 @@ export default function GenerateAgeingReport() {
                         {new Date(row.downloaded_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-800">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          row.days_elapsed === 29 
-                            ? 'bg-orange-100 text-orange-800' 
-                            : row.days_elapsed >= 91 
-                            ? 'bg-red-100 text-red-800'
-                            : row.days_elapsed >= 61
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${
+                            row.days_elapsed === 29
+                              ? "bg-orange-100 text-orange-800"
+                              : row.days_elapsed >= 91
+                              ? "bg-red-100 text-red-800"
+                              : row.days_elapsed >= 61
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
                           {row.days_elapsed}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-800">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          row.aging_period === '0-30 days'
-                            ? 'bg-blue-100 text-blue-800'
-                            : row.aging_period === '31-60 days'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : row.aging_period === '61-90 days'
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${
+                            row.aging_period === "0-30 days"
+                              ? "bg-blue-100 text-blue-800"
+                              : row.aging_period === "31-60 days"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : row.aging_period === "61-90 days"
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
                           {row.aging_period}
                         </span>
                       </td>

@@ -40,17 +40,17 @@ def get_aging_period(days):
 
 def generate_aging_report_data(days_threshold='30'):
     """Generate aging report data for unliquidated requests"""
-    print(f"Logger name: {__name__}")  # Add this temporarily
     # Get all unliquidated requests
     unliquidated_requests = RequestManagement.objects.filter(
         status='unliquidated')
 
-    # Calculate aging for each request
-    today = timezone.now().date()
+    # Calculate aging for each request - use timezone-aware today
+    today = timezone.now().date()  # This returns a date object, not datetime
     aging_data = []
 
     for req in unliquidated_requests:
         if req.downloaded_at:
+            # downloaded_at is timezone-aware, convert both to date for comparison
             days_elapsed = (today - req.downloaded_at.date()).days
         else:
             # Fallback to created_at if downloaded_at is not available
@@ -117,7 +117,7 @@ def generate_aging_excel_report(aging_data, days_threshold):
     from openpyxl.styles import Font, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     from datetime import datetime
-    
+
     # Create Excel workbook
     wb = Workbook()
     ws = wb.active
@@ -147,7 +147,8 @@ def generate_aging_excel_report(aging_data, days_threshold):
     # Add logos (same as liquidation report)
     try:
         # Left logo
-        left_logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
+        left_logo_path = os.path.join(
+            settings.BASE_DIR, 'static', 'images', 'logo.png')
         if os.path.exists(left_logo_path):
             left_img = Image(left_logo_path)
             left_img.width = 80
@@ -158,7 +159,8 @@ def generate_aging_excel_report(aging_data, days_threshold):
 
     try:
         # Right logo
-        right_logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'depend-bagong-pilipinas-logo.png')
+        right_logo_path = os.path.join(
+            settings.BASE_DIR, 'static', 'images', 'depend-bagong-pilipinas-logo.png')
         if os.path.exists(right_logo_path):
             right_img = Image(right_logo_path)
             right_img.width = 80
@@ -191,7 +193,7 @@ def generate_aging_excel_report(aging_data, days_threshold):
     current_date = timezone.now().strftime("%Y-%m-%d")
     ws['A7'] = f"Generated on: {current_date}"
     ws['A7'].font = base_font
-    
+
     # Add days threshold info
     threshold_text = "All requests" if days_threshold == 'all' else f"Requests older than {days_threshold} days"
     if days_threshold == 'demand_letter':
@@ -200,8 +202,9 @@ def generate_aging_excel_report(aging_data, days_threshold):
     ws['A8'].font = base_font
 
     # Add column headers with borders
-    headers = ['School ID', 'School Name', 'Request ID', 'Downloaded At', 'Days Elapsed', 'Aging Period', 'Amount']
-    
+    headers = ['School ID', 'School Name', 'Request ID',
+               'Downloaded At', 'Days Elapsed', 'Aging Period', 'Amount']
+
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=10, column=col_num, value=header)
         cell.font = bold_font
@@ -210,25 +213,32 @@ def generate_aging_excel_report(aging_data, days_threshold):
 
     # Add data with borders
     for row_num, item in enumerate(aging_data, 11):
-        ws.cell(row=row_num, column=1, value=item['school_id']).border = thin_border
-        ws.cell(row=row_num, column=2, value=item['school_name']).border = thin_border
-        ws.cell(row=row_num, column=3, value=item['request_id']).border = thin_border
-        ws.cell(row=row_num, column=4, value=item['downloaded_at']).border = thin_border
-        ws.cell(row=row_num, column=5, value=item['days_elapsed']).border = thin_border
-        ws.cell(row=row_num, column=6, value=item['aging_period']).border = thin_border
-        ws.cell(row=row_num, column=7, value=item['amount']).border = thin_border
+        ws.cell(row=row_num, column=1,
+                value=item['school_id']).border = thin_border
+        ws.cell(row=row_num, column=2,
+                value=item['school_name']).border = thin_border
+        ws.cell(row=row_num, column=3,
+                value=item['request_id']).border = thin_border
+        ws.cell(row=row_num, column=4,
+                value=item['downloaded_at']).border = thin_border
+        ws.cell(row=row_num, column=5,
+                value=item['days_elapsed']).border = thin_border
+        ws.cell(row=row_num, column=6,
+                value=item['aging_period']).border = thin_border
+        ws.cell(row=row_num, column=7,
+                value=item['amount']).border = thin_border
 
     # Add summary section (same format as liquidation report)
     summary_row = 11 + len(aging_data) + 2
     ws[f'A{summary_row}'] = "Prepared by:"
     ws[f'A{summary_row}'].font = bold_font
-    
+
     ws[f'A{summary_row + 1}'] = "_________________________"
     ws[f'A{summary_row + 1}'].font = base_font
-    
+
     ws[f'A{summary_row + 2}'] = "Signature over Printed Name"
     ws[f'A{summary_row + 2}'].font = base_font
-    
+
     ws[f'A{summary_row + 3}'] = "Position/Designation"
     ws[f'A{summary_row + 3}'].font = base_font
 
