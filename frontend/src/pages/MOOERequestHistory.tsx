@@ -1,6 +1,7 @@
+/* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router"; // Add useLocation
 import { useEffect, useState } from "react";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
 import { Submission } from "@/lib/types";
@@ -86,6 +87,7 @@ const statusIcons: Record<string, React.ReactNode> = {
 
 const MOOERequestHistory = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Add this
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +106,16 @@ const MOOERequestHistory = () => {
       setError(null);
       try {
         const res = await api.get("/user-requests/");
-        setSubmissions(Array.isArray(res.data) ? res.data : []);
+        let data = Array.isArray(res.data) ? res.data : [];
+
+        // Sort by created_at descending (latest first)
+        data.sort(
+          (a: Submission, b: Submission) =>
+            new Date(b.created_at || 0).getTime() -
+            new Date(a.created_at || 0).getTime()
+        );
+
+        setSubmissions(data);
         console.log(res.data);
       } catch (err: any) {
         setError("Failed to load requests.");
@@ -114,6 +125,30 @@ const MOOERequestHistory = () => {
     };
     fetchRequests();
   }, []);
+
+  // New useEffect: Auto-open latest or specific request if coming from dashboard, then clear state
+  useEffect(() => {
+    if (!submissions || submissions.length === 0 || viewedSubmission) return;
+
+    // 1) Open specific request if requestId is provided
+    const requestedId = (location.state as any)?.requestId as string | undefined;
+    if (requestedId) {
+      const match = submissions.find((s) => s.request_id === requestedId);
+      if (match) {
+        setViewedSubmission(match as any);
+        // Clear navigation state to avoid re-opening after close/refresh
+        navigate(location.pathname, { replace: true });
+        return;
+      }
+    }
+
+    // 2) Otherwise, open latest if flagged
+    if ((location.state as any)?.openLatest) {
+      setViewedSubmission(submissions[0] as any);
+      // Clear navigation state to avoid re-opening after close/refresh
+      navigate(location.pathname, { replace: true });
+    }
+  }, [submissions, location.state, viewedSubmission]);
 
   // Sorting logic (client-side)
   const handleSort = (key: string) => {
@@ -147,12 +182,18 @@ const MOOERequestHistory = () => {
         error={error}
         sortConfig={sortConfig}
         requestSort={handleSort}
-        currentUserRole={user?.role} // Pass the user's role
+        currentUserRole={user?.role}
       />
       {/* Modal for viewing priorities */}
       <Dialog
         open={!!viewedSubmission}
-        onOpenChange={() => setViewedSubmission(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewedSubmission(null);
+            // Ensure we clear any lingering state so the modal doesn't auto-reopen
+            navigate(location.pathname, { replace: true });
+          }
+        }}
       >
         <DialogContent className="w-full max-w-[90vw] lg:max-w-5xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl">
           <DialogHeader className="mb-4">

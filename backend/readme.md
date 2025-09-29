@@ -1,10 +1,16 @@
 # to get the Location
+
 ## pip install requests
+
 ## pip install pyyaml ua-parser user-agents
+
 ## pip install geoip2
-## pip install django-simple-history 
+
+## pip install django-simple-history
+
 #python manage.py migrate django_celery_results
 #python manage.py migrate django_celery_beat
+
 # Backend Setup Guide
 
 This guide will walk you through the steps to set up and run the backend of this project.
@@ -94,7 +100,6 @@ After setting up your database, follow these instructions to get your backend en
 
     **Endpoint:**
 
-
     ```
     http://127.0.0.1:8000/api/users/
     ```
@@ -121,8 +126,6 @@ You should now have the backend server up and running with a sample user created
 
 CHECK NYO yung SQLFOLDER para sa mga datas na galing sa excel na binigay ng lusdo pero school palang nalagay ko hehe
 we have 386 Schools at the moment
-
-
 
 Django, Celery, and Redis Setup Guide
 This guide provides step-by-step instructions to set up a development environment for a Django project using Celery for asynchronous tasks and Redis as the message broker.
@@ -158,7 +161,7 @@ Install Redis:
 bash
 sudo apt-get install redis-server
 Verify the Installation:
-You can check that Redis is running by connecting with the Redis CLI.
+You can check that Redis is running by connecting with the Redis CLI.y
 
 bash
 redis-cli
@@ -176,7 +179,9 @@ Clone Your Project:
 Make sure you have your project code inside your WSL environment.
 
 bash
+
 # Example
+
 git clone <your-repository-url>
 cd /path/to/your/project
 Create and Activate a Virtual Environment:
@@ -209,7 +214,9 @@ Terminal 1: Start the Redis Server
 This terminal will run the message broker.
 
 bash
+
 # Start the Redis server in the foreground
+
 redis-server
 Note: If Redis is already running as a background service (sudo service redis-server start), you can skip this step and use this terminal for something else.
 
@@ -217,19 +224,27 @@ Terminal 2: Start the Celery Worker
 This terminal runs the Celery worker, which listens for and executes tasks from the queue.
 
 bash
+
 # Make sure you are in your project's root directory
+
 # Replace 'api' with the name of your Django app where celery.py is located
+
 celery -A api worker --loglevel=info --pool=solo
 Terminal 3: Start the Celery Beat Scheduler
 This terminal runs the Celery Beat scheduler, which sends scheduled tasks to the queue at their specified time.
 
 bash
+
 # Make sure you are in your project's root directory
+
 # Replace 'api' with the name of your Django app where celery.py is located
+
 celery -A api beat --loglevel=info
 Terminal 4: Start the Django Server
 This terminal runs your main Django application.
 
 bash
+
 # Make sure you are in your project's root directory
+
 python manage.py runserver

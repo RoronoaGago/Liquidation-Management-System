@@ -156,6 +156,7 @@ def user_list(request):
     """
     List all users or create a new user with enhanced filtering
     """
+    
     if request.method == 'GET':
         # Get filter parameters from query string
         show_archived = request.query_params.get(
@@ -228,7 +229,93 @@ def user_list(request):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def school_head_dashboard(request):
+    """
+    Dashboard data for School Head users
+    """
+    if request.user.role != 'school_head':
+        return Response({"error": "Only school heads can access this endpoint"}, status=403)
+    
+    try:
+        # Get user's school
+        school = request.user.school
+        
+        # Get pending request if exists
+        pending_request = RequestManagement.objects.filter(
+            user=request.user,
+            status='pending'
+        ).first()
+        
+        # Get active liquidation if exists
+        active_liquidation = LiquidationManagement.objects.filter(
+            request__user=request.user
+        ).exclude(status='liquidated').first()
+        
+        # Get priority breakdown for pending request
+        priority_breakdown = []
+        if pending_request:
+            priorities = RequestPriority.objects.filter(request=pending_request)
+            total_amount = priorities.aggregate(total=Sum('amount'))['total'] or 0
+            
+            for priority in priorities:
+                percentage = (priority.amount / total_amount * 100) if total_amount > 0 else 0
+                priority_breakdown.append({
+                    'priority': priority.priority.expenseTitle,
+                    'amount': float(priority.amount),
+                    'percentage': float(percentage),
+                    'color': get_random_color(),
+                    'name': priority.priority.expenseTitle
+                })
+        
+        # Get liquidation progress
+        liquidation_progress = {
+            'priorities': [],
+            'totalPriorities': 0,
+            'completedPriorities': 0,
+            'completionPercentage': 0
+        }
+        
+        if active_liquidation:
+            # Calculate liquidation progress logic here
+            pass
+        
+        # Get financial metrics
+        financial_metrics = {
+            'totalDownloadedAmount': 0,
+            'totalLiquidatedAmount': 0,
+            'liquidationPercentage': 0,
+            'remainingAmount': 0
+        }
+        
+        # Build response
+        response_data = {
+            'liquidationProgress': liquidation_progress,
+            'financialMetrics': financial_metrics,
+            'recentLiquidations': [],
+            'priorityBreakdown': priority_breakdown,
+            'requestStatus': {
+                'hasPendingRequest': pending_request is not None,
+                'hasActiveLiquidation': active_liquidation is not None,
+                'pendingRequest': RequestManagementSerializer(pending_request).data if pending_request else None
+            }
+        }
 
+        # Add school max_budget if user has a school
+        if school:
+            response_data['school_max_budget'] = school.max_budget
+
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in school head dashboard: {str(e)}")
+        return Response({"error": "Failed to load dashboard data"}, status=500)
+
+# Helper function for random colors
+def get_random_color():
+    colors = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"]
+    return random.choice(colors)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def user_detail(request, pk):
     """
@@ -663,7 +750,7 @@ class RequestManagementListCreateView(generics.ListCreateAPIView):
             # Regular users only see their own requests
             queryset = queryset.filter(user=user)
 
-        return queryset.order_by('-created_at')
+        return queryset.select_related('user', 'user__school').order_by('-created_at')
 
 
 class RequestManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -1647,7 +1734,7 @@ def request_history(request, request_id):
                 "last_name": h.user.last_name if h.user else "",
                 "school": {
                     "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
-                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "",
+                    "schoolName": h.user.school.schoolName if h_user and h.user.school else "", # type: ignore
                 } if h.user and h.user.school else None,
             } if h.user else None,
             "request_id": h.request_id,
@@ -3455,7 +3542,9 @@ def generate_liquidation_report(request, LiquidationID):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_next_available_month(request):
-    """Get the next available month for the user to submit a request"""
+    """
+    Returns the next available month for the current user to submit a request.
+    """
     user = request.user
 
     # Create a temporary request object to use the method
@@ -3536,7 +3625,11 @@ def debug_liquidation_times(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def check_request_eligibility(request):
-    """Check if user is eligible to submit a new request"""
+    """
+    Check if the current user is eligible to submit a request for a given month.
+    Pass ?month=YYYY-MM as a query parameter.
+    Returns {'eligible': bool, 'reason': str | null}.
+    """
     user = request.user
     target_month = request.query_params.get('month')  # Format: YYYY-MM
 

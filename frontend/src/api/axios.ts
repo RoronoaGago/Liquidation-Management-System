@@ -50,10 +50,11 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       // Don't try to refresh token for authentication endpoints
-      const isAuthEndpoint = originalRequest.url?.includes('/token/') ||
-        originalRequest.url?.includes('/request-otp/') ||
-        originalRequest.url?.includes('/verify-otp/') ||
-        originalRequest.url?.includes('/resend-otp/');
+      const isAuthEndpoint =
+        originalRequest.url?.includes("/token/") ||
+        originalRequest.url?.includes("/request-otp/") ||
+        originalRequest.url?.includes("/verify-otp/") ||
+        originalRequest.url?.includes("/resend-otp/");
 
       if (isAuthEndpoint) {
         return Promise.reject(error);
@@ -63,10 +64,10 @@ api.interceptors.response.use(
         const { refreshToken } = getTokens();
         if (!refreshToken) {
           // Clear any stale tokens and redirect to login
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
           // window.location.href = '/login';
-          throw new Error('No refresh token available');
+          throw new Error("No refresh token available");
         }
 
         const response = await axios.post<TokenResponse>(
@@ -104,9 +105,9 @@ export const requestOTP = async (email: string, password: string) => {
   try {
     // Create a new axios instance without interceptors for auth requests
     const authApi = axios.create({
-      baseURL: 'http://127.0.0.1:8000/api/',
+      baseURL: "http://127.0.0.1:8000/api/",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -122,9 +123,9 @@ export const verifyOTP = async (email: string, otp: string) => {
   try {
     // Create a new axios instance without interceptors for auth requests
     const authApi = axios.create({
-      baseURL: 'http://127.0.0.1:8000/api/',
+      baseURL: "http://127.0.0.1:8000/api/",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -139,9 +140,9 @@ export const resendOTP = async (email: string) => {
   try {
     // Create a new axios instance without interceptors for auth requests
     const authApi = axios.create({
-      baseURL: 'http://127.0.0.1:8000/api/',
+      baseURL: "http://127.0.0.1:8000/api/",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 

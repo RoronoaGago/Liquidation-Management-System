@@ -507,6 +507,37 @@ class RequestManagement(models.Model):
 
         return True
 
+    @classmethod
+    def can_user_request_for_month_with_reason(cls, user, month_str):
+        """
+        Enhanced version of can_user_request_for_month that returns (eligible: bool, reason: str | None).
+        month_str: 'YYYY-MM' format.
+        """
+        try:
+            year, month = map(int, month_str.split('-'))
+            value = f"{year:04d}-{month:02d}"
+        except ValueError:
+            return False, "Invalid month format. Use YYYY-MM."
+
+        # Check for existing request in the same month
+        existing = cls.objects.filter(
+            user=user,
+            request_monthyear=value
+        ).exclude(status='rejected').first()
+
+        if existing:
+            return False, f"You already have a request for {value} (ID: {existing.request_id}). Please complete or liquidate it first."
+
+        # Check for unliquidated requests
+        unliquidated = cls.objects.filter(
+            user=user
+        ).exclude(status__in=['liquidated', 'rejected']).first()
+
+        if unliquidated:
+            return False, f"You have an unliquidated or pending request ({unliquidated.request_id}). Please liquidate it before submitting a new one."
+
+        return True, None
+
     def set_automatic_status(self):
         """Enhanced automatic status setting with business rules"""
         if self.status in ['approved', 'downloaded', 'unliquidated', 'liquidated', 'rejected']:
@@ -668,6 +699,10 @@ class LiquidationManagement(models.Model):
         User, null=True, blank=True, related_name='division_reviewed_liquidations', on_delete=models.SET_NULL
     )
     reviewed_at_division = models.DateTimeField(null=True, blank=True)
+    reviewed_by_accountant = models.ForeignKey(  # <-- NEW
+        User, null=True, blank=True, related_name='accountant_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_accountant = models.DateTimeField(null=True, blank=True)  # <-- NEW
     created_at = models.DateTimeField(auto_now_add=True)
     date_submitted = models.DateTimeField(null=True, blank=True)
     date_districtApproved = models.DateField(null=True, blank=True)
@@ -824,6 +859,13 @@ class LiquidationManagement(models.Model):
 
 
 class LiquidationDocument(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('resubmitted', 'Resubmitted'),
+    ]
+
     liquidation = models.ForeignKey(
         LiquidationManagement,
         on_delete=models.CASCADE,
@@ -845,8 +887,22 @@ class LiquidationDocument(models.Model):
         null=True,
         related_name='uploaded_documents'
     )
-    is_approved = models.BooleanField(null=True, default=None)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
     reviewer_comment = models.TextField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_documents'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    # Keep is_approved for backward compatibility, but it will be deprecated
+    is_approved = models.BooleanField(null=True, default=None)
 
     class Meta:
         unique_together = ('liquidation', 'request_priority', 'requirement')
@@ -855,11 +911,37 @@ class LiquidationDocument(models.Model):
         return f"Document for {self.requirement} in {self.request_priority}"
 
     def save(self, *args, **kwargs):
+        from django.utils import timezone
+        
         # Ensure the document belongs to the same request as the liquidation
         if self.request_priority.request != self.liquidation.request:
             raise ValueError(
                 "Document's priority must belong to the liquidation's request")
+        
+        # Handle status transitions and maintain backward compatibility
+        if hasattr(self, '_old_status'):
+            old_status = self._old_status
+        else:
+            old_status = None
+            
+        # Auto-set reviewed_at when status changes to approved/rejected
+        if (old_status != self.status and 
+            self.status in ['approved', 'rejected'] and 
+            not self.reviewed_at):
+            self.reviewed_at = timezone.now()
+        
+        # Maintain backward compatibility with is_approved
+        if self.is_approved is None:
+            if self.status == 'approved':
+                self.is_approved = True
+            elif self.status == 'rejected':
+                self.is_approved = False
+        
         super().save(*args, **kwargs)
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._old_status = self.status if self.pk else None
 
 
 class Notification(models.Model):
