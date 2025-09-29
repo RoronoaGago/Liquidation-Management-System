@@ -845,7 +845,7 @@ const ResourceAllocation = () => {
         <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
           <Disclosure>
             {({ open }) => (
-              <>
+              <div>
                 <DisclosureButton
                   className="flex w-full items-center justify-between p-3 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                   aria-label="Resource allocation guide"
@@ -885,7 +885,7 @@ const ResourceAllocation = () => {
                     </ol>
                   </Disclosure.Panel>
                 </Transition>
-              </>
+              </div>
             )}
           </Disclosure>
         </div>
