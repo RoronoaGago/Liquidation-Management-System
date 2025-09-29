@@ -38,13 +38,13 @@ import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashb
 import DivisionDistrictAdaDashboard from "./pages/DivisionDistrictAdaDashboard";
 import DivisionAccountantDashboard from "./pages/DivisionAccountantDashboard";
 import DivisionLiquidatorDashboard from "./pages/DivisionLiquidatorDashboard";
-import YearlyBudgetModal from "./components/common/YearlyBudgetModal";
-import { useYearlyBudgetModal } from "./hooks/useYearlyBudgetModal";
 import HelpCenter from "./pages/HelpCenter";
 import HelpArticlePage from "./pages/HelpArticlePage";
 import ContextualHelpButton from "./components/help/ContextualHelpButton";
 import DynamicContextualHelp from "./components/help/DynamicContextualHelpComponent";
 import { HelpProvider } from "./context/HelpContext";
+import YearlyBudgetModal from "./components/common/YearlyBudgetModal";
+import { useYearlyBudgetModal } from "./hooks/useYearlyBudgetModal";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -186,6 +186,44 @@ const App = () => {
               />
             </Route>
 
+            {/* Shared routes for multiple roles */}
+            <Route
+              element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
+            >
+              <Route
+                path="/fund-requests/:id"
+                element={<RequestDetailPage />}
+              />
+              <Route
+                path="/prepare-list-of-priorities"
+                element={<ListOfPrioritiesPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <RequireAuth allowedRoles={["school_admin", "school_head"]} />
+              }
+            >
+              <Route path="/liquidation" element={<LiquidationPage />} />
+            </Route>
+            <Route
+              element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
+            >
+              <Route path="/schools" element={<ManageSchools />} />
+              <Route
+                path="/resource-allocation"
+                element={<ResourceAllocation />}
+              />
+            </Route>
+          </Route>
+          {/* Catch-all route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <SetupModal />
+        <LiquidationReminder />
+        {/* Enhanced contextual help - replaces the old ContextualHelpButton */}
+        <DynamicContextualHelp variant="floating" showQuickTips={true} />
+      </HelpProvider>
           {/* Shared routes for multiple roles */}
           <Route
             element={<RequireAuth allowedRoles={["admin", "school_head"]} />}

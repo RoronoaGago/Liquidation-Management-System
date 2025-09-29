@@ -313,6 +313,8 @@ const AppSidebar: React.FC = () => {
     // Filter items whenever userRole changes
     setNavItems(filterItemsByRole(allNavItems));
     setFilteredOthersItems(filterItemsByRole(othersItems));
+    console.log(user?.role);
+    // setFilteredOthersItems(filterItemsByRole(othersItems));
     console.log('User role:', user?.role);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
