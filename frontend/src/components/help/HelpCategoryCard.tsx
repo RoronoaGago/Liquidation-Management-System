@@ -8,6 +8,7 @@ import {
   Settings,
   DollarSign,
   ClipboardCheck,
+  ListChecks,
 } from "lucide-react";
 
 interface HelpCategoryCardProps {
@@ -17,12 +18,16 @@ interface HelpCategoryCardProps {
 }
 
 const iconMap: { [key: string]: React.ReactNode } = {
-  users: <Users className="w-8 h-8" />,
-  schools: <School className="w-8 h-8" />,
+  users: <Users className="w-8 h-8" />, // if data uses "users"
+  user: <Users className="w-8 h-8" />, // fallback
+  school: <School className="w-8 h-8" />, // data uses "school"
+  schools: <School className="w-8 h-8" />, // fallback
   mooe: <DollarSign className="w-8 h-8" />,
   liquidation: <ClipboardCheck className="w-8 h-8" />,
   reporting: <BarChart3 className="w-8 h-8" />,
   administration: <Settings className="w-8 h-8" />,
+  settings: <Settings className="w-8 h-8" />, // data uses "settings" for getting-started
+  priority: <ListChecks className="w-8 h-8" />, // for priority-management
 };
 
 const HelpCategoryCard: React.FC<HelpCategoryCardProps> = ({

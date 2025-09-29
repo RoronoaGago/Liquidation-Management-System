@@ -318,20 +318,6 @@ const AuditLogPage = () => {
                 Filters
               </Button>
               <Button
-                variant="outline"
-                onClick={handleExport}
-                disabled={exporting}
-                startIcon={
-                  exporting ? (
-                    <Loader2Icon className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <DownloadIcon className="size-4" />
-                  )
-                }
-              >
-                {exporting ? "Exporting..." : "Export"}
-              </Button>
-              <Button
                 variant="primary"
                 onClick={fetchAuditLogs}
                 startIcon={<RefreshCwIcon className="size-4" />}

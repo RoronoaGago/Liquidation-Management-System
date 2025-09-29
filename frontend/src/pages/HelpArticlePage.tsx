@@ -6,6 +6,7 @@ import { ArrowLeftIcon, CalendarIcon, UserIcon } from "lucide-react";
 import StepByStepGuide from "@/components/help/StepByStepGuide";
 import RelatedArticles from "@/components/help/RelatedArticles";
 import { helpArticles } from "@/lib/helpData";
+import ImageLightbox from "@/components/common/ImageLightbox";
 
 const HelpArticlePage: React.FC = () => {
   const { articleId } = useParams<{ articleId: string }>();
@@ -13,6 +14,8 @@ const HelpArticlePage: React.FC = () => {
   const navigate = useNavigate();
 
   const article = helpArticles.find((a) => a.id === articleId);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxStartIndex, setLightboxStartIndex] = useState(0);
 
   if (!article) {
     return (
@@ -181,21 +184,27 @@ const HelpArticlePage: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {article.images.map((image, index) => (
-                    <div
+                    <button
                       key={index}
-                      className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                      type="button"
+                      onClick={() => {
+                        setLightboxStartIndex(index);
+                        setIsLightboxOpen(true);
+                      }}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden group focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      title="Click to enlarge"
                     >
                       <img
                         src={image}
                         alt={`Step ${index + 1} illustration`}
-                        className="w-full h-48 object-cover"
+                        className="w-full h-48 object-cover transition-transform duration-200 group-hover:scale-[1.02]"
                       />
                       <div className="p-3 bg-gray-50 dark:bg-gray-700">
                         <p className="text-sm text-gray-600 dark:text-gray-300 text-center">
                           Figure {index + 1}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -230,6 +239,13 @@ const HelpArticlePage: React.FC = () => {
             />
           </div>
         )}
+
+        <ImageLightbox
+          images={article.images}
+          isOpen={isLightboxOpen}
+          startIndex={lightboxStartIndex}
+          onClose={() => setIsLightboxOpen(false)}
+        />
       </div>
     </div>
   );

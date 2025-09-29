@@ -402,7 +402,7 @@ const ManageUsers = () => {
       <PageBreadcrumb pageTitle="Manage Users" />
       <div className="space-y-6">
         {/* Inline help at the top */}
-        {/* <DynamicContextualHelp variant="inline" className="mb-6" /> */}
+        <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex justify-end">
           <Dialog
             open={isDialogOpen}
