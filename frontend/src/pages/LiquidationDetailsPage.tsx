@@ -25,7 +25,6 @@ import {
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { formatDateTime } from "@/lib/helpers";
-import { format } from "path";
 
 // --- Type Safety Improvements ---
 interface Document {
@@ -39,6 +38,24 @@ interface Document {
   requirement_id: number;
   request_priority_id: number;
   uploaded_at: string;
+  versions?: DocumentVersion[];
+  is_resubmission?: boolean;
+  resubmission_count?: number;
+}
+
+interface DocumentVersion {
+  id: number;
+  document_url: string;
+  version_number: number;
+  status: string;
+  uploaded_at: string;
+  reviewer_comment: string | null;
+  reviewed_by: {
+    first_name: string;
+    last_name: string;
+  } | null;
+  reviewed_at: string | null;
+  file_size: number | null;
 }
 
 interface Expense {
@@ -110,7 +127,7 @@ const LiquidationDetailsPage = () => {
   const navigate = useNavigate();
   const [liquidation, setLiquidation] = useState<Liquidation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
+  const [expandedExpense, setExpandedExpense] = useState<string[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [expenseList, setExpenseList] = useState<Expense[]>([]);
   const [viewDoc, setViewDoc] = useState<Document | null>(null);
@@ -124,6 +141,7 @@ const LiquidationDetailsPage = () => {
     const savedPreference = localStorage.getItem("hideApprovedDocuments");
     return savedPreference ? JSON.parse(savedPreference) : true;
   });
+  const [showOnlyWithVersions, setShowOnlyWithVersions] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [currentAction, setCurrentAction] = useState<
@@ -131,6 +149,9 @@ const LiquidationDetailsPage = () => {
   >(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [rejectionComment, setRejectionComment] = useState("");
+  const [showVersionComparison, setShowVersionComparison] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<DocumentVersion | null>(null);
+  const [comparisonMode, setComparisonMode] = useState<'single' | 'side-by-side'>('single');
 
   // --- Add these states at the top of your component ---
   const [showApproveReportConfirm, setShowApproveReportConfirm] =
@@ -148,9 +169,46 @@ const LiquidationDetailsPage = () => {
     setCurrentComment("");
   }, [viewDoc]);
 
-  // Filter expenses based on hideApproved state
+  // Filter expenses based on hideApproved state and role/status
   const filteredExpenses = useMemo(() => {
+    // Show only rejected documents with at least 1 version for resubmitted reports for liquidator/accountant
+    if (
+      (user?.role === "liquidator" || user?.role === "accountant") &&
+      liquidation?.status === "resubmit"
+    ) {
+      // Only include expenses with at least one rejected document that has a version
+      return expenseList.filter((expense) =>
+        expense.requirements.some((req) => {
+          const doc = documents.find(
+            (d) =>
+              d.request_priority_id === expense.id &&
+              d.requirement_id === req.requirementID
+          );
+          return (
+            doc?.is_approved === false &&
+            doc?.versions &&
+            doc.versions.length > 0
+          );
+        })
+      );
+    }
+
+    // Division admin assistant logic (already present)
     if (!hideApproved) {
+      // For liquidators and accountants, when showOnlyWithVersions is true, only show expenses with documents that have versions
+      if ((user?.role === "liquidator" || user?.role === "accountant") && showOnlyWithVersions) {
+        return expenseList.filter((expense) =>
+          expense.requirements.some((req) => {
+            const doc = documents.find(
+              (d) =>
+                d.request_priority_id === expense.id &&
+                d.requirement_id === req.requirementID
+            );
+            return doc?.versions && doc.versions.length > 0;
+          })
+        );
+      }
+      
       // When showing all, just return all expenses but sort them with pending first
       return [...expenseList].sort((a, b) => {
         const aHasPending = a.requirements.some((req) => {
@@ -188,7 +246,7 @@ const LiquidationDetailsPage = () => {
         return !doc?.is_approved;
       })
     );
-  }, [expenseList, documents, hideApproved]);
+  }, [expenseList, documents, hideApproved, showOnlyWithVersions, user?.role, liquidation?.status]);
 
   useEffect(() => {
     const fetchLiquidationDetails = async () => {
@@ -223,8 +281,36 @@ const LiquidationDetailsPage = () => {
           }))
         );
 
-        // Auto-expand first expense with unapproved documents
+        // Auto-expand expenses based on user role and document status
         if (expenses.length > 0) {
+          // For liquidator/accountant, expand all expenses that have documents with versions
+          if (user?.role === "liquidator" || user?.role === "accountant") {
+            const expensesWithVersions = expenses.filter((expense) =>
+              expense.requirements.some((req) => {
+                const doc = docRes.data.find(
+                  (d: any) =>
+                    d.request_priority_id === expense.id &&
+                    d.requirement_id === req.requirementID
+                );
+                return (
+                  doc?.versions &&
+                  doc.versions.length > 0
+                );
+              })
+            );
+            
+            if (expensesWithVersions.length > 0) {
+              // Expand all expenses that have documents with versions
+              setExpandedExpense(expensesWithVersions.map(expense => String(expense.id)));
+              // Show all documents when there are versions available
+              setHideApproved(false);
+              // Set to show only documents with versions by default
+              setShowOnlyWithVersions(true);
+              return;
+            }
+          }
+          
+          // Default: expand first expense with unapproved document
           const firstUnapprovedExpense = expenses.find((expense) =>
             expense.requirements.some(
               (req) =>
@@ -241,7 +327,7 @@ const LiquidationDetailsPage = () => {
             )
           );
           if (firstUnapprovedExpense) {
-            setExpandedExpense(String(firstUnapprovedExpense.id));
+            setExpandedExpense([String(firstUnapprovedExpense.id)]);
           }
         }
       } catch (err) {
@@ -401,21 +487,24 @@ const LiquidationDetailsPage = () => {
     setActionLoading(true);
     const newStatus = action === "approve";
     const comment = action === "reject" ? rejectionComment : "";
+    const statusValue = action === "approve" ? "approved" : "rejected";
+    
     await api.patch(`/liquidations/${liquidationId}/documents/${doc.id}/`, {
       is_approved: newStatus,
+      status: statusValue,
       reviewer_comment: comment,
     });
     setDocuments((docs) =>
       docs.map((d) =>
         d.id === doc.id
-          ? { ...d, is_approved: newStatus, reviewer_comment: comment }
+          ? { ...d, is_approved: newStatus, status: statusValue, reviewer_comment: comment }
           : d
       )
     );
     // Update viewDoc so dialog reflects new status
     setViewDoc((prev) =>
       prev && prev.id === doc.id
-        ? { ...prev, is_approved: newStatus, reviewer_comment: comment }
+        ? { ...prev, is_approved: newStatus, status: statusValue, reviewer_comment: comment }
         : prev
     );
     // toast[action === "approve" ? "success" : "error"](
@@ -722,7 +811,33 @@ const LiquidationDetailsPage = () => {
                     <ErrorFallback />
                   ) : (
                     <div className="h-full flex flex-col custom-scrollbar">
-                      <div className="p-2 bg-gray-100 border-b flex justify-end items-center">
+                      <div className="p-2 bg-gray-100 border-b flex justify-between items-center">
+                        <div className="flex gap-2">
+                          {/* Version comparison button */}
+                          {viewDoc?.versions && viewDoc.versions.length > 0 && (
+                            <button
+                              onClick={() => setShowVersionComparison(!showVersionComparison)}
+                              className="px-2 py-1 text-xs bg-purple-50 text-purple-600 rounded border"
+                            >
+                              {showVersionComparison ? "Hide Versions" : "Show Versions"}
+                            </button>
+                          )}
+                          {/* Comparison mode toggle */}
+                          {showVersionComparison && selectedVersion && (
+                            <button
+                              onClick={() => setComparisonMode(comparisonMode === 'single' ? 'side-by-side' : 'single')}
+                              className="px-2 py-1 text-xs bg-green-50 text-green-600 rounded border"
+                            >
+                              {comparisonMode === 'single' ? 'Side-by-Side' : 'Single View'}
+                            </button>
+                          )}
+                          {/* Resubmission indicator */}
+                          {viewDoc?.is_resubmission && (
+                            <span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded border">
+                              Resubmission #{viewDoc.resubmission_count}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex gap-2">
                           <button
                             onClick={() =>
@@ -758,26 +873,127 @@ const LiquidationDetailsPage = () => {
                           </a>
                         </div>
                       </div>
-                      <div className="flex-1 overflow-auto custom-scrollbar">
-                        <div className="flex items-center justify-center h-full w-full custom-scrollbar">
-                          <iframe
-                            src={`${viewDoc?.document_url}#view=fitH`}
-                            title="PDF Preview"
-                            className="border-0 bg-white"
-                            style={{
-                              width: `${100 * zoomLevel}%`,
-                              height: `${100 * zoomLevel}%`,
-                              transformOrigin: "0 0",
-                            }}
-                            onLoad={() => setIsLoadingDoc(false)}
-                            onError={() => {
-                              setIsLoadingDoc(false);
-                              setError(
-                                new Error("Failed to load PDF document")
-                              );
-                            }}
-                          />
+                      
+                      {/* Version comparison panel */}
+                      {showVersionComparison && viewDoc?.versions && viewDoc.versions.length > 0 && (
+                        <div className="p-3 bg-gray-50 border-b">
+                          <h4 className="text-sm font-medium mb-2">Document Versions</h4>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => setSelectedVersion(null)}
+                              className={`px-3 py-1 text-xs rounded border ${
+                                !selectedVersion
+                                  ? "bg-green-100 text-green-800 border-green-300"
+                                  : "bg-white text-gray-700 border-gray-300"
+                              }`}
+                            >
+                              Current Document
+                              <div className="text-xs text-gray-500">
+                                {new Date(viewDoc.uploaded_at).toLocaleDateString()}
+                              </div>
+                            </button>
+                            {viewDoc.versions.map((version) => (
+                              <button
+                                key={version.id}
+                                onClick={() => setSelectedVersion(version)}
+                                className={`px-3 py-1 text-xs rounded border ${
+                                  selectedVersion?.id === version.id
+                                    ? "bg-blue-100 text-blue-800 border-blue-300"
+                                    : "bg-white text-gray-700 border-gray-300"
+                                }`}
+                              >
+                                Version {version.version_number} (Rejected)
+                                {version.reviewed_at && (
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(version.reviewed_at).toLocaleDateString()}
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+                      )}
+                      
+                      <div className="flex-1 overflow-auto custom-scrollbar">
+                        {comparisonMode === 'side-by-side' && selectedVersion ? (
+                          <div className="flex h-full w-full">
+                            {/* Current Document */}
+                            <div className="flex-1 border-r border-gray-300">
+                              <div className="h-full flex flex-col">
+                                <div className="p-2 bg-blue-50 border-b text-center">
+                                  <span className="text-sm font-medium text-blue-800">Current Document</span>
+                                </div>
+                                <div className="flex-1 flex items-center justify-center">
+                                  <iframe
+                                    src={`${viewDoc?.document_url}#view=fitH`}
+                                    title="Current PDF Preview"
+                                    className="border-0 bg-white"
+                                    style={{
+                                      width: `${100 * zoomLevel}%`,
+                                      height: `${100 * zoomLevel}%`,
+                                      transformOrigin: "0 0",
+                                    }}
+                                    onLoad={() => setIsLoadingDoc(false)}
+                                    onError={() => {
+                                      setIsLoadingDoc(false);
+                                      setError(
+                                        new Error("Failed to load current PDF document")
+                                      );
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Rejected Version */}
+                            <div className="flex-1">
+                              <div className="h-full flex flex-col">
+                                <div className="p-2 bg-red-50 border-b text-center">
+                                  <span className="text-sm font-medium text-red-800">Version {selectedVersion.version_number} (Rejected)</span>
+                                </div>
+                                <div className="flex-1 flex items-center justify-center">
+                                  <iframe
+                                    src={`${selectedVersion.document_url}#view=fitH`}
+                                    title="Version PDF Preview"
+                                    className="border-0 bg-white"
+                                    style={{
+                                      width: `${100 * zoomLevel}%`,
+                                      height: `${100 * zoomLevel}%`,
+                                      transformOrigin: "0 0",
+                                    }}
+                                    onLoad={() => setIsLoadingDoc(false)}
+                                    onError={() => {
+                                      setIsLoadingDoc(false);
+                                      setError(
+                                        new Error("Failed to load version PDF document")
+                                      );
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-full w-full custom-scrollbar">
+                            <iframe
+                              src={`${selectedVersion?.document_url || viewDoc?.document_url}#view=fitH`}
+                              title="PDF Preview"
+                              className="border-0 bg-white"
+                              style={{
+                                width: `${100 * zoomLevel}%`,
+                                height: `${100 * zoomLevel}%`,
+                                transformOrigin: "0 0",
+                              }}
+                              onLoad={() => setIsLoadingDoc(false)}
+                              onError={() => {
+                                setIsLoadingDoc(false);
+                                setError(
+                                  new Error("Failed to load PDF document")
+                                );
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -863,17 +1079,30 @@ const LiquidationDetailsPage = () => {
                           </Button>
                         </>
                       )}
-                      {/* If liquidator or accountant, show disabled buttons for clarity (optional) */}
+                      {/* Enable document rejection for liquidators and accountants */}
                       {(isLiquidator || isAccountant) && (
                         <>
                           <Button
                             variant={
                               viewDoc?.is_approved ? "success" : "outline"
                             }
-                            disabled
-                            startIcon={<CheckCircle className="h-5 w-5" />}
+                            disabled={viewDoc?.is_approved || actionLoading}
+                            startIcon={
+                              actionLoading && currentAction === "approve" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-5 w-5" />
+                              )
+                            }
+                            onClick={() =>
+                              handleDocumentAction("approve", viewDoc!)
+                            }
                           >
-                            Approve Document
+                            {actionLoading && currentAction === "approve"
+                              ? "Approving..."
+                              : viewDoc?.is_approved
+                              ? "Approved"
+                              : "Approve Document"}
                           </Button>
                           <Button
                             variant={
@@ -881,10 +1110,25 @@ const LiquidationDetailsPage = () => {
                                 ? "destructive"
                                 : "outline"
                             }
-                            disabled
-                            startIcon={<AlertCircle className="h-5 w-5" />}
+                            disabled={
+                              viewDoc?.is_approved === false || actionLoading
+                            }
+                            startIcon={
+                              actionLoading && currentAction === "reject" ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <AlertCircle className="h-5 w-5" />
+                              )
+                            }
+                            onClick={() =>
+                              handleDocumentAction("reject", viewDoc!)
+                            }
                           >
-                            Reject Document
+                            {actionLoading && currentAction === "reject"
+                              ? "Rejecting..."
+                              : viewDoc?.is_approved === false
+                              ? "Rejected"
+                              : "Reject Document"}
                           </Button>
                         </>
                       )}
@@ -1005,6 +1249,36 @@ const LiquidationDetailsPage = () => {
                     )}
                   </div>
                 )}
+
+                {/* Version Information Section */}
+                {selectedVersion && (
+                  <div className="mt-4 space-y-2">
+                    <h4 className="text-sm font-medium">Version {selectedVersion.version_number} Details</h4>
+                    <div className="bg-red-50 p-3 rounded text-sm space-y-2">
+                      <div>
+                        <span className="font-medium">Status:</span> Rejected
+                      </div>
+                      <div>
+                        <span className="font-medium">Uploaded:</span> {new Date(selectedVersion.uploaded_at).toLocaleString()}
+                      </div>
+                      {selectedVersion.reviewed_by && (
+                        <div>
+                          <span className="font-medium">Reviewed by:</span> {selectedVersion.reviewed_by.first_name} {selectedVersion.reviewed_by.last_name}
+                        </div>
+                      )}
+                      {selectedVersion.reviewed_at && (
+                        <div>
+                          <span className="font-medium">Reviewed at:</span> {new Date(selectedVersion.reviewed_at).toLocaleString()}
+                        </div>
+                      )}
+                      {selectedVersion.reviewer_comment && (
+                        <div>
+                          <span className="font-medium">Comment:</span> {selectedVersion.reviewer_comment}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>
@@ -1019,9 +1293,26 @@ const LiquidationDetailsPage = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setHideApproved(!hideApproved)}
+              onClick={() => {
+                if (user?.role === "liquidator" || user?.role === "accountant") {
+                  // For liquidators/accountants, toggle between showing only versions and showing all
+                  if (showOnlyWithVersions) {
+                    setShowOnlyWithVersions(false);
+                    setHideApproved(false);
+                  } else {
+                    setShowOnlyWithVersions(true);
+                    setHideApproved(false);
+                  }
+                } else {
+                  // For other users, use the original logic
+                  setHideApproved(!hideApproved);
+                }
+              }}
             >
-              {hideApproved ? "Show All Documents" : "Hide Approved Documents"}
+              {(user?.role === "liquidator" || user?.role === "accountant") 
+                ? (showOnlyWithVersions ? "Show All Documents" : "Show Only With Versions")
+                : (hideApproved ? "Show All Documents" : "Hide Approved Documents")
+              }
             </Button>
           </div>
           {filteredExpenses.length === 0 ? (
@@ -1046,9 +1337,9 @@ const LiquidationDetailsPage = () => {
                     className="flex items-center justify-between p-4 cursor-pointer"
                     onClick={() =>
                       setExpandedExpense(
-                        expandedExpense === String(expense.id)
-                          ? null
-                          : String(expense.id)
+                        expandedExpense.includes(String(expense.id))
+                          ? expandedExpense.filter(id => id !== String(expense.id))
+                          : [...expandedExpense, String(expense.id)]
                       )
                     }
                   >
@@ -1066,7 +1357,7 @@ const LiquidationDetailsPage = () => {
                           Pending
                         </span>
                       )}
-                      {expandedExpense === String(expense.id) ? (
+                      {expandedExpense.includes(String(expense.id)) ? (
                         <ChevronUp className="w-5 h-5" />
                       ) : (
                         <ChevronDown className="w-5 h-5" />
@@ -1075,7 +1366,7 @@ const LiquidationDetailsPage = () => {
                   </div>
 
                   {/* Requirements/Docs */}
-                  {expandedExpense === String(expense.id) && (
+                  {expandedExpense.includes(String(expense.id)) && (
                     <div className="p-4 space-y-2">
                       {expense.requirements
                         .map((req) => {
@@ -1096,8 +1387,15 @@ const LiquidationDetailsPage = () => {
                           if (!a.doc?.is_approved) return -1;
                           return 1;
                         })
-                        // Filter out approved if hideApproved is true
-                        .filter(({ doc }) => !hideApproved || !doc?.is_approved)
+                        // Filter documents based on hideApproved setting and version preference
+                        .filter(({ doc }) => {
+                          // For liquidators and accountants, when showOnlyWithVersions is true, only show documents with versions
+                          if ((user?.role === "liquidator" || user?.role === "accountant") && showOnlyWithVersions && !hideApproved) {
+                            return doc?.versions && doc.versions.length > 0;
+                          }
+                          // Default filtering logic
+                          return !hideApproved || !doc?.is_approved;
+                        })
                         .map(({ req, doc }) => (
                           <div
                             key={req.requirementID}
@@ -1134,6 +1432,13 @@ const LiquidationDetailsPage = () => {
                                         Pending
                                       </span>
                                     )}
+                                    {/* Version indicator for liquidators and accountants */}
+                                    {(user?.role === "liquidator" || user?.role === "accountant") && 
+                                     doc?.versions && doc.versions.length > 0 && (
+                                      <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                        {doc.versions.length} Version{doc.versions.length > 1 ? 's' : ''}
+                                      </span>
+                                    )}
                                     {doc?.reviewer_comment && (
                                       <span className="ml-2 text-red-500">
                                         {doc.reviewer_comment}
@@ -1143,17 +1448,24 @@ const LiquidationDetailsPage = () => {
                                 )}
                               </div>
                             </div>
-                            <div>
+                            <div className="flex flex-col gap-1">
                               {doc ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleOpenDoc(doc)}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  View
-                                </Button>
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleOpenDoc(doc)}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    View Current
+                                  </Button>
+                                  {doc.versions && doc.versions.length > 0 && (
+                                    <span className="text-xs text-gray-500 text-center">
+                                      {doc.versions.length} version{doc.versions.length > 1 ? 's' : ''} available
+                                    </span>
+                                  )}
+                                </>
                               ) : (
                                 <span className="text-xs text-gray-400">
                                   No document

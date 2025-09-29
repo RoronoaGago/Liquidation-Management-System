@@ -194,7 +194,7 @@ const MOOERequestPage = () => {
     fetchData();
   }, []);
 
-  // Fetch school max_budget on mount
+  // Fetch school monthly budget on mount
   useEffect(() => {
     const fetchSchoolBudget = async () => {
       try {
@@ -205,7 +205,7 @@ const MOOERequestPage = () => {
           return;
         }
         const schoolRes = await api.get(`/schools/${schoolId}/`);
-        setAllocatedBudget(Number(schoolRes.data.max_budget) || 0);
+        setAllocatedBudget(Number(schoolRes.data.current_monthly_budget) || 0);
       } catch (error) {
         setAllocatedBudget(0);
         console.error("Failed to fetch allocated budget:", error);

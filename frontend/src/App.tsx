@@ -38,6 +38,8 @@ import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashb
 import DivisionDistrictAdaDashboard from "./pages/DivisionDistrictAdaDashboard";
 import DivisionAccountantDashboard from "./pages/DivisionAccountantDashboard";
 import DivisionLiquidatorDashboard from "./pages/DivisionLiquidatorDashboard";
+import YearlyBudgetModal from "./components/common/YearlyBudgetModal";
+import { useYearlyBudgetModal } from "./hooks/useYearlyBudgetModal";
 import HelpCenter from "./pages/HelpCenter";
 import HelpArticlePage from "./pages/HelpArticlePage";
 import ContextualHelpButton from "./components/help/ContextualHelpButton";
@@ -46,6 +48,8 @@ import { HelpProvider } from "./context/HelpContext";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
+  const yearlyBudgetModal = useYearlyBudgetModal();
+  
   return (
     <>
       <HelpProvider>
@@ -182,44 +186,51 @@ const App = () => {
               />
             </Route>
 
-            {/* Shared routes for multiple roles */}
+          {/* Shared routes for multiple roles */}
+          <Route
+            element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
+          >
+            <Route path="/fund-requests/:id" element={<RequestDetailPage />} />
             <Route
-              element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
-            >
-              <Route
-                path="/fund-requests/:id"
-                element={<RequestDetailPage />}
-              />
-              <Route
-                path="/prepare-list-of-priorities"
-                element={<ListOfPrioritiesPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <RequireAuth allowedRoles={["school_admin", "school_head"]} />
-              }
-            >
-              <Route path="/liquidation" element={<LiquidationPage />} />
-            </Route>
-            <Route
-              element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
-            >
-              <Route path="/schools" element={<ManageSchools />} />
-              <Route
-                path="/resource-allocation"
-                element={<ResourceAllocation />}
-              />
-            </Route>
+              path="/prepare-list-of-priorities"
+              element={<ListOfPrioritiesPage />}
+            />
           </Route>
-          {/* Catch-all route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <SetupModal />
-        <LiquidationReminder />
-        {/* Enhanced contextual help - replaces the old ContextualHelpButton */}
-        <DynamicContextualHelp variant="floating" showQuickTips={true} />
-      </HelpProvider>
+          <Route
+            element={
+              <RequireAuth allowedRoles={["school_admin", "school_head"]} />
+            }
+          >
+            <Route path="/liquidation" element={<LiquidationPage />} />
+          </Route>
+          <Route
+            element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
+          >
+            <Route path="/schools" element={<ManageSchools />} />
+            <Route
+              path="/resource-allocation"
+              element={<ResourceAllocation />}
+            />
+          </Route>
+        </Route>
+        {/* Catch-all route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <SetupModal />
+      <LiquidationReminder />
+      
+      {/* Yearly Budget Modal - Only show for admin and accountant roles */}
+      {user && (user.role === "admin" || user.role === "accountant") && (
+        <YearlyBudgetModal
+          isOpen={yearlyBudgetModal.isModalOpen}
+          onClose={yearlyBudgetModal.handleClose}
+          onProceed={yearlyBudgetModal.handleProceed}
+          onDoLater={yearlyBudgetModal.handleDoLater}
+          currentYear={yearlyBudgetModal.budgetStatus?.current_year || new Date().getFullYear()}
+          schoolsWithoutBudget={yearlyBudgetModal.budgetStatus?.schools_without_budget || 0}
+          totalSchools={yearlyBudgetModal.budgetStatus?.total_schools || 0}
+        />
+      )}
     </>
   );
 };

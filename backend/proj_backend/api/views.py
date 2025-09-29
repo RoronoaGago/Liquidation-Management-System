@@ -1,7 +1,7 @@
 from api.models import (
     User, School, Requirement, ListOfPriority, RequestManagement,
     RequestPriority, LiquidationManagement, LiquidationDocument,
-    Notification, SchoolDistrict, Backup, AuditLog
+    Notification, SchoolDistrict, Backup, AuditLog, BudgetAllocation
 )
 from .models import RequestManagement
 import io
@@ -35,7 +35,7 @@ from django.core import serializers as django_serializers
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer, BackupSerializer, AuditLogSerializer
+from .serializers import UserSerializer, SchoolSerializer, RequirementSerializer, ListOfPrioritySerializer, RequestManagementSerializer, LiquidationManagementSerializer, LiquidationDocumentSerializer, RequestPrioritySerializer, NotificationSerializer, CustomTokenRefreshSerializer, RequestManagementHistorySerializer, LiquidationManagementHistorySerializer, SchoolDistrictSerializer, PreviousRequestSerializer, BackupSerializer, AuditLogSerializer, BudgetAllocationSerializer
 from .models import User, School, Requirement, ListOfPriority, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog, School, SchoolDistrict, Requirement, ListOfPriority, RequestManagement, RequestPriority,  Notification, Backup, AuditLog, GeneratedPDF, PriorityRequirement
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
@@ -302,9 +302,9 @@ def school_head_dashboard(request):
             }
         }
 
-        # Add school max_budget if user has a school
+        # Add school monthly budget if user has a school
         if school:
-            response_data['school_max_budget'] = school.max_budget
+            response_data['school_current_monthly_budget'] = school.get_current_monthly_budget()
 
         return Response(response_data)
         
@@ -1274,8 +1274,36 @@ class LiquidationDocumentListCreateAPIView(generics.ListCreateAPIView):
         ).first()
 
         if existing_doc:
-            serializer = self.get_serializer(
-                existing_doc, data=request.data, partial=True)
+            # If existing document is rejected, create a version before replacing
+            if existing_doc.status == 'rejected' or existing_doc.is_approved is False:
+                try:
+                    # Create version from rejected document
+                    version = existing_doc.create_version_from_rejected(
+                        request.data.get('document'), 
+                        request.user
+                    )
+                    
+                    # Return the updated document with version info
+                    serializer = self.get_serializer(existing_doc)
+                    response_data = serializer.data
+                    response_data['version_created'] = True
+                    response_data['version_id'] = version.id
+                    response_data['version_number'] = version.version_number
+                    
+                    return Response(
+                        response_data,
+                        status=status.HTTP_200_OK,
+                        headers=self.get_success_headers(serializer.data)
+                    )
+                except ValueError as e:
+                    return Response(
+                        {'error': str(e)},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                # For non-rejected documents, update normally
+                serializer = self.get_serializer(
+                    existing_doc, data=request.data, partial=True)
         else:
             serializer = self.get_serializer(data=request.data)
 
@@ -1294,6 +1322,33 @@ class LiquidationDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDes
     queryset = LiquidationDocument.objects.all()
     serializer_class = LiquidationDocumentSerializer
     permission_classes = [IsAuthenticated]
+    
+    def perform_update(self, serializer):
+        # Set the reviewer when status changes to approved/rejected
+        instance = serializer.instance
+        if 'status' in serializer.validated_data:
+            new_status = serializer.validated_data['status']
+            if new_status in ['approved', 'rejected'] and not instance.reviewed_by:
+                serializer.save(reviewed_by=self.request.user)
+            else:
+                serializer.save()
+        else:
+            serializer.save()
+
+
+class DocumentVersionListAPIView(generics.ListAPIView):
+    """
+    API view to retrieve document versions for comparison
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        document_id = self.kwargs.get('document_id')
+        return DocumentVersion.objects.filter(original_document_id=document_id)
+    
+    def get_serializer_class(self):
+        from .serializers import DocumentVersionSerializer
+        return DocumentVersionSerializer
 
 
 @api_view(['POST'])
@@ -1321,9 +1376,20 @@ def submit_for_liquidation(request, request_id):
                     )
 
                 # Validate download date is not in the future and not before approval date
-                if download_date > timezone.now().date():
+                backend_today = timezone.now().date()
+                backend_tomorrow = backend_today + timedelta(days=1)
+                
+                logger.info(f"Backend validation - Download date: {download_date}, Backend today: {backend_today}, Backend tomorrow: {backend_tomorrow}")
+                
+                # Allow today and tomorrow to account for timezone differences between frontend and backend
+                if download_date > backend_tomorrow:
                     return Response(
-                        {'error': 'Download date cannot be in the future'},
+                        {
+                            'error': 'Download date cannot be more than 1 day in the future',
+                            'download_date': str(download_date),
+                            'backend_date': str(backend_today),
+                            'timezone': str(timezone.get_current_timezone())
+                        },
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
@@ -1583,62 +1649,13 @@ class PendingLiquidationListAPIView(generics.ListAPIView):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def batch_update_school_budgets(request):
-    updates = request.data.get("updates", [])
-    if not isinstance(updates, list):
-        return Response({"error": "Invalid data format."}, status=400)
-
-    updated_ids = []
-    errors = []
-    updated_schools = []
-
-    with transaction.atomic():
-        for upd in updates:
-            school_id = str(upd.get("schoolId")).strip()
-            max_budget = upd.get("max_budget")
-            print("Updating:", school_id, "to", max_budget)
-            try:
-                school = School.objects.get(schoolId=school_id)
-                if max_budget is not None and float(max_budget) >= 0:
-                    old_budget = school.max_budget
-                    school.max_budget = float(max_budget)
-                    school.save()
-                    updated_ids.append(school_id)
-                    updated_schools.append({
-                        'school': school,
-                        'old_budget': old_budget,
-                        'new_budget': school.max_budget
-                    })
-                else:
-                    errors.append(
-                        {"schoolId": school_id, "error": "Invalid budget"})
-            except School.DoesNotExist:
-                errors.append(
-                    {"schoolId": school_id, "error": "School not found"})
-            except Exception as e:
-                errors.append({"schoolId": school_id, "error": str(e)})
-
-    # Log audit for batch update (business event)
-    if updated_schools:
-        from .audit_utils import log_audit_event
-        for update_info in updated_schools:
-            school = update_info['school']
-            # Suppress signal audit for this save already happened; log business event only
-            log_audit_event(
-                request=request,
-                action='batch_update',
-                module='school',
-                description=f"Batch updated budget for school {school.schoolName} ({school.schoolId}) from {update_info['old_budget']} to {update_info['new_budget']}",
-                object_id=school.schoolId,
-                object_type='School',
-                object_name=f"{school.schoolName} ({school.schoolId})",
-                old_values={'max_budget': update_info['old_budget']},
-                new_values={'max_budget': update_info['new_budget']}
-            )
-
-    return Response({
-        "updated": updated_ids,
-        "errors": errors
-    }, status=200 if not errors else 207)
+    """
+    This endpoint is deprecated. Use /budget-allocations/batch-create/ instead.
+    """
+    return Response(
+        {"error": "This endpoint is deprecated. Use /budget-allocations/batch-create/ instead."},
+        status=status.HTTP_410_GONE
+    )
 
 
 @api_view(['GET'])
@@ -2071,8 +2088,13 @@ def admin_dashboard(request):
         )
 
         # --- 1. Planned (Requested) Amounts ---
-        total_allocated = School.objects.aggregate(
-            total=Sum('max_budget'))['total'] or 0
+        # Get total allocated from current year's budget allocations
+        from datetime import date
+        current_year = date.today().year
+        total_allocated = BudgetAllocation.objects.filter(
+            year=current_year,
+            is_active=True
+        ).aggregate(total=Sum('yearly_budget'))['total'] or 0
         total_planned = RequestPriority.objects.filter(
             request__in=month_requests
         ).aggregate(total=Sum('amount'))['total'] or 0
@@ -2263,8 +2285,9 @@ def admin_dashboard(request):
             request__user__school=school
         ).aggregate(total=Sum('amount'))['total'] or 0
 
+        school_monthly_budget = school.get_current_monthly_budget()
         budget_utilization_rate = (
-            school_utilized / school.max_budget * 100) if school.max_budget > 0 else 0
+            school_utilized / school_monthly_budget * 100) if school_monthly_budget > 0 else 0
 
         school_performance.append({
             'schoolId': school.schoolId,
@@ -3944,3 +3967,285 @@ class AuditLogListView(generics.ListAPIView):
             queryset = queryset.filter(object_id=object_id)
 
         return queryset.order_by('-timestamp')
+
+
+# Budget Allocation Views
+class BudgetAllocationPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class BudgetAllocationListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = BudgetAllocationSerializer
+    pagination_class = BudgetAllocationPagination
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = BudgetAllocation.objects.select_related('school', 'created_by').all()
+        
+        # Filter by year
+        year = self.request.query_params.get('year')
+        if year:
+            queryset = queryset.filter(year=year)
+        
+        # Filter by school
+        school_id = self.request.query_params.get('school_id')
+        if school_id:
+            queryset = queryset.filter(school__schoolId=school_id)
+        
+        # Filter by active status
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        return queryset.order_by('-year', 'school__schoolName')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class BudgetAllocationRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = BudgetAllocation.objects.all()
+    serializer_class = BudgetAllocationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_yearly_budget_status(request):
+    """
+    Check if all schools have yearly budget allocated for the current year.
+    Returns information about budget allocation status.
+    """
+    from datetime import date
+    
+    current_year = date.today().year
+    
+    # Get all active schools
+    total_schools = School.objects.filter(is_active=True).count()
+    
+    # Get schools with budget allocation for current year
+    schools_with_budget = BudgetAllocation.objects.filter(
+        year=current_year,
+        is_active=True
+    ).values_list('school_id', flat=True)
+    
+    schools_without_budget = School.objects.filter(
+        is_active=True
+    ).exclude(
+        schoolId__in=schools_with_budget
+    ).values('schoolId', 'schoolName')
+    
+    return Response({
+        'current_year': current_year,
+        'total_schools': total_schools,
+        'schools_with_budget': len(schools_with_budget),
+        'schools_without_budget': len(schools_without_budget),
+        'all_schools_allocated': len(schools_without_budget) == 0,
+        'schools_without_budget_list': list(schools_without_budget)
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def batch_create_budget_allocations(request):
+    """
+    Create budget allocations for multiple schools at once.
+    Expected payload: {
+        "year": 2024,
+        "allocations": [
+            {"school_id": "school1", "yearly_budget": 100000},
+            {"school_id": "school2", "yearly_budget": 150000}
+        ]
+    }
+    """
+    from datetime import date
+    
+    year = request.data.get('year', date.today().year)
+    allocations = request.data.get('allocations', [])
+    
+    if not allocations:
+        return Response(
+            {'error': 'No allocations provided'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    created_allocations = []
+    errors = []
+    
+    for allocation_data in allocations:
+        try:
+            school_id = allocation_data.get('school_id')
+            yearly_budget = allocation_data.get('yearly_budget')
+            
+            if not school_id or not yearly_budget:
+                errors.append(f"Missing school_id or yearly_budget for allocation: {allocation_data}")
+                continue
+            
+            # Check if school exists
+            try:
+                school = School.objects.get(schoolId=school_id, is_active=True)
+            except School.DoesNotExist:
+                errors.append(f"School with ID {school_id} not found or inactive")
+                continue
+            
+            # Check if budget allocation already exists for this year
+            if BudgetAllocation.objects.filter(school=school, year=year, is_active=True).exists():
+                errors.append(f"Budget allocation already exists for {school.schoolName} in {year}")
+                continue
+            
+            # Create budget allocation
+            budget_allocation = BudgetAllocation.objects.create(
+                school=school,
+                year=year,
+                yearly_budget=yearly_budget,
+                created_by=request.user
+            )
+            
+            created_allocations.append({
+                'id': budget_allocation.id,
+                'school_id': school.schoolId,
+                'school_name': school.schoolName,
+                'yearly_budget': float(budget_allocation.yearly_budget),
+                'monthly_budget': float(budget_allocation.monthly_budget)
+            })
+            
+        except Exception as e:
+            errors.append(f"Error creating allocation for {allocation_data}: {str(e)}")
+    
+    return Response({
+        'created_allocations': created_allocations,
+        'errors': errors,
+        'success_count': len(created_allocations),
+        'error_count': len(errors)
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_school_liquidation_dates(request, school_id):
+    """
+    Update the last liquidated month and year for a school.
+    """
+    try:
+        school = School.objects.get(schoolId=school_id)
+    except School.DoesNotExist:
+        return Response(
+            {'error': 'School not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'Error finding school: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    try:
+        last_liquidated_month = request.data.get('last_liquidated_month')
+        last_liquidated_year = request.data.get('last_liquidated_year')
+        
+        # Validate month (1-12)
+        if last_liquidated_month is not None:
+            if not isinstance(last_liquidated_month, int) or last_liquidated_month < 1 or last_liquidated_month > 12:
+                return Response(
+                    {'error': 'last_liquidated_month must be between 1 and 12'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate year (reasonable range)
+        if last_liquidated_year is not None:
+            current_year = date.today().year
+            if not isinstance(last_liquidated_year, int) or last_liquidated_year < 2020 or last_liquidated_year > current_year:
+                return Response(
+                    {'error': f'last_liquidated_year must be between 2020 and {current_year}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate that the date is not in the future
+        if last_liquidated_month is not None and last_liquidated_year is not None:
+            current_date = date.today()
+            current_year = current_date.year
+            current_month = current_date.month
+            
+            # Check if the liquidation date is in the future
+            if (last_liquidated_year > current_year or 
+                (last_liquidated_year == current_year and last_liquidated_month > current_month)):
+                return Response(
+                    {'error': 'Cannot set liquidation date in the future'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Store old values before updating
+        old_month = school.last_liquidated_month
+        old_year = school.last_liquidated_year
+        
+        # Update the school
+        if last_liquidated_month is not None:
+            school.last_liquidated_month = last_liquidated_month
+        if last_liquidated_year is not None:
+            school.last_liquidated_year = last_liquidated_year
+        
+        school.save()
+        
+        # Log the action
+        from .audit_utils import log_audit_event
+        log_audit_event(
+            request=request,
+            action='update',
+            module='school',
+            object_id=school.schoolId,
+            object_type='School',
+            object_name=school.schoolName,
+            description=f"Updated liquidation dates for {school.schoolName}",
+            old_values={'last_liquidated_month': old_month, 'last_liquidated_year': old_year},
+            new_values={'last_liquidated_month': last_liquidated_month, 'last_liquidated_year': last_liquidated_year}
+        )
+        
+        return Response({
+            'message': 'School liquidation dates updated successfully',
+            'school': {
+                'schoolId': school.schoolId,
+                'schoolName': school.schoolName,
+                'last_liquidated_month': school.last_liquidated_month,
+                'last_liquidated_year': school.last_liquidated_year
+            }
+        })
+    except Exception as e:
+        return Response(
+            {'error': f'Error updating liquidation dates: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_first_monday_january_info(request):
+    """
+    Get information about the first Monday of January for the current year.
+    Used to determine when to show the yearly budget allocation modal.
+    """
+    from datetime import date, timedelta
+    
+    current_year = date.today().year
+    
+    # Find the first Monday of January
+    jan_1 = date(current_year, 1, 1)
+    days_until_monday = (7 - jan_1.weekday()) % 7
+    if days_until_monday == 0 and jan_1.weekday() != 0:  # If Jan 1 is not Monday
+        days_until_monday = 7
+    first_monday = jan_1 + timedelta(days=days_until_monday)
+    
+    today = date.today()
+    is_after_first_monday = today >= first_monday
+    
+    return Response({
+        'current_year': current_year,
+        'first_monday_january': first_monday.isoformat(),
+        'today': today.isoformat(),
+        'is_after_first_monday': is_after_first_monday,
+        'days_since_first_monday': (today - first_monday).days if is_after_first_monday else 0
+    })

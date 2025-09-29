@@ -125,9 +125,9 @@ const DivisionDistrictAdaDashboard = () => {
       console.log("Requests data:", requests);
       console.log("Total requests:", requests.length);
 
-      // Process pending liquidations (status: submitted, under_review_district, under_review_liquidator)
+      // Process pending liquidations (status: approved_district, under_review_liquidator)
       const pendingLiquidations: PendingLiquidation[] = liquidations
-        .filter((l: any) => ['submitted', 'approved_district', 'under_review_liquidator'].includes(l.status))
+        .filter((l: any) => ['approved_district', 'under_review_liquidator'].includes(l.status))
         .map((l: any) => {
           const request = l.request;
           const schoolName = request?.user?.school?.schoolName || "";
@@ -160,8 +160,9 @@ const DivisionDistrictAdaDashboard = () => {
         .filter(Boolean);
       const schoolsWithLiquidations = new Set(schoolIdsFromApprovedDistrict).size;
 
-      // For "No Submission": count schools with NO liquidation with status in ['submitted', 'approved_district', 'resubmit', 'liquidated']
-      const submittedStatuses = ['submitted', 'approved_district','approved_liquidator', 'resubmit', 'liquidated'];
+      // For "No Submission": count schools with NO liquidation with status in ['approved_district', 'resubmit', 'liquidated']
+      // Note: 'submitted' status is not counted as a submission for liquidator dashboard
+      const submittedStatuses = ['approved_district','approved_liquidator', 'resubmit', 'liquidated'];
       const schoolIdsWithSubmission = new Set(
         liquidations
           .filter((l: any) => submittedStatuses.includes(l.status))
@@ -173,7 +174,10 @@ const DivisionDistrictAdaDashboard = () => {
       // For approved liquidations: only count 'approved_district'
       const approvedLiquidations = liquidations.filter((l: any) => l.status === 'approved_liquidator').length;
       const pendingLiquidationsCount = pendingLiquidations.length;
-      const rejectedLiquidations = liquidations.filter((l: any) => l.status === 'resubmit').length;
+      // Count liquidations that were approved by district but then rejected by liquidator
+      const rejectedLiquidations = liquidations.filter((l: any) => 
+        l.status === 'resubmit' && l.previous_status === 'approved_district'
+      ).length;
       const completionRate = totalSchools > 0 ? Math.round((schoolsWithLiquidations / totalSchools) * 100) : 0;
       
       // Debug: Log completion calculation
@@ -217,14 +221,17 @@ const DivisionDistrictAdaDashboard = () => {
           return liquidationDate.getFullYear() === currentQuarter.year && liquidationDate.getMonth() === monthIndex;
         });
 
-        // For submitted: count liquidations with status 'submitted' and 'approved_district'
+        // For submitted: count liquidations with status 'approved_district' only
         const submitted = monthLiquidations.filter((l: any) =>
-          ['submitted', 'approved_liquidator','approved_district', 'under_review_liquidator'].includes(l.status)
+          l.status === 'approved_district'
         ).length;
         const approved = monthLiquidations.filter((l: any) =>
           ['approved_liquidator', 'liquidated'].includes(l.status)
         ).length;
-        const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
+        // For rejected: count liquidations that were approved by district but then rejected by liquidator
+        const rejected = monthLiquidations.filter((l: any) => 
+          l.status === 'resubmit' && l.previous_status === 'approved_district'
+        ).length;
         const avgProcessingTime = monthLiquidations.length > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
           const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
           const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
@@ -296,7 +303,6 @@ const DivisionDistrictAdaDashboard = () => {
               Division Liquidator Dashboard
             </h1>
             <p className="mt-1 text-gray-500 text-theme-sm">
-              Liquidation oversight and approval management
             </p>
           </div>
         </div>
@@ -330,7 +336,6 @@ const DivisionDistrictAdaDashboard = () => {
             Division Liquidator Dashboard
           </h1>
           <p className="mt-1 text-gray-500 text-theme-sm">
-            Liquidation oversight and approval management
           </p>
         </div>
         <div className="flex items-center gap-3" />
@@ -437,7 +442,11 @@ const DivisionDistrictAdaDashboard = () => {
                 <LineChart data={data?.liquidationTimeline || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis />
+                  <YAxis 
+                    domain={[0, 'dataMax']}
+                    tickCount={6}
+                    allowDecimals={false}
+                  />
                   <Tooltip />
                   <Legend />
                   <Line
@@ -446,6 +455,7 @@ const DivisionDistrictAdaDashboard = () => {
                     stroke="#465FFF"
                     strokeWidth={2}
                     name="Submitted"
+                    dot={false}
                   />
                   <Line
                     type="monotone"
@@ -453,6 +463,7 @@ const DivisionDistrictAdaDashboard = () => {
                     stroke="#00C49F"
                     strokeWidth={2}
                     name="Approved"
+                    dot={false}
                   />
                   <Line
                     type="monotone"
@@ -460,6 +471,7 @@ const DivisionDistrictAdaDashboard = () => {
                     stroke="#FF8042"
                     strokeWidth={2}
                     name="Rejected"
+                    dot={false}
                   />
                 </LineChart>
               </ResponsiveContainer>

@@ -50,7 +50,7 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{data?.metrics?.pendingSchoolsCount || 0}</div>
-        <p className="text-xs text-muted-foreground">Unique schools with pending requests</p>
+        <p className="text-xs text-muted-foreground">Schools with pending requests</p>
       </CardContent>
     </Card>
   </div>
@@ -139,9 +139,7 @@ const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
         <CardTitle className="text-lg font-semibold text-gray-800">
           MOOE Requests Status Breakdown
         </CardTitle>
-        <p className="text-sm text-gray-500">
-          Total requests from api_requestmanagement: {totalCount}
-        </p>
+       
       </CardHeader>
       <CardContent>
         <div className="h-64">
@@ -155,10 +153,7 @@ const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
                 fill="#8884d8"
                 dataKey="count"
                 labelLine={false}
-                label={({ status, count }) => {
-                  const title = String(status || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-                  return `${title}: ${count}`;
-                }}
+                label={false}
               >
                 {distribution.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -170,7 +165,8 @@ const RequestStatusWidget = ({ data }: { data: DashboardData | null }) => {
                 formatter={(value, entry) => {
                   const payload: any = entry && (entry as any).payload;
                   const count = payload?.count || 0;
-                  return `${value}: ${count}`;
+                  const status = String(payload?.status || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                  return `${status}: ${count}`;
                 }}
               />
               <Tooltip
@@ -277,7 +273,6 @@ const DivisionSuperintendent = () => {
               Division Superintendent Dashboard
             </h1>
             <p className="mt-1 text-gray-500 text-theme-sm">
-              Manage unliquidated accounts and MOOE requests
             </p>
           </div>
         </div>
@@ -303,7 +298,6 @@ const DivisionSuperintendent = () => {
             Division Superintendent Dashboard
           </h1>
           <p className="mt-1 text-gray-500 text-theme-sm">
-            Manage unliquidated accounts and MOOE requests
           </p>
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0">

@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
 
 
 from rest_framework_simplejwt.views import (
@@ -36,6 +36,8 @@ urlpatterns = [
          name='schools-batch-update'),
     path('schools/<str:schoolId>/',
          views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
+    path('schools/<str:school_id>/liquidation-dates/',
+         update_school_liquidation_dates, name='update-school-liquidation-dates'),
     path('legislative-districts/', views.legislative_districts,
          name='legislative-districts'),
 
@@ -81,6 +83,8 @@ urlpatterns = [
          views.LiquidationDocumentListCreateAPIView.as_view(), name='liquidation-document-list'),
     path('liquidations/<str:LiquidationID>/documents/<int:pk>/',
          views.LiquidationDocumentRetrieveUpdateDestroyAPIView.as_view(), name='liquidation-document-detail'),
+    path('documents/<int:document_id>/versions/',
+         views.DocumentVersionListAPIView.as_view(), name='document-versions'),
     # Removed approve_liquidation URL - now handled through PATCH on liquidation-detail
 
     # Additional custom endpoints
@@ -128,5 +132,12 @@ urlpatterns = [
     path('audit-logs/', views.AuditLogListView.as_view(), name='audit-logs'),
 
     path('school-head/dashboard/', school_head_dashboard, name='school-head-dashboard'),
+
+    # Budget Allocation URLs
+    path('budget-allocations/', BudgetAllocationListCreateAPIView.as_view(), name='budget-allocation-list-create'),
+    path('budget-allocations/<int:pk>/', BudgetAllocationRetrieveUpdateDestroyAPIView.as_view(), name='budget-allocation-detail'),
+    path('budget-allocations/batch-create/', batch_create_budget_allocations, name='batch-create-budget-allocations'),
+    path('budget-allocations/check-status/', check_yearly_budget_status, name='check-yearly-budget-status'),
+    path('budget-allocations/first-monday-info/', get_first_monday_january_info, name='get-first-monday-january-info'),
 
 ]
