@@ -154,12 +154,14 @@ const DivisionDistrictAdaDashboard = () => {
       const totalSchools = schools.length;
       
       // Debug: Log school IDs from liquidations
-      const schoolIdsFromLiquidations = liquidations.map((l: any) => {
-        const schoolId = l.request?.user?.school?.schoolId;
-        console.log(`Liquidation ${l.LiquidationID} -> School ID: ${schoolId}`, l.request?.user?.school);
-        return schoolId;
-      }).filter(Boolean);
-      
+      const schoolIdsFromLiquidations = liquidations
+  .filter((l: any) => l.status === 'submitted') // Only include 'submitted' status
+  .map((l: any) => {
+    const schoolId = l.request?.user?.school?.schoolId;
+    console.log(`Liquidation ${l.LiquidationID} -> School ID: ${schoolId}`, l.request?.user?.school);
+    return schoolId;
+  })
+  .filter(Boolean);
       // Get unique school IDs that have liquidations (any status)
       const schoolsWithLiquidations = new Set(schoolIdsFromLiquidations).size;
       
@@ -206,39 +208,35 @@ const DivisionDistrictAdaDashboard = () => {
       
       // Show the 3 months of the current quarter
       for (let i = 0; i < 3; i++) {
-        const monthIndex = quarterStartMonth + i;
-        const monthDate = new Date(currentQuarter.year, monthIndex, 1);
-        const monthName = monthDate.toLocaleDateString('en-US', { month: 'short' });
-        
-        const monthLiquidations = liquidations.filter((l: any) => {
-          // Use date_submitted first, then fallback to created_at
-          const liquidationDate = new Date(l.date_submitted || l.submitted_at || l.created_at);
-          const liquidationYear = liquidationDate.getFullYear();
-          const liquidationMonth = liquidationDate.getMonth();
-          
-          // Check if liquidation is in this specific month
-          return liquidationYear === currentQuarter.year && liquidationMonth === monthIndex;
-        });
+  const monthIndex = quarterStartMonth + i;
+  const monthDate = new Date(currentQuarter.year, monthIndex, 1);
+  const monthName = monthDate.toLocaleDateString('en-US', { month: 'short' });
 
-        const submitted = monthLiquidations.length;
-        const approved = monthLiquidations.filter((l: any) => 
-          ['approved_district', 'approved_liquidator', 'liquidated'].includes(l.status)
-        ).length;
-        const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
-        const avgProcessingTime = submitted > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
-          const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
-          const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
-          return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
-        }, 0) / submitted) : 0;
+  const monthLiquidations = liquidations.filter((l: any) => {
+    const liquidationDate = new Date(l.date_submitted || l.submitted_at || l.created_at);
+    return liquidationDate.getFullYear() === currentQuarter.year && liquidationDate.getMonth() === monthIndex;
+  });
 
-        liquidationTimeline.push({
-          month: monthName,
-          submitted,
-          approved,
-          rejected,
-          avgProcessingTime,
-        });
-      }
+  // Only count liquidations with status 'submitted'
+  const submitted = monthLiquidations.filter((l: any) => l.status === 'submitted').length;
+  const approved = monthLiquidations.filter((l: any) => 
+    ['approved_district', 'approved_liquidator', 'liquidated'].includes(l.status)
+  ).length;
+  const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
+  const avgProcessingTime = monthLiquidations.length > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
+    const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
+    const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
+    return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+  }, 0) / monthLiquidations.length) : 0;
+
+  liquidationTimeline.push({
+    month: monthName,
+    submitted,
+    approved,
+    rejected,
+    avgProcessingTime,
+  });
+}
 
 
 
