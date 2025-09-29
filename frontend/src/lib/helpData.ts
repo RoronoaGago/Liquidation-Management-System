@@ -18,6 +18,20 @@ export const helpCategories: HelpCategory[] = [
         roles: ["admin"]
     },
     {
+        id: "school-management",
+        name: "School Management",
+        icon: "school",
+        description: "Managing schools, districts, and related data",
+        roles: ["admin"]
+    },
+    {
+        id: "priority-management",
+        name: "Priority Management",
+        icon: "priority",
+        description: "Managing lists of priorities and requirements",
+        roles: ["admin"]
+    },
+    {
         id: "mooe-management",
         name: "MOOE Management",
         icon: "mooe",
@@ -48,19 +62,21 @@ export const helpCategories: HelpCategory[] = [
 ];
 
 export const helpArticles: HelpArticle[] = [
+    // User Management Articles
     {
         id: "admin-manage-users",
         title: "Managing Users in the System",
         description: "Learn how to add, edit, and manage user accounts and permissions",
-        content: "# Managing Users\n\n## Adding New Users\n1. Go to Manage users and click Add New User.\n2. Fill out the form and click Add to complete the process.\n3. A confirmation dialog will appear. Click confirm to add the new user.\n4. The system will then display a success message confirming the result.\n5. Save the user account\n\n## User Roles Explained\n- **Admin**: Full system access\n- **School Head**: School-level management\n- **District Admin**: District-level oversight\n- **Accountant**: Financial management",
+        content: "# Managing Users\n\n## Adding New Users\n1. Go to Manage users and click Add New User.\n2. Fill out the form and click Add to complete the process.\n3. A confirmation dialog will appear. Click confirm to add the new user.\n\n## Editing Users\n1. Use the search bar or browse the list to find the user, then click the Edit button next to their name.\n2. Update the necessary fields in the form. Click Save Changes.\n3. Click Confirm Changes in the dialog to finalize your edits.\n\n## Viewing Users\n1. Click the User you want to view.\n\n## Archiving Users\n1. Click the Archive button next to the user's name.\n2. Click Archive again in the confirmation dialog to proceed.\n\n## Restoring Archived Users\n1. Click the Archive button above to view the archived users.\n2. Click the restore button to restore the user.\n3. Click another restore button to confirm restoration.\n\n## Filtering Users\n1. The user list can be filtered by role using the filter dropdown at the top of the table.",
         category: "user-management",
         roles: ["admin"],
         relatedArticles: ["admin-user-roles", "admin-permissions"],
         images: [
             "/help/images/admin-add-user.png",
-            "/help/images/admin-user-permissions.png"
+            "/help/images/admin-edit-user.png",
+            "/help/images/admin-archive-user.png"
         ],
-        lastUpdated: new Date("2024-01-15"),
+        lastUpdated: new Date("2025-09-29"),
         featured: true,
         steps: [
             {
@@ -81,33 +97,85 @@ export const helpArticles: HelpArticle[] = [
                 number: 3,
                 title: "Confirm User Addition",
                 description: "A confirmation dialog will appear. Click confirm to add the new user.",
-                image: "/help/images/add-user-button.png",
-                alt: "Add User button highlighted"
-            },
-            {
-                number: 4,
-                title: "View Success Message",
-                description: "The system will then display a success message confirming the result.",
-                image: "/help/images/add-user-button.png",
-                alt: "Add User button highlighted"
+                image: "/help/images/confirm-add-user.png",
+                alt: "Confirmation dialog for adding user"
             }
         ]
     },
+
+    // School Management Articles
     {
-        id: "school-head-priorities",
-        title: "Creating List of Priorities",
-        description: "Step-by-step guide for school heads to create and submit MOOE priorities",
-        content: "# Creating List of Priorities\n\n## Overview\nAs a School Head, you can create and manage your school's MOOE priority lists...",
-        category: "mooe-management",
-        roles: ["school_head"],
-        relatedArticles: ["school-head-requests", "mooe-guidelines"],
+        id: "admin-manage-schools",
+        title: "Managing Schools in the System",
+        description: "Complete guide to adding, editing, and managing schools",
+        content: "# Managing Schools\n\n## Adding New Schools\n1. Go to Manage schools and click Add New School.\n2. Fill out the form and click Add School to complete the process.\n3. A confirmation dialog will appear. Click confirm to add the new school.\n\n## Editing Schools\n1. Use the search bar or browse the list to find the school, then click the Edit button next to the School name.\n2. Update the necessary fields in the form. Click Save Changes.\n3. Click Confirm Changes in the dialog to finalize your edits.\n\n## Viewing Schools\n1. Click the School you want to view.\n\n## Archiving Schools\n1. Click the Archive button next to the school's name.\n2. Click Archive again in the confirmation dialog to proceed.\n\n## Restoring Archived Schools\n1. Click the Archive button above to view the archived schools.\n2. Click the restore button to restore the school.\n3. Click another restore button to confirm restoration.\n\n## Filtering Schools\n1. The school list can be filtered by legislative district, municipality and school district using the filter dropdown at the top of the table.",
+        category: "school-management",
+        roles: ["admin"],
+        relatedArticles: ["admin-manage-districts"],
         images: [
-            "/help/images/priority-list-form.png",
-            "/help/images/priority-submission.png"
+            "/help/images/add-school.png",
+            "/help/images/edit-school.png",
+            "/help/images/filter-schools.png"
         ],
-        lastUpdated: new Date("2024-01-10"),
+        lastUpdated: new Date("2025-09-29"),
         featured: true
     },
+
+    // District Management Articles
+    {
+        id: "admin-manage-districts",
+        title: "Managing Districts in the System",
+        description: "Complete guide to adding, editing, and managing districts",
+        content: "# Managing Districts\n\n## Adding New Districts\n1. Go to Manage Districts and click Add New District.\n2. Fill out the form and click Add to complete the process.\n3. A confirmation dialog will appear. Click confirm to add the new district.\n\n## Editing Districts\n1. Use the search bar or browse the list to find the district, then click the Edit button next to their name.\n2. Update the necessary fields in the form. Click Save Changes.\n3. Click Confirm Changes in the dialog to finalize your edits.\n\n## Viewing Districts\n1. Click the District you want to view.\n\n## Archiving Districts\n1. Click the Archive button next to the district's name.\n2. Click Archive again in the confirmation dialog to proceed.\n\n## Restoring Archived Districts\n1. Click the Archive button above to view the archived districts.\n2. Click the restore button to restore the district.\n3. Click another restore button to confirm restoration.\n\n## Filtering Districts\n1. The district list can be filtered by legislative district and municipality using the filter dropdown at the top of the table.",
+        category: "school-management",
+        roles: ["admin"],
+        relatedArticles: ["admin-manage-schools"],
+        images: [
+            "/help/images/add-district.png",
+            "/help/images/edit-district.png",
+            "/help/images/filter-districts.png"
+        ],
+        lastUpdated: new Date("2025-09-29"),
+        featured: true
+    },
+
+    // Priority Management Articles
+    {
+        id: "admin-manage-priorities",
+        title: "Managing Lists of Priorities",
+        description: "Complete guide to adding, editing, and managing priority lists",
+        content: "# Managing Lists of Priorities\n\n## Adding New List of Priorities\n1. Go to Manage List of Priorities and click Add New List of Priorities.\n2. Fill out the form and click Add New List of Priority to complete the process.\n3. A confirmation dialog will appear. Click confirm to add the new List of Priorities.\n\n## Editing List of Priorities\n1. Use the search bar or browse and find the list of priorities, then click the Edit button next to the priority's title.\n2. Update the necessary fields in the form. Click Save Changes.\n3. A confirmation dialog will appear. Click confirm to save the changes.\n\n## Viewing List of Priorities\n1. Click the Priority you want to view.\n\n## Archiving List of Priority\n1. Click the Archive button next to the priority.\n2. Click Archive again in the confirmation dialog to proceed.\n3. Click the Archive button above to view the archived list of priority.\n\n## Restoring List of Priority\n1. Click the restore button to restore the list of priority.\n2. Click another restore button to confirm restoration.",
+        category: "priority-management",
+        roles: ["admin"],
+        relatedArticles: ["admin-manage-requirements"],
+        images: [
+            "/help/images/add-priority.png",
+            "/help/images/edit-priority.png",
+            "/help/images/archive-priority.png"
+        ],
+        lastUpdated: new Date("2025-09-29"),
+        featured: true
+    },
+
+    // Requirements Management Articles
+    {
+        id: "admin-manage-requirements",
+        title: "Managing Requirements",
+        description: "Complete guide to adding, editing, and managing requirements",
+        content: "# Managing Requirements\n\n## Adding New Requirements\n1. Go to Manage Requirements and click Add New Requirements.\n2. Fill out the form and click Add New Requirement to complete the process.\n3. A confirmation dialog will appear. Click confirm to add the new requirement.\n\n## Editing Requirements\n1. Use the search bar or browse and find the requirement, then click the Edit button next to the requirement's title.\n2. Update the necessary fields in the form. Click Save Changes.\n3. A confirmation dialog will appear. Click confirm to save the changes.\n\n## Viewing Requirements\n1. Click the Requirement you want to view.\n\n## Archiving Requirements\n1. Click the Archive button next to the requirement.\n2. Click Archive again in the confirmation dialog to proceed.\n3. Click the Archive button above to view the archived requirement.\n\n## Restoring Requirements\n1. Click the restore button to restore the requirement.\n2. Click another restore button to confirm restoration.",
+        category: "priority-management",
+        roles: ["admin"],
+        relatedArticles: ["admin-manage-priorities"],
+        images: [
+            "/help/images/add-requirement.png",
+            "/help/images/edit-requirement.png",
+            "/help/images/archive-requirement.png"
+        ],
+        lastUpdated: new Date("2025-09-29"),
+        featured: true
+    },
+
+    // Existing articles kept for reference
     {
         id: "admin-user-roles",
         title: "Understanding User Roles and Permissions",
@@ -117,52 +185,22 @@ export const helpArticles: HelpArticle[] = [
         roles: ["admin"],
         relatedArticles: ["admin-manage-users"],
         images: [],
-        lastUpdated: new Date("2024-01-12"),
+        lastUpdated: new Date("2025-09-29"),
         featured: false
     },
+
     {
-        id: "school-head-dashboard",
-        title: "School Head Dashboard Overview",
-        description: "Learn how to navigate and use your school head dashboard effectively",
-        content: "# School Head Dashboard\n\nYour dashboard provides an overview of your school's MOOE status...",
+        id: "admin-dashboard",
+        title: "Administrator Dashboard Overview",
+        description: "Learn how to navigate and use your administrator dashboard effectively",
+        content: "# Administrator Dashboard\n\nYour dashboard provides an overview of system statistics, recent activities, and quick access to management functions...",
         category: "getting-started",
-        roles: ["school_head"],
-        relatedArticles: ["school-head-priorities"],
+        roles: ["admin"],
+        relatedArticles: ["admin-manage-users", "admin-manage-schools"],
         images: [
-            "/help/images/school-head-dashboard.png"
+            "/help/images/admin-dashboard.png"
         ],
-        lastUpdated: new Date("2024-01-08"),
-        featured: true,
-        steps: [
-            {
-                number: 1,
-                title: "Access Your Dashboard",
-                description: "Log in and you'll be directed to your personalized dashboard",
-                image: "/help/images/login-dashboard.png",
-                alt: "School head dashboard overview"
-            },
-            {
-                number: 2,
-                title: "Review Key Metrics",
-                description: "Check your available funds, pending requests, and recent activities",
-                image: "/help/images/dashboard-metrics.png",
-                alt: "Dashboard metrics section"
-            }
-        ]
-    },
-    {
-        id: "liquidator-review",
-        title: "Liquidation Report Review Process",
-        description: "Step-by-step guide for liquidators to review and approve liquidation reports",
-        content: "# Liquidation Review Process\n\nAs a liquidator, you are responsible for reviewing...",
-        category: "liquidation",
-        roles: ["liquidator"],
-        relatedArticles: [],
-        images: [
-            "/help/images/liquidation-review.png",
-            "/help/images/approval-workflow.png"
-        ],
-        lastUpdated: new Date("2024-01-05"),
+        lastUpdated: new Date("2025-09-29"),
         featured: true
     }
 ];

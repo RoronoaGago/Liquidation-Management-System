@@ -6,13 +6,13 @@ from django.conf import settings
 from django.http import HttpResponse
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image
-from openpyxl.styles import Font
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
 from django.utils import timezone
 from rest_framework.pagination import PageNumberPagination
 from .models import RequestManagement
 from django.db.models import Sum
 from .models import RequestManagement
-from openpyxl.styles import Font, Alignment
 import logging
 logger = logging.getLogger('api')
 
@@ -112,135 +112,238 @@ def generate_aging_csv_report(aging_data, days_threshold):
     return response
 
 
-def generate_aging_excel_report(aging_data, days_threshold):
+def generate_aging_excel_report(aging_data, days_threshold, request_user=None):
     """Generate Excel report for aging data with same format as liquidation report"""
-    from openpyxl.styles import Font, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    from datetime import datetime
-
     # Create Excel workbook
     wb = Workbook()
     ws = wb.active
     ws.title = "Aging Report"
 
-    # Set column widths to match the liquidation report format
-    column_widths = {
-        'A': 15, 'B': 30, 'C': 20, 'D': 15, 'E': 15, 'F': 15, 'G': 15
-    }
-
-    for col, width in column_widths.items():
-        ws.column_dimensions[col].width = width
-
-    # Define border styles
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
-
-    # Define fonts
-    base_font = Font(name='Times New Roman', size=10)
-    bold_font = Font(name='Times New Roman', size=10, bold=True)
-    title_font = Font(name='Times New Roman', size=12, bold=True)
-
-    # Add logos (same as liquidation report)
-    try:
-        # Left logo
-        left_logo_path = os.path.join(
-            settings.BASE_DIR, 'static', 'images', 'logo.png')
-        if os.path.exists(left_logo_path):
-            left_img = Image(left_logo_path)
-            left_img.width = 80
-            left_img.height = 80
-            ws.add_image(left_img, 'A1')
-    except Exception as e:
-        logger.error(f"Could not add left logo: {e}")
-
-    try:
-        # Right logo
-        right_logo_path = os.path.join(
-            settings.BASE_DIR, 'static', 'images', 'depend-bagong-pilipinas-logo.png')
-        if os.path.exists(right_logo_path):
-            right_img = Image(right_logo_path)
-            right_img.width = 80
-            right_img.height = 80
-            ws.add_image(right_img, 'G1')
-    except Exception as e:
-        logger.error(f"Could not add right logo: {e}")
-
-    # Add header text (same format as liquidation report)
-    header_text = [
-        "Republic of the Philippines",
-        "Department of Education",
-        "La Union Schools Division",
-        "",
-        "AGEING REQUESTS REPORT"
+    # Define headers for the report
+    headers = [
+        'School ID', 'School Name', 'Request ID',
+        'Downloaded At', 'Days Elapsed', 'Aging Period', 'Amount'
     ]
 
-    # Start from row 1 and place each text in column D
-    for i, text in enumerate(header_text, 1):
-        cell = ws.cell(row=i, column=4, value=text)
-        cell.font = bold_font
-        if i == 5:  # Report title
-            cell.font = Font(name='Times New Roman', size=14, bold=True)
-        cell.alignment = Alignment(horizontal='center', vertical='center')
+    # Add logo
+    try:
+        logo_path = os.path.join(
+            settings.BASE_DIR, 'static', 'images', 'logo.png')
+        if os.path.exists(logo_path):
+            logo_img = Image(logo_path)
+            logo_img.width = 110
+            logo_img.height = 96
+            ws.add_image(logo_img, 'B2')
+    except Exception as e:
+        logger.error(f"Could not add logo: {e}")
 
-    # Merge cells for the report title
-    ws.merge_cells('D5:F5')
+    # Define fonts and styles
+    title_font = Font(name='Calibri', size=16, bold=True)
+    header_font = Font(name='Calibri', size=12, bold=True)
+    data_font = Font(name='Calibri', size=11)
+    center_alignment = Alignment(horizontal='center', vertical='center')
+    left_alignment = Alignment(horizontal='left', vertical='center')
 
-    # Add generation info (same format as liquidation report)
-    current_date = timezone.now().strftime("%Y-%m-%d")
-    ws['A7'] = f"Generated on: {current_date}"
-    ws['A7'].font = base_font
+    # Define border
+    thin_border = Border(
+        left=Side(style='thin', color='000000'),
+        right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='thin', color='000000')
+    )
 
-    # Add days threshold info
+    # Add report header information
+    ws['D3'] = "Department of Education"
+    ws['D3'].font = title_font
+    ws['D3'].alignment = center_alignment
+    ws.merge_cells('D3:H3')
+
+    ws['D4'] = "La Union Schools Division Office"
+    ws['D4'].font = Font(name='Calibri', size=14, bold=True)
+    ws['D4'].alignment = center_alignment
+    ws.merge_cells('D4:H4')
+
+    # Add title with threshold info
+    report_title = "AGEING REQUESTS REPORT"
     threshold_text = "All requests" if days_threshold == 'all' else f"Requests older than {days_threshold} days"
     if days_threshold == 'demand_letter':
         threshold_text = "Requests at 29 days (Demand Letter)"
-    ws['A8'] = f"Filter: {threshold_text}"
-    ws['A8'].font = base_font
 
-    # Add column headers with borders
-    headers = ['School ID', 'School Name', 'Request ID',
-               'Downloaded At', 'Days Elapsed', 'Aging Period', 'Amount']
+    ws.merge_cells('C5:J5')
+    ws['C5'] = report_title
+    ws['C5'].font = title_font
+    ws['C5'].alignment = center_alignment
 
+    ws['D6'] = f"Date Generated: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    ws['D6'].font = Font(name='Calibri', size=11)
+    ws['D6'].alignment = center_alignment
+    ws.merge_cells('D6:H6')
+
+    # Add filter information
+    filter_row = 8
+    ws[f'A{filter_row}'] = "APPLIED FILTERS"
+    ws[f'A{filter_row}'].font = Font(name='Calibri', size=12, bold=True)
+    ws.merge_cells(f'A{filter_row}:D{filter_row}')
+
+    filter_info = []
+    filter_info.append(f"Days Threshold: {threshold_text}")
+
+    for i, filter_text in enumerate(filter_info, start=filter_row + 1):
+        ws[f'A{i}'] = filter_text
+        ws[f'A{i}'].font = Font(name='Calibri', size=10)
+        ws.merge_cells(f'A{i}:D{i}')
+
+    # Add column headers (starting after filters with proper spacing)
+    header_row = filter_row + len(filter_info) + 2
     for col_num, header in enumerate(headers, 1):
-        cell = ws.cell(row=10, column=col_num, value=header)
-        cell.font = bold_font
-        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell = ws.cell(row=header_row, column=col_num, value=header)
+        cell.font = header_font
+        cell.alignment = center_alignment
         cell.border = thin_border
+        # Add light gray background to header
+        cell.fill = PatternFill(start_color="F0F0F0",
+                                end_color="F0F0F0", fill_type="solid")
 
-    # Add data with borders
-    for row_num, item in enumerate(aging_data, 11):
-        ws.cell(row=row_num, column=1,
-                value=item['school_id']).border = thin_border
-        ws.cell(row=row_num, column=2,
-                value=item['school_name']).border = thin_border
-        ws.cell(row=row_num, column=3,
-                value=item['request_id']).border = thin_border
-        ws.cell(row=row_num, column=4,
-                value=item['downloaded_at']).border = thin_border
-        ws.cell(row=row_num, column=5,
-                value=item['days_elapsed']).border = thin_border
-        ws.cell(row=row_num, column=6,
-                value=item['aging_period']).border = thin_border
-        ws.cell(row=row_num, column=7,
-                value=item['amount']).border = thin_border
+    # Set header row height
+    ws.row_dimensions[header_row].height = 25
 
-    # Add summary section (same format as liquidation report)
-    summary_row = 11 + len(aging_data) + 2
-    ws[f'A{summary_row}'] = "Prepared by:"
-    ws[f'A{summary_row}'].font = bold_font
+    # Add data rows
+    data_start_row = header_row + 1
+    for row_num, item in enumerate(aging_data, data_start_row):
+        for col_num in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.font = data_font
+            cell.alignment = center_alignment
+            cell.border = thin_border
 
-    ws[f'A{summary_row + 1}'] = "_________________________"
-    ws[f'A{summary_row + 1}'].font = base_font
+        # Set data row height
+        ws.row_dimensions[row_num].height = 20
 
-    ws[f'A{summary_row + 2}'] = "Signature over Printed Name"
-    ws[f'A{summary_row + 2}'].font = base_font
+        # Fill in data
+        ws.cell(row=row_num, column=1, value=item['school_id'])
+        ws.cell(row=row_num, column=2, value=item['school_name'])
+        ws.cell(row=row_num, column=3, value=item['request_id'])
+        ws.cell(row=row_num, column=4, value=item['downloaded_at'])
+        ws.cell(row=row_num, column=5, value=item['days_elapsed'])
+        ws.cell(row=row_num, column=6, value=item['aging_period'])
+        ws.cell(row=row_num, column=7, value=item['amount'])
 
-    ws[f'A{summary_row + 3}'] = "Position/Designation"
-    ws[f'A{summary_row + 3}'].font = base_font
+    # ========== SUMMARY STATISTICS AT THE BOTTOM ==========
+    summary_start_row = data_start_row + len(aging_data) + 3  # +3 for spacing
+
+    # Summary header
+    ws[f'A{summary_start_row}'] = "SUMMARY STATISTICS"
+    ws[f'A{summary_start_row}'].font = Font(name='Calibri', size=12, bold=True)
+    ws.merge_cells(f'A{summary_start_row}:D{summary_start_row}')
+
+    # Calculate summary statistics
+    total_requests = len(aging_data)
+
+    # Count by aging period
+    aging_periods = {
+        "0-30 days": 0,
+        "31-60 days": 0,
+        "61-90 days": 0,
+        "91-120 days": 0,
+        "121-180 days": 0,
+        "180+ days": 0
+    }
+
+    total_amount = sum(item['amount'] for item in aging_data)
+
+    for item in aging_data:
+        aging_periods[item['aging_period']] += 1
+
+    # Summary statistics in a compact table format
+    summary_rows = [
+        ('Total Requests:', total_requests),
+        ('Total Amount:', f"₱{total_amount:,.2f}"),
+        ('', ''),
+        ('Aging Breakdown:', ''),
+        ('0-30 days:', aging_periods["0-30 days"]),
+        ('31-60 days:', aging_periods["31-60 days"]),
+        ('61-90 days:', aging_periods["61-90 days"]),
+        ('91-120 days:', aging_periods["91-120 days"]),
+        ('121-180 days:', aging_periods["121-180 days"]),
+        ('180+ days:', aging_periods["180+ days"])
+    ]
+
+    # Create a compact 2-column layout for summary statistics
+    for i, (label, value) in enumerate(summary_rows, start=summary_start_row + 1):
+        # Label column
+        ws[f'A{i}'] = label
+        ws[f'A{i}'].font = Font(
+            name='Calibri', size=11, bold=True) if i <= summary_start_row + 2 else Font(name='Calibri', size=11)
+        ws[f'A{i}'].alignment = Alignment(
+            horizontal='right', vertical='center')
+        ws[f'A{i}'].border = thin_border
+
+        # Value column
+        ws[f'B{i}'] = value
+        ws[f'B{i}'].font = Font(
+            name='Calibri', size=11, bold=True) if i <= summary_start_row + 2 else Font(name='Calibri', size=11)
+        ws[f'B{i}'].alignment = center_alignment
+        ws[f'B{i}'].border = thin_border
+
+    # ========== "PREPARED BY" SECTION ==========
+    prepared_by_row = summary_start_row + \
+        len(summary_rows) + 3  # +3 for spacing
+
+    # Prepared by header
+    ws[f'A{prepared_by_row}'] = "Prepared By:"
+    ws[f'A{prepared_by_row}'].font = Font(name='Calibri', size=12)
+    ws.merge_cells(f'A{prepared_by_row}:C{prepared_by_row}')
+    # Center align the header
+    ws[f'A{prepared_by_row}'].alignment = Alignment(
+        horizontal='center', vertical='center')
+
+    # Admin name (use the user who generated the report)
+    admin_name = "System Administrator"
+    if request_user:
+        admin_name = f"{request_user.first_name} {request_user.last_name}".strip()
+        if not admin_name:
+            admin_name = request_user.email
+
+    # Prepared by details
+    ws[f'A{prepared_by_row + 1}'] = f"{admin_name.upper()}"
+    ws[f'A{prepared_by_row + 1}'].font = Font(
+        name='Calibri', size=11, bold=True)
+    ws.merge_cells(f'A{prepared_by_row + 1}:C{prepared_by_row + 1}')
+    # Center align the name
+    ws[f'A{prepared_by_row + 1}'].alignment = Alignment(
+        horizontal='center', vertical='center')
+
+    ws[f'A{prepared_by_row + 2}'] = f"{request_user.role.title() if request_user else 'Administrator'}"
+    ws[f'A{prepared_by_row + 2}'].font = Font(name='Calibri', size=11)
+    ws.merge_cells(f'A{prepared_by_row + 2}:C{prepared_by_row + 2}')
+    ws[f'A{prepared_by_row + 2}'].alignment = Alignment(
+        horizontal='center', vertical='center')
+
+    # Auto-adjust column widths
+    for col_idx in range(1, len(headers) + 1):
+        max_length = 0
+        column_letter = get_column_letter(col_idx)
+
+        for row_idx in range(1, data_start_row + len(aging_data)):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            is_merged = False
+            for merged_range in ws.merged_cells.ranges:
+                if cell.coordinate in merged_range:
+                    is_merged = True
+                    break
+
+            if not is_merged and cell.value:
+                try:
+                    cell_value_length = len(str(cell.value))
+                    if cell_value_length > max_length:
+                        max_length = cell_value_length
+                except:
+                    pass
+
+        adjusted_width = min(max_length + 2, 50)
+        if adjusted_width < 8:
+            adjusted_width = 8
+        ws.column_dimensions[column_letter].width = adjusted_width
 
     # Save to response
     buffer = io.BytesIO()

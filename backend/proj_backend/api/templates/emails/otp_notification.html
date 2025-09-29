@@ -2,25 +2,29 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OTP Verification - MOOE Liquidation Management System</title>
     <style>
+      /* Base Styles */
       body {
         font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-        background: #f8fafc;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
         margin: 0;
-        padding: 20px 0;
-        line-height: 1.5;
+        padding: 40px 20px;
+        line-height: 1.6;
         color: #334155;
       }
       .container {
         max-width: 600px;
         margin: 0 auto;
         background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         overflow: hidden;
         border: 1px solid #e2e8f0;
       }
+
+      /* Header Section */
       .header {
         background: linear-gradient(
           135deg,
@@ -42,9 +46,14 @@
         height: 4px;
         background: rgba(255, 255, 255, 0.2);
       }
+      .logo-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 15px;
+      }
       .header img {
         max-height: 70px;
-        margin-bottom: 15px;
         filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
       }
       .company-name {
@@ -60,139 +69,185 @@
         font-weight: 400;
         margin-top: 5px;
       }
+
+      /* Content Section */
       .content {
         padding: 40px;
       }
       .greeting {
-        font-size: 1.25em;
-        font-weight: 600;
-        margin-bottom: 10px;
+        font-size: 1.5em;
+        font-weight: 700;
+        margin-bottom: 15px;
         color: #1e293b;
       }
       .intro-text {
         margin-bottom: 30px;
         color: #475569;
+        font-size: 1.05em;
       }
+
+      /* OTP Section */
       .otp-section {
-        margin: 30px 0;
+        margin: 35px 0;
         text-align: center;
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 25px;
+        border: 1px solid #e2e8f0;
       }
       .otp-label {
-        font-size: 0.9em;
+        font-size: 0.95em;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 1.5px;
         color: #64748b;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         font-weight: 600;
       }
       .otp-code {
-        font-size: 3em;
+        font-size: 3.2em;
         font-weight: 800;
         color: #094684;
-        letter-spacing: 8px;
-        margin: 15px 0;
-        padding: 15px 20px;
+        letter-spacing: 10px;
+        margin: 20px 0;
+        padding: 20px 25px;
         background: #f0f7ff;
-        border-radius: 10px;
+        border-radius: 12px;
         display: inline-block;
         border: 2px dashed #c7dafe;
         font-family: "Courier New", monospace;
+        box-shadow: 0 4px 12px rgba(9, 70, 132, 0.1);
       }
       .expiry-notice {
-        font-size: 0.95em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1em;
         color: #dc2626;
         font-weight: 600;
-        margin-top: 10px;
+        margin-top: 15px;
+        gap: 10px;
       }
+      .urgency-badge {
+        display: inline-block;
+        background: #dc2626;
+        color: white;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 600;
+        vertical-align: middle;
+      }
+
+      /* Security Section */
       .security-section {
-        background: #fff8f0;
-        padding: 20px;
-        border-radius: 8px;
-        margin: 30px 0;
-        border-left: 4px solid #fbaf3d;
+        background: linear-gradient(135deg, #fff8f0 0%, #fff1e6 100%);
+        padding: 25px;
+        border-radius: 12px;
+        margin: 35px 0;
+        border-left: 5px solid #fbaf3d;
+        box-shadow: 0 4px 12px rgba(251, 175, 61, 0.1);
       }
       .security-title {
-        font-size: 1.1em;
+        font-size: 1.15em;
         font-weight: 700;
         color: #92400e;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         display: flex;
         align-items: center;
       }
       .security-title:before {
         content: "🔒";
-        margin-right: 8px;
+        margin-right: 10px;
+        font-size: 1.2em;
       }
       .security-list {
         margin: 15px 0;
         padding-left: 20px;
       }
       .security-list li {
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         color: #475569;
+        position: relative;
+        padding-left: 5px;
       }
+      .security-list li:before {
+        content: "•";
+        color: #fbaf3d;
+        font-weight: bold;
+        display: inline-block;
+        width: 1em;
+        margin-left: -1em;
+      }
+
+      /* Action Section */
       .action-section {
         text-align: center;
-        margin: 30px 0;
+        margin: 35px 0;
+        padding: 25px;
+        background: #f8fafc;
+        border-radius: 12px;
       }
       .button {
         display: inline-block;
-        padding: 14px 32px;
-        background: linear-gradient(to right, #094684, #003366);
+        padding: 16px 36px;
+        background: linear-gradient(135deg, #094684 0%, #003366 100%);
         color: #fff !important;
-        border-radius: 8px;
+        border-radius: 10px;
         text-decoration: none;
         font-weight: 600;
-        font-size: 1em;
-        box-shadow: 0 2px 8px rgba(9, 70, 132, 0.2);
-        transition: all 0.2s ease;
+        font-size: 1.05em;
+        box-shadow: 0 4px 12px rgba(9, 70, 132, 0.25);
+        transition: all 0.3s ease;
+        margin-top: 10px;
       }
       .button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(9, 70, 132, 0.3);
+        transform: translateY(-3px);
+        box-shadow: 0 6px 16px rgba(9, 70, 132, 0.35);
       }
+
+      /* Signature */
       .signature {
         margin-top: 40px;
         border-top: 1px solid #e2e8f0;
         padding-top: 25px;
       }
       .signature p {
-        margin: 5px 0;
+        margin: 8px 0;
       }
       .signature-name {
         font-weight: 700;
         color: #1e293b;
+        font-size: 1.1em;
       }
+
+      /* Footer */
       .footer {
         background: #f1f5f9;
         color: #64748b;
         text-align: center;
-        padding: 25px;
+        padding: 30px 25px;
         font-size: 0.85em;
         border-top: 1px solid #e2e8f0;
       }
       .footer p {
-        margin: 5px 0;
+        margin: 8px 0;
       }
-      .urgency-badge {
-        display: inline-block;
-        background: #dc2626;
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.8em;
-        font-weight: 600;
-        margin-left: 10px;
-        vertical-align: middle;
-      }
+
+      /* Responsive Design */
       @media (max-width: 600px) {
+        body {
+          padding: 20px 10px;
+        }
         .content {
           padding: 25px;
         }
         .otp-code {
-          font-size: 2.2em;
-          letter-spacing: 5px;
-          padding: 12px 15px;
+          font-size: 2.4em;
+          letter-spacing: 6px;
+          padding: 15px 20px;
+        }
+        .greeting {
+          font-size: 1.3em;
         }
       }
     </style>
@@ -200,7 +255,9 @@
   <body>
     <div class="container">
       <div class="header">
-        <img src="DepEd_logo-W.png" alt="DepEd Logo" />
+        <div class="logo-container">
+          <img src="DepEd_logo-W.png" alt="DepEd Logo" />
+        </div>
         <div class="company-name">MOOE Liquidation Management System</div>
         <div class="company-subtitle">
           Department of Education, La Union Schools Division
@@ -214,14 +271,15 @@
 
         <p class="intro-text">
           To complete your verification process, please use the following
-          One-Time Password (OTP):
+          One-Time Password (OTP) to securely access your account:
         </p>
 
         <div class="otp-section">
           <div class="otp-label">Your Verification Code</div>
           <div class="otp-code">{{ otp }}</div>
           <div class="expiry-notice">
-            ⏳ Expires in 10 minutes <span class="urgency-badge">URGENT</span>
+            <span>⏳ Expires in 10 minutes</span>
+            <span class="urgency-badge">URGENT</span>
           </div>
         </div>
 
