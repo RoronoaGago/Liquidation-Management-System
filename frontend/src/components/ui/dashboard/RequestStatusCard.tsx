@@ -82,7 +82,7 @@ const RequestStatusCard: React.FC<RequestStatusCardProps> = ({
                 </div>
                 <div className="text-lg font-semibold text-blue-800">
                   ₱{request.total_amount?.toLocaleString() || "0"}{" "}
-                  {/* Now uses max_budget if passed */}{" "}
+                  {/* Now uses monthly_budget from budget allocation */}{" "}
                 </div>
               </div>
               <div>

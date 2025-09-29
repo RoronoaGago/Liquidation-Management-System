@@ -38,9 +38,13 @@ import DivisionSuperintendentDashboard from "./pages/DivisionSuperintendentDashb
 import DivisionDistrictAdaDashboard from "./pages/DivisionDistrictAdaDashboard";
 import DivisionAccountantDashboard from "./pages/DivisionAccountantDashboard";
 import DivisionLiquidatorDashboard from "./pages/DivisionLiquidatorDashboard";
+import YearlyBudgetModal from "./components/common/YearlyBudgetModal";
+import { useYearlyBudgetModal } from "./hooks/useYearlyBudgetModal";
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
+  const yearlyBudgetModal = useYearlyBudgetModal();
+  
   return (
     <>
       {/* Main application routes */}
@@ -196,6 +200,19 @@ const App = () => {
       </Routes>
       <SetupModal />
       <LiquidationReminder />
+      
+      {/* Yearly Budget Modal - Only show for admin and accountant roles */}
+      {user && (user.role === "admin" || user.role === "accountant") && (
+        <YearlyBudgetModal
+          isOpen={yearlyBudgetModal.isModalOpen}
+          onClose={yearlyBudgetModal.handleClose}
+          onProceed={yearlyBudgetModal.handleProceed}
+          onDoLater={yearlyBudgetModal.handleDoLater}
+          currentYear={yearlyBudgetModal.budgetStatus?.current_year || new Date().getFullYear()}
+          schoolsWithoutBudget={yearlyBudgetModal.budgetStatus?.schools_without_budget || 0}
+          totalSchools={yearlyBudgetModal.budgetStatus?.total_schools || 0}
+        />
+      )}
     </>
   );
 };

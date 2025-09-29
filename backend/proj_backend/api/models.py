@@ -167,12 +167,6 @@ class School(models.Model):
                  ("2nd District", "2nd District")]
     )
     is_active = models.BooleanField(default=True)
-    max_budget = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=0.00,
-        verbose_name="Maximum Budget"
-    )
     last_liquidated_month = models.PositiveSmallIntegerField(
         null=True, blank=True)
     last_liquidated_year = models.PositiveSmallIntegerField(
@@ -180,6 +174,27 @@ class School(models.Model):
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
+
+    def get_current_monthly_budget(self):
+        """Get the monthly budget for the current year"""
+        from datetime import date
+        current_year = date.today().year
+        try:
+            budget_allocation = self.budget_allocations.get(year=current_year, is_active=True)
+            return budget_allocation.monthly_budget
+        except BudgetAllocation.DoesNotExist:
+            return 0
+
+    def get_yearly_budget(self, year=None):
+        """Get the yearly budget for a specific year (defaults to current year)"""
+        from datetime import date
+        if year is None:
+            year = date.today().year
+        try:
+            budget_allocation = self.budget_allocations.get(year=year, is_active=True)
+            return budget_allocation.yearly_budget
+        except BudgetAllocation.DoesNotExist:
+            return 0
 
     def get_audit_description(self, created=False, action='create'):
         if action == 'archive':
@@ -1004,6 +1019,63 @@ class SchoolDistrict(models.Model):
         elif action == 'restore':
             return f"Restored district {self.districtName}"
         return f"{action.capitalize()} district {self.districtName}"
+
+
+class BudgetAllocation(models.Model):
+    """
+    Model to track yearly and monthly budget allocations for schools.
+    Each school should have one budget allocation per year.
+    """
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name='budget_allocations'
+    )
+    year = models.PositiveIntegerField(
+        help_text="Year for this budget allocation (e.g., 2024)"
+    )
+    yearly_budget = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        help_text="Total yearly budget allocated to the school"
+    )
+    monthly_budget = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        help_text="Monthly budget (yearly_budget / 12), calculated automatically"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_budget_allocations'
+    )
+    is_active = models.BooleanField(default=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        unique_together = ('school', 'year')
+        ordering = ['-year', 'school__schoolName']
+
+    def save(self, *args, **kwargs):
+        # Automatically calculate monthly budget
+        if self.yearly_budget:
+            self.monthly_budget = self.yearly_budget / 12
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.school.schoolName} - {self.year} (₱{self.yearly_budget:,.2f})"
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived budget allocation for {self.school.schoolName} ({self.year})"
+        elif action == 'restore':
+            return f"Restored budget allocation for {self.school.schoolName} ({self.year})"
+        return f"{action.capitalize()} budget allocation for {self.school.schoolName} ({self.year})"
 
 
 class GeneratedPDF(models.Model):

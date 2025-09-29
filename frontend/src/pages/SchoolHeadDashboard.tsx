@@ -562,7 +562,7 @@ const SchoolHeadDashboard = () => {
             (sum: number, lp: any) => sum + Number(lp.amount || 0),
             0
           );
-          // Determine total downloaded: if latest request is unliquidated and we have school_max_budget, use it
+          // Determine total downloaded: if latest request is unliquidated and we have school monthly budget, use it
           let totalDownloaded = totalRequested;
           try {
             const ur = await api.get("/user-requests/");
@@ -574,10 +574,10 @@ const SchoolHeadDashboard = () => {
             const latest = list && list.length > 0 ? list[0] : null;
             if (
               latest?.status === "unliquidated" &&
-              (respData as any).school_max_budget !== undefined
+              (respData as any).school_current_monthly_budget !== undefined
             ) {
               totalDownloaded =
-                Number((respData as any).school_max_budget) || totalDownloaded;
+                Number((respData as any).school_current_monthly_budget) || totalDownloaded;
             }
           } catch {
             // ignore and keep totalRequested

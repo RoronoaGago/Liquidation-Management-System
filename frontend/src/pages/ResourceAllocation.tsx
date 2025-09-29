@@ -59,7 +59,8 @@ const monthNames = [
 type School = {
   schoolId: string;
   schoolName: string;
-  max_budget: number;
+  current_monthly_budget: number;
+  current_yearly_budget: number;
   municipality?: string;
   district?: string;
   legislativeDistrict?: string;
@@ -74,6 +75,7 @@ const ResourceAllocation = () => {
   const [editingBudgets, setEditingBudgets] = useState<Record<string, number>>(
     {}
   );
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [filterActiveStatus, setFilterActiveStatus] = useState<string>("all");
   const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -188,7 +190,7 @@ const ResourceAllocation = () => {
     const updated = { ...editingBudgets };
     selectedSchools.forEach((id) => {
       const current = Number(
-        updated[id] || schools.find((s) => s.schoolId === id)?.max_budget || 0
+        updated[id] || schools.find((s) => s.schoolId === id)?.current_yearly_budget || 0
       );
       if (type === "set") {
         updated[id] = Math.max(0, bulkAmount);
@@ -256,7 +258,7 @@ const ResourceAllocation = () => {
       });
       const initialBudgets = schoolsWithBacklog.reduce(
         (acc: Record<string, number>, school: School) => {
-          acc[school.schoolId] = school.max_budget || 0;
+          acc[school.schoolId] = school.current_yearly_budget || 0;
           return acc;
         },
         {} as Record<string, number>
@@ -356,7 +358,7 @@ const ResourceAllocation = () => {
   const totalDifference = useMemo(
     () =>
       selectedSchools.reduce((sum, id) => {
-        const prev = schools.find((s) => s.schoolId === id)?.max_budget || 0;
+        const prev = schools.find((s) => s.schoolId === id)?.current_yearly_budget || 0;
         const current = Number(editingBudgets[id]) || 0;
         return sum + (current - Number(prev));
       }, 0),
@@ -366,7 +368,7 @@ const ResourceAllocation = () => {
   const resetBudgets = () => {
     const initialBudgets = schools.reduce(
       (acc: Record<string, number>, school) => {
-        acc[school.schoolId] = school.max_budget || 0;
+        acc[school.schoolId] = school.current_yearly_budget || 0;
         return acc;
       },
       {}
@@ -412,7 +414,7 @@ const ResourceAllocation = () => {
     const avgBudget =
       selectedSchools.reduce((sum, id) => {
         const school = schools.find((s) => s.schoolId === id);
-        return sum + (school?.max_budget || 0);
+        return sum + (school?.current_yearly_budget || 0);
       }, 0) / selectedSchools.length;
 
     if (eligibleCount / selectedSchools.length > 0.7) {
@@ -433,7 +435,7 @@ const ResourceAllocation = () => {
     const initialBudgets = schools.reduce(
       (acc, school) => ({
         ...acc,
-        [school.schoolId]: school.max_budget || 0,
+        [school.schoolId]: school.current_yearly_budget || 0,
       }),
       {}
     );
@@ -454,22 +456,22 @@ const ResourceAllocation = () => {
 
     setIsSaving(true);
     try {
-      const updates = selectedSchools.map((schoolId) => {
-        const budget = Number(editingBudgets[schoolId]) || 0;
+      const allocations = selectedSchools.map((schoolId) => {
+        const yearlyBudget = Number(editingBudgets[schoolId]) || 0;
         const original =
-          schools.find((s) => s.schoolId === schoolId)?.max_budget || 0;
+          schools.find((s) => s.schoolId === schoolId)?.current_yearly_budget || 0;
 
         return {
-          schoolId: String(schoolId),
-          max_budget: parseFloat(budget.toFixed(2)),
-          original_budget: original,
-          difference: parseFloat((budget - original).toFixed(2)),
+          school_id: String(schoolId),
+          yearly_budget: parseFloat(yearlyBudget.toFixed(2)),
         };
       });
 
-      // Validate large changes
-
-      await api.patch("/schools/batch_update/", { updates });
+      // Create or update budget allocations for the current year
+      await api.post("/budget-allocations/batch-create/", { 
+        year: currentYear,
+        allocations 
+      });
       setShowSuccessDialog(true);
       setTimeout(() => setShowSuccessDialog(false), 3000);
 
@@ -565,10 +567,10 @@ const ResourceAllocation = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Confirm Budget Changes
+                Confirm Yearly Budget Changes
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                You're about to update budgets for {selectedSchools.length}{" "}
+                You're about to update yearly budgets for {selectedSchools.length}{" "}
                 schools
               </p>
             </div>
@@ -745,7 +747,7 @@ const ResourceAllocation = () => {
   );
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
-      <PageBreadcrumb pageTitle="Resource Allocation" />
+      <PageBreadcrumb pageTitle="Yearly Budget Allocation" />
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
@@ -761,10 +763,10 @@ const ResourceAllocation = () => {
             {/* Header Section */}
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
-                Budgets Updated Successfully
+                Yearly Budgets Updated Successfully
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                School budgets have been updated and saved to the system.
+                School yearly budgets have been updated and saved to the system.
               </p>
             </div>
 
@@ -800,7 +802,7 @@ const ResourceAllocation = () => {
                   <div className="flex items-center gap-2">
                     <Info className="h-5 w-5 flex-shrink-0 text-brand-600 dark:text-brand-400" />
                     <span className="font-medium text-brand-800 dark:text-brand-200">
-                      How to allocate resources
+                      How to allocate yearly budgets
                     </span>
                   </div>
                   <ChevronDownIcon
@@ -823,11 +825,11 @@ const ResourceAllocation = () => {
                       <li>Select an adjustment amount from the top controls</li>
                       <li>
                         Use the + and - buttons in each selected school to
-                        adjust the budget
+                        adjust the yearly budget
                       </li>
                       <li>Click "Save Selected" when ready</li>
                       <li>
-                        Use filters to find schools that can request next month
+                        Monthly budget is automatically calculated (yearly ÷ 12)
                       </li>
                     </ol>
                   </Disclosure.Panel>
@@ -899,7 +901,7 @@ const ResourceAllocation = () => {
         {/* Adjustment Controls */}
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mt-4">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Adjustment Amount
+            Yearly Budget Adjustment Amount
           </h3>
           <div className="flex flex-wrap gap-2">
             {QUICK_ADD_AMOUNTS.map((amount) => (
@@ -918,7 +920,7 @@ const ResourceAllocation = () => {
         {selectedSchools.length > 0 && (
           <div className="flex flex-col md:flex-row gap-4 items-center mb-4 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20">
             <span className="font-medium text-blue-800 dark:text-blue-200">
-              Bulk Adjust {selectedSchools.length} selected school(s):
+              Bulk Adjust Yearly Budget for {selectedSchools.length} selected school(s):
             </span>
             <input
               type="number"
@@ -1036,7 +1038,7 @@ const ResourceAllocation = () => {
             sortedSchools.map((school) => {
               const isSelected = selectedSchools.includes(school.schoolId);
               const isExpanded = expandedCards.includes(school.schoolId);
-              const prevBudget = Number(school.max_budget || 0);
+              const prevBudget = Number(school.current_yearly_budget || 0);
               const currentBudget = editingBudgets[school.schoolId] ?? 0;
               const difference = currentBudget - prevBudget;
               const canRequest = canRequestNextMonth(school);
@@ -1137,7 +1139,7 @@ const ResourceAllocation = () => {
                       <>
                         <div className="mt-4 flex items-center justify-between">
                           <div className="text-sm text-gray-600 dark:text-gray-300">
-                            Current Budget
+                            Current Yearly Budget
                           </div>
                           <div className="font-medium">
                             {formatCurrency(currentBudget)}
@@ -1145,10 +1147,18 @@ const ResourceAllocation = () => {
                         </div>
                         <div className="mt-1 flex items-center justify-between">
                           <div className="text-sm text-gray-600 dark:text-gray-300">
-                            Previous Budget
+                            Previous Yearly Budget
                           </div>
                           <div className="text-sm">
                             {formatCurrency(prevBudget)}
+                          </div>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between">
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
+                            Monthly Budget
+                          </div>
+                          <div className="text-sm">
+                            {formatCurrency(currentBudget / 12)}
                           </div>
                         </div>
 

@@ -4,7 +4,7 @@ from auditlog.models import LogEntry
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog, BudgetAllocation
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
@@ -88,10 +88,18 @@ class SchoolSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    current_monthly_budget = serializers.SerializerMethodField(read_only=True)
+    current_yearly_budget = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = School
         fields = '__all__'
+
+    def get_current_monthly_budget(self, obj):
+        return obj.get_current_monthly_budget()
+
+    def get_current_yearly_budget(self, obj):
+        return obj.get_yearly_budget()
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -371,6 +379,38 @@ class UserSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class BudgetAllocationSerializer(serializers.ModelSerializer):
+    school = SchoolSerializer(read_only=True)
+    school_id = serializers.PrimaryKeyRelatedField(
+        queryset=School.objects.all(),
+        source='school',
+        write_only=True
+    )
+    created_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = BudgetAllocation
+        fields = [
+            'id', 'school', 'school_id', 'year', 'yearly_budget', 
+            'monthly_budget', 'created_at', 'updated_at', 'created_by', 'is_active'
+        ]
+        read_only_fields = ['id', 'monthly_budget', 'created_at', 'updated_at']
+
+    def validate_year(self, value):
+        """Validate that year is reasonable"""
+        from datetime import date
+        current_year = date.today().year
+        if value < 2020 or value > current_year + 1:
+            raise serializers.ValidationError("Year must be between 2020 and next year")
+        return value
+
+    def validate_yearly_budget(self, value):
+        """Validate that yearly budget is positive"""
+        if value <= 0:
+            raise serializers.ValidationError("Yearly budget must be greater than 0")
+        return value
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
