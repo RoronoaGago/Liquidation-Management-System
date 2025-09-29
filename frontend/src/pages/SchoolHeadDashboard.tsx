@@ -675,7 +675,6 @@ const SchoolHeadDashboard = () => {
               School Head Dashboard
             </h1>
             <p className="mt-1 text-gray-500">
-              Liquidation progress and financial metrics
             </p>
           </div>
           <Button variant="outline" disabled>
@@ -710,7 +709,6 @@ const SchoolHeadDashboard = () => {
             School Head Dashboard
           </h1>
           <p className="mt-1 text-gray-500">
-            Liquidation progress and financial metrics
           </p>
         </div>
         <div className="flex gap-3">
