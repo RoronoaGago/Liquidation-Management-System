@@ -303,7 +303,6 @@ const DivisionDistrictAdaDashboard = () => {
               Division Liquidator Dashboard
             </h1>
             <p className="mt-1 text-gray-500 text-theme-sm">
-              Liquidation oversight and approval management
             </p>
           </div>
         </div>
@@ -337,7 +336,6 @@ const DivisionDistrictAdaDashboard = () => {
             Division Liquidator Dashboard
           </h1>
           <p className="mt-1 text-gray-500 text-theme-sm">
-            Liquidation oversight and approval management
           </p>
         </div>
         <div className="flex items-center gap-3" />
