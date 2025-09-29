@@ -4094,9 +4094,23 @@ def update_school_liquidation_dates(request, school_id):
         # Validate year (reasonable range)
         if last_liquidated_year is not None:
             current_year = date.today().year
-            if not isinstance(last_liquidated_year, int) or last_liquidated_year < 2020 or last_liquidated_year > current_year + 1:
+            if not isinstance(last_liquidated_year, int) or last_liquidated_year < 2020 or last_liquidated_year > current_year:
                 return Response(
-                    {'error': f'last_liquidated_year must be between 2020 and {current_year + 1}'}, 
+                    {'error': f'last_liquidated_year must be between 2020 and {current_year}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate that the date is not in the future
+        if last_liquidated_month is not None and last_liquidated_year is not None:
+            current_date = date.today()
+            current_year = current_date.year
+            current_month = current_date.month
+            
+            # Check if the liquidation date is in the future
+            if (last_liquidated_year > current_year or 
+                (last_liquidated_year == current_year and last_liquidated_month > current_month)):
+                return Response(
+                    {'error': 'Cannot set liquidation date in the future'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
         

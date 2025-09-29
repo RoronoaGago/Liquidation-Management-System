@@ -456,19 +456,60 @@ const ResourceAllocation = () => {
     setExpandedCards([]);
   };
 
+  const validateLiquidationDate = (month: number | null, year: number | null): string | null => {
+    if (!month || !year) return null;
+    
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
+    
+    // Check if the date is in the future
+    if (year > currentYear || (year === currentYear && month > currentMonth)) {
+      return "Cannot set liquidation date in the future";
+    }
+    
+    return null;
+  };
+
+  const isFutureMonth = (monthIndex: number, selectedYear: number | null): boolean => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+    
+    return selectedYear === currentYear && (monthIndex + 1) > currentMonth;
+  };
+
   const handleLiquidationDateChange = (schoolId: string, field: 'month' | 'year', value: number | null) => {
+    const currentDates = editingLiquidationDates[schoolId] || {};
+    const newDates = {
+      ...currentDates,
+      [field]: value
+    };
+    
+    // Validate the new date combination
+    const validationError = validateLiquidationDate(newDates.month, newDates.year);
+    
+    if (validationError) {
+      toast.error(validationError);
+      return; // Don't update if validation fails
+    }
+    
     setEditingLiquidationDates(prev => ({
       ...prev,
-      [schoolId]: {
-        ...prev[schoolId],
-        [field]: value
-      }
+      [schoolId]: newDates
     }));
   };
 
   const saveLiquidationDates = async (schoolId: string) => {
     const dates = editingLiquidationDates[schoolId];
     if (!dates) return;
+
+    // Final validation before saving
+    const validationError = validateLiquidationDate(dates.month, dates.year);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
 
     try {
       await api.patch(`schools/${schoolId}/liquidation-dates/`, {
@@ -1274,11 +1315,21 @@ const ResourceAllocation = () => {
                                 disabled={!school.is_active}
                               >
                                 <option value="">Select Month</option>
-                                {monthNames.map((month, index) => (
-                                  <option key={index} value={index + 1}>
-                                    {month}
-                                  </option>
-                                ))}
+                                {monthNames.map((month, index) => {
+                                  const selectedYear = editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? null;
+                                  const futureMonth = isFutureMonth(index, selectedYear);
+                                  
+                                  return (
+                                    <option 
+                                      key={index} 
+                                      value={index + 1}
+                                      disabled={futureMonth}
+                                      style={futureMonth ? { color: '#9CA3AF', fontStyle: 'italic' } : {}}
+                                    >
+                                      {futureMonth ? `${month} (Future)` : month}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                             <div>
@@ -1288,14 +1339,27 @@ const ResourceAllocation = () => {
                               <input
                                 type="number"
                                 min="2020"
-                                max={new Date().getFullYear() + 1}
+                                max={new Date().getFullYear()}
                                 value={editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? ""}
-                                onChange={(e) => handleLiquidationDateChange(school.schoolId, 'year', e.target.value ? parseInt(e.target.value) : null)}
+                                onChange={(e) => {
+                                  const yearValue = e.target.value ? parseInt(e.target.value) : null;
+                                  
+                                  // Check if future year is entered
+                                  if (yearValue && yearValue > new Date().getFullYear()) {
+                                    toast.error("Cannot set liquidation date in the future");
+                                    return; // Don't update the state
+                                  }
+                                  
+                                  handleLiquidationDateChange(school.schoolId, 'year', yearValue);
+                                }}
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
                                 disabled={!school.is_active}
-                                placeholder="Year"
+                                placeholder="e.g., 2024"
                               />
                             </div>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Cannot set dates in the future
                           </div>
                           {(editingLiquidationDates[school.schoolId]?.month !== school.last_liquidated_month || 
                             editingLiquidationDates[school.schoolId]?.year !== school.last_liquidated_year) && (
