@@ -4060,6 +4060,73 @@ def batch_create_budget_allocations(request):
     })
 
 
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_school_liquidation_dates(request, school_id):
+    """
+    Update the last liquidated month and year for a school.
+    """
+    try:
+        school = School.objects.get(schoolId=school_id)
+    except School.DoesNotExist:
+        return Response(
+            {'error': 'School not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    last_liquidated_month = request.data.get('last_liquidated_month')
+    last_liquidated_year = request.data.get('last_liquidated_year')
+    
+    # Validate month (1-12)
+    if last_liquidated_month is not None:
+        if not isinstance(last_liquidated_month, int) or last_liquidated_month < 1 or last_liquidated_month > 12:
+            return Response(
+                {'error': 'last_liquidated_month must be between 1 and 12'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    # Validate year (reasonable range)
+    if last_liquidated_year is not None:
+        current_year = date.today().year
+        if not isinstance(last_liquidated_year, int) or last_liquidated_year < 2020 or last_liquidated_year > current_year + 1:
+            return Response(
+                {'error': f'last_liquidated_year must be between 2020 and {current_year + 1}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    # Update the school
+    if last_liquidated_month is not None:
+        school.last_liquidated_month = last_liquidated_month
+    if last_liquidated_year is not None:
+        school.last_liquidated_year = last_liquidated_year
+    
+    school.save()
+    
+    # Log the action
+    log_audit_action(
+        user=request.user,
+        action='update',
+        module='school',
+        object_id=school.schoolId,
+        object_type='School',
+        object_name=school.schoolName,
+        description=f"Updated liquidation dates for {school.schoolName}",
+        old_values={'last_liquidated_month': school.last_liquidated_month, 'last_liquidated_year': school.last_liquidated_year},
+        new_values={'last_liquidated_month': last_liquidated_month, 'last_liquidated_year': last_liquidated_year},
+        request=request
+    )
+    
+    return Response({
+        'message': 'School liquidation dates updated successfully',
+        'school': {
+            'schoolId': school.schoolId,
+            'schoolName': school.schoolName,
+            'last_liquidated_month': school.last_liquidated_month,
+            'last_liquidated_year': school.last_liquidated_year
+        }
+    })
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_first_monday_january_info(request):

@@ -66,8 +66,9 @@ type School = {
   legislativeDistrict?: string;
   is_active?: boolean;
   hasUnliquidated?: boolean;
-  last_liquidated_month?: number;
-  last_liquidated_year?: number;
+  last_liquidated_month?: number | null;
+  last_liquidated_year?: number | null;
+  hasAllocation?: boolean; // New field to track if school has budget allocation
 };
 
 const ResourceAllocation = () => {
@@ -75,8 +76,7 @@ const ResourceAllocation = () => {
   const [editingBudgets, setEditingBudgets] = useState<Record<string, number>>(
     {}
   );
-  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-  const [filterActiveStatus, setFilterActiveStatus] = useState<string>("all");
+  const [currentYear] = useState<number>(new Date().getFullYear());
   const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -87,7 +87,6 @@ const ResourceAllocation = () => {
   const [bulkAmount, setBulkAmount] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [adjustmentAmount, setAdjustmentAmount] = useState(1000);
   const [expandedCards, setExpandedCards] = useState<string[]>([]);
@@ -121,11 +120,13 @@ const ResourceAllocation = () => {
     []
   );
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
-  const [bulkActionType, setBulkActionType] = useState<
+  const [bulkActionType] = useState<
     "set" | "increase" | "decrease" | null
   >(null);
   const [undoStack, setUndoStack] = useState<Record<string, number>[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [editingLiquidationDates, setEditingLiquidationDates] = useState<Record<string, { month: number | null; year: number | null }>>({});
+  const [allocationProgress, setAllocationProgress] = useState<{ allocated: number; total: number }>({ allocated: 0, total: 0 });
 
   const canRequestNextMonth = useCallback((school: School) => {
     if (!school.is_active) return false;
@@ -156,26 +157,26 @@ const ResourceAllocation = () => {
     }
   };
 
-  // Bulk handlers
-  const handleBulkSet = (amount: number) => {
-    setEditingBudgets((prev) => {
-      const updated = { ...prev };
-      selectedSchools.forEach((id) => {
-        updated[id] = Math.max(0, amount);
-      });
-      return updated;
-    });
-  };
+  // Bulk handlers (commented out as they're not currently used)
+  // const handleBulkSet = (amount: number) => {
+  //   setEditingBudgets((prev) => {
+  //     const updated = { ...prev };
+  //     selectedSchools.forEach((id) => {
+  //       updated[id] = Math.max(0, amount);
+  //     });
+  //     return updated;
+  //   });
+  // };
 
-  const handleBulkAdjust = (amount: number) => {
-    setEditingBudgets((prev) => {
-      const updated = { ...prev };
-      selectedSchools.forEach((id) => {
-        updated[id] = Math.max(0, (prev[id] || 0) + amount);
-      });
-      return updated;
-    });
-  };
+  // const handleBulkAdjust = (amount: number) => {
+  //   setEditingBudgets((prev) => {
+  //     const updated = { ...prev };
+  //     selectedSchools.forEach((id) => {
+  //       updated[id] = Math.max(0, (prev[id] || 0) + amount);
+  //     });
+  //     return updated;
+  //   });
+  // };
 
   // Bulk confirmation and undo
   // Replace the existing handleBulkConfirm with this version
@@ -239,21 +240,23 @@ const ResourceAllocation = () => {
       let schoolsData = schoolsRes.data.results || schoolsRes.data;
 
       if (filterCanRequest !== null) {
-        schoolsData = schoolsData.filter((school: School) =>
+        schoolsData = schoolsData.filter((school: any) =>
           filterCanRequest
             ? canRequestNextMonth(school)
             : !canRequestNextMonth(school)
         );
       }
 
-      const schoolIds = schoolsData.map((school: School) => school.schoolId);
+      const schoolIds = schoolsData.map((school: any) => school.schoolId);
       const backlogData = await fetchBacklogData(schoolIds);
 
-      const schoolsWithBacklog = schoolsData.map((school: School) => {
+      const schoolsWithBacklog = schoolsData.map((school: any) => {
         const hasUnliquidated = backlogData.has(school.schoolId);
+        const hasAllocation = school.current_yearly_budget > 0;
         return {
           ...school,
           hasUnliquidated,
+          hasAllocation,
         };
       });
       const initialBudgets = schoolsWithBacklog.reduce(
@@ -267,6 +270,11 @@ const ResourceAllocation = () => {
       setEditingBudgets(initialBudgets);
       setSchools(schoolsWithBacklog);
       setTotalSchools(schoolsRes.data.count ?? schoolsData.length);
+      
+      // Calculate allocation progress
+      const totalActiveSchools = schoolsWithBacklog.filter((school: any) => school.is_active).length;
+      const allocatedSchools = schoolsWithBacklog.filter((school: any) => school.is_active && school.hasAllocation).length;
+      setAllocationProgress({ allocated: allocatedSchools, total: totalActiveSchools });
     } catch (error) {
       console.error("Error fetching schools data:", error);
     } finally {
@@ -365,22 +373,22 @@ const ResourceAllocation = () => {
     [selectedSchools, schools, editingBudgets]
   );
 
-  const resetBudgets = () => {
-    const initialBudgets = schools.reduce(
-      (acc: Record<string, number>, school) => {
-        acc[school.schoolId] = school.current_yearly_budget || 0;
-        return acc;
-      },
-      {}
-    );
-    const updated = { ...editingBudgets };
-    selectedSchools.forEach((schoolId) => {
-      updated[schoolId] = initialBudgets[schoolId];
-    });
-    setEditingBudgets(updated);
-    setShowResetConfirm(false);
-    toast.info("Selected budgets reset to original values");
-  };
+  // const resetBudgets = () => {
+  //   const initialBudgets = schools.reduce(
+  //     (acc: Record<string, number>, school) => {
+  //       acc[school.schoolId] = school.current_yearly_budget || 0;
+  //       return acc;
+  //     },
+  //     {}
+  //   );
+  //   const updated = { ...editingBudgets };
+  //   selectedSchools.forEach((schoolId) => {
+  //     updated[schoolId] = initialBudgets[schoolId];
+  //   });
+  //   setEditingBudgets(updated);
+  //   setShowResetConfirm(false);
+  //   toast.info("Selected budgets reset to original values");
+  // };
 
   const totalSelected = useMemo(
     () =>
@@ -447,6 +455,51 @@ const ResourceAllocation = () => {
     setSelectedSchools([]);
     setExpandedCards([]);
   };
+
+  const handleLiquidationDateChange = (schoolId: string, field: 'month' | 'year', value: number | null) => {
+    setEditingLiquidationDates(prev => ({
+      ...prev,
+      [schoolId]: {
+        ...prev[schoolId],
+        [field]: value
+      }
+    }));
+  };
+
+  const saveLiquidationDates = async (schoolId: string) => {
+    const dates = editingLiquidationDates[schoolId];
+    if (!dates) return;
+
+    try {
+      await api.patch(`schools/${schoolId}/liquidation-dates/`, {
+        last_liquidated_month: dates.month,
+        last_liquidated_year: dates.year
+      });
+
+      // Update the school in the local state
+      setSchools(prev => prev.map(school => 
+        school.schoolId === schoolId 
+          ? { 
+              ...school, 
+              last_liquidated_month: dates.month, 
+              last_liquidated_year: dates.year 
+            }
+          : school
+      ));
+
+      // Clear the editing state
+      setEditingLiquidationDates(prev => {
+        const newState = { ...prev };
+        delete newState[schoolId];
+        return newState;
+      });
+
+      toast.success("Liquidation dates updated successfully");
+    } catch (error: any) {
+      console.error("Error updating liquidation dates:", error);
+      toast.error(`Failed to update liquidation dates: ${error.response?.data?.error || error.message}`);
+    }
+  };
   // 4. Enhance saveBudgets with validation
   const saveBudgets = async () => {
     if (selectedSchools.length === 0) {
@@ -458,8 +511,6 @@ const ResourceAllocation = () => {
     try {
       const allocations = selectedSchools.map((schoolId) => {
         const yearlyBudget = Number(editingBudgets[schoolId]) || 0;
-        const original =
-          schools.find((s) => s.schoolId === schoolId)?.current_yearly_budget || 0;
 
         return {
           school_id: String(schoolId),
@@ -838,6 +889,40 @@ const ResourceAllocation = () => {
             )}
           </Disclosure>
         </div>
+
+        {/* Allocation Progress Bar */}
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <CheckCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Budget Allocation Progress
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {allocationProgress.allocated} of {allocationProgress.total} active schools have budget allocations
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {allocationProgress.total > 0 ? Math.round((allocationProgress.allocated / allocationProgress.total) * 100) : 0}%
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Complete</div>
+            </div>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div 
+              className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-500 ease-out"
+              style={{ 
+                width: `${allocationProgress.total > 0 ? (allocationProgress.allocated / allocationProgress.total) * 100 : 0}%` 
+              }}
+            />
+          </div>
+        </div>
+
         {/* Search and Controls */}
         <div className="flex flex-col gap-4">
           {/* Top controls row */}
@@ -1041,7 +1126,7 @@ const ResourceAllocation = () => {
               const prevBudget = Number(school.current_yearly_budget || 0);
               const currentBudget = editingBudgets[school.schoolId] ?? 0;
               const difference = currentBudget - prevBudget;
-              const canRequest = canRequestNextMonth(school);
+              // const canRequest = canRequestNextMonth(school);
 
               return (
                 <div
@@ -1051,11 +1136,15 @@ const ResourceAllocation = () => {
       ${
         isSelected
           ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
+          : school.hasAllocation
+          ? "border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10"
           : "border-gray-200 dark:border-gray-700"
       } 
       ${
         !school.is_active
           ? "bg-gray-50 opacity-75 dark:bg-gray-800/50"
+          : school.hasAllocation
+          ? "bg-green-50/30 dark:bg-green-900/10"
           : "bg-white dark:bg-gray-900"
       }
       hover:border-brand-400 dark:hover:border-brand-500`}
@@ -1077,6 +1166,11 @@ const ResourceAllocation = () => {
                           {!school.is_active && (
                             <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded-full dark:bg-gray-700 dark:text-gray-400">
                               Inactive
+                            </span>
+                          )}
+                          {school.hasAllocation && school.is_active && (
+                            <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full dark:bg-green-900/30 dark:text-green-200">
+                              Allocated
                             </span>
                           )}
                         </div>
@@ -1160,6 +1254,82 @@ const ResourceAllocation = () => {
                           <div className="text-sm">
                             {formatCurrency(currentBudget / 12)}
                           </div>
+                        </div>
+
+                        {/* Liquidation Date Inputs */}
+                        <div className="mt-4 space-y-3">
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Last Liquidation Date
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                Month
+                              </label>
+                              <select
+                                value={editingLiquidationDates[school.schoolId]?.month ?? school.last_liquidated_month ?? ""}
+                                onChange={(e) => handleLiquidationDateChange(school.schoolId, 'month', e.target.value ? parseInt(e.target.value) : null)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
+                                disabled={!school.is_active}
+                              >
+                                <option value="">Select Month</option>
+                                {monthNames.map((month, index) => (
+                                  <option key={index} value={index + 1}>
+                                    {month}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                Year
+                              </label>
+                              <input
+                                type="number"
+                                min="2020"
+                                max={new Date().getFullYear() + 1}
+                                value={editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? ""}
+                                onChange={(e) => handleLiquidationDateChange(school.schoolId, 'year', e.target.value ? parseInt(e.target.value) : null)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
+                                disabled={!school.is_active}
+                                placeholder="Year"
+                              />
+                            </div>
+                          </div>
+                          {(editingLiquidationDates[school.schoolId]?.month !== school.last_liquidated_month || 
+                            editingLiquidationDates[school.schoolId]?.year !== school.last_liquidated_year) && (
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  saveLiquidationDates(school.schoolId);
+                                }}
+                                variant="primary"
+                                size="sm"
+                                disabled={!school.is_active}
+                                className="px-3 py-1 text-xs"
+                              >
+                                Save Dates
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingLiquidationDates(prev => {
+                                    const newState = { ...prev };
+                                    delete newState[school.schoolId];
+                                    return newState;
+                                  });
+                                }}
+                                variant="outline"
+                                size="sm"
+                                className="px-3 py-1 text-xs"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Show liquidation details if toggled on */}
