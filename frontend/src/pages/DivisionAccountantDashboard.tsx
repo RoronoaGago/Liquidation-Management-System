@@ -94,6 +94,8 @@ const DivisionAccountantDashboard = () => {
       let pendingLiquidations: PendingLiquidation[] = [];
       let expenseStatistics: ExpenseStatistic[] = [];
       let approvedRequests: ApprovedRequest[] = [];
+      let totalSchools = 0;
+      let liquidatedSchoolIds = new Set<string>();
 
       // Pending liquidations with status approved_liquidator
       try {
@@ -198,43 +200,42 @@ const DivisionAccountantDashboard = () => {
         ];
       }
 
-      // Completed liquidations (status=liquidated)
-      let completedCount = 0;
+      // Fetch all schools
+      try {
+        const schoolsRes = await api.get("schools/", { params: { page_size: 1000 } });
+        const schools = schoolsRes.data?.results || schoolsRes.data || [];
+        totalSchools = schools.length;
+      } catch (e) {
+        console.warn("Failed to fetch schools", e);
+      }
+
+      // Fetch all liquidations with status 'liquidated'
       try {
         const liqCompletedRes = await api.get("liquidations/", {
           params: { status: "liquidated", ordering: "-created_at" },
         });
-        completedCount = (liqCompletedRes.data?.results || liqCompletedRes.data || []).length;
+        const completedLiquidations = liqCompletedRes.data?.results || liqCompletedRes.data || [];
+        liquidatedSchoolIds = new Set(
+          completedLiquidations
+            .map((l: any) => l.request?.user?.school?.schoolId)
+            .filter(Boolean)
+        );
       } catch (e) {
         console.warn("Failed to fetch completed liquidations", e);
       }
 
-      // Calculate total amount pending liquidation (similar to SchoolHeadDashboard approach)
-      let totalAmountPendingLiquidations = 0;
-      try {
-        // Get all requests to calculate total downloaded amounts
-        const allRequestsRes = await api.get("requests/", {
-          params: { ordering: "-created_at" },
-        });
-        const allRequests = (allRequestsRes.data?.results || allRequestsRes.data || []) as any[];
-        
-        // Calculate total downloaded amount from all requests (similar to SchoolHeadDashboard)
-        totalAmountPendingLiquidations = allRequests.reduce((sum: number, request: any) => {
-          const requestAmount = (request.priorities || []).reduce((reqSum: number, p: any) => {
-            return reqSum + Number(p.amount || 0);
-          }, 0);
-          return sum + requestAmount;
-        }, 0);
-        
-        console.log("Total amount from all requests:", totalAmountPendingLiquidations);
-      } catch (e) {
-        console.warn("Failed to fetch requests for amount calculation", e);
-      }
+      // Calculate completion rate based on liquidated accounts
+      const completionRate = totalSchools > 0
+        ? (liquidatedSchoolIds.size / totalSchools) * 100
+        : 0;
 
       const pendingCount = pendingLiquidations.length;
-      const completionRate = (completedCount + pendingCount) > 0
-        ? (completedCount / (completedCount + pendingCount)) * 100
-        : 0;
+
+      // Calculate total amount pending for all liquidations
+      const totalAmountPendingLiquidations = pendingLiquidations.reduce(
+        (sum, item) => sum + (item.totalAmount || 0),
+        0
+      );
 
       setData({
         pendingLiquidations,
@@ -245,7 +246,7 @@ const DivisionAccountantDashboard = () => {
           totalAmountPendingLiquidations,
           totalApprovedRequests: approvedRequests.length,
           completionRate,
-          totalRefundAmount: totalAmountPendingLiquidations, // Use the same value for now
+          totalRefundAmount: totalAmountPendingLiquidations,
         },
       });
     } catch (error) {
@@ -441,7 +442,11 @@ const DivisionAccountantDashboard = () => {
                       </p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate("/division-review", { state: { liquidationId: item.liquidationId } })}
+                  >
                     <Eye className="h-4 w-4" />
                   </Button>
                 </div>

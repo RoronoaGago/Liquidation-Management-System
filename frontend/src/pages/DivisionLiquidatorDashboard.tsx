@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { FileText, CheckCircle, TrendingUp, School } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Badge from "@/components/ui/badge/Badge";
+import  Badge  from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
 import api from "@/api/axios";
 import { useNavigate } from "react-router-dom";
@@ -70,19 +70,14 @@ interface SchoolPerformanceData {
   budgetUtilization: number;
 }
 
-const COLORS = [
-  "#465FFF",
-  "#9CB9FF",
-  "#FF8042",
-  "#00C49F",
-  "#FFBB28",
-  "#8884D8",
-];
+const COLORS = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"];
+
 
 const DivisionDistrictAdaDashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  
 
   useEffect(() => {
     fetchDashboardData();
@@ -94,16 +89,15 @@ const DivisionDistrictAdaDashboard = () => {
       // Fetch all liquidations for district ADA - use same approach as LiquidationReportPage
       // For dashboard, we need ALL liquidations regardless of status to calculate completion rates
       const liquidationsRes = await api.get("liquidations/", {
-        params: {
+        params: { 
           page_size: 1000,
           ordering: "-created_at",
           // Explicitly request all statuses to bypass role-based filtering
-          status:
-            "draft,submitted,under_review_district,under_review_liquidator,under_review_division,resubmit,approved_district,approved_liquidator,liquidated",
-        },
+          status: "draft,submitted,under_review_district,under_review_liquidator,under_review_division,resubmit,approved_district,approved_liquidator,liquidated"
+        }
       });
       const liquidations = liquidationsRes.data || [];
-
+      
       // Debug: Log the liquidation data structure
       console.log("Liquidations API response:", liquidationsRes);
       console.log("Liquidations data:", liquidations);
@@ -111,10 +105,10 @@ const DivisionDistrictAdaDashboard = () => {
 
       // Fetch all schools
       const schoolsRes = await api.get("schools/", {
-        params: { page_size: 1000 },
+        params: { page_size: 1000 }
       });
       const schools = schoolsRes.data?.results || schoolsRes.data || [];
-
+      
       // Debug: Log schools data
       console.log("Schools API response:", schoolsRes);
       console.log("Schools data:", schools);
@@ -122,10 +116,10 @@ const DivisionDistrictAdaDashboard = () => {
 
       // Fetch all requests for timeline and performance data
       const requestsRes = await api.get("requests/", {
-        params: { page_size: 1000 },
+        params: { page_size: 1000 }
       });
       const requests = requestsRes.data?.results || requestsRes.data || [];
-
+      
       // Debug: Log requests data
       console.log("Requests API response:", requestsRes);
       console.log("Requests data:", requests);
@@ -133,37 +127,15 @@ const DivisionDistrictAdaDashboard = () => {
 
       // Process pending liquidations (status: submitted, under_review_district, under_review_liquidator)
       const pendingLiquidations: PendingLiquidation[] = liquidations
-        .filter((l: any) =>
-          [
-            "submitted",
-            "under_review_liquidator",
-            "approved_district",
-          ].includes(l.status)
-        )
+        .filter((l: any) => ['submitted', 'approved_district', 'under_review_liquidator'].includes(l.status))
         .map((l: any) => {
           const request = l.request;
           const schoolName = request?.user?.school?.schoolName || "";
           const schoolId = request?.user?.school?.schoolId || "";
-          const totalAmount = (l.liquidation_priorities || []).reduce(
-            (sum: number, p: any) => sum + Number(p.amount || 0),
-            0
-          );
-          const submittedDate =
-            l.date_submitted ||
-            l.submitted_at ||
-            l.created_at ||
-            request?.created_at ||
-            "";
-          const daysSinceSubmission = submittedDate
-            ? Math.max(
-                0,
-                Math.round(
-                  (Date.now() - new Date(submittedDate).getTime()) /
-                    (1000 * 60 * 60 * 24)
-                )
-              )
-            : 0;
-
+          const totalAmount = (l.liquidation_priorities || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+          const submittedDate = l.date_submitted || l.submitted_at || l.created_at || request?.created_at || "";
+          const daysSinceSubmission = submittedDate ? Math.max(0, Math.round((Date.now() - new Date(submittedDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+          
           return {
             id: String(l.LiquidationID),
             liquidationId: l.LiquidationID,
@@ -181,55 +153,49 @@ const DivisionDistrictAdaDashboard = () => {
       // Calculate division completion data
       const totalSchools = schools.length;
 
-      // Debug: Log school IDs from liquidations
-      const schoolIdsFromLiquidations = liquidations
-        .map((l: any) => {
-          const schoolId = l.request?.user?.school?.schoolId;
-          console.log(
-            `Liquidation ${l.LiquidationID} -> School ID: ${schoolId}`,
-            l.request?.user?.school
-          );
-          return schoolId;
-        })
+      // For completion rate: count schools with at least one liquidation with status 'approved_district'
+      const schoolIdsFromApprovedDistrict = liquidations
+        .filter((l: any) => l.status === 'approved_liquidator')
+        .map((l: any) => l.request?.user?.school?.schoolId)
         .filter(Boolean);
+      const schoolsWithLiquidations = new Set(schoolIdsFromApprovedDistrict).size;
 
-      // Get unique school IDs that have liquidations (any status)
-      const schoolsWithLiquidations = new Set(schoolIdsFromLiquidations).size;
+      // For "No Submission": count schools with NO liquidation with status in ['submitted', 'approved_district', 'resubmit', 'liquidated']
+      const submittedStatuses = ['submitted', 'approved_district','approved_liquidator', 'resubmit', 'liquidated'];
+      const schoolIdsWithSubmission = new Set(
+        liquidations
+          .filter((l: any) => submittedStatuses.includes(l.status))
+          .map((l: any) => l.request?.user?.school?.schoolId)
+          .filter(Boolean)
+      );
+      const noSubmissionCount = totalSchools - schoolIdsWithSubmission.size;
 
-      const approvedLiquidations = liquidations.filter((l: any) =>
-        ["approved_liquidator", "liquidated"].includes(l.status)
-      ).length;
+      // For approved liquidations: only count 'approved_district'
+      const approvedLiquidations = liquidations.filter((l: any) => l.status === 'approved_liquidator').length;
       const pendingLiquidationsCount = pendingLiquidations.length;
-      const rejectedLiquidations = liquidations.filter(
-        (l: any) => l.status === "resubmit"
-      ).length;
-      const completionRate =
-        totalSchools > 0
-          ? Math.round((schoolsWithLiquidations / totalSchools) * 100)
-          : 0;
-
+      const rejectedLiquidations = liquidations.filter((l: any) => l.status === 'resubmit').length;
+      const completionRate = totalSchools > 0 ? Math.round((schoolsWithLiquidations / totalSchools) * 100) : 0;
+      
       // Debug: Log completion calculation
       const statusBreakdown = liquidations.reduce((acc: any, l: any) => {
         acc[l.status] = (acc[l.status] || 0) + 1;
         return acc;
       }, {});
-
+      
       console.log("Completion calculation:", {
         totalSchools,
         schoolsWithLiquidations,
-        schoolIdsFromLiquidations,
         completionRate,
         liquidationsCount: liquidations.length,
         approvedLiquidations,
         pendingLiquidationsCount,
         rejectedLiquidations,
-        statusBreakdown,
+        statusBreakdown
       });
 
       // Generate liquidation timeline for current quarter (showing months within the quarter)
       const liquidationTimeline: LiquidationTimelineData[] = [];
       const currentDate = new Date();
-
       // Helper function to get quarter info
       const getQuarterInfo = (date: Date) => {
         const year = date.getFullYear();
@@ -237,66 +203,33 @@ const DivisionDistrictAdaDashboard = () => {
         const quarter = Math.floor(month / 3) + 1;
         return { year, quarter };
       };
-
       // Get current quarter info
       const currentQuarter = getQuarterInfo(currentDate);
       const quarterStartMonth = (currentQuarter.quarter - 1) * 3;
-
       // Show the 3 months of the current quarter
       for (let i = 0; i < 3; i++) {
         const monthIndex = quarterStartMonth + i;
         const monthDate = new Date(currentQuarter.year, monthIndex, 1);
-        const monthName = monthDate.toLocaleDateString("en-US", {
-          month: "short",
-        });
+        const monthName = monthDate.toLocaleDateString('en-US', { month: 'short' });
 
         const monthLiquidations = liquidations.filter((l: any) => {
-          // Use date_submitted first, then fallback to created_at
-          const liquidationDate = new Date(
-            l.date_submitted || l.submitted_at || l.created_at
-          );
-          const liquidationYear = liquidationDate.getFullYear();
-          const liquidationMonth = liquidationDate.getMonth();
-
-          // Check if liquidation is in this specific month
-          return (
-            liquidationYear === currentQuarter.year &&
-            liquidationMonth === monthIndex
-          );
+          const liquidationDate = new Date(l.date_submitted || l.submitted_at || l.created_at);
+          return liquidationDate.getFullYear() === currentQuarter.year && liquidationDate.getMonth() === monthIndex;
         });
 
-        const submitted = monthLiquidations.length;
+        // For submitted: count liquidations with status 'submitted' and 'approved_district'
+        const submitted = monthLiquidations.filter((l: any) =>
+          ['submitted', 'approved_liquidator','approved_district', 'under_review_liquidator'].includes(l.status)
+        ).length;
         const approved = monthLiquidations.filter((l: any) =>
-          ["approved_district", "approved_liquidator", "liquidated"].includes(
-            l.status
-          )
+          ['approved_liquidator', 'liquidated'].includes(l.status)
         ).length;
-        const rejected = monthLiquidations.filter(
-          (l: any) => l.status === "resubmit"
-        ).length;
-        const avgProcessingTime =
-          submitted > 0
-            ? Math.round(
-                monthLiquidations.reduce((sum: number, l: any) => {
-                  const created = new Date(
-                    l.date_submitted || l.submitted_at || l.created_at
-                  );
-                  const completed = l.date_liquidated
-                    ? new Date(l.date_liquidated)
-                    : new Date();
-                  return (
-                    sum +
-                    Math.max(
-                      0,
-                      Math.round(
-                        (completed.getTime() - created.getTime()) /
-                          (1000 * 60 * 60 * 24)
-                      )
-                    )
-                  );
-                }, 0) / submitted
-              )
-            : 0;
+        const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
+        const avgProcessingTime = monthLiquidations.length > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
+          const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
+          const completed = l.date_liquidated ? new Date(l.date_liquidated) : new Date();
+          return sum + Math.max(0, Math.round((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+        }, 0) / monthLiquidations.length) : 0;
 
         liquidationTimeline.push({
           month: monthName,
@@ -306,6 +239,8 @@ const DivisionDistrictAdaDashboard = () => {
           avgProcessingTime,
         });
       }
+
+
 
       const dashboardData: DashboardData = {
         pendingLiquidations,
@@ -343,7 +278,16 @@ const DivisionDistrictAdaDashboard = () => {
     }
   };
 
+
   if (loading) {
+    // Make noSubmissionCount available in render
+    const noSubmissionCount = data?.divisionCompletion
+      ? data.divisionCompletion.totalSchools -
+        (data.divisionCompletion.schoolsWithLiquidation +
+          data.divisionCompletion.pendingLiquidations +
+          data.divisionCompletion.rejectedLiquidations)
+      : 0;
+  
     return (
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
@@ -370,6 +314,14 @@ const DivisionDistrictAdaDashboard = () => {
     );
   }
 
+  // Calculate noSubmissionCount for PieChart
+  const noSubmissionCount = data?.divisionCompletion
+    ? data.divisionCompletion.totalSchools -
+      (data.divisionCompletion.schoolsWithLiquidation +
+        data.divisionCompletion.pendingLiquidations +
+        data.divisionCompletion.rejectedLiquidations)
+    : 0;
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -385,50 +337,36 @@ const DivisionDistrictAdaDashboard = () => {
       </div>
 
       {/* Metrics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-        {/* Removed Total Schools card */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-6">
+        {/* Removed Total Schools Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Pending Liquidations
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Liquidations</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.divisionCompletion.pendingLiquidations}
-            </div>
+            <div className="text-2xl font-bold">{data?.divisionCompletion.pendingLiquidations}</div>
             <p className="text-xs text-muted-foreground">Awaiting review</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Approved Liquidations
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Approved Liquidations</CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.divisionCompletion.approvedLiquidations}
-            </div>
+            <div className="text-2xl font-bold">{data?.divisionCompletion.approvedLiquidations}</div>
             <p className="text-xs text-muted-foreground">Completed reviews</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Completion Rate
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.divisionCompletion.completionRate}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Schools with liquidations
-            </p>
+            <div className="text-2xl font-bold">{data?.divisionCompletion.completionRate}%</div>
+            <p className="text-xs text-muted-foreground">Schools with liquidations</p>
           </CardContent>
         </Card>
       </div>
@@ -445,28 +383,10 @@ const DivisionDistrictAdaDashboard = () => {
                 <PieChart>
                   <Pie
                     data={[
-                      {
-                        name: "Approved",
-                        value:
-                          data?.divisionCompletion.approvedLiquidations || 0,
-                      },
-                      {
-                        name: "Pending",
-                        value:
-                          data?.divisionCompletion.pendingLiquidations || 0,
-                      },
-                      {
-                        name: "Rejected",
-                        value:
-                          data?.divisionCompletion.rejectedLiquidations || 0,
-                      },
-                      {
-                        name: "No Submission",
-                        value:
-                          (data?.divisionCompletion.totalSchools || 0) -
-                          (data?.divisionCompletion.schoolsWithLiquidation ||
-                            0),
-                      },
+                      { name: "Approved", value: data?.divisionCompletion.approvedLiquidations || 0 },
+                      { name: "Pending", value: data?.divisionCompletion.pendingLiquidations || 0 },
+                      { name: "Rejected", value: data?.divisionCompletion.rejectedLiquidations || 0 },
+                      { name: "No Submission", value: noSubmissionCount },
                     ]}
                     cx="50%"
                     cy="50%"
@@ -479,10 +399,10 @@ const DivisionDistrictAdaDashboard = () => {
                       <Cell key={`cell-${index}`} fill={color} />
                     ))}
                   </Pie>
-                  <Tooltip
+                  <Tooltip 
                     formatter={(value: number, name: string) => [
                       `${value} schools`,
-                      name,
+                      name
                     ]}
                     contentStyle={{
                       backgroundColor: "#fff",
@@ -491,13 +411,12 @@ const DivisionDistrictAdaDashboard = () => {
                       boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                     }}
                   />
-                  <Legend
+                  <Legend 
                     formatter={(value, entry) => {
                       const payload: any = entry && (entry as any).payload;
-                      const total = data?.divisionCompletion.totalSchools || 0;
+                      const total = (data?.divisionCompletion.totalSchools || 0);
                       const count = payload?.value || 0;
-                      const percentage =
-                        total > 0 ? Math.round((count / total) * 100) : 0;
+                      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
                       return `${value}: ${percentage}%`;
                     }}
                   />
@@ -554,7 +473,7 @@ const DivisionDistrictAdaDashboard = () => {
         <CardHeader>
           <CardTitle>Pending Liquidations</CardTitle>
         </CardHeader>
-        <CardContent>
+          <CardContent>
           <div className="rounded-md border">
             <table className="w-full text-sm">
               <thead>
@@ -572,12 +491,8 @@ const DivisionDistrictAdaDashboard = () => {
                 {data?.pendingLiquidations.map((liquidation) => (
                   <tr key={liquidation.id} className="border-b">
                     <td className="p-3">
-                      <div className="font-medium">
-                        {liquidation.schoolName}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {liquidation.schoolId}
-                      </div>
+                      <div className="font-medium">{liquidation.schoolName}</div>
+                      <div className="text-sm text-muted-foreground">{liquidation.schoolId}</div>
                     </td>
                     <td className="p-3">
                       {new Date(liquidation.submittedDate).toLocaleDateString()}
@@ -585,9 +500,7 @@ const DivisionDistrictAdaDashboard = () => {
                         {liquidation.daysSinceSubmission} days ago
                       </div>
                     </td>
-                    <td className="p-3">
-                      ₱{liquidation.amount.toLocaleString()}
-                    </td>
+                    <td className="p-3">₱{liquidation.amount.toLocaleString()}</td>
                     <td className="p-3">{liquidation.priorityCount}</td>
                     <td className="p-3">{liquidation.documentCount}</td>
                     <td className="p-3">
@@ -611,13 +524,7 @@ const DivisionDistrictAdaDashboard = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() =>
-                            navigate("/pre-auditing", {
-                              state: {
-                                liquidationId: liquidation.liquidationId,
-                              },
-                            })
-                          }
+                          onClick={() => navigate("/liquidation-finalize", { state: { liquidationId: liquidation.liquidationId } })}
                         >
                           View
                         </Button>
@@ -625,13 +532,9 @@ const DivisionDistrictAdaDashboard = () => {
                     </td>
                   </tr>
                 ))}
-                {(!data?.pendingLiquidations ||
-                  data.pendingLiquidations.length === 0) && (
+                {(!data?.pendingLiquidations || data.pendingLiquidations.length === 0) && (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="p-3 text-center text-muted-foreground"
-                    >
+                    <td colSpan={7} className="p-3 text-center text-muted-foreground">
                       No pending liquidations
                     </td>
                   </tr>
@@ -641,6 +544,7 @@ const DivisionDistrictAdaDashboard = () => {
           </div>
         </CardContent>
       </Card>
+
     </div>
   );
 };
