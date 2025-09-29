@@ -169,8 +169,31 @@ const LiquidationDetailsPage = () => {
     setCurrentComment("");
   }, [viewDoc]);
 
-  // Filter expenses based on hideApproved state
+  // Filter expenses based on hideApproved state and role/status
   const filteredExpenses = useMemo(() => {
+    // Show only rejected documents with at least 1 version for resubmitted reports for liquidator/accountant
+    if (
+      (user?.role === "liquidator" || user?.role === "accountant") &&
+      liquidation?.status === "resubmit"
+    ) {
+      // Only include expenses with at least one rejected document that has a version
+      return expenseList.filter((expense) =>
+        expense.requirements.some((req) => {
+          const doc = documents.find(
+            (d) =>
+              d.request_priority_id === expense.id &&
+              d.requirement_id === req.requirementID
+          );
+          return (
+            doc?.is_approved === false &&
+            doc?.versions &&
+            doc.versions.length > 0
+          );
+        })
+      );
+    }
+
+    // Division admin assistant logic (already present)
     if (!hideApproved) {
       // When showing all, just return all expenses but sort them with pending first
       return [...expenseList].sort((a, b) => {
@@ -209,7 +232,7 @@ const LiquidationDetailsPage = () => {
         return !doc?.is_approved;
       })
     );
-  }, [expenseList, documents, hideApproved]);
+  }, [expenseList, documents, hideApproved, user?.role, liquidation?.status]);
 
   useEffect(() => {
     const fetchLiquidationDetails = async () => {
@@ -246,6 +269,31 @@ const LiquidationDetailsPage = () => {
 
         // Auto-expand first expense with unapproved documents
         if (expenses.length > 0) {
+          // For liquidator/accountant on resubmit, expand first expense with a rejected document that has at least 1 version
+          if (
+            (user?.role === "liquidator" || user?.role === "accountant") &&
+            liqRes.data.status === "resubmit"
+          ) {
+            const firstWithVersion = expenses.find((expense) =>
+              expense.requirements.some((req) => {
+                const doc = docRes.data.find(
+                  (d: any) =>
+                    d.request_priority_id === expense.id &&
+                    d.requirement_id === req.requirementID
+                );
+                return (
+                  doc?.is_approved === false &&
+                  doc?.versions &&
+                  doc.versions.length > 0
+                );
+              })
+            );
+            if (firstWithVersion) {
+              setExpandedExpense(String(firstWithVersion.id));
+              return;
+            }
+          }
+          // Default: expand first expense with unapproved document
           const firstUnapprovedExpense = expenses.find((expense) =>
             expense.requirements.some(
               (req) =>
