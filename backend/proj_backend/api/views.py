@@ -1841,38 +1841,67 @@ def request_otp(request):
 def verify_otp(request):
     email = request.data.get('email')
     otp = request.data.get('otp')
+    
+    if not email or not otp:
+        return Response({'error': 'Email and OTP are required'}, status=400)
+    
     try:
         user = User.objects.get(email=email)
         if not user.is_active:
             return Response({'error': 'Your account is inactive. Please contact the administrator.'}, status=403)
-        # Check OTP validity (add expiry logic if needed)
+        
+        # Check if OTP exists
+        if not user.otp_code or not user.otp_generated_at:
+            return Response({'error': 'No OTP found. Please request a new OTP.'}, status=400)
+        
+        # Check OTP expiry (5 minutes)
         if timezone.now() - user.otp_generated_at > timezone.timedelta(minutes=5):
-            return Response({'error': 'OTP expired'}, status=400)
+            # Clear expired OTP
+            user.otp_code = None
+            user.otp_generated_at = None
+            user.save()
+            return Response({'error': 'OTP has expired. Please request a new OTP.'}, status=400)
 
         if user.otp_code == otp:
+            # Clear OTP after successful verification
             user.otp_code = None
+            user.otp_generated_at = None
             user.save()
-            return Response({'message': 'OTP verified'})
+            return Response({'message': 'OTP verified successfully'})
         else:
-            return Response({'message': 'Invalid OTP. Please try again.'}, status=400)
+            return Response({'error': 'Invalid OTP. Please try again.'}, status=400)
     except User.DoesNotExist:
-        return Response({'message': 'User not found'}, status=404)
+        return Response({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return Response({'error': 'An error occurred during verification'}, status=500)
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def resend_otp(request):
     email = request.data.get('email')
+    
+    if not email:
+        return Response({'error': 'Email is required'}, status=400)
+    
     try:
         user = User.objects.get(email=email)
+        if not user.is_active:
+            return Response({'error': 'Your account is inactive. Please contact the administrator.'}, status=403)
+        
+        # Generate new OTP
         otp = generate_otp()
         user.otp_code = otp
         user.otp_generated_at = timezone.now()
         user.save()
+        
+        # Send OTP email
         send_otp_email(user, otp)
-        return Response({'message': 'OTP resent'})
+        return Response({'message': 'OTP resent successfully'})
     except User.DoesNotExist:
-        return Response({'message': 'User not found'}, status=404)
+        return Response({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return Response({'error': 'Failed to resend OTP. Please try again.'}, status=500)
 
 
 @api_view(['GET'])

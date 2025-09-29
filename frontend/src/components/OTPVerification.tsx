@@ -44,6 +44,7 @@ export default function OTPVerification({
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
+    setError(""); // Clear error when user starts typing
 
     // Auto-focus to next input
     if (value && index < 5) {
@@ -100,12 +101,18 @@ export default function OTPVerification({
     if (resendCooldown > 0) return;
 
     setResendCooldown(60); // 60 seconds cooldown
+    setError(""); // Clear any previous errors
 
     try {
       await resendOTP(email);
       toast.success("OTP sent to your email!");
+      // Clear the current OTP inputs
+      setOtp(Array(6).fill(""));
+      // Focus on first input
+      inputRefs.current[0]?.focus();
     } catch (error: any) {
       toast.error(error.message || "Failed to send OTP. Please try again.");
+      setResendCooldown(0); // Reset cooldown on error
     }
   };
 
@@ -160,7 +167,7 @@ export default function OTPVerification({
               onChange={(e) => handleChange(e.target.value, index)}
               onKeyDown={(e) => handleKeyDown(e, index)}
               onPaste={index === 0 ? handlePaste : undefined}
-              className="w-12 h-12 text-center text-xl font-semibold"
+              className="w-12 h-12 text-center text-xl font-semibold border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
               autoFocus={index === 0}
             />
           ))}

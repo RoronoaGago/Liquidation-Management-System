@@ -6,6 +6,8 @@ import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import companyLogo from "../../images/company-logo.png";
 import { useAuth } from "@/context/AuthContext";
+import { requestOTP } from "@/api/axios";
+import OTPVerification from "../OTPVerification";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +17,7 @@ export default function SignInForm() {
     password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -38,12 +41,9 @@ export default function SignInForm() {
     }
 
     try {
-      // --- OTP DISABLED FOR DEVELOPMENT ---
-      // await requestOTP(credentials.email, credentials.password);
-      // setShowOTP(true);
-      // Instead, directly log in:
-      await login(credentials.email, credentials.password);
-      navigate("/");
+      // Request OTP for verification
+      await requestOTP(credentials.email, credentials.password);
+      setShowOTP(true);
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
@@ -51,9 +51,38 @@ export default function SignInForm() {
     }
   };
 
+  const handleOTPSuccess = async () => {
+    try {
+      // After OTP verification, proceed with login
+      await login(credentials.email, credentials.password);
+      navigate("/");
+    } catch (err: any) {
+      setError(err.message || "Login failed after OTP verification");
+      setShowOTP(false);
+    }
+  };
+
+  const handleOTPBack = () => {
+    setShowOTP(false);
+    setError("");
+  };
+
   const togglePasswordVisibility = useCallback(() => {
     setShowPassword((prev) => !prev);
   }, []);
+
+  // Show OTP verification if OTP step is active
+  if (showOTP) {
+    return (
+      <div className="flex items-center justify-center min-h-screen dark:bg-gray-900 p-4">
+        <OTPVerification
+          email={credentials.email}
+          onBack={handleOTPBack}
+          onSuccess={handleOTPSuccess}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen dark:bg-gray-900 p-4">
