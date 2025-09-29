@@ -1376,9 +1376,20 @@ def submit_for_liquidation(request, request_id):
                     )
 
                 # Validate download date is not in the future and not before approval date
-                if download_date > timezone.now().date():
+                backend_today = timezone.now().date()
+                backend_tomorrow = backend_today + timedelta(days=1)
+                
+                logger.info(f"Backend validation - Download date: {download_date}, Backend today: {backend_today}, Backend tomorrow: {backend_tomorrow}")
+                
+                # Allow today and tomorrow to account for timezone differences between frontend and backend
+                if download_date > backend_tomorrow:
                     return Response(
-                        {'error': 'Download date cannot be in the future'},
+                        {
+                            'error': 'Download date cannot be more than 1 day in the future',
+                            'download_date': str(download_date),
+                            'backend_date': str(backend_today),
+                            'timezone': str(timezone.get_current_timezone())
+                        },
                         status=status.HTTP_400_BAD_REQUEST
                     )
 

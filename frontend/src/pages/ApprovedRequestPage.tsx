@@ -343,6 +343,10 @@ const ApprovedRequestPage = () => {
     try {
       setDownloadLoading(true);
       const payload = downloadDate ? { download_date: downloadDate } : {};
+      
+      console.log('Submitting with payload:', payload);
+      console.log('Request ID:', submission.request_id);
+      
       await api.post(
         `requests/${submission.request_id}/submit-liquidation/`,
         payload
@@ -352,9 +356,19 @@ const ApprovedRequestPage = () => {
         `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been downloaded.`
       );
       fetchSubmissions();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to submit for liquidation:", err);
-      toast.error("Failed to submit for liquidation. Please try again.");
+      console.error("Error response:", err.response?.data);
+      
+      // Extract error message from response
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.message || 
+                          "Failed to submit for liquidation. Please try again.";
+      
+      // Show detailed error for debugging
+      const detailedError = `Error: ${errorMessage}\nRequest ID: ${submission.request_id}\nDownload Date: ${downloadDate || 'Not provided'}\nBackend Date: ${err.response?.data?.backend_date || 'Unknown'}`;
+      
+      toast.error(detailedError);
     } finally {
       setDownloadLoading(false);
       setSelectedDownloadDate(null);
@@ -999,7 +1013,21 @@ const ApprovedRequestPage = () => {
                       onClick={() => {
                         setSubmissionToApprove(viewedSubmission);
                         setShowDatePicker(true);
-                        setSelectedDownloadDate(dayjs());
+                        // Set default to today, but ensure it's within valid range
+                        const today = dayjs();
+                        const approvedDate = viewedSubmission?.date_approved ? dayjs(viewedSubmission.date_approved) : today;
+                        const oneYearBeforeApproval = approvedDate.subtract(1, 'year');
+                        
+                        // Use today if it's valid, otherwise use approval date
+                        let defaultDate = today;
+                        
+                        // Only fall back to approval date if today is before the approval date
+                        // or if today is more than 1 year before approval
+                        if (today.isBefore(approvedDate, 'day') || today.isBefore(oneYearBeforeApproval, 'day')) {
+                          defaultDate = approvedDate;
+                        }
+                        
+                        setSelectedDownloadDate(defaultDate);
                       }}
                       startIcon={<CheckCircle className="w-4 h-4" />}
                       disabled={downloadLoading}
@@ -1018,11 +1046,19 @@ const ApprovedRequestPage = () => {
       </Dialog>
       {/* Date Picker Confirmation Dialog */}
       <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
-        <DialogContent>
+        <DialogContent className="focus:outline-none">
           <DialogHeader>
             <DialogTitle>Select Download Date</DialogTitle>
             <DialogDescription>
               Please select the date when the funds were downloaded.
+              <br />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Valid dates: From 1 year before approval date up to tomorrow (accounts for timezone differences)
+              </span>
+              <br />
+              <span className="text-xs text-blue-600 dark:text-blue-400">
+                System date: {dayjs().format('YYYY-MM-DD')} | Selected: {selectedDownloadDate?.format('YYYY-MM-DD') || 'None'}
+              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 mb-6">
@@ -1031,16 +1067,29 @@ const ApprovedRequestPage = () => {
               value={selectedDownloadDate}
               onChange={(date) => {
                 setSelectedDownloadDate(date);
-                console.log(date);
               }}
+              placeholder="Select download date"
+              allowClear={false}
               disabledDate={(current) => {
                 if (!submissionToApprove?.date_approved) return false;
                 const approvedDate = dayjs(submissionToApprove.date_approved);
-                return (
-                  current &&
-                  (current < approvedDate.startOf("day") ||
-                    current > dayjs().endOf("day"))
-                );
+                const today = dayjs();
+                
+                // Allow dates from approval date up to today (inclusive)
+                // Also allow some reasonable past dates (up to 1 year back from approval date)
+                const oneYearBeforeApproval = approvedDate.subtract(1, 'year');
+                
+                // Disable future dates (more than 1 day after today to account for timezone differences)
+                if (current && current.isAfter(today.add(1, 'day'), 'day')) {
+                  return true;
+                }
+                
+                // Disable dates before 1 year before approval
+                if (current && current.isBefore(oneYearBeforeApproval, 'day')) {
+                  return true;
+                }
+                
+                return false;
               }}
               format="MMMM D, YYYY"
               style={{
@@ -1064,6 +1113,21 @@ const ApprovedRequestPage = () => {
               variant="success"
               onClick={async () => {
                 if (submissionToApprove && selectedDownloadDate) {
+                  // Validate date before submitting
+                  const today = dayjs();
+                  const approvedDate = dayjs(submissionToApprove.date_approved);
+                  const oneYearBeforeApproval = approvedDate.subtract(1, 'year');
+                  
+                  if (selectedDownloadDate.isAfter(today.add(1, 'day'), 'day')) {
+                    toast.error("Download date cannot be more than 1 day in the future");
+                    return;
+                  }
+                  
+                  if (selectedDownloadDate.isBefore(oneYearBeforeApproval, 'day')) {
+                    toast.error("Download date cannot be more than 1 year before approval date");
+                    return;
+                  }
+                  
                   await handleApprove(
                     submissionToApprove,
                     selectedDownloadDate.format("YYYY-MM-DD")
