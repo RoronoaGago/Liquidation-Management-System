@@ -224,38 +224,6 @@ const App = () => {
         {/* Enhanced contextual help - replaces the old ContextualHelpButton */}
         <DynamicContextualHelp variant="floating" showQuickTips={true} />
       </HelpProvider>
-          {/* Shared routes for multiple roles */}
-          <Route
-            element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
-          >
-            <Route path="/fund-requests/:id" element={<RequestDetailPage />} />
-            <Route
-              path="/prepare-list-of-priorities"
-              element={<ListOfPrioritiesPage />}
-            />
-          </Route>
-          <Route
-            element={
-              <RequireAuth allowedRoles={["school_admin", "school_head"]} />
-            }
-          >
-            <Route path="/liquidation" element={<LiquidationPage />} />
-          </Route>
-          <Route
-            element={<RequireAuth allowedRoles={["admin", "accountant"]} />}
-          >
-            <Route path="/schools" element={<ManageSchools />} />
-            <Route
-              path="/resource-allocation"
-              element={<ResourceAllocation />}
-            />
-          </Route>
-        </Route>
-        {/* Catch-all route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <SetupModal />
-      <LiquidationReminder />
       
       {/* Yearly Budget Modal - Only show for admin and accountant roles */}
       {user && (user.role === "admin" || user.role === "accountant") && (
