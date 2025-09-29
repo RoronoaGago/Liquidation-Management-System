@@ -16,6 +16,7 @@ import { Bounce, toast } from "react-toastify";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -144,6 +145,7 @@ const ManageRequirementsPage = () => {
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Manage Requirements" />
       <div className="space-y-6">
+        <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex justify-end">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>

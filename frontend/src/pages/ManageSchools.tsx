@@ -23,6 +23,7 @@ import {
   firstDistrictMunicipalities,
 } from "@/lib/constants";
 import { District } from "@/lib/types";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 
 interface SchoolFormData {
   schoolId: string;
@@ -438,6 +439,7 @@ const ManageSchools = () => {
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Manage Schools" />
       <div className="space-y-6">
+        <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex justify-end">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>

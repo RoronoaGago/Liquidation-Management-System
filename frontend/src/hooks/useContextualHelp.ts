@@ -23,7 +23,7 @@ const PAGE_HELP_MAP: Record<string, {
 }> = {
     '/users': {
         title: 'Manage Users',
-        description: 'Add, edit, and manage user accounts and permissions',
+        description: 'Add, edit, and manage user accounts',
         categories: ['user-management'],
         actions: ['Add New User', 'Edit User Permissions', 'Reset Password', 'Deactivate User'],
         preferredArticleId: 'admin-manage-users'
@@ -34,12 +34,33 @@ const PAGE_HELP_MAP: Record<string, {
         categories: ['administration', 'getting-started'],
         actions: ['Add School', 'Edit School Info', 'View School Stats', 'Assign School Head']
     },
+    '/school-districts': {
+        title: 'Manage Districts',
+        description: 'Create and manage school districts',
+        categories: ['school-management'],
+        actions: ['Add District', 'Edit District', 'Archive District', 'Assign Schools'],
+        preferredArticleId: 'admin-manage-districts'
+    },
     '/prepare-list-of-priorities': {
         title: 'MOOE Priority List',
         description: 'Create and manage your school\'s MOOE priority requests',
         categories: ['mooe-management'],
         actions: ['Create New Priority', 'Submit Request', 'Review Guidelines', 'Check Status'],
         preferredArticleId: 'school-head-priorities'
+    },
+    '/list-of-priorities': {
+        title: 'Manage Lists of Priorities',
+        description: 'Administer lists of priorities',
+        categories: ['priority-management'],
+        actions: ['Add List', 'Edit List', 'Archive List', 'Filter Lists'],
+        preferredArticleId: 'admin-manage-priorities'
+    },
+    '/requirements': {
+        title: 'Manage Requirements',
+        description: 'Administer and update system requirements',
+        categories: ['priority-management'],
+        actions: ['Add Requirement', 'Edit Requirement', 'Archive Requirement', 'Filter Requirements'],
+        preferredArticleId: 'admin-manage-requirements'
     },
     '/schools-priorities-submissions': {
         title: 'Priority Submissions Review',

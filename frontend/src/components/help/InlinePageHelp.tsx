@@ -54,6 +54,7 @@ const InlinePageHelp: React.FC<InlinePageHelpProps> = ({
           </Link>
         )}
         <button
+          type="button"
           onClick={toggleExpanded}
           className="text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
         >
@@ -179,6 +180,7 @@ const InlinePageHelp: React.FC<InlinePageHelpProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={() => setIsVisible(false)}
           className="text-blue-400 hover:text-blue-600 ml-2"
         >

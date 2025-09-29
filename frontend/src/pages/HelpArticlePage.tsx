@@ -7,6 +7,7 @@ import StepByStepGuide from "@/components/help/StepByStepGuide";
 import RelatedArticles from "@/components/help/RelatedArticles";
 import { helpArticles } from "@/lib/helpData";
 import ImageLightbox from "@/components/common/ImageLightbox";
+import { useState } from "react";
 
 const HelpArticlePage: React.FC = () => {
   const { articleId } = useParams<{ articleId: string }>();

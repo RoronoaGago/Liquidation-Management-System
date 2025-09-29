@@ -5,9 +5,11 @@ import {
   ChevronRight,
   ExternalLink,
   Lightbulb,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { useContextualHelp } from "@/hooks/useContextualHelp";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 
 interface DynamicContextualHelpProps {
   // Optional props to override automatic detection
@@ -28,6 +30,16 @@ const DynamicContextualHelp: React.FC<DynamicContextualHelpProps> = ({
   const [currentStep, setCurrentStep] = useState(0);
   const { articles, quickSteps, relatedActions, pageTitle } =
     useContextualHelp();
+  const location = useLocation();
+
+  // Persist dismissal per route to avoid immediate re-show
+  useEffect(() => {
+    const key = `ctxHelp:dismissed:${location.pathname}`;
+    const dismissed = localStorage.getItem(key) === "1";
+    if (dismissed) {
+      setIsVisible(false);
+    }
+  }, [location.pathname]);
 
   // Auto-hide after user interaction (optional)
   useEffect(() => {
@@ -76,19 +88,13 @@ const DynamicContextualHelp: React.FC<DynamicContextualHelpProps> = ({
       <div
         className={`bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 ${className}`}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           <Lightbulb className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium text-blue-900 dark:text-blue-100">
                 {currentAction ? `Help: ${currentAction}` : `${pageTitle} Help`}
               </h4>
-              <button
-                onClick={() => setIsCollapsed((v) => !v)}
-                className="text-blue-600 dark:text-blue-300 text-xs"
-              >
-                {isCollapsed ? "Expand" : "Collapse"}
-              </button>
             </div>
 
             {!isCollapsed && (currentAction && getActionSpecificHelp() ? (
@@ -141,12 +147,28 @@ const DynamicContextualHelp: React.FC<DynamicContextualHelpProps> = ({
             )}
           </div>
 
-          <button
-            onClick={() => setIsVisible(false)}
-            className="text-blue-400 hover:text-blue-600"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsCollapsed((v) => !v)}
+              className="p-1 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100 rounded"
+              aria-label={isCollapsed ? "Expand help" : "Collapse help"}
+              title={isCollapsed ? "Expand" : "Collapse"}
+            >
+              {isCollapsed ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronUp className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              onClick={() => setIsVisible(false)}
+              className="p-1 text-blue-400 hover:text-blue-600 rounded"
+              aria-label="Close help"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -159,6 +181,7 @@ const DynamicContextualHelp: React.FC<DynamicContextualHelpProps> = ({
         <div className="mb-3">
           {isCollapsed ? (
             <button
+              type="button"
               onClick={() => setIsCollapsed(false)}
               className="w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center justify-center"
               title="Expand help"
@@ -167,19 +190,13 @@ const DynamicContextualHelp: React.FC<DynamicContextualHelpProps> = ({
             </button>
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 max-w-sm">
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-3">
                 <HelpCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-gray-900 dark:text-white text-sm">
                       {currentAction ? `Help: ${currentAction}` : `${pageTitle} Help`}
                     </h4>
-                    <button
-                      onClick={() => setIsCollapsed(true)}
-                      className="text-xs text-blue-600 dark:text-blue-300"
-                    >
-                      Collapse
-                    </button>
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                     {currentAction
@@ -203,12 +220,31 @@ const DynamicContextualHelp: React.FC<DynamicContextualHelpProps> = ({
                     </Link>
                   </div>
                 </div>
-                <button
-                  onClick={() => setIsVisible(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsCollapsed(true)}
+                    className="p-1 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100 rounded"
+                    aria-label="Collapse help"
+                    title="Collapse"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsVisible(false);
+                      try {
+                        localStorage.setItem(`ctxHelp:dismissed:${location.pathname}`, "1");
+                      } catch {}
+                    }}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                    aria-label="Close help"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           )}

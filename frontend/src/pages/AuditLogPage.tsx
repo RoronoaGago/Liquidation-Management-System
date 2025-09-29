@@ -23,6 +23,7 @@ import {
   RefreshCwIcon,
 } from "lucide-react";
 import { FilterOptions, SortDirection } from "@/lib/types";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 
 export interface AuditLog {
   id: number;
@@ -294,6 +295,7 @@ const AuditLogPage = () => {
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Audit Trail" />
       <div className="space-y-6">
+        <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="relative w-full md:w-1/2">

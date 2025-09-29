@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 
 const BackupRestorePage = () => {
   const [includeMedia, setIncludeMedia] = useState(false);
@@ -280,6 +281,7 @@ const BackupRestorePage = () => {
           </p>
         </div>
       </div>
+      <DynamicContextualHelp variant="inline" className="mb-6" /> 
 
       {message && (
         <div
