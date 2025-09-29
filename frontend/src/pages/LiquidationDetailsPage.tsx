@@ -25,7 +25,6 @@ import {
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { formatDateTime } from "@/lib/helpers";
-import { format } from "path";
 
 // --- Type Safety Improvements ---
 interface Document {
@@ -128,7 +127,7 @@ const LiquidationDetailsPage = () => {
   const navigate = useNavigate();
   const [liquidation, setLiquidation] = useState<Liquidation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
+  const [expandedExpense, setExpandedExpense] = useState<string[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [expenseList, setExpenseList] = useState<Expense[]>([]);
   const [viewDoc, setViewDoc] = useState<Document | null>(null);
@@ -142,6 +141,7 @@ const LiquidationDetailsPage = () => {
     const savedPreference = localStorage.getItem("hideApprovedDocuments");
     return savedPreference ? JSON.parse(savedPreference) : true;
   });
+  const [showOnlyWithVersions, setShowOnlyWithVersions] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [currentAction, setCurrentAction] = useState<
@@ -195,6 +195,20 @@ const LiquidationDetailsPage = () => {
 
     // Division admin assistant logic (already present)
     if (!hideApproved) {
+      // For liquidators and accountants, when showOnlyWithVersions is true, only show expenses with documents that have versions
+      if ((user?.role === "liquidator" || user?.role === "accountant") && showOnlyWithVersions) {
+        return expenseList.filter((expense) =>
+          expense.requirements.some((req) => {
+            const doc = documents.find(
+              (d) =>
+                d.request_priority_id === expense.id &&
+                d.requirement_id === req.requirementID
+            );
+            return doc?.versions && doc.versions.length > 0;
+          })
+        );
+      }
+      
       // When showing all, just return all expenses but sort them with pending first
       return [...expenseList].sort((a, b) => {
         const aHasPending = a.requirements.some((req) => {
@@ -232,7 +246,7 @@ const LiquidationDetailsPage = () => {
         return !doc?.is_approved;
       })
     );
-  }, [expenseList, documents, hideApproved, user?.role, liquidation?.status]);
+  }, [expenseList, documents, hideApproved, showOnlyWithVersions, user?.role, liquidation?.status]);
 
   useEffect(() => {
     const fetchLiquidationDetails = async () => {
@@ -267,14 +281,11 @@ const LiquidationDetailsPage = () => {
           }))
         );
 
-        // Auto-expand first expense with unapproved documents
+        // Auto-expand expenses based on user role and document status
         if (expenses.length > 0) {
-          // For liquidator/accountant on resubmit, expand first expense with a rejected document that has at least 1 version
-          if (
-            (user?.role === "liquidator" || user?.role === "accountant") &&
-            liqRes.data.status === "resubmit"
-          ) {
-            const firstWithVersion = expenses.find((expense) =>
+          // For liquidator/accountant, expand all expenses that have documents with versions
+          if (user?.role === "liquidator" || user?.role === "accountant") {
+            const expensesWithVersions = expenses.filter((expense) =>
               expense.requirements.some((req) => {
                 const doc = docRes.data.find(
                   (d: any) =>
@@ -282,17 +293,23 @@ const LiquidationDetailsPage = () => {
                     d.requirement_id === req.requirementID
                 );
                 return (
-                  doc?.is_approved === false &&
                   doc?.versions &&
                   doc.versions.length > 0
                 );
               })
             );
-            if (firstWithVersion) {
-              setExpandedExpense(String(firstWithVersion.id));
+            
+            if (expensesWithVersions.length > 0) {
+              // Expand all expenses that have documents with versions
+              setExpandedExpense(expensesWithVersions.map(expense => String(expense.id)));
+              // Show all documents when there are versions available
+              setHideApproved(false);
+              // Set to show only documents with versions by default
+              setShowOnlyWithVersions(true);
               return;
             }
           }
+          
           // Default: expand first expense with unapproved document
           const firstUnapprovedExpense = expenses.find((expense) =>
             expense.requirements.some(
@@ -310,7 +327,7 @@ const LiquidationDetailsPage = () => {
             )
           );
           if (firstUnapprovedExpense) {
-            setExpandedExpense(String(firstUnapprovedExpense.id));
+            setExpandedExpense([String(firstUnapprovedExpense.id)]);
           }
         }
       } catch (err) {
@@ -1276,9 +1293,26 @@ const LiquidationDetailsPage = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setHideApproved(!hideApproved)}
+              onClick={() => {
+                if (user?.role === "liquidator" || user?.role === "accountant") {
+                  // For liquidators/accountants, toggle between showing only versions and showing all
+                  if (showOnlyWithVersions) {
+                    setShowOnlyWithVersions(false);
+                    setHideApproved(false);
+                  } else {
+                    setShowOnlyWithVersions(true);
+                    setHideApproved(false);
+                  }
+                } else {
+                  // For other users, use the original logic
+                  setHideApproved(!hideApproved);
+                }
+              }}
             >
-              {hideApproved ? "Show All Documents" : "Hide Approved Documents"}
+              {(user?.role === "liquidator" || user?.role === "accountant") 
+                ? (showOnlyWithVersions ? "Show All Documents" : "Show Only With Versions")
+                : (hideApproved ? "Show All Documents" : "Hide Approved Documents")
+              }
             </Button>
           </div>
           {filteredExpenses.length === 0 ? (
@@ -1303,9 +1337,9 @@ const LiquidationDetailsPage = () => {
                     className="flex items-center justify-between p-4 cursor-pointer"
                     onClick={() =>
                       setExpandedExpense(
-                        expandedExpense === String(expense.id)
-                          ? null
-                          : String(expense.id)
+                        expandedExpense.includes(String(expense.id))
+                          ? expandedExpense.filter(id => id !== String(expense.id))
+                          : [...expandedExpense, String(expense.id)]
                       )
                     }
                   >
@@ -1323,7 +1357,7 @@ const LiquidationDetailsPage = () => {
                           Pending
                         </span>
                       )}
-                      {expandedExpense === String(expense.id) ? (
+                      {expandedExpense.includes(String(expense.id)) ? (
                         <ChevronUp className="w-5 h-5" />
                       ) : (
                         <ChevronDown className="w-5 h-5" />
@@ -1332,7 +1366,7 @@ const LiquidationDetailsPage = () => {
                   </div>
 
                   {/* Requirements/Docs */}
-                  {expandedExpense === String(expense.id) && (
+                  {expandedExpense.includes(String(expense.id)) && (
                     <div className="p-4 space-y-2">
                       {expense.requirements
                         .map((req) => {
@@ -1353,8 +1387,15 @@ const LiquidationDetailsPage = () => {
                           if (!a.doc?.is_approved) return -1;
                           return 1;
                         })
-                        // Filter out approved if hideApproved is true
-                        .filter(({ doc }) => !hideApproved || !doc?.is_approved)
+                        // Filter documents based on hideApproved setting and version preference
+                        .filter(({ doc }) => {
+                          // For liquidators and accountants, when showOnlyWithVersions is true, only show documents with versions
+                          if ((user?.role === "liquidator" || user?.role === "accountant") && showOnlyWithVersions && !hideApproved) {
+                            return doc?.versions && doc.versions.length > 0;
+                          }
+                          // Default filtering logic
+                          return !hideApproved || !doc?.is_approved;
+                        })
                         .map(({ req, doc }) => (
                           <div
                             key={req.requirementID}
@@ -1389,6 +1430,13 @@ const LiquidationDetailsPage = () => {
                                     ) : (
                                       <span className="text-yellow-600">
                                         Pending
+                                      </span>
+                                    )}
+                                    {/* Version indicator for liquidators and accountants */}
+                                    {(user?.role === "liquidator" || user?.role === "accountant") && 
+                                     doc?.versions && doc.versions.length > 0 && (
+                                      <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                        {doc.versions.length} Version{doc.versions.length > 1 ? 's' : ''}
                                       </span>
                                     )}
                                     {doc?.reviewer_comment && (

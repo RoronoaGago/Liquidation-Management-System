@@ -1285,71 +1285,6 @@ const LiquidationPage = () => {
                                                 This is resubmission #{uploadedDoc.resubmission_count}
                                               </p>
                                             )}
-                                            
-                                            {/* Additional upload area for rejected documents */}
-                                            <div className="mt-3">
-                                              <input
-                                                type="file"
-                                                ref={(el) => {
-                                                  fileInputRefs.current[
-                                                    `${expense.id}-${req.requirementID}-additional`
-                                                  ] = el;
-                                                }}
-                                                onChange={(e) =>
-                                                  handleFileUpload(
-                                                    String(expense.id),
-                                                    String(req.requirementID),
-                                                    e
-                                                  )
-                                                }
-                                                className="hidden"
-                                                accept=".pdf,application/pdf"
-                                                disabled={
-                                                  uploading ===
-                                                    `${expense.id}-${req.requirementID}` ||
-                                                  (request.status !== "draft" &&
-                                                    request.status !== "resubmit")
-                                                }
-                                                id={`file-input-additional-${expense.id}-${req.requirementID}`}
-                                              />
-                                              
-                                              <div
-                                                className={`w-full p-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                                                  dragActive
-                                                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/10"
-                                                    : "border-red-300 hover:border-red-400"
-                                                }`}
-                                                onDragEnter={handleDrag}
-                                                onDragLeave={handleDrag}
-                                                onDragOver={handleDrag}
-                                                onDrop={(e) =>
-                                                  handleDrop(
-                                                    e,
-                                                    String(expense.id),
-                                                    String(req.requirementID)
-                                                  )
-                                                }
-                                                onClick={() =>
-                                                  triggerAdditionalFileInput(
-                                                    String(expense.id),
-                                                    String(req.requirementID)
-                                                  )
-                                                }
-                                              >
-                                                <div className="text-center">
-                                                  <UploadIcon className="mx-auto h-5 w-5 text-red-400 mb-1" />
-                                                  <p className="text-xs text-red-600 dark:text-red-400">
-                                                    {uploading ===
-                                                    `${expense.id}-${req.requirementID}`
-                                                      ? "Uploading..."
-                                                      : "Upload revised document"}
-                                                  </p>
-                                                  <p className="text-xs text-red-500 mt-1">
-                                                    PDF files only (max 5MB)
-                                                  </p>
-                                                </div>
-                                              </div>
-                                            </div>
                                           </div>
                                         </div>
                                       </div>
@@ -1358,6 +1293,74 @@ const LiquidationPage = () => {
                                 </div>
 
                                 <div className="flex gap-2">
+                                  {/* Drag and drop area for rejected documents */}
+                                  {uploadedDoc?.is_approved === false && (
+                                    <>
+                                      <input
+                                        type="file"
+                                        ref={(el) => {
+                                          fileInputRefs.current[
+                                            `${expense.id}-${req.requirementID}-additional`
+                                          ] = el;
+                                        }}
+                                        onChange={(e) =>
+                                          handleFileUpload(
+                                            String(expense.id),
+                                            String(req.requirementID),
+                                            e
+                                          )
+                                        }
+                                        className="hidden"
+                                        accept=".pdf,application/pdf"
+                                        disabled={
+                                          uploading ===
+                                            `${expense.id}-${req.requirementID}` ||
+                                          (request.status !== "draft" &&
+                                            request.status !== "resubmit")
+                                        }
+                                        id={`file-input-additional-${expense.id}-${req.requirementID}`}
+                                      />
+                                      
+                                      <div
+                                        className={`w-40 p-2 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                                          dragActive
+                                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/10"
+                                            : "border-red-300 hover:border-red-400"
+                                        }`}
+                                        onDragEnter={handleDrag}
+                                        onDragLeave={handleDrag}
+                                        onDragOver={handleDrag}
+                                        onDrop={(e) =>
+                                          handleDrop(
+                                            e,
+                                            String(expense.id),
+                                            String(req.requirementID)
+                                          )
+                                        }
+                                        onClick={() =>
+                                          triggerAdditionalFileInput(
+                                            String(expense.id),
+                                            String(req.requirementID)
+                                          )
+                                        }
+                                        title="Upload new file to replace rejected document"
+                                      >
+                                        <div className="text-center">
+                                          <UploadIcon className="mx-auto h-4 w-4 text-red-400 mb-1" />
+                                          <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                                            {uploading ===
+                                            `${expense.id}-${req.requirementID}`
+                                              ? "Uploading..."
+                                              : "Upload New File"}
+                                          </p>
+                                          <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+                                            Replace Rejected
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                  
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1372,8 +1375,29 @@ const LiquidationPage = () => {
                                       request.status !== "resubmit"
                                     }
                                   >
-                                    Remove
+                                    Remove Original
                                   </Button>
+                                  
+                                  {/* Remove reuploaded file button for rejected documents with resubmissions */}
+                                  {uploadedDoc?.is_approved === false && uploadedDoc?.is_resubmission && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        removeFile(
+                                          String(expense.id),
+                                          String(req.requirementID)
+                                        )
+                                      }
+                                      disabled={
+                                        request.status !== "draft" &&
+                                        request.status !== "resubmit"
+                                      }
+                                    >
+                                      Remove Revised
+                                    </Button>
+                                  )}
+                                  
                                   <Button
                                     variant="outline"
                                     size="sm"
