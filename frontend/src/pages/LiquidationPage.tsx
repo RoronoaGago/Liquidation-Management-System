@@ -14,7 +14,6 @@ import {
   AlertCircle,
   Paperclip,
   MessageCircleIcon,
-  Info,
   Clock,
   FileText,
   XCircle,
@@ -24,14 +23,11 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
 import api from "@/api/axios";
 import { DocumentTextIcon } from "@heroicons/react/outline";
-import { Progress, Skeleton } from "antd";
+import { Skeleton } from "antd";
 import { useNavigate } from "react-router";
 import { formatCurrency } from "@/lib/helpers";
 
@@ -49,6 +45,24 @@ interface UploadedDocument {
   uploaded_at?: string;
   reviewer_comment?: string;
   is_approved?: boolean | null;
+  versions?: DocumentVersion[];
+  is_resubmission?: boolean;
+  resubmission_count?: number;
+}
+
+interface DocumentVersion {
+  id: number;
+  document_url: string;
+  version_number: number;
+  status: string;
+  uploaded_at: string;
+  reviewer_comment: string | null;
+  reviewed_by: {
+    first_name: string;
+    last_name: string;
+  } | null;
+  reviewed_at: string | null;
+  file_size: number | null;
 }
 
 interface Expense {
@@ -328,26 +342,11 @@ const LiquidationPage = () => {
     const key = `${expenseId}-${requirementID}`;
     fileInputRefs.current[key]?.click();
   };
-  const hasUnmodifiedActualAmounts = useMemo(() => {
-    if (!request) return true;
-    return request.expenses.some(
-      (expense) =>
-        expense.actualAmount === undefined ||
-        isNaN(expense.actualAmount) ||
-        expense.actualAmount === expense.amount
-    );
-  }, [request]);
-  const allRejectedRevised = useMemo(() => {
-    if (!request || request.status !== "resubmit") return true;
-    const rejectedDocs = request.uploadedDocuments.filter(
-      (doc) => doc.is_approved === false
-    );
-    if (rejectedDocs.length === 0) return true;
-    return rejectedDocs.every(
-      (doc) =>
-        doc.reviewer_comment && doc.reviewer_comment.startsWith("[REVISED]")
-    );
-  }, [request]);
+
+  const triggerAdditionalFileInput = (expenseId: string, requirementID: string) => {
+    const key = `${expenseId}-${requirementID}-additional`;
+    fileInputRefs.current[key]?.click();
+  };
 
   const isSubmitDisabled =
     !request ||
@@ -1272,7 +1271,7 @@ const LiquidationPage = () => {
                                     {uploadedDoc?.is_approved === false && (
                                       <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/10 rounded">
                                         <div className="flex items-start gap-2">
-                                          <div>
+                                          <div className="flex-1">
                                             <p className="text-sm font-medium text-red-700 dark:text-red-300">
                                               Rejected:{" "}
                                               {uploadedDoc.reviewer_comment}
@@ -1281,6 +1280,76 @@ const LiquidationPage = () => {
                                               Please re-upload a revised
                                               version.
                                             </p>
+                                            {uploadedDoc.is_resubmission && (
+                                              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                                                This is resubmission #{uploadedDoc.resubmission_count}
+                                              </p>
+                                            )}
+                                            
+                                            {/* Additional upload area for rejected documents */}
+                                            <div className="mt-3">
+                                              <input
+                                                type="file"
+                                                ref={(el) => {
+                                                  fileInputRefs.current[
+                                                    `${expense.id}-${req.requirementID}-additional`
+                                                  ] = el;
+                                                }}
+                                                onChange={(e) =>
+                                                  handleFileUpload(
+                                                    String(expense.id),
+                                                    String(req.requirementID),
+                                                    e
+                                                  )
+                                                }
+                                                className="hidden"
+                                                accept=".pdf,application/pdf"
+                                                disabled={
+                                                  uploading ===
+                                                    `${expense.id}-${req.requirementID}` ||
+                                                  (request.status !== "draft" &&
+                                                    request.status !== "resubmit")
+                                                }
+                                                id={`file-input-additional-${expense.id}-${req.requirementID}`}
+                                              />
+                                              
+                                              <div
+                                                className={`w-full p-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                                                  dragActive
+                                                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/10"
+                                                    : "border-red-300 hover:border-red-400"
+                                                }`}
+                                                onDragEnter={handleDrag}
+                                                onDragLeave={handleDrag}
+                                                onDragOver={handleDrag}
+                                                onDrop={(e) =>
+                                                  handleDrop(
+                                                    e,
+                                                    String(expense.id),
+                                                    String(req.requirementID)
+                                                  )
+                                                }
+                                                onClick={() =>
+                                                  triggerAdditionalFileInput(
+                                                    String(expense.id),
+                                                    String(req.requirementID)
+                                                  )
+                                                }
+                                              >
+                                                <div className="text-center">
+                                                  <UploadIcon className="mx-auto h-5 w-5 text-red-400 mb-1" />
+                                                  <p className="text-xs text-red-600 dark:text-red-400">
+                                                    {uploading ===
+                                                    `${expense.id}-${req.requirementID}`
+                                                      ? "Uploading..."
+                                                      : "Upload revised document"}
+                                                  </p>
+                                                  <p className="text-xs text-red-500 mt-1">
+                                                    PDF files only (max 5MB)
+                                                  </p>
+                                                </div>
+                                              </div>
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
