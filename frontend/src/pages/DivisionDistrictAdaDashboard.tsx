@@ -296,7 +296,6 @@ const DivisionDistrictAdaDashboard = () => {
               Division District ADA Dashboard
             </h1>
             <p className="mt-1 text-gray-500 text-theme-sm">
-              Liquidation oversight and approval management
             </p>
           </div>
         </div>
@@ -330,7 +329,6 @@ const DivisionDistrictAdaDashboard = () => {
             Division District ADA Dashboard
           </h1>
           <p className="mt-1 text-gray-500 text-theme-sm">
-            Liquidation oversight and approval management
           </p>
         </div>
         <div className="flex items-center gap-3" />
@@ -446,7 +444,11 @@ const DivisionDistrictAdaDashboard = () => {
                 <LineChart data={data?.liquidationTimeline || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis />
+                  <YAxis 
+                    domain={[0, 'dataMax']}
+                    tickCount={6}
+                    allowDecimals={false}
+                  />
                   <Tooltip />
                   <Legend />
                   <Line
@@ -455,6 +457,7 @@ const DivisionDistrictAdaDashboard = () => {
                     stroke="#465FFF"
                     strokeWidth={2}
                     name="Submitted"
+                    dot={false}
                   />
                   <Line
                     type="monotone"
@@ -462,6 +465,7 @@ const DivisionDistrictAdaDashboard = () => {
                     stroke="#00C49F"
                     strokeWidth={2}
                     name="Approved"
+                    dot={false}
                   />
                   <Line
                     type="monotone"
@@ -469,6 +473,7 @@ const DivisionDistrictAdaDashboard = () => {
                     stroke="#FF8042"
                     strokeWidth={2}
                     name="Rejected"
+                    dot={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
