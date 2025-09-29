@@ -4,7 +4,7 @@ from auditlog.models import LogEntry
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
-from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, DocumentVersion, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog
+from .models import User, School, Requirement, ListOfPriority, PriorityRequirement, RequestManagement, RequestPriority, LiquidationManagement, LiquidationDocument, DocumentVersion, Notification, LiquidationPriority, SchoolDistrict, Backup, AuditLog, BudgetAllocation
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
