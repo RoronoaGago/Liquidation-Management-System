@@ -1151,7 +1151,8 @@ const ResourceAllocation = () => {
                   onClick={(e) => {
                     if (
                       e.target instanceof HTMLButtonElement ||
-                      e.target instanceof HTMLInputElement
+                      e.target instanceof HTMLInputElement ||
+                      e.target instanceof HTMLSelectElement
                     ) {
                       return;
                     }
