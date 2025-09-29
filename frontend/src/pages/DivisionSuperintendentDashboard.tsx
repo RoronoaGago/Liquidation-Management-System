@@ -50,7 +50,7 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{data?.metrics?.pendingSchoolsCount || 0}</div>
-        <p className="text-xs text-muted-foreground">Unique schools with pending requests</p>
+        <p className="text-xs text-muted-foreground">Schools with pending requests</p>
       </CardContent>
     </Card>
   </div>
@@ -273,7 +273,6 @@ const DivisionSuperintendent = () => {
               Division Superintendent Dashboard
             </h1>
             <p className="mt-1 text-gray-500 text-theme-sm">
-              Manage unliquidated accounts and MOOE requests
             </p>
           </div>
         </div>
@@ -299,7 +298,6 @@ const DivisionSuperintendent = () => {
             Division Superintendent Dashboard
           </h1>
           <p className="mt-1 text-gray-500 text-theme-sm">
-            Manage unliquidated accounts and MOOE requests
           </p>
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0">

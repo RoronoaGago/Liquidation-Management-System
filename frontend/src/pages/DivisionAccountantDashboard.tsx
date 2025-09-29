@@ -309,7 +309,6 @@ const DivisionAccountantDashboard = () => {
               Division Accountant Dashboard
             </h1>
             <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-              Liquidation review and financial oversight
             </p>
           </div>
         </div>
@@ -336,7 +335,6 @@ const DivisionAccountantDashboard = () => {
             Division Accountant Dashboard
           </h1>
           <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-            Liquidation review and financial oversight
           </p>
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0">
@@ -356,7 +354,7 @@ const DivisionAccountantDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Liquidations</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Liquidation Reports</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -372,7 +370,7 @@ const DivisionAccountantDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">₱{(data?.dashboardMetrics.totalAmountPendingLiquidations || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Total amount from all requests (initial cash advance)</p>
+            <p className="text-xs text-muted-foreground">Total amount from all requests</p>
           </CardContent>
         </Card>
 
@@ -394,7 +392,7 @@ const DivisionAccountantDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{(data?.dashboardMetrics.completionRate || 0).toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">Liquidated vs total (completed + pending)</p>
+            <p className="text-xs text-muted-foreground">Liquidated Accounts</p>
           </CardContent>
         </Card>
       </div>
