@@ -1005,6 +1005,15 @@ body.dragging-widget {
   animation: progress 3s linear forwards;
 }
 
+@keyframes progressShrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
 .line-clamp-2 {
   overflow: hidden;
   display: -webkit-box;
