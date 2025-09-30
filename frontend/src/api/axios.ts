@@ -111,11 +111,29 @@ export const requestOTP = async (email: string, password: string) => {
       },
     });
 
-    const response = await authApi.post("/request-otp/", { email, password });
+    const response = await authApi.post("/request-otp-secure/", { email, password });
     return response.data;
   } catch (error: any) {
-    console.error(error);
-    throw new Error(error.response?.data?.message || "Failed to send OTP");
+    const status = error.response?.status;
+    const errorData = error.response?.data;
+    
+    // Handle specific error cases
+    if (status === 423) {
+      // Account locked
+      throw new Error(errorData?.error || "Account temporarily locked due to suspicious activity. Please try again later.");
+    } else if (status === 429) {
+      // Rate limited
+      throw new Error(errorData?.error || "Too many requests. Please wait before requesting another OTP.");
+    } else if (status === 403) {
+      // Account inactive
+      throw new Error(errorData?.error || "Your account has been archived. Please contact support.");
+    } else if (status === 400) {
+      // Invalid credentials
+      throw new Error(errorData?.error || "Invalid email or password");
+    } else {
+      // Generic error
+      throw new Error(errorData?.error || "Failed to send OTP. Please try again.");
+    }
   }
 };
 
@@ -129,10 +147,29 @@ export const verifyOTP = async (email: string, otp: string) => {
       },
     });
 
-    const response = await authApi.post("/verify-otp/", { email, otp });
+    const response = await authApi.post("/verify-otp-secure/", { email, otp });
     return response.data;
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || "Invalid OTP");
+    const status = error.response?.status;
+    const errorData = error.response?.data;
+    
+    // Handle specific error cases
+    if (status === 423) {
+      // Account locked
+      throw new Error(errorData?.error || "Account temporarily locked due to suspicious activity. Please try again later.");
+    } else if (status === 429) {
+      // Rate limited
+      throw new Error(errorData?.error || "Too many attempts. Please wait before trying again.");
+    } else if (status === 400) {
+      // Invalid OTP or expired
+      throw new Error(errorData?.error || "Invalid or expired OTP. Please try again.");
+    } else if (status === 403) {
+      // Account inactive
+      throw new Error(errorData?.error || "Your account is inactive. Please contact the administrator.");
+    } else {
+      // Generic error
+      throw new Error(errorData?.error || "Invalid OTP. Please try again.");
+    }
   }
 };
 
@@ -146,10 +183,26 @@ export const resendOTP = async (email: string) => {
       },
     });
 
-    const response = await authApi.post("/resend-otp/", { email });
+    const response = await authApi.post("/resend-otp-secure/", { email });
     return response.data;
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || "Failed to resend OTP");
+    const status = error.response?.status;
+    const errorData = error.response?.data;
+    
+    // Handle specific error cases
+    if (status === 423) {
+      // Account locked
+      throw new Error(errorData?.error || "Account temporarily locked due to suspicious activity. Please try again later.");
+    } else if (status === 429) {
+      // Rate limited
+      throw new Error(errorData?.error || "Too many requests. Please wait before requesting another OTP.");
+    } else if (status === 403) {
+      // Account inactive
+      throw new Error(errorData?.error || "Your account is inactive. Please contact the administrator.");
+    } else {
+      // Generic error
+      throw new Error(errorData?.error || "Failed to resend OTP. Please try again.");
+    }
   }
 };
 

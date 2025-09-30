@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
+from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
 
 
 from rest_framework_simplejwt.views import (
@@ -27,6 +28,11 @@ urlpatterns = [
     path('request-otp/', request_otp, name='request-otp'),
     path('verify-otp/', verify_otp, name='verify-otp'),
     path('resend-otp/', resend_otp, name='resend-otp'),
+    
+    # Enhanced Secure OTP Endpoints
+    path('request-otp-secure/', request_otp_secure, name='request-otp-secure'),
+    path('verify-otp-secure/', verify_otp_secure, name='verify-otp-secure'),
+    path('resend-otp-secure/', resend_otp_secure, name='resend-otp-secure'),
     path("users/update-e-signature/",
          update_e_signature, name="update-e-signature"),
     path('schools/', views.SchoolListCreateAPIView.as_view(),

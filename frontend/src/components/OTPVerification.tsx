@@ -1,7 +1,7 @@
 // components/OTPVerification.tsx
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Mail, RefreshCw, Loader2 } from "lucide-react"; // Add Loader2 import
+import { ArrowLeft, Mail, RefreshCw, Loader2, Shield, AlertTriangle, Clock } from "lucide-react";
 import Button from "./ui/button/Button";
 import Input from "./form/input/InputField";
 import { useAuth } from "@/context/AuthContext";
@@ -22,7 +22,11 @@ export default function OTPVerification({
   const [otp, setOtp] = useState(Array(6).fill(""));
   const [isLoading, setIsLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [error, setError] = useState(""); // <-- Add error state
+  const [error, setError] = useState("");
+  const [errorType, setErrorType] = useState<'error' | 'warning' | 'info'>('error');
+  const [isAccountLocked, setIsAccountLocked] = useState(false);
+  const [lockoutTime, setLockoutTime] = useState(0);
+  const [otpExpiry, setOtpExpiry] = useState(5 * 60); // 5 minutes in seconds
   const inputRefs = useRef<HTMLInputElement[]>([]);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -38,6 +42,30 @@ export default function OTPVerification({
     }
   }, [resendCooldown]);
 
+  // Set up OTP expiry timer
+  useEffect(() => {
+    if (otpExpiry > 0) {
+      const timer = setTimeout(
+        () => setOtpExpiry(otpExpiry - 1),
+        1000
+      );
+      return () => clearTimeout(timer);
+    }
+  }, [otpExpiry]);
+
+  // Set up account lockout timer
+  useEffect(() => {
+    if (lockoutTime > 0) {
+      const timer = setTimeout(
+        () => setLockoutTime(lockoutTime - 1),
+        1000
+      );
+      return () => clearTimeout(timer);
+    } else if (isAccountLocked) {
+      setIsAccountLocked(false);
+    }
+  }, [lockoutTime, isAccountLocked]);
+
   const handleChange = (value: string, index: number) => {
     if (!/^\d*$/.test(value)) return; // Only allow numbers
 
@@ -45,6 +73,7 @@ export default function OTPVerification({
     newOtp[index] = value;
     setOtp(newOtp);
     setError(""); // Clear error when user starts typing
+    setErrorType('error');
 
     // Auto-focus to next input
     if (value && index < 5) {
@@ -79,9 +108,11 @@ export default function OTPVerification({
     e.preventDefault();
     const otpValue = otp.join("");
     setError(""); // Clear previous error
+    setErrorType('error');
 
     if (otpValue.length !== 6) {
       setError("Please enter a valid 6-digit OTP");
+      setErrorType('error');
       return;
     }
 
@@ -93,15 +124,29 @@ export default function OTPVerification({
       onSuccess(); // Just navigate away, no need to set loading to false
     } catch (err: any) {
       setIsLoading(false);
-      setError(err.message || "Invalid OTP. Please try again.");
+      const errorMessage = err.message || "Invalid OTP. Please try again.";
+      setError(errorMessage);
+      
+      // Determine error type based on message content
+      if (errorMessage.includes('locked') || errorMessage.includes('suspicious')) {
+        setErrorType('warning');
+        setIsAccountLocked(true);
+        setLockoutTime(15 * 60); // 15 minutes
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('too many')) {
+        setErrorType('warning');
+      } else {
+        setErrorType('error');
+      }
     }
   };
 
   const handleResendOTP = async () => {
-    if (resendCooldown > 0) return;
+    if (resendCooldown > 0 || isAccountLocked) return;
 
     setResendCooldown(60); // 60 seconds cooldown
     setError(""); // Clear any previous errors
+    setErrorType('error');
+    setOtpExpiry(5 * 60); // Reset OTP expiry timer
 
     try {
       await resendOTP(email);
@@ -111,7 +156,21 @@ export default function OTPVerification({
       // Focus on first input
       inputRefs.current[0]?.focus();
     } catch (error: any) {
-      toast.error(error.message || "Failed to send OTP. Please try again.");
+      const errorMessage = error.message || "Failed to send OTP. Please try again.";
+      setError(errorMessage);
+      
+      // Determine error type based on message content
+      if (errorMessage.includes('locked') || errorMessage.includes('suspicious')) {
+        setErrorType('warning');
+        setIsAccountLocked(true);
+        setLockoutTime(15 * 60); // 15 minutes
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('too many')) {
+        setErrorType('warning');
+      } else {
+        setErrorType('error');
+      }
+      
+      toast.error(errorMessage);
       setResendCooldown(0); // Reset cooldown on error
     }
   };
@@ -138,15 +197,51 @@ export default function OTPVerification({
         <p className="text-center text-gray-600 dark:text-gray-400 mb-2">
           Enter the 6-digit code sent to
         </p>
-        <p className="text-center font-medium text-gray-800 dark:text-white mb-6">
+        <p className="text-center font-medium text-gray-800 dark:text-white mb-4">
           {email}
         </p>
+        
+        {/* Security Indicators */}
+        <div className="flex items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
+          {/* <div className="flex items-center gap-1">
+            <Shield className="h-4 w-4" />
+            <span>Secure</span>
+          </div> */}
+          <div className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            <span>Expires in {Math.floor(otpExpiry / 60)}:{(otpExpiry % 60).toString().padStart(2, '0')}</span>
+          </div>
+        </div>
       </div>
 
-      {/* Error display (same style as SignInForm) */}
+      {/* Enhanced Error display with different types */}
       {error && (
-        <div className="p-3 mb-6 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-900 dark:text-red-100">
-          {error}
+        <div className={`p-3 mb-6 text-sm rounded-lg flex items-center gap-2 ${
+          errorType === 'warning' 
+            ? 'text-amber-700 bg-amber-100 dark:bg-amber-900 dark:text-amber-100'
+            : errorType === 'info'
+            ? 'text-blue-700 bg-blue-100 dark:bg-blue-900 dark:text-blue-100'
+            : 'text-red-700 bg-red-100 dark:bg-red-900 dark:text-red-100'
+        }`}>
+          {errorType === 'warning' ? (
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          )}
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Account Lockout Warning */}
+      {isAccountLocked && (
+        <div className="p-3 mb-6 text-sm text-amber-700 bg-amber-100 rounded-lg dark:bg-amber-900 dark:text-amber-100 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <div>
+            <p className="font-medium">Account Temporarily Locked</p>
+            <p className="text-xs mt-1">
+              Try again in {Math.floor(lockoutTime / 60)}:{(lockoutTime % 60).toString().padStart(2, '0')}
+            </p>
+          </div>
         </div>
       )}
 
@@ -201,9 +296,9 @@ export default function OTPVerification({
           type="submit"
           className="w-full flex items-center justify-center gap-2"
           loading={isLoading}
-          disabled={isLoading || otp.join("").length !== 6}
+          disabled={isLoading || otp.join("").length !== 6 || isAccountLocked}
         >
-          {isLoading ? "Verifying..." : "Verify & Continue"}
+          {isLoading ? "Verifying..." : isAccountLocked ? "Account Locked" : "Verify & Continue"}
         </Button>
       </form>
     </div>
