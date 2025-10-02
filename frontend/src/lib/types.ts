@@ -8,18 +8,29 @@ export interface BaseUser {
   role: string;
   is_active: boolean;
   date_joined: string;
+  last_login: string;
   profile_picture?: string; // For stored profile pictures (URL or path)
 }
 
 // src/lib/types.ts
+
+export interface District {
+  districtId: string; // Unique identifier for the district
+  districtName: string; // Name of the district
+  is_active?: boolean; // Optional field to indicate if the district is active
+  legislativeDistrict?: string; // Optional field for legislative district
+  municipality?: string; // Optional field for municipality
+}
 export interface School {
-  district: string;
+  last_liquidated_month: any;
+  last_liquidated_year: any;
   schoolId: string;
   schoolName: string;
+  districtId: string; // New field for form handling
+  district: District; // Existing field for display
   municipality: string;
   legislativeDistrict: string;
-  is_active?: boolean;
-  max_budget?: number; // Optional field for budget allocation
+  is_active: boolean;
 }
 export type User = {
   id: number;
@@ -29,13 +40,15 @@ export type User = {
   email: string;
   date_of_birth: string;
   date_joined: string;
+  last_login: string;
   phone_number: string;
   role: string;
   profile_picture: string;
   is_active: boolean;
   password: string;
   confirm_password: string;
-  school_district?: string;
+  school_district?: District;
+  school_district_id?: string;
   school: School | null;
   profile_picture_base64?: string;
 };
@@ -61,7 +74,6 @@ export type DialogState = {
   confirm: boolean;
   bulkArchive: boolean;
 };
-
 
 export interface Assignment {
   id: number;
@@ -131,10 +143,10 @@ export type ListofPriorityData = {
   is_active?: boolean;
   requirements?: (
     | {
-      requirementID: number;
-      requirementTitle: string;
-      is_required: boolean;
-    }
+        requirementID: number;
+        requirementTitle: string;
+        is_required: boolean;
+      }
     | ListofPriorityData
   )[];
 };
@@ -174,13 +186,13 @@ export type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
   children: React.ReactNode; // Button text or content
   size?: "sm" | "md" | "lg"; // Button size
   variant?:
-  | "primary"
-  | "secondary" // Added secondary variant
-  | "outline"
-  | "error"
-  | "success"
-  | "destructive"
-  | "ghost"; // Button variant
+    | "primary"
+    | "secondary" // Added secondary variant
+    | "outline"
+    | "error"
+    | "success"
+    | "destructive"
+    | "ghost"; // Button variant
   loading?: boolean;
   startIcon?: React.ReactNode; // Icon before the text
   endIcon?: React.ReactNode; // Icon after the text
@@ -193,6 +205,7 @@ export interface Requirement {
   requirementID: number;
   requirementTitle: string;
   is_required: boolean;
+  is_active: boolean;
 }
 
 export interface ListOfPriority {
@@ -203,7 +216,6 @@ export interface ListOfPriority {
 }
 
 export type Submission = {
-  date_approved: any;
   request_id: string;
   user: {
     role: string;
@@ -213,24 +225,32 @@ export type Submission = {
     school: School | null; // Use School type for school details
   };
   priorities: Priority[];
-  status: "pending" | "approved" | "rejected" | "unliquidated" | "downloaded" | "liquidated" | "advanced";
+  status:
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "unliquidated"
+    | "downloaded"
+    | "liquidated"
+    | "advanced";
   created_at: string;
   rejection_comment: string; // Optional field for rejection reason
   rejection_date: string; // Optional field for when the rejection occurred
+  date_approved?: string | null;
   reviewed_by: User;
   reviewed_at?: string;
+  rejected_by?: User;
   is_resubmission?: boolean;
   previous_version?: string; // ID of the original submission if this is a resubmission
   notes?: string; // Optional notes field
   previous_request?: Submission; // Optional field for previous request
 };
 
-
 export type Prayoridad = {
   expenseTitle: string;
   amount: number;
   LOPID: number;
-}
+};
 export type Priority = {
   id: number;
   priority: {

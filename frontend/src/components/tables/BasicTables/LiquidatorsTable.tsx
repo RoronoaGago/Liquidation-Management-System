@@ -26,6 +26,10 @@ import {
   ChevronsUpDown,
   Filter,
   X,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
 } from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react";
 import Badge from "@/components/ui/badge/Badge";
@@ -35,6 +39,13 @@ const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 type Liquidation = {
   reviewed_at_district?: any;
   reviewed_by_district?: any;
+  reviewed_at_liquidator?: any;
+  reviewed_by_liquidator?: any;
+  reviewed_at_division?: any;
+  reviewed_by_division?: any;
+  date_districtApproved?: string;
+  date_liquidatorApproved?: string;
+  date_liquidated?: string;
   created_at?: any;
   LiquidationID: string;
   status: string;
@@ -260,25 +271,40 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
   const handleView = async (liq: Liquidation) => {
-    setSelected(liq);
-    setExpandedExpense(null);
-    setDocLoading(true);
-    const priorities = liq.request?.priorities || [];
-    const expenses: Expense[] = priorities.map((p: any) => ({
-      id: p.id || p.priority?.LOPID || "",
-      title: p.priority?.expenseTitle || "",
-      amount: Number(p.amount) || 0,
-      requirements: (p.priority?.requirements || []).map((req: any) => ({
-        requirementID: req.requirementID,
-        requirementTitle: req.requirementTitle,
-        is_required: req.is_required,
-      })),
-    }));
-    setExpenseList(expenses);
+    try {
+      // Change status to under_review_liquidator when liquidator views
+      if (liq.status === "approved_district") {
+        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
+          status: "under_review_liquidator",
+        });
+        await refreshList(); // Refresh the list to show new status
+      }
 
-    const res = await api.get(`/liquidations/${liq.LiquidationID}/documents/`);
-    setDocuments(res.data);
-    setDocLoading(false);
+      setSelected(liq);
+      setExpandedExpense(null);
+      setDocLoading(true);
+      const priorities = liq.request?.priorities || [];
+      const expenses: Expense[] = priorities.map((p: any) => ({
+        id: p.id || p.priority?.LOPID || "",
+        title: p.priority?.expenseTitle || "",
+        amount: Number(p.amount) || 0,
+        requirements: (p.priority?.requirements || []).map((req: any) => ({
+          requirementID: req.requirementID,
+          requirementTitle: req.requirementTitle,
+          is_required: req.is_required,
+        })),
+      }));
+      setExpenseList(expenses);
+
+      const res = await api.get(
+        `/liquidations/${liq.LiquidationID}/documents/`
+      );
+      setDocuments(res.data);
+      setDocLoading(false);
+    } catch (err) {
+      toast.error("Failed to update status");
+      setDocLoading(false);
+    }
   };
 
   const getCompletion = () => {
@@ -788,7 +814,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
             variant="outline"
             size="sm"
           >
-            {"<<"}
+            <ChevronsLeft className="h-4 w-4" />
           </Button>
           <Button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -796,26 +822,47 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
             variant="outline"
             size="sm"
           >
-            {"<"}
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  variant={currentPage === pageNum ? "primary" : "outline"}
+                  size="sm"
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
           <Button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
           >
-            {">"}
+            <ChevronRight className="h-4 w-4" />
           </Button>
           <Button
             onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
           >
-            {">>"}
+            <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -1073,7 +1120,7 @@ const LiquidatorsTable: React.FC<LiquidationReportTableProps> = ({
                             reviewer_comment: viewDoc.reviewer_comment,
                           }
                         );
-                        toast.success("Document approved!");
+                        // toast.success("Document approved!");
                         const res = await api.get(
                           `/liquidations/${selected?.LiquidationID}/documents/`
                         );

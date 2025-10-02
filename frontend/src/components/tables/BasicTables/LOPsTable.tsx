@@ -38,6 +38,7 @@ import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
 // import { useAuth } from "@/context/AuthContext";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { renderLOPRequirements } from "@/pages/ManageListOfPrioritiesPage";
 import SkeletonRow from "@/components/ui/skeleton";
 import api from "@/api/axios";
 import {
@@ -93,6 +94,7 @@ export default function LOPsTable({
   error,
   requirements,
 }: LOPsTableProps) {
+  const [isConfirmEditDialogOpen, setIsConfirmEditDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState(filterOptions.searchTerm || "");
@@ -291,6 +293,13 @@ export default function LOPsTable({
       return;
     }
 
+    // Show confirmation dialog instead of submitting directly
+    setIsConfirmEditDialogOpen(true);
+  };
+
+  // Add the confirmed edit function
+  const handleConfirmedEdit = async () => {
+    if (!selectedLOP) return;
     setIsSubmitting(true);
 
     try {
@@ -312,6 +321,7 @@ export default function LOPsTable({
 
       await fetchLOPs();
       setIsDialogOpen(false);
+      setIsConfirmEditDialogOpen(false);
     } catch (error) {
       let errorMessage = "Failed to save List of Priority. Please try again.";
       if (axios.isAxiosError(error) && error.response) {
@@ -603,14 +613,7 @@ export default function LOPsTable({
 
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       <div className="flex flex-wrap gap-1">
-                        {lop.requirements?.slice(0, 3).map((req) => (
-                          <Badge key={req.requirementID} color="primary">
-                            {req.requirementTitle}
-                          </Badge>
-                        ))}
-                        {lop.requirements && lop.requirements.length > 3 && (
-                          <span className="ml-1 text-gray-500">...</span>
-                        )}
+                        {renderLOPRequirements(lop.requirements)}
                       </div>
                     </TableCell>
 
@@ -739,7 +742,52 @@ export default function LOPsTable({
           </Button>
         </div>
       </div>
+      {/* Edit Confirmation Dialog */}
+      <Dialog
+        open={isConfirmEditDialogOpen}
+        onOpenChange={setIsConfirmEditDialogOpen}
+      >
+        <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+          <DialogHeader className="mb-8">
+            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+              Confirm Changes
+            </DialogTitle>
+          </DialogHeader>
 
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Are you sure you want to{" "}
+              {selectedLOP?.LOPID ? "update" : "create"} this List of Priority?
+            </p>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsConfirmEditDialogOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleConfirmedEdit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="animate-spin size-4" />
+                    {selectedLOP?.LOPID ? "Updating..." : "Creating..."}
+                  </span>
+                ) : (
+                  `Confirm ${selectedLOP?.LOPID ? "Update" : "Create"}`
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Edit LOP Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar [&>button]:hidden">
@@ -802,40 +850,39 @@ export default function LOPsTable({
                         .includes(dialogSearchTerm.toLowerCase())
                     )
                     .map((req) => (
-                      <div
+                      <label
                         key={req.requirementID}
-                        className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
+                        className={`flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                          !req.is_active ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
                       >
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id={`req-${req.requirementID}`}
-                            checked={selectedRequirements.includes(
-                              req.requirementID
-                            )}
-                            onChange={() =>
-                              toggleRequirement(req.requirementID)
-                            }
-                            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                          <Label
-                            htmlFor={`req-${req.requirementID}`}
-                            className="ml-2"
-                          >
-                            {req.requirementTitle}
-                          </Label>
-                        </div>
-                        <Badge
-                          color={req.is_required ? "primary" : "secondary"}
-                        >
-                          {req.is_required ? "Required" : "Optional"}
-                        </Badge>
-                      </div>
+                        <input
+                          type="checkbox"
+                          id={`req-${req.requirementID}`}
+                          checked={selectedRequirements.includes(
+                            req.requirementID
+                          )}
+                          disabled={!req.is_active}
+                          onChange={() =>
+                            req.is_active &&
+                            toggleRequirement(req.requirementID)
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span>
+                          {req.requirementTitle}
+                          {!req.is_active && (
+                            <span className="ml-1 text-xs text-red-500">
+                              (inactive)
+                            </span>
+                          )}
+                        </span>
+                      </label>
                     ))}
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label className="text-base">Status</Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -863,7 +910,7 @@ export default function LOPsTable({
                     <span>Archived</span>
                   </label>
                 </div>
-              </div>
+              </div> */}
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button
@@ -879,7 +926,7 @@ export default function LOPsTable({
                   Cancel
                 </Button>
                 <Button
-                  type="submit"
+                  type="submit" // Keep as submit to trigger the confirmation dialog
                   variant="primary"
                   disabled={!isFormValid || isSubmitting}
                 >

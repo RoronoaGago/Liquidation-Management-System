@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
-import { handleExport } from "@/lib/pdfHelpers";
+import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
   XCircle,
@@ -33,6 +36,10 @@ import {
   Info,
   Eye,
   EyeOff,
+  Calendar,
+  X,
+  Filter,
+  Loader2,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
@@ -41,6 +48,13 @@ import { Submission, School, Priority, Prayoridad } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
+import { statusColors, statusLabels } from "@/lib/constants";
+import Label from "@/components/form/Label";
+import { formatDateTime } from "@/lib/helpers";
+
+const { RangePicker } = DatePicker;
 
 type HistoryItem = {
   priorities: Prayoridad[];
@@ -54,7 +68,7 @@ type HistoryItem = {
 };
 
 type PriorityDiff = {
-  LOPID: number; // Unique identifier for the priority
+  LOPID: number;
   expenseTitle: string;
   prevAmount?: number;
   currAmount?: number;
@@ -65,7 +79,6 @@ const getPriorityDiffs = (
   prev: Prayoridad[] = [],
   curr: Prayoridad[] = []
 ): PriorityDiff[] => {
-  // Create maps using LOPID as key
   const prevMap = new Map<number, number>();
   prev.forEach((p) => {
     const LOPID = p.LOPID || 0;
@@ -80,7 +93,6 @@ const getPriorityDiffs = (
     currMap.set(LOPID, amount);
   });
 
-  // Get all unique LOPIDs from both versions
   const allLOPIDs = Array.from(
     new Set([...Array.from(prevMap.keys()), ...Array.from(currMap.keys())])
   );
@@ -89,7 +101,6 @@ const getPriorityDiffs = (
     const prevAmount = prevMap.get(LOPID);
     const currAmount = currMap.get(LOPID);
 
-    // Find the priority to get the title
     const priority = [...prev, ...curr].find((p) => p.LOPID === LOPID);
     const expenseTitle = priority?.expenseTitle || "Unknown";
 
@@ -120,21 +131,24 @@ const getPriorityDiffs = (
 };
 
 const PriortySubmissionsPage = () => {
+  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
     null
   );
+  const location = useLocation();
+  const navigate = useNavigate();
   const [submissionHistory, setSubmissionHistory] = useState<
     HistoryItem[] | null
   >(null);
-  const [showAllDiffs, setShowAllDiffs] = useState(false); // Toggle show all/only changed
+  const [showAllDiffs, setShowAllDiffs] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
   const [rejectionReason, setRejectionReason] = useState("");
   const [submissionsState, setSubmissionsState] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const [, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<
     "approve" | "reject" | null
   >(null);
@@ -142,6 +156,12 @@ const PriortySubmissionsPage = () => {
   const [submissionToReject, setSubmissionToReject] =
     useState<Submission | null>(null);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [legislativeDistricts, setLegislativeDistricts] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
+    string[]
+  >([]);
   const [submissionToApprove, setSubmissionToApprove] =
     useState<Submission | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -150,38 +170,32 @@ const PriortySubmissionsPage = () => {
     searchTerm: "",
     status: "",
     school: "",
+    district: "",
+    legislative_district: "", // Add this
+    municipality: "", // Add this
+    start_date: "",
+    end_date: "",
   });
+  const [filterStatus, setFilterStatus] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  // Add these state variables near your other state declarations
+
+  const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
+    useState("");
+  const [filterMunicipality, setFilterMunicipality] = useState("");
+  const [filterDistrict, setFilterDistrict] = useState("");
+  const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
+    string[]
+  >([]);
+  const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
+    []
+  );
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
   } | null>({ key: "created_at", direction: "desc" });
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Status badge mappings
-  const statusLabels: Record<string, string> = {
-    approved: "Approved",
-    rejected: "Rejected",
-    pending: "Pending",
-    downloaded: "Downloaded",
-    unliquidated: "Unliquidated",
-    liquidated: "Liquidated",
-    advanced: "Advanced",
-  };
-  const statusColors: Record<string, string> = {
-    approved:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-    pending:
-      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-    downloaded:
-      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    unliquidated:
-      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-    liquidated:
-      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-    advanced:
-      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  };
   const statusIcons: Record<string, React.ReactNode> = {
     approved: <CheckCircle className="h-4 w-4" />,
     rejected: <XCircle className="h-4 w-4" />,
@@ -192,28 +206,247 @@ const PriortySubmissionsPage = () => {
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
   };
 
-  // Fetch submissions and schools from backend
+  // In PriortySubmissionsPage.tsx - Update the fetchSubmissions function
+
   const fetchSubmissions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("requests/?status=pending");
-      setSubmissionsState(res.data);
-      // Fetch schools for filter dropdown
+      let statusParam: string;
+      let defaultOrdering = "-created_at"; // Default ordering
+
+      if (activeTab === "pending") {
+        statusParam = "pending";
+      } else if (activeTab === "history") {
+        // For history tab, get approved and later statuses, ordered by date_approved
+        statusParam = "approved,downloaded,unliquidated,liquidated";
+        // Order by date_approved descending to get latest approved at top
+        defaultOrdering = "-date_approved"; // Latest approved first
+      } else {
+        statusParam = "";
+      }
+
+      const params: any = {
+        status: statusParam,
+        ordering: sortConfig
+          ? `${sortConfig.direction === "desc" ? "-" : ""}${sortConfig.key}`
+          : defaultOrdering, // Use default ordering for history tab
+      };
+
+      // Add filters to params - backend will handle the complex filtering
+      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+      if (filterOptions.school) params.school_ids = filterOptions.school;
+      if (filterOptions.start_date)
+        params.start_date = filterOptions.start_date;
+      if (filterOptions.end_date) params.end_date = filterOptions.end_date;
+
+      // FIXED: Ensure proper parameter names match your backend
+      if (filterOptions.legislative_district) {
+        params.legislative_district = filterOptions.legislative_district;
+      }
+      if (filterOptions.municipality) {
+        params.municipality = filterOptions.municipality;
+      }
+      if (filterOptions.district) {
+        params.district = filterOptions.district;
+      }
+
+      console.log("API params being sent:", params); // Debug log
+
+      const res = await api.get(`requests/`, { params });
+
+      const submissionsData = res.data.results || res.data || [];
+      console.log("API response:", submissionsData); // Debug log
+
+      // For history tab, ensure it's sorted by date_approved descending
+      if (activeTab === "history") {
+        submissionsData.sort((a: any, b: any) => {
+          const aDate = a.date_approved
+            ? new Date(a.date_approved)
+            : new Date(0);
+          const bDate = b.date_approved
+            ? new Date(b.date_approved)
+            : new Date(0);
+          return bDate.getTime() - aDate.getTime(); // Latest first
+        });
+      }
+
+      setSubmissionsState(submissionsData);
+
+      // Fetch schools for display purposes (not filtering)
       const schoolRes = await api.get("schools/");
-      setSchools(schoolRes.data);
+      setSchools(schoolRes.data.results || schoolRes.data || []);
     } catch (err: any) {
       console.error("Failed to fetch submissions:", err);
+      console.error("Error response:", err.response?.data); // Debug log
       setError("Failed to fetch submissions");
+      setSubmissionsState([]);
     } finally {
       setLoading(false);
     }
   };
-
+  useEffect(() => {
+    setFilterOptions((prev) => ({
+      ...prev,
+      status: filterStatus,
+    }));
+    setCurrentPage(1);
+  }, [filterStatus]);
   useEffect(() => {
     fetchSubmissions();
-  }, []);
+  }, [
+    activeTab,
+    filterOptions.school,
+    filterOptions.district,
+    filterOptions.start_date,
+    filterOptions.end_date,
+    filterOptions.legislative_district,
+    filterOptions.municipality,
+    filterOptions.searchTerm, // Add this since it's backend filtered now
+  ]);
 
+  // Auto-open a specific request modal when navigated with state { requestId }
+  useEffect(() => {
+    const requestId = (location.state as any)?.requestId as string | undefined;
+    if (!requestId) return;
+    const match = submissionsState.find((s) => s.request_id === requestId);
+    if (match) {
+      setViewedSubmission(match);
+      // Clear state so it doesn't reopen on close/back
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, submissionsState, navigate, location.pathname]);
+  useEffect(() => {
+    // Update municipality options when legislative district changes
+    if (
+      filterLegislativeDistrict &&
+      legislativeDistricts[filterLegislativeDistrict]
+    ) {
+      setFilterMunicipalityOptions(
+        legislativeDistricts[filterLegislativeDistrict]
+      );
+    } else {
+      setFilterMunicipalityOptions([]);
+    }
+    setFilterMunicipality(""); // Reset municipality when district changes
+    setFilterDistrict(""); // Reset district when legislative district changes
+  }, [filterLegislativeDistrict, legislativeDistricts]);
+  // Add these state variables near your other state declarations
+  useEffect(() => {
+    // Update district options when municipality changes
+    if (filterMunicipality) {
+      const districtsForMunicipality = districts
+        .filter(
+          (district) =>
+            district.municipality === filterMunicipality && district.is_active
+        )
+        .map((district) => district.districtId);
+      setFilterDistrictOptions(districtsForMunicipality);
+    } else {
+      setFilterDistrictOptions([]);
+    }
+    setFilterDistrict(""); // Reset district when municipality changes
+  }, [filterMunicipality, districts]);
+
+  // Fetch request history when viewing a submission
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!viewedSubmission) {
+        setSubmissionHistory(null);
+        setLoadingHistory(false);
+        return;
+      }
+      setLoadingHistory(true);
+      try {
+        const res = await api.get(
+          `/requests/${viewedSubmission.request_id}/history/`
+        );
+        setSubmissionHistory(res.data as HistoryItem[]);
+      } catch (err) {
+        setSubmissionHistory(null);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+    fetchHistory();
+  }, [viewedSubmission]);
+
+  // Add this useEffect near your other useEffect hooks
+  useEffect(() => {
+    const fetchLegislativeDistrictsAndDistricts = async () => {
+      try {
+        // Fetch legislative districts
+        const legislativeResponse = await api.get("/school-districts/");
+        const legislativeDistrictsData =
+          legislativeResponse.data.results || legislativeResponse.data;
+
+        const legislativeDistrictsMap: { [key: string]: string[] } = {};
+
+        legislativeDistrictsData.forEach((district: any) => {
+          if (district.legislativeDistrict) {
+            if (!legislativeDistrictsMap[district.legislativeDistrict]) {
+              legislativeDistrictsMap[district.legislativeDistrict] = [];
+            }
+            if (
+              district.municipality &&
+              !legislativeDistrictsMap[district.legislativeDistrict].includes(
+                district.municipality
+              )
+            ) {
+              legislativeDistrictsMap[district.legislativeDistrict].push(
+                district.municipality
+              );
+            }
+          }
+        });
+
+        setLegislativeDistricts(legislativeDistrictsMap);
+        setLegislativeDistrictOptions(Object.keys(legislativeDistrictsMap));
+
+        // Fetch districts for filter options
+        const districtsResponse = await api.get(
+          "school-districts/?show_all=true"
+        );
+        const districtsData =
+          districtsResponse.data.results || districtsResponse.data;
+        setDistricts(Array.isArray(districtsData) ? districtsData : []);
+      } catch (error) {
+        console.error(
+          "Failed to fetch legislative districts or districts:",
+          error
+        );
+      }
+    };
+
+    fetchLegislativeDistrictsAndDistricts();
+  }, []);
+  // Debounce search
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setCurrentPage(1);
+    }, 400);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [filterOptions.searchTerm]);
+  // Replace your current filter options useEffect with this:
+  useEffect(() => {
+    setFilterOptions((prev: any) => ({
+      ...prev,
+      legislative_district: filterLegislativeDistrict,
+      municipality: filterMunicipality,
+      district: filterDistrict,
+    }));
+    setCurrentPage(1);
+  }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
+  // Update sortConfig when activeTab changes
+  useEffect(() => {
+    setSortConfig({
+      key: activeTab === "history" ? "date_approved" : "created_at",
+      direction: "desc",
+    });
+  }, [activeTab]);
   // Approve handler
   const handleApprove = async (submission: Submission) => {
     setActionLoading("approve");
@@ -261,20 +494,10 @@ const PriortySubmissionsPage = () => {
     setIsRejectDialogOpen(true);
   };
 
-  // Debounce search
-  useEffect(() => {
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      setCurrentPage(1);
-    }, 400);
-    return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    };
-  }, [filterOptions.searchTerm]);
-
-  // Filtering logic
   const filteredSubmissions = useMemo(() => {
-    let filtered = submissionsState;
+    let filtered = Array.isArray(submissionsState) ? submissionsState : [];
+
+    // Search term filter - keep this as it's working
     if (filterOptions.searchTerm) {
       const term = filterOptions.searchTerm.toLowerCase();
       filtered = filtered.filter((submission) => {
@@ -292,23 +515,31 @@ const PriortySubmissionsPage = () => {
         );
       });
     }
+
+    // Status filter - keep this as it's working
     if (filterOptions.status) {
       filtered = filtered.filter((s) => s.status === filterOptions.status);
     }
-    if (filterOptions.school) {
-      filtered = filtered.filter(
-        (s) =>
-          s.user.school &&
-          String(s.user.school.schoolId) === filterOptions.school
-      );
-    }
-    return filtered;
-  }, [submissionsState, filterOptions]);
 
-  // Sorting logic
+    // REMOVE ALL OTHER FILTERS since backend handles them
+    // The issue is you're double-filtering - backend + frontend
+
+    return filtered;
+  }, [submissionsState, filterOptions.searchTerm, filterOptions.status]);
+
+  console.log(filteredSubmissions);
+  // Sorting logic - add proper null checks
   const sortedSubmissions = useMemo(() => {
-    if (!sortConfig) return filteredSubmissions;
-    return [...filteredSubmissions].sort((a, b) => {
+    // Ensure filteredSubmissions is always an array before processing
+    const submissions = Array.isArray(filteredSubmissions)
+      ? filteredSubmissions
+      : [];
+
+    if (!sortConfig || submissions.length === 0) {
+      return submissions;
+    }
+
+    return [...submissions].sort((a, b) => {
       if (sortConfig.key === "created_at") {
         const aDate = new Date(a.created_at).getTime();
         const bDate = new Date(b.created_at).getTime();
@@ -343,11 +574,15 @@ const PriortySubmissionsPage = () => {
   }, [filteredSubmissions, sortConfig]);
 
   const requestSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key) {
-      direction = sortConfig.direction === "asc" ? "desc" : "asc";
-    }
-    setSortConfig({ key, direction });
+    setSortConfig((prev) => {
+      if (prev && prev.key === key) {
+        return {
+          key,
+          direction: prev.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return { key, direction: "desc" };
+    });
   };
 
   // Pagination
@@ -362,36 +597,11 @@ const PriortySubmissionsPage = () => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
-  // Fetch request history when viewing a submission
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!viewedSubmission) {
-        setSubmissionHistory(null);
-        setLoadingHistory(false);
-        return;
-      }
-      setLoadingHistory(true);
-      try {
-        const res = await api.get(
-          `/requests/${viewedSubmission.request_id}/history/`
-        );
-        console.log(res.data);
-        setSubmissionHistory(res.data as HistoryItem[]);
-      } catch (err) {
-        setSubmissionHistory(null);
-      } finally {
-        setLoadingHistory(false);
-      }
-    };
-    fetchHistory();
-  }, [viewedSubmission]);
-
   // Helper: get previous rejected state for a resubmission
   const getPreviousRejected = (
     history: HistoryItem[] | null
   ): HistoryItem | null => {
     if (!history || history.length < 2) return null;
-    // Find most recent version with status "rejected"
     return (
       history.find((item, idx) => idx !== 0 && item.status === "rejected") ||
       null
@@ -425,7 +635,7 @@ const PriortySubmissionsPage = () => {
       : diffs.filter((d) => d.change !== "unchanged");
     return (
       <div>
-        <div className="flex items-center mb-2 gap-2">
+        <div className="flex items-center mb-2 gap-2 ml-2">
           <FileDiff className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <span className="font-semibold text-blue-800 dark:text-blue-200">
             Resubmission Changes
@@ -564,13 +774,89 @@ const PriortySubmissionsPage = () => {
     );
   }
 
+  // Date range handler
+  const handleDateRangeChange = (dates: any, dateStrings: [string, string]) => {
+    if (!dates || !dates[0] || !dates[1]) {
+      setFilterOptions((prev) => ({
+        ...prev,
+        start_date: "",
+        end_date: "",
+      }));
+      return;
+    }
+
+    const [start, end] = dates;
+
+    if (start.isAfter(end)) {
+      toast.error("End date must be after start date");
+      return;
+    }
+
+    const maxRange = 365;
+    if (end.diff(start, "days") > maxRange) {
+      toast.error(`Date range cannot exceed ${maxRange} days`);
+      return;
+    }
+
+    setFilterOptions((prev) => ({
+      ...prev,
+      start_date: dateStrings[0],
+      end_date: dateStrings[1],
+    }));
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setFilterOptions({
+      searchTerm: "",
+      status: "",
+      school: "",
+      district: "",
+      legislative_district: "",
+      municipality: "",
+      start_date: "",
+      end_date: "",
+    });
+    setFilterLegislativeDistrict("");
+    setFilterMunicipality("");
+    setFilterDistrict("");
+    setFilterStatus(""); // Add this line
+    setCurrentPage(1);
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="School Heads' Priority Submissions" />
+
+      {/* Tab Navigation */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "pending"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("pending")}
+        >
+          Pending Requests
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "history"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("history")}
+        >
+          Request History
+        </button>
+      </div>
+
       {/* Search, Filters, and Items Per Page */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-        <div className="flex flex-col md:flex-row gap-2 w-full">
-          <div className="relative w-full">
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Search and Basic Filters */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-1/2">
             <Input
               type="text"
               placeholder="Search submissions..."
@@ -581,31 +867,190 @@ const PriortySubmissionsPage = () => {
                   searchTerm: e.target.value,
                 }))
               }
-              className="pl-10 "
+              className="pl-10"
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           </div>
+
+          {/* Items per page */}
+          <div className="flex gap-4 w-full md:w-auto">
+            {/* Filter Button */}
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              startIcon={<Filter className="size-4" />}
+            >
+              Filters
+            </Button>
+
+            <select
+              value={itemsPerPage.toString()}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="min-w-[100px] px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+            >
+              {[5, 10, 20, 50].map((num) => (
+                <option key={num} value={num}>
+                  {num} per page
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="flex gap-4 w-full md:w-auto items-center">
-          <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-            Items per page:
-          </label>
-          <select
-            value={itemsPerPage.toString()}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              setItemsPerPage(Number(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700"
-          >
-            {[5, 10, 20, 50].map((num) => (
-              <option key={num} value={num}>
-                Show {num}
-              </option>
-            ))}
-          </select>
-        </div>
+
+        {/* School-based Filters - Similar to ManageSchools */}
+        {showFilters && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            {/* Status Filter - Only show in history tab */}
+            {activeTab === "history" && (
+              <div className="space-y-2">
+                <Label htmlFor="filter-status" className="text-sm font-medium">
+                  Status
+                </Label>
+                <select
+                  id="filter-status"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="approved">Approved</option>
+                  <option value="downloaded">Downloaded</option>
+                  <option value="unliquidated">Unliquidated</option>
+                  <option value="liquidated">Liquidated</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            )}
+            {/* Legislative District Filter */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="filter-legislative-district"
+                className="text-sm font-medium"
+              >
+                Legislative District
+              </Label>
+              <select
+                id="filter-legislative-district"
+                value={filterLegislativeDistrict}
+                onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
+                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              >
+                <option value="">All</option>
+                {legislativeDistrictOptions.map((ld) => (
+                  <option key={ld} value={ld}>
+                    {ld}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Municipality Filter */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="filter-municipality"
+                className="text-sm font-medium"
+              >
+                Municipality
+              </Label>
+              <select
+                id="filter-municipality"
+                value={filterMunicipality}
+                onChange={(e) => setFilterMunicipality(e.target.value)}
+                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                disabled={!filterLegislativeDistrict}
+              >
+                <option value="">All</option>
+                {filterMunicipalityOptions.map((mun) => (
+                  <option key={mun} value={mun}>
+                    {mun}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* School District Filter */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="filter-school-district"
+                className="text-sm font-medium"
+              >
+                School District
+              </Label>
+              <select
+                id="filter-school-district"
+                value={filterDistrict}
+                onChange={(e) => setFilterDistrict(e.target.value)}
+                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                disabled={!filterMunicipality}
+              >
+                <option value="">All Districts</option>
+                {filterDistrictOptions.map((districtId) => {
+                  const district = districts.find(
+                    (d) => d.districtId === districtId
+                  );
+                  return (
+                    <option key={districtId} value={districtId}>
+                      {district?.districtName}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Date Range Filter - Keep this as requested */}
+            <div className="space-y-2 md:col-span-3">
+              <Label className="text-sm font-medium">Date Range</Label>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <RangePicker
+                  onChange={handleDateRangeChange}
+                  value={
+                    filterOptions.start_date && filterOptions.end_date
+                      ? [
+                          dayjs(filterOptions.start_date),
+                          dayjs(filterOptions.end_date),
+                        ]
+                      : null
+                  }
+                  disabledDate={(current) =>
+                    current && current > dayjs().endOf("day")
+                  }
+                  format="YYYY-MM-DD"
+                  style={{ width: "100%", maxWidth: "300px" }}
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-3 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFilterLegislativeDistrict("");
+                  setFilterMunicipality("");
+                  setFilterDistrict("");
+                  setFilterOptions((prev: any) => ({
+                    ...prev,
+                    district: "",
+                    legislative_district: "",
+                    municipality: "",
+                    start_date: "",
+                    end_date: "",
+                  }));
+                  setFilterStatus(""); // Add this line
+                }}
+                startIcon={<X className="size-4" />}
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
       {/* Table */}
       <PrioritySubmissionsTable
         submissions={currentItems}
@@ -613,19 +1058,21 @@ const PriortySubmissionsPage = () => {
         loading={loading}
         error={error}
         sortConfig={sortConfig}
+        activeTab={activeTab}
         requestSort={requestSort}
+        currentUserRole={user?.role}
       />
-      {/* Pagination */}
+
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
         <div className="text-sm text-gray-600 dark:text-gray-400">
           Showing{" "}
           {currentItems.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}{" "}
           to {Math.min(currentPage * itemsPerPage, filteredSubmissions.length)}{" "}
-          of {filteredSubmissions.length} entries
+          of {(filteredSubmissions || []).length} entries
         </div>
         <div className="flex items-center gap-2">
           <Button
-            onClick={() => goToPage(1)}
+            onClick={() => setCurrentPage(1)}
             disabled={currentPage === 1}
             variant="outline"
             size="sm"
@@ -633,7 +1080,7 @@ const PriortySubmissionsPage = () => {
             <ChevronsLeft className="h-4 w-4" />
           </Button>
           <Button
-            onClick={() => goToPage(currentPage - 1)}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
             variant="outline"
             size="sm"
@@ -655,7 +1102,7 @@ const PriortySubmissionsPage = () => {
               return (
                 <Button
                   key={pageNum}
-                  onClick={() => goToPage(pageNum)}
+                  onClick={() => setCurrentPage(pageNum)}
                   variant={currentPage === pageNum ? "primary" : "outline"}
                   size="sm"
                 >
@@ -665,7 +1112,7 @@ const PriortySubmissionsPage = () => {
             })}
           </div>
           <Button
-            onClick={() => goToPage(currentPage + 1)}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
@@ -673,7 +1120,7 @@ const PriortySubmissionsPage = () => {
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button
-            onClick={() => goToPage(totalPages)}
+            onClick={() => setCurrentPage(totalPages)}
             disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
@@ -682,6 +1129,7 @@ const PriortySubmissionsPage = () => {
           </Button>
         </div>
       </div>
+
       {/* Modal for viewing priorities and actions */}
       <Dialog
         open={!!viewedSubmission}
@@ -768,8 +1216,7 @@ const PriortySubmissionsPage = () => {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Submitted at:{" "}
-                    {new Date(viewedSubmission.created_at).toLocaleString()}
+                    Submitted at: {formatDateTime(viewedSubmission.created_at)}
                   </span>
                 </div>
               </div>
@@ -784,51 +1231,84 @@ const PriortySubmissionsPage = () => {
                 submissionHistory &&
                 submissionHistory.length > 1 &&
                 getPreviousRejected(submissionHistory) && (
-                  <div className="border border-blue-200 dark:border-blue-900/30 rounded-lg p-4 bg-blue-50/50 dark:bg-blue-900/10 shadow-sm">
-                    <div className="mb-2 flex items-center gap-2">
-                      <Info className="h-4 w-4 text-blue-700" />
-                      <span className="font-medium text-blue-800 dark:text-blue-200">
-                        This is a resubmission. Below is a comparison with the
-                        previous version.
-                      </span>
-                    </div>
-                    {/* Summary of the previous rejection */}
-                    <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangleIcon className="h-5 w-5 text-yellow-500" />
-                        <span className="font-medium text-yellow-800 dark:text-yellow-200">
-                          Previous Rejection:
-                        </span>
-                        <span className="text-xs text-gray-500 ml-2">
-                          {formatDateString(
-                            getPreviousRejected(submissionHistory)
-                              ?.rejection_date
-                          )}
-                        </span>
+                  <div className="border border-blue-200/80 dark:border-blue-800 rounded-xl p-5 bg-gradient-to-br from-blue-50/80 to-blue-100/30 dark:from-blue-950/20 dark:to-blue-900/10 shadow-sm backdrop-blur-sm">
+                    {/* Header Section */}
+                    <div className="flex items-start gap-3 mb-4 p-3 bg-white/50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-800/50">
+                      <div className="flex-shrink-0 w-5 h-5 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
+                        <Info className="h-3 w-3 text-blue-600 dark:text-blue-300" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 rounded-full">
-                          Reason:
+                      <div>
+                        <span className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
+                          Resubmission Notice
                         </span>
-                        <span className="italic text-yellow-900 dark:text-yellow-200">
-                          {
-                            getPreviousRejected(submissionHistory)
-                              ?.rejection_comment
-                          }
-                        </span>
+                        <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
+                          This is a resubmission. Below is a comparison with the
+                          previous version.
+                        </p>
                       </div>
                     </div>
-                    {/* Diff table */}
-                    <HistoryComparisonTable
-                      prev={getPreviousRejected(submissionHistory)?.priorities}
-                      curr={submissionHistory[0]?.priorities}
-                      showAll={showAllDiffs}
-                    />
+
+                    {/* Rejection Summary Card */}
+                    <div className="mb-5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="flex-shrink-0 w-6 h-6 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                          <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <span className="font-semibold text-amber-900 dark:text-amber-200 text-sm uppercase tracking-wide">
+                          Previous Rejection Summary
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-900/30 px-2 py-1 rounded">
+                              Date Rejected
+                            </span>
+                            <span className="text-sm text-amber-900 dark:text-amber-200 font-medium">
+                              {formatDateString(
+                                getPreviousRejected(submissionHistory)
+                                  ?.rejection_date
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-900/30 px-2 py-1 rounded flex-shrink-0">
+                              Reason
+                            </span>
+                            <span className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+                              {
+                                getPreviousRejected(submissionHistory)
+                                  ?.rejection_comment
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Comparison Section */}
+                    <div className="bg-white/30 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-800/30 rounded-lg p-1">
+                      <div className="flex items-center justify-between p-3 border-b border-blue-100 dark:border-blue-800/30">
+                        <span className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
+                          Version Comparison
+                        </span>
+                        {/* Optional: Add a toggle button here if needed */}
+                      </div>
+                      <HistoryComparisonTable
+                        prev={
+                          getPreviousRejected(submissionHistory)?.priorities
+                        }
+                        curr={submissionHistory[0]?.priorities}
+                        showAll={showAllDiffs}
+                      />
+                    </div>
                   </div>
                 )
               )}
-
-              {/* Enhanced: Resubmission comparison - unchanged */}
 
               {/* Priorities Table - updated */}
               <div className="space-y-2">
@@ -849,7 +1329,7 @@ const PriortySubmissionsPage = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {viewedSubmission.priorities.map(
+                        {viewedSubmission.priorities?.map(
                           (priority: Priority, idx: number) => (
                             <tr
                               key={idx}
@@ -879,13 +1359,13 @@ const PriortySubmissionsPage = () => {
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
                             ₱
                             {viewedSubmission.priorities
-                              .reduce(
+                              ?.reduce(
                                 (sum, p: Priority) => sum + Number(p.amount),
                                 0
                               )
-                              .toLocaleString(undefined, {
+                              ?.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
-                              })}
+                              }) || "0.00"}
                           </td>
                         </tr>
                       </tbody>
@@ -939,17 +1419,25 @@ const PriortySubmissionsPage = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() =>
-                    handleExport(
-                      viewedSubmission,
-                      user?.first_name || "user",
-                      user?.last_name || "name"
-                    )
-                  }
+                  onClick={async () => {
+                    // Use server-side PDF generation for approved requests
+                    const result = await handleServerSideExport(
+                      viewedSubmission
+                    );
+                    if (result.success) {
+                      toast.success(
+                        result.message || "PDF generated successfully!"
+                      );
+                    } else {
+                      toast.error(result.error || "Failed to generate PDF");
+                    }
+                  }}
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  Export PDF
+                  {viewedSubmission.status === "pending"
+                    ? "Export PDF"
+                    : "Download Official PDF"}
                 </Button>
 
                 {viewedSubmission.status === "pending" && (
@@ -975,8 +1463,15 @@ const PriortySubmissionsPage = () => {
                         setShowApproveConfirm(true);
                       }}
                       disabled={!!actionLoading}
+                      startIcon={
+                        actionLoading ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-5 w-5" />
+                        )
+                      }
                     >
-                      Approve
+                      {actionLoading ? "Approving..." : "Approve"}
                     </Button>
                   </div>
                 )}

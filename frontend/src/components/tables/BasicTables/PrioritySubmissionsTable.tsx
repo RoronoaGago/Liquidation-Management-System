@@ -7,9 +7,17 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import { EyeIcon, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  EyeIcon,
+  ChevronUp,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+} from "lucide-react";
 import { Submission } from "@/lib/types";
-import { formatDateTime } from "@/lib/helpers";
+import { formatDate, formatDateTime } from "@/lib/helpers";
 import {
   CheckCircle,
   XCircle,
@@ -19,13 +27,18 @@ import {
   ArrowDownCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext"; // Add this import
+import { useState, useMemo } from "react";
+import Button from "@/components/ui/button/Button";
+
+// In PrioritySubmissionsTable.tsx - Update the component
 
 interface PrioritySubmissionsTableProps {
-  submissions: Submission[];
+  submissions: Submission[] & { date_approved?: string | null }; // Add date_approved to type
   onView: (submission: Submission) => void;
   loading?: boolean;
   error?: string | null;
   currentUserRole?: string;
+  activeTab: "pending" | "history"; // Add activeTab prop
 }
 
 const PrioritySubmissionsTable: React.FC<
@@ -39,10 +52,11 @@ const PrioritySubmissionsTable: React.FC<
   loading,
   error,
   sortConfig,
+  activeTab,
   requestSort,
   currentUserRole,
 }) => {
-  const { user: authUser } = useAuth(); // Get the authenticated user
+  const { user: authUser } = useAuth();
   const safeSubmissions = Array.isArray(submissions) ? submissions : [];
 
   // Determine if we should hide the columns
@@ -83,6 +97,24 @@ const PrioritySubmissionsTable: React.FC<
     unliquidated: <AlertCircle className="h-4 w-4" />,
     liquidated: <CheckCircle className="h-4 w-4" />,
     advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
+  };
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const totalPages = Math.ceil(safeSubmissions.length / itemsPerPage);
+  const paginatedSubmissions = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return safeSubmissions.slice(start, start + itemsPerPage);
+  }, [safeSubmissions, currentPage, itemsPerPage]);
+
+  // Format date approved
+  const formatDateApproved = (dateString: string | null | undefined) => {
+    if (!dateString) return "Not approved";
+    try {
+      return formatDateTime(dateString);
+    } catch {
+      return "Invalid date";
+    }
   };
 
   return (
@@ -182,6 +214,8 @@ const PrioritySubmissionsTable: React.FC<
                   </TableCell>
                 </>
               )}
+
+              {/* Status Column */}
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -211,6 +245,7 @@ const PrioritySubmissionsTable: React.FC<
                   </span>
                 </div>
               </TableCell>
+              {/* Submitted At Column */}
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -240,6 +275,45 @@ const PrioritySubmissionsTable: React.FC<
                   </span>
                 </div>
               </TableCell>
+
+              {/* NEW: Date Approved Column - Only show for history tab */}
+              <TableCell
+                isHeader
+                className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase hidden sm:table-cell"
+                style={{
+                  display:
+                    currentUserRole === "superintendent" &&
+                    activeTab === "history"
+                      ? "table-cell"
+                      : "none",
+                }}
+              >
+                <div
+                  className="flex items-center gap-1 cursor-pointer"
+                  onClick={() => requestSort && requestSort("date_approved")}
+                >
+                  Date Approved
+                  <span className="inline-flex flex-col ml-1">
+                    <ChevronUp
+                      className={`h-3 w-3 transition-colors ${
+                        sortConfig?.key === "date_approved" &&
+                        sortConfig.direction === "asc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                    <ChevronDown
+                      className={`h-3 w-3 -mt-1 transition-colors ${
+                        sortConfig?.key === "date_approved" &&
+                        sortConfig.direction === "desc"
+                          ? "text-primary-500 dark:text-primary-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                  </span>
+                </div>
+              </TableCell>
+
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -252,7 +326,7 @@ const PrioritySubmissionsTable: React.FC<
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={isSchoolHead ? 4 : 6}
+                  colSpan={isSchoolHead ? 5 : 7} // Updated colspan to account for new column
                   className="py-8 text-center text-gray-500"
                 >
                   Loading submissions...
@@ -261,7 +335,7 @@ const PrioritySubmissionsTable: React.FC<
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={isSchoolHead ? 4 : 6}
+                  colSpan={isSchoolHead ? 5 : 7} // Updated colspan
                   className="py-8 text-center text-red-500"
                 >
                   {error}
@@ -270,14 +344,14 @@ const PrioritySubmissionsTable: React.FC<
             ) : safeSubmissions.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isSchoolHead ? 4 : 6}
+                  colSpan={isSchoolHead ? 5 : 7} // Updated colspan
                   className="py-8 text-center text-gray-500"
                 >
                   No submissions found.
                 </TableCell>
               </TableRow>
             ) : (
-              safeSubmissions.map((submission) => (
+              paginatedSubmissions.map((submission: any) => (
                 <TableRow
                   key={submission.request_id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-900/20"
@@ -317,14 +391,29 @@ const PrioritySubmissionsTable: React.FC<
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
                     {formatDateTime(submission.created_at)}
                   </TableCell>
+
+                  {/* NEW: Date Approved Column */}
+                  <TableCell
+                    className={`px-6 whitespace-nowrap py-4 sm:px-6 text-start ${
+                      currentUserRole === "superintendent" &&
+                      submission.status !== "pending"
+                        ? "table-cell"
+                        : "hidden"
+                    }`}
+                  >
+                    {formatDate(submission.date_approved)}
+                  </TableCell>
+
                   <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                    <button
-                      className="flex items-center gap-2 text-blue-600 hover:underline"
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      startIcon={<EyeIcon className="w-4 h-4" />}
                       onClick={() => onView(submission)}
+                      className="text-blue-600 p-0"
                     >
                       View
-                      <EyeIcon className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

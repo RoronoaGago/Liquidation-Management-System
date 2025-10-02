@@ -27,9 +27,6 @@ import {
   Loader2,
   Archive,
   ArchiveRestore,
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  SquarePenIcon,
   AlertTriangle,
   RefreshCw,
   Loader2Icon,
@@ -39,12 +36,8 @@ import Button from "@/components/ui/button/Button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "@/api/axios";
 import SkeletonRow from "@/components/ui/skeleton";
-import {
-  laUnionMunicipalities,
-  municipalityDistricts,
-  firstDistrictMunicipalities,
-} from "@/lib/constants";
-import { School } from "@/lib/types";
+import { District, School } from "@/lib/types";
+import Badge from "@/components/ui/badge/Badge";
 
 interface SchoolsTableProps {
   schools: School[];
@@ -57,6 +50,7 @@ interface SchoolsTableProps {
   currentSort: { key: string; direction: "asc" | "desc" } | null;
   fetchSchools: () => Promise<void>;
   loading?: boolean;
+  districts: District[]; // Add this line
   error?: Error | null;
   currentPage: number;
   setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
@@ -68,7 +62,6 @@ interface SchoolsTableProps {
 
 export default function SchoolsTable({
   schools,
-  setSchools,
   showArchived,
   setShowArchived,
   fetchSchools,
@@ -81,11 +74,12 @@ export default function SchoolsTable({
   currentPage,
   setCurrentPage,
   itemsPerPage,
+  districts,
   setItemsPerPage,
   totalSchools,
   ITEMS_PER_PAGE_OPTIONS,
 }: SchoolsTableProps) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm] = useState("");
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -100,7 +94,6 @@ export default function SchoolsTable({
 
   // Dialogs and form state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
@@ -128,10 +121,39 @@ export default function SchoolsTable({
   }, [selectedSchool, formErrors]);
 
   useEffect(() => {
-    api.get("/legislative-districts/").then((res) => {
-      setLegislativeDistricts(res.data);
-      setLegislativeDistrictOptions(Object.keys(res.data));
-    });
+    const fetchLegislativeDistricts = async () => {
+      try {
+        const response = await api.get("/school-districts/");
+        const districts = response.data.results || response.data;
+
+        const legislativeDistrictsMap: { [key: string]: string[] } = {};
+
+        districts.forEach((district: District) => {
+          if (district.legislativeDistrict) {
+            if (!legislativeDistrictsMap[district.legislativeDistrict]) {
+              legislativeDistrictsMap[district.legislativeDistrict] = [];
+            }
+            if (
+              district.municipality &&
+              !legislativeDistrictsMap[district.legislativeDistrict].includes(
+                district.municipality
+              )
+            ) {
+              legislativeDistrictsMap[district.legislativeDistrict].push(
+                district.municipality
+              );
+            }
+          }
+        });
+
+        setLegislativeDistricts(legislativeDistrictsMap);
+        setLegislativeDistrictOptions(Object.keys(legislativeDistrictsMap));
+      } catch (error) {
+        console.error("Failed to fetch legislative districts:", error);
+      }
+    };
+
+    fetchLegislativeDistricts();
   }, []);
 
   useEffect(() => {
@@ -181,22 +203,32 @@ export default function SchoolsTable({
   };
 
   // Archive handler
-  const handleArchiveConfirm = async () => {
+  // Archive/Restore handler
+  const handleArchiveConfirm = async (isCurrentlyActive: boolean) => {
     if (!schoolToArchive) return;
     setIsSubmitting(true);
+
     try {
       await api.patch(
         `http://127.0.0.1:8000/api/schools/${schoolToArchive.schoolId}/`,
         {
-          is_active: false,
+          is_active: !isCurrentlyActive, // Toggle the status
         }
       );
-      toast.success("School archived successfully!");
+
+      toast.success(
+        `School ${isCurrentlyActive ? "archived" : "restored"} successfully!`
+      );
+
       await fetchSchools();
       setSchoolToArchive(null);
       setIsArchiveDialogOpen(false);
     } catch (error) {
-      toast.error("Failed to archive school. Please try again.");
+      toast.error(
+        `Failed to ${
+          isCurrentlyActive ? "archive" : "restore"
+        } school. Please try again.`
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -210,7 +242,10 @@ export default function SchoolsTable({
   };
 
   const handleEditSchool = (school: School) => {
-    setSelectedSchool({ ...school });
+    setSelectedSchool({
+      ...school,
+      districtId: school.district.districtId, // Ensure districtId is set
+    });
     setFormErrors({});
     setIsDialogOpen(true);
   };
@@ -225,10 +260,17 @@ export default function SchoolsTable({
   ) => {
     if (!selectedSchool) return;
     const { name, value } = e.target;
-
-    setSelectedSchool((prev) => ({
+    setSelectedSchool((prev: School | null) => ({
       ...prev!,
       [name]: value,
+      // Update district object when districtId changes
+      ...(name === "districtId" && {
+        district: {
+          districtId: value,
+          districtName:
+            districts.find((d) => d.districtId === value)?.districtName || "",
+        },
+      }),
     }));
 
     if (debounceTimeout.current) {
@@ -263,10 +305,12 @@ export default function SchoolsTable({
     setIsSubmitting(true);
 
     try {
-      console.log("Updating school:", selectedSchool);
       await api.put(
         `http://127.0.0.1:8000/api/schools/${selectedSchool.schoolId}/`,
-        selectedSchool,
+        {
+          ...selectedSchool,
+          district: selectedSchool.districtId, // Send districtId as district
+        },
         {
           headers: { "Content-Type": "application/json" },
         }
@@ -284,24 +328,17 @@ export default function SchoolsTable({
     }
   };
 
+  // Update the filter change handler
   const handleFilterChange = (name: string, value: string) => {
     setFilterOptions((prev: any) => ({
       ...prev,
       [name]: value,
     }));
-  };
-
-  const resetFilters = () => {
-    setFilterOptions({
-      searchTerm: "",
-      district: "",
-      municipality: "",
-    });
-    setSearchTerm("");
+    setCurrentPage(1);
   };
 
   const [districtOptions, setDistrictOptions] = useState<string[]>([]);
-  const [autoLegislativeDistrict, setAutoLegislativeDistrict] = useState("");
+
   const handleViewSchool = (school: School) => {
     setSchoolToView(school);
     setIsViewDialogOpen(true);
@@ -324,48 +361,60 @@ export default function SchoolsTable({
     // Set district options based on municipality
     const mun = selectedSchool.municipality;
     if (mun) {
-      setDistrictOptions(municipalityDistricts[mun] || []);
-      // Auto-set legislative district if municipality is selected
-      if (legislativeDistricts["1st District"]?.includes(mun)) {
-        setAutoLegislativeDistrict("1st District");
-        setSelectedSchool((prev) =>
-          prev ? { ...prev, legislativeDistrict: "1st District" } : prev
-        );
-      } else if (legislativeDistricts["2nd District"]?.includes(mun)) {
-        setAutoLegislativeDistrict("2nd District");
-        setSelectedSchool((prev) =>
-          prev ? { ...prev, legislativeDistrict: "2nd District" } : prev
-        );
-      }
-      // Reset district if not in options
-      if (!municipalityDistricts[mun]?.includes(selectedSchool.district)) {
-        setSelectedSchool((prev) => prev && { ...prev, district: "" });
-      }
+      const filteredDistricts = districts
+        .filter(
+          (district) => district.municipality === mun && district.is_active
+        )
+        .map((d) => d.districtId);
+      setDistrictOptions(filteredDistricts);
+      // Auto-select if only one district is available
+      setSelectedSchool((prev) => ({
+        ...prev!,
+        districtId:
+          filteredDistricts.length === 1
+            ? filteredDistricts[0]
+            : prev!.districtId,
+        district: {
+          districtId:
+            filteredDistricts.length === 1
+              ? filteredDistricts[0]
+              : prev!.districtId,
+          districtName:
+            districts.find(
+              (d) =>
+                d.districtId ===
+                (filteredDistricts.length === 1
+                  ? filteredDistricts[0]
+                  : prev!.districtId)
+            )?.districtName || "",
+        },
+      }));
     } else {
       setDistrictOptions([]);
-      setAutoLegislativeDistrict("");
-      setSelectedSchool((prev) =>
-        prev ? { ...prev, district: "", legislativeDistrict: "" } : prev
-      );
+      setSelectedSchool((prev) => ({
+        ...prev!,
+        districtId: "",
+        district: { districtId: "", districtName: "" },
+      }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     selectedSchool?.municipality,
     selectedSchool?.legislativeDistrict,
     isDialogOpen,
     legislativeDistricts,
+    districts,
   ]);
 
   const [isBulkArchiveDialogOpen, setIsBulkArchiveDialogOpen] = useState(false);
   const handleBulkArchive = async (restore: boolean) => {
     if (selectedSchools.length === 0) return;
     setIsSubmitting(true);
-    console.log(restore);
+
     try {
       await Promise.all(
         selectedSchools.map((schoolId) =>
           api.patch(`http://127.0.0.1:8000/api/schools/${schoolId}/`, {
-            is_active: restore,
+            is_active: !restore,
           })
         )
       );
@@ -373,12 +422,13 @@ export default function SchoolsTable({
       toast.success(
         `${selectedSchools.length} school${
           selectedSchools.length > 1 ? "s" : ""
-        } ${restore ? "restored" : "archived"} successfully!`
+        } ${!restore ? "restored" : "archived"} successfully!`
       );
 
       await fetchSchools();
       setSelectedSchools([]);
       setSelectAll(false);
+      setIsBulkArchiveDialogOpen(false);
     } catch (error) {
       toast.error(
         `Failed to ${
@@ -387,7 +437,6 @@ export default function SchoolsTable({
       );
     } finally {
       setIsSubmitting(false);
-      setIsBulkArchiveDialogOpen(false);
     }
   };
 
@@ -403,7 +452,6 @@ export default function SchoolsTable({
   const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
     []
   );
-
   // --- Update filter options dynamically ---
   useEffect(() => {
     // Update municipality options when legislative district changes
@@ -418,27 +466,30 @@ export default function SchoolsTable({
       setFilterMunicipalityOptions([]);
     }
     setFilterMunicipality(""); // Reset municipality when district changes
-    setFilterDistrict("");
-    setFilterDistrictOptions([]);
+    setFilterDistrict(""); // Reset district when legislative district changes
   }, [filterLegislativeDistrict, legislativeDistricts]);
 
   useEffect(() => {
     // Update district options when municipality changes
-    if (filterMunicipality && municipalityDistricts[filterMunicipality]) {
-      setFilterDistrictOptions(municipalityDistricts[filterMunicipality]);
+    if (filterMunicipality) {
+      const districtsForMunicipality = districts
+        .filter(
+          (district) =>
+            district.municipality === filterMunicipality && district.is_active
+        )
+        .map((district) => district.districtId);
+      setFilterDistrictOptions(districtsForMunicipality);
     } else {
       setFilterDistrictOptions([]);
     }
-    setFilterDistrict("");
-  }, [filterMunicipality]);
-
-  // --- Sync filterOptions with dropdowns ---
+    setFilterDistrict(""); // Reset district when municipality changes
+  }, [filterMunicipality, districts]);
   useEffect(() => {
     setFilterOptions((prev: any) => ({
       ...prev,
       legislative_district: filterLegislativeDistrict,
       municipality: filterMunicipality,
-      district: filterDistrict,
+      district: filterDistrict, // This should now be the district ID
     }));
     setCurrentPage(1);
     // eslint-disable-next-line
@@ -526,6 +577,7 @@ export default function SchoolsTable({
         </div>
         {showFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            {/* Legislative District Filter */}
             <div className="space-y-2">
               <Label
                 htmlFor="filter-legislative-district"
@@ -547,6 +599,8 @@ export default function SchoolsTable({
                 ))}
               </select>
             </div>
+
+            {/* Municipality Filter */}
             <div className="space-y-2">
               <Label
                 htmlFor="filter-municipality"
@@ -569,25 +623,36 @@ export default function SchoolsTable({
                 ))}
               </select>
             </div>
+
+            {/* School District Filter */}
             <div className="space-y-2">
-              <Label htmlFor="filter-district" className="text-sm font-medium">
-                District
+              <Label
+                htmlFor="filter-school-district"
+                className="text-sm font-medium"
+              >
+                School District
               </Label>
               <select
-                id="filter-district"
+                id="filter-school-district"
                 value={filterDistrict}
                 onChange={(e) => setFilterDistrict(e.target.value)}
                 className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 disabled={!filterMunicipality}
               >
-                <option value="">All</option>
-                {filterDistrictOptions.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
+                <option value="">All Districts</option>
+                {filterDistrictOptions.map((districtId) => {
+                  const district = districts.find(
+                    (d) => d.districtId === districtId
+                  );
+                  return (
+                    <option key={districtId} value={districtId}>
+                      {district?.districtName}
+                    </option>
+                  );
+                })}
               </select>
             </div>
+
             <div className="md:col-span-3 flex justify-end gap-2">
               <Button
                 variant="outline"
@@ -596,6 +661,12 @@ export default function SchoolsTable({
                   setFilterLegislativeDistrict("");
                   setFilterMunicipality("");
                   setFilterDistrict("");
+                  setFilterOptions((prev: any) => ({
+                    ...prev,
+                    district: "",
+                    legislative_district: "",
+                    municipality: "",
+                  }));
                 }}
                 startIcon={<X className="size-4" />}
               >
@@ -838,8 +909,20 @@ export default function SchoolsTable({
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {school.schoolName}
                     </TableCell>
-                    <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      {school.district}
+                    <TableCell
+                      className={
+                        school.district?.is_active === false
+                          ? "px-6 whitespace-nowrap py-4 text-gray-400 italic text-start text-theme-sm dark:text-gray-500"
+                          : "px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400"
+                      }
+                    >
+                      {school.district?.districtName}
+                      {school.district &&
+                        school.district.is_active === false && (
+                          <span className="ml-1 text-xs text-red-500">
+                            (inactive)
+                          </span>
+                        )}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
                       {school.municipality}
@@ -848,15 +931,9 @@ export default function SchoolsTable({
                       {school.legislativeDistrict}
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400">
-                      <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                          school.is_active !== false
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {school.is_active !== false ? "Active" : "Archived"}
-                      </span>
+                      <Badge color={school.is_active ? "success" : "error"}>
+                        {school.is_active ? "Active" : "Archived"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start text-theme-sm">
                       <div className="flex justify-start space-x-2">
@@ -881,7 +958,7 @@ export default function SchoolsTable({
                               : "bg-success-500 text-white hover:bg-success-600"
                           }`}
                           title={
-                            school.is_active !== false
+                            school.is_active
                               ? "Archive School"
                               : "Restore School"
                           }
@@ -1073,6 +1150,51 @@ export default function SchoolsTable({
                   </p>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="districtId" className="text-base">
+                  District *
+                </Label>
+                <select
+                  id="districtId"
+                  name="districtId"
+                  className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  value={selectedSchool?.districtId || ""}
+                  onChange={handleChange}
+                  disabled={
+                    !selectedSchool?.municipality || districtOptions.length <= 1
+                  }
+                >
+                  <option value="">Select District</option>
+                  {districts
+                    .filter(
+                      (district) =>
+                        district.municipality === selectedSchool?.municipality
+                    )
+                    .map((district) => (
+                      <option
+                        key={district.districtId}
+                        value={district.districtId}
+                        disabled={!district.is_active}
+                        style={{
+                          color: !district.is_active ? "#888" : undefined,
+                          backgroundColor: !district.is_active
+                            ? "#f3f4f6"
+                            : undefined,
+                          fontStyle: !district.is_active ? "italic" : undefined,
+                        }}
+                      >
+                        {district.districtName}
+                        {!district.is_active ? " (inactive)" : ""}
+                      </option>
+                    ))}
+                </select>
+                {formErrors.districtId && (
+                  <p className="text-red-500 text-sm">
+                    {formErrors.districtId}
+                  </p>
+                )}
+              </div>
               <div className="flex justify-end gap-3 pt-4">
                 <Button
                   type="button"
@@ -1163,8 +1285,20 @@ export default function SchoolsTable({
                   <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     District
                   </Label>
-                  <p className="text-gray-800 dark:text-gray-200 mt-1">
-                    {schoolToView.district}
+                  <p
+                    className={
+                      schoolToView.district?.is_active === false
+                        ? " text-gray-400 italic text-start text-theme-sm dark:text-gray-500"
+                        : " text-gray-800 text-start text-theme-sm dark:text-gray-400"
+                    }
+                  >
+                    {schoolToView.district?.districtName}
+                    {schoolToView.district &&
+                      schoolToView.district.is_active === false && (
+                        <span className="ml-1 text-xs text-red-500">
+                          (inactive)
+                        </span>
+                      )}
                   </p>
                 </div>
                 <div>
@@ -1187,15 +1321,9 @@ export default function SchoolsTable({
                   <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     Status
                   </Label>
-                  <span
-                    className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                      schoolToView.is_active !== false
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {schoolToView.is_active !== false ? "Active" : "Archived"}
-                  </span>
+                  <Badge color={schoolToView.is_active ? "success" : "error"}>
+                    {schoolToView.is_active ? "Active" : "Archived"}
+                  </Badge>
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-6">
@@ -1212,22 +1340,21 @@ export default function SchoolsTable({
         </DialogContent>
       </Dialog>
       {/* Archive Confirmation Dialog */}
+      {/* Archive/Restore Confirmation Dialog */}
       <Dialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
         <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
           <DialogHeader className="mb-8">
             <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
-              {schoolToArchive?.is_active !== false
-                ? "Archive School"
-                : "Restore School"}
+              {schoolToArchive?.is_active ? "Archive School" : "Restore School"}
             </DialogTitle>
           </DialogHeader>
           {schoolToArchive && (
             <div className="space-y-4">
               <p className="text-gray-600 dark:text-gray-400">
                 Are you sure you want to{" "}
-                {schoolToArchive.is_active !== false ? "archive" : "restore"}{" "}
-                school <strong>{schoolToArchive.schoolName}</strong>?{" "}
-                {schoolToArchive.is_active !== false
+                {schoolToArchive.is_active ? "archive" : "restore"} school{" "}
+                <strong>{schoolToArchive.schoolName}</strong>?{" "}
+                {schoolToArchive.is_active
                   ? "Archived schools will not be available for selection."
                   : "Restored schools will be available for selection."}
               </p>
@@ -1245,20 +1372,20 @@ export default function SchoolsTable({
                 </Button>
                 <Button
                   type="button"
-                  color={
-                    schoolToArchive.is_active !== false ? "warning" : "success"
+                  color={schoolToArchive.is_active ? "warning" : "success"}
+                  onClick={() =>
+                    handleArchiveConfirm(schoolToArchive?.is_active)
                   }
-                  onClick={handleArchiveConfirm}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="animate-spin size-4" />
-                      {schoolToArchive.is_active !== false
+                      {schoolToArchive.is_active
                         ? "Archiving..."
                         : "Restoring..."}
                     </span>
-                  ) : schoolToArchive.is_active !== false ? (
+                  ) : schoolToArchive.is_active ? (
                     "Archive"
                   ) : (
                     "Restore"
@@ -1269,7 +1396,7 @@ export default function SchoolsTable({
           )}
         </DialogContent>
       </Dialog>
-      {/* Bulk Archive Confirmation Dialog */}
+      {/* Bulk Archive/Restore Confirmation Dialog */}
       <Dialog
         open={isBulkArchiveDialogOpen}
         onOpenChange={setIsBulkArchiveDialogOpen}
@@ -1301,7 +1428,7 @@ export default function SchoolsTable({
               <Button
                 type="button"
                 color={showArchived ? "success" : "warning"}
-                onClick={() => handleBulkArchive(showArchived)}
+                onClick={() => handleBulkArchive(!showArchived)} // Fix: restore = true when showArchived is true
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (

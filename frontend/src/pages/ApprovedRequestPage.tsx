@@ -12,7 +12,7 @@ import {
 import Button from "@/components/ui/button/Button";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
 import Badge from "@/components/ui/badge/Badge";
-import { handleExport } from "@/lib/pdfHelpers";
+import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
   XCircle,
@@ -27,18 +27,18 @@ import {
   RefreshCw,
   AlertCircle,
   ArrowDownCircle,
+  Filter,
 } from "lucide-react";
 import Input from "@/components/form/input/InputField";
 import api from "@/api/axios";
 import { Submission, School } from "@/lib/types";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 import { DatePicker } from "antd";
-import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
-
-dayjs.extend(customParseFormat);
+import dayjs from "@/lib/dayjs";
+import { formatDateTime } from "@/lib/helpers";
 
 // Helper function to map role keys to display names
 function getRoleDisplayName(roleKey: string): string {
@@ -90,6 +90,8 @@ const statusIcons: Record<string, React.ReactNode> = {
   advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
 };
 
+const { RangePicker } = DatePicker;
+
 const ApprovedRequestPage = () => {
   // State for submissions and modal
   const [viewedSubmission, setViewedSubmission] = useState<Submission | null>(
@@ -99,11 +101,17 @@ const ApprovedRequestPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const location = useLocation();
   const [, setSchools] = useState<School[]>([]);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDownloadDate, setSelectedDownloadDate] =
     useState<dayjs.Dayjs | null>(null);
+
+  // Tabs: Accountant view uses two tabs like superintendent
+  const [activeTab, setActiveTab] = useState<"approved" | "history">(
+    "approved"
+  );
 
   // Confirmation dialog state
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -117,7 +125,31 @@ const ApprovedRequestPage = () => {
     searchTerm: "",
     status: "",
     school: "",
+    district: "",
+    legislative_district: "",
+    municipality: "",
+    start_date: "",
+    end_date: "",
   });
+  const [filterStatus, setFilterStatus] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [legislativeDistricts, setLegislativeDistricts] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [legislativeDistrictOptions, setLegislativeDistrictOptions] = useState<
+    string[]
+  >([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
+    useState("");
+  const [filterMunicipality, setFilterMunicipality] = useState("");
+  const [filterDistrict, setFilterDistrict] = useState("");
+  const [filterMunicipalityOptions, setFilterMunicipalityOptions] = useState<
+    string[]
+  >([]);
+  const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
+    []
+  );
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -129,11 +161,47 @@ const ApprovedRequestPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("requests/?status=approved");
-      setSubmissionsState(res.data);
+      // Determine statuses per active tab
+      let statusParam = "";
+      let defaultOrdering = "-created_at";
+      if (activeTab === "approved") {
+        statusParam = "approved";
+      } else {
+        // History for accountant: downloaded, unliquidated, liquidated
+        statusParam = "downloaded,unliquidated,liquidated";
+        defaultOrdering = "-created_at";
+      }
+
+      const params: any = {
+        status: statusParam,
+        ordering: sortConfig
+          ? `${sortConfig.direction === "desc" ? "-" : ""}${sortConfig.key}`
+          : defaultOrdering,
+      };
+
+      if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
+      if (filterOptions.school) params.school_ids = filterOptions.school;
+      if (filterOptions.start_date)
+        params.start_date = filterOptions.start_date;
+      if (filterOptions.end_date) params.end_date = filterOptions.end_date;
+      if (filterOptions.legislative_district) {
+        params.legislative_district = filterOptions.legislative_district;
+      }
+      if (filterOptions.municipality) {
+        params.municipality = filterOptions.municipality;
+      }
+      if (filterOptions.district) {
+        params.district = filterOptions.district;
+      }
+
+      const res = await api.get(`requests/`, { params });
+
+      const submissionsData = res.data.results || res.data || [];
+      setSubmissionsState(submissionsData);
+
       // Fetch schools for filter dropdown
       const schoolRes = await api.get("schools/");
-      setSchools(schoolRes.data);
+      setSchools(schoolRes.data.results || schoolRes.data || []);
     } catch (err: any) {
       console.error("Failed to fetch submissions:", err);
       setError("Failed to fetch submissions");
@@ -144,7 +212,125 @@ const ApprovedRequestPage = () => {
 
   useEffect(() => {
     fetchSubmissions();
+  }, [
+    activeTab,
+    filterOptions.school,
+    filterOptions.district,
+    filterOptions.start_date,
+    filterOptions.end_date,
+    filterOptions.legislative_district,
+    filterOptions.municipality,
+    filterOptions.searchTerm,
+    sortConfig?.key,
+    sortConfig?.direction,
+  ]);
+
+  // Auto-open modal when navigated with a specific requestId
+  useEffect(() => {
+    const state = (location && (location as any).state) || {};
+    const requestedId = state?.requestId as string | undefined;
+    if (requestedId && submissionsState.length > 0) {
+      const match = submissionsState.find((s) => s.request_id === requestedId);
+      if (match) {
+        setViewedSubmission(match);
+      } else {
+        // If not in current page data, try fetch single item and open
+        (async () => {
+          try {
+            const res = await api.get(`requests/${requestedId}/`);
+            setViewedSubmission(res.data);
+          } catch (e) {
+            // Ignore
+          }
+        })();
+      }
+    }
+  }, [location, submissionsState]);
+
+  // Load legislative districts and districts for filters
+  useEffect(() => {
+    const fetchLegislativeDistrictsAndDistricts = async () => {
+      try {
+        const legislativeResponse = await api.get("/school-districts/");
+        const legislativeDistrictsData =
+          legislativeResponse.data.results || legislativeResponse.data;
+
+        const map: { [key: string]: string[] } = {};
+        (legislativeDistrictsData || []).forEach((d: any) => {
+          if (d.legislativeDistrict) {
+            if (!map[d.legislativeDistrict]) map[d.legislativeDistrict] = [];
+            if (
+              d.municipality &&
+              !map[d.legislativeDistrict].includes(d.municipality)
+            ) {
+              map[d.legislativeDistrict].push(d.municipality);
+            }
+          }
+        });
+        setLegislativeDistricts(map);
+        setLegislativeDistrictOptions(Object.keys(map));
+
+        const districtsResponse = await api.get(
+          "school-districts/?show_all=true"
+        );
+        const districtsData =
+          districtsResponse.data.results || districtsResponse.data;
+        setDistricts(Array.isArray(districtsData) ? districtsData : []);
+      } catch (error) {
+        console.error(
+          "Failed to fetch legislative districts or districts:",
+          error
+        );
+      }
+    };
+    fetchLegislativeDistrictsAndDistricts();
   }, []);
+
+  // Sync derived filter option selections
+  useEffect(() => {
+    setFilterOptions((prev: any) => ({
+      ...prev,
+      legislative_district: filterLegislativeDistrict,
+      municipality: filterMunicipality,
+      district: filterDistrict,
+      status: filterStatus,
+    }));
+    setCurrentPage(1);
+  }, [
+    filterLegislativeDistrict,
+    filterMunicipality,
+    filterDistrict,
+    filterStatus,
+  ]);
+
+  // Update municipality options when legislative district changes
+  useEffect(() => {
+    if (
+      filterLegislativeDistrict &&
+      legislativeDistricts[filterLegislativeDistrict]
+    ) {
+      setFilterMunicipalityOptions(
+        legislativeDistricts[filterLegislativeDistrict]
+      );
+    } else {
+      setFilterMunicipalityOptions([]);
+    }
+    setFilterMunicipality("");
+    setFilterDistrict("");
+  }, [filterLegislativeDistrict, legislativeDistricts]);
+
+  // Update district options when municipality changes
+  useEffect(() => {
+    if (filterMunicipality) {
+      const districtsForMunicipality = districts
+        .filter((d) => d.municipality === filterMunicipality && d.is_active)
+        .map((d) => d.districtId);
+      setFilterDistrictOptions(districtsForMunicipality);
+    } else {
+      setFilterDistrictOptions([]);
+    }
+    setFilterDistrict("");
+  }, [filterMunicipality, districts]);
 
   // Approve handler (should call backend in real app)
   const handleApprove = async (
@@ -154,6 +340,10 @@ const ApprovedRequestPage = () => {
     try {
       setDownloadLoading(true);
       const payload = downloadDate ? { download_date: downloadDate } : {};
+      
+      console.log('Submitting with payload:', payload);
+      console.log('Request ID:', submission.request_id);
+      
       await api.post(
         `requests/${submission.request_id}/submit-liquidation/`,
         payload
@@ -163,9 +353,19 @@ const ApprovedRequestPage = () => {
         `Fund request #${submission.request_id} from ${submission.user.first_name} ${submission.user.last_name} has been downloaded.`
       );
       fetchSubmissions();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to submit for liquidation:", err);
-      toast.error("Failed to submit for liquidation. Please try again.");
+      console.error("Error response:", err.response?.data);
+      
+      // Extract error message from response
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.message || 
+                          "Failed to submit for liquidation. Please try again.";
+      
+      // Show detailed error for debugging
+      const detailedError = `Error: ${errorMessage}\nRequest ID: ${submission.request_id}\nDownload Date: ${downloadDate || 'Not provided'}\nBackend Date: ${err.response?.data?.backend_date || 'Unknown'}`;
+      
+      toast.error(detailedError);
     } finally {
       setDownloadLoading(false);
       setSelectedDownloadDate(null);
@@ -275,7 +475,32 @@ const ApprovedRequestPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <PageBreadcrumb pageTitle="School Heads' Priority Submissions" />
+      <PageBreadcrumb pageTitle="Division Accountant - Requests" />
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "approved"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("approved")}
+        >
+          Approved Requests
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "history"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("history")}
+        >
+          Request History
+        </button>
+      </div>
+
       {/* Search, Filters, and Items Per Page */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <div className="flex flex-col md:flex-row gap-2 w-full">
@@ -296,6 +521,14 @@ const ApprovedRequestPage = () => {
           </div>
         </div>
         <div className="flex gap-4 w-full md:w-auto items-center">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            startIcon={<Filter className="size-4" />}
+          >
+            Filters
+          </Button>
+
           <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
             Items per page:
           </label>
@@ -315,6 +548,175 @@ const ApprovedRequestPage = () => {
           </select>
         </div>
       </div>
+
+      {/* Filters Panel */}
+      {showFilters && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700 mb-6">
+          {/* Status filter only on history tab */}
+          {activeTab === "history" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="filter-status">
+                Status
+              </label>
+              <select
+                id="filter-status"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              >
+                <option value="">All Statuses</option>
+                <option value="downloaded">Downloaded</option>
+                <option value="unliquidated">Unliquidated</option>
+                <option value="liquidated">Liquidated</option>
+              </select>
+            </div>
+          )}
+
+          {/* Legislative District */}
+          <div className="space-y-2">
+            <label
+              className="text-sm font-medium"
+              htmlFor="filter-legislative-district"
+            >
+              Legislative District
+            </label>
+            <select
+              id="filter-legislative-district"
+              value={filterLegislativeDistrict}
+              onChange={(e) => setFilterLegislativeDistrict(e.target.value)}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+            >
+              <option value="">All</option>
+              {legislativeDistrictOptions.map((ld) => (
+                <option key={ld} value={ld}>
+                  {ld}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Municipality */}
+          <div className="space-y-2">
+            <label
+              className="text-sm font-medium"
+              htmlFor="filter-municipality"
+            >
+              Municipality
+            </label>
+            <select
+              id="filter-municipality"
+              value={filterMunicipality}
+              onChange={(e) => setFilterMunicipality(e.target.value)}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              disabled={!filterLegislativeDistrict}
+            >
+              <option value="">All</option>
+              {filterMunicipalityOptions.map((mun) => (
+                <option key={mun} value={mun}>
+                  {mun}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* District */}
+          <div className="space-y-2">
+            <label
+              className="text-sm font-medium"
+              htmlFor="filter-school-district"
+            >
+              School District
+            </label>
+            <select
+              id="filter-school-district"
+              value={filterDistrict}
+              onChange={(e) => setFilterDistrict(e.target.value)}
+              className="h-11 w-full appearance-none rounded-lg border-2 border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              disabled={!filterMunicipality}
+            >
+              <option value="">All Districts</option>
+              {filterDistrictOptions.map((districtId) => {
+                const d = districts.find((dd) => dd.districtId === districtId);
+                return (
+                  <option key={districtId} value={districtId}>
+                    {d?.districtName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Date Range */}
+          <div className="space-y-2 md:col-span-3">
+            <label className="text-sm font-medium">Date Range</label>
+            <div className="flex items-center gap-2">
+              <RangePicker
+                onChange={(dates: any, dateStrings: [string, string]) => {
+                  if (!dates || !dates[0] || !dates[1]) {
+                    setFilterOptions((prev) => ({
+                      ...prev,
+                      start_date: "",
+                      end_date: "",
+                    }));
+                    return;
+                  }
+                  const [start, end] = dates;
+                  if (start.isAfter(end)) {
+                    toast.error("End date must be after start date");
+                    return;
+                  }
+                  const maxRange = 365;
+                  if (end.diff(start, "days") > maxRange) {
+                    toast.error(`Date range cannot exceed ${maxRange} days`);
+                    return;
+                  }
+                  setFilterOptions((prev) => ({
+                    ...prev,
+                    start_date: dateStrings[0],
+                    end_date: dateStrings[1],
+                  }));
+                }}
+                value={
+                  filterOptions.start_date && filterOptions.end_date
+                    ? [
+                        dayjs(filterOptions.start_date),
+                        dayjs(filterOptions.end_date),
+                      ]
+                    : null
+                }
+                disabledDate={(current) =>
+                  current && current > dayjs().endOf("day")
+                }
+                format="YYYY-MM-DD"
+                style={{ width: "100%", maxWidth: "300px" }}
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-3 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilterLegislativeDistrict("");
+                setFilterMunicipality("");
+                setFilterDistrict("");
+                setFilterStatus("");
+                setFilterOptions((prev: any) => ({
+                  ...prev,
+                  district: "",
+                  legislative_district: "",
+                  municipality: "",
+                  start_date: "",
+                  end_date: "",
+                }));
+              }}
+            >
+              Clear Filters
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Table */}
       <PrioritySubmissionsTable
         submissions={currentItems}
@@ -323,6 +725,8 @@ const ApprovedRequestPage = () => {
         error={error}
         sortConfig={sortConfig}
         requestSort={requestSort}
+        activeTab={activeTab === "approved" ? "pending" : "history"}
+        currentUserRole={user?.role}
       />
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
@@ -501,17 +905,14 @@ const ApprovedRequestPage = () => {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Submitted at:{" "}
-                    {new Date(viewedSubmission.created_at).toLocaleString()}
+                    Submitted at: {formatDateTime(viewedSubmission.created_at)}
                   </span>
                   {/* Approved at under Submitted at */}
                   {viewedSubmission.status === "approved" &&
                     viewedSubmission.date_approved && (
                       <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Approved at:{" "}
-                        {new Date(
-                          viewedSubmission.date_approved
-                        ).toLocaleString()}
+                        {formatDateTime(viewedSubmission.date_approved)}
                       </span>
                     )}
                 </div>
@@ -579,19 +980,28 @@ const ApprovedRequestPage = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() =>
-                    handleExport(
-                      viewedSubmission,
-                      user?.first_name || "user",
-                      user?.last_name || "name"
-                    )
-                  }
+                  onClick={async () => {
+                    const result = await handleServerSideExport(
+                      viewedSubmission
+                    );
+                    if (result.success) {
+                      toast.success(
+                        result.message || "PDF generated successfully!"
+                      );
+                    } else {
+                      toast.error(result.error || "Failed to generate PDF");
+                    }
+                  }}
                   startIcon={<Download className="w-4 h-4" />}
                   className="order-1 sm:order-none"
                 >
-                  Export PDF
+                  {viewedSubmission.status === "approved" ||
+                  viewedSubmission.status === "unliquidated"
+                    ? "Download Official PDF"
+                    : "Export PDF"}
                 </Button>
 
+                {/* ✅ Fixed logic - show Download Fund button for approved requests in accountant view */}
                 {viewedSubmission.status === "approved" && (
                   <div className="flex gap-3 order-0 sm:order-1">
                     <Button
@@ -600,13 +1010,29 @@ const ApprovedRequestPage = () => {
                       onClick={() => {
                         setSubmissionToApprove(viewedSubmission);
                         setShowDatePicker(true);
-                        setSelectedDownloadDate(dayjs()); // Set default to current date
+                        // Set default to today, but ensure it's within valid range
+                        const today = dayjs();
+                        const approvedDate = viewedSubmission?.date_approved ? dayjs(viewedSubmission.date_approved) : today;
+                        const oneYearBeforeApproval = approvedDate.subtract(1, 'year');
+                        
+                        // Use today if it's valid, otherwise use approval date
+                        let defaultDate = today;
+                        
+                        // Only fall back to approval date if today is before the approval date
+                        // or if today is more than 1 year before approval
+                        if (today.isBefore(approvedDate, 'day') || today.isBefore(oneYearBeforeApproval, 'day')) {
+                          defaultDate = approvedDate;
+                        }
+                        
+                        setSelectedDownloadDate(defaultDate);
                       }}
                       startIcon={<CheckCircle className="w-4 h-4" />}
                       disabled={downloadLoading}
                       loading={downloadLoading}
                     >
-                      Download Fund
+                      {viewedSubmission.status === "approved"
+                        ? "Download Fund"
+                        : "Update Liquidation"}
                     </Button>
                   </div>
                 )}
@@ -617,11 +1043,19 @@ const ApprovedRequestPage = () => {
       </Dialog>
       {/* Date Picker Confirmation Dialog */}
       <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
-        <DialogContent>
+        <DialogContent className="focus:outline-none">
           <DialogHeader>
             <DialogTitle>Select Download Date</DialogTitle>
             <DialogDescription>
               Please select the date when the funds were downloaded.
+              <br />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Valid dates: From 1 year before approval date up to tomorrow (accounts for timezone differences)
+              </span>
+              <br />
+              <span className="text-xs text-blue-600 dark:text-blue-400">
+                System date: {dayjs().format('YYYY-MM-DD')} | Selected: {selectedDownloadDate?.format('YYYY-MM-DD') || 'None'}
+              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 mb-6">
@@ -630,16 +1064,29 @@ const ApprovedRequestPage = () => {
               value={selectedDownloadDate}
               onChange={(date) => {
                 setSelectedDownloadDate(date);
-                console.log(date);
               }}
+              placeholder="Select download date"
+              allowClear={false}
               disabledDate={(current) => {
                 if (!submissionToApprove?.date_approved) return false;
                 const approvedDate = dayjs(submissionToApprove.date_approved);
-                return (
-                  current &&
-                  (current < approvedDate.startOf("day") ||
-                    current > dayjs().endOf("day"))
-                );
+                const today = dayjs();
+                
+                // Allow dates from approval date up to today (inclusive)
+                // Also allow some reasonable past dates (up to 1 year back from approval date)
+                const oneYearBeforeApproval = approvedDate.subtract(1, 'year');
+                
+                // Disable future dates (more than 1 day after today to account for timezone differences)
+                if (current && current.isAfter(today.add(1, 'day'), 'day')) {
+                  return true;
+                }
+                
+                // Disable dates before 1 year before approval
+                if (current && current.isBefore(oneYearBeforeApproval, 'day')) {
+                  return true;
+                }
+                
+                return false;
               }}
               format="MMMM D, YYYY"
               style={{
@@ -663,6 +1110,21 @@ const ApprovedRequestPage = () => {
               variant="success"
               onClick={async () => {
                 if (submissionToApprove && selectedDownloadDate) {
+                  // Validate date before submitting
+                  const today = dayjs();
+                  const approvedDate = dayjs(submissionToApprove.date_approved);
+                  const oneYearBeforeApproval = approvedDate.subtract(1, 'year');
+                  
+                  if (selectedDownloadDate.isAfter(today.add(1, 'day'), 'day')) {
+                    toast.error("Download date cannot be more than 1 day in the future");
+                    return;
+                  }
+                  
+                  if (selectedDownloadDate.isBefore(oneYearBeforeApproval, 'day')) {
+                    toast.error("Download date cannot be more than 1 year before approval date");
+                    return;
+                  }
+                  
                   await handleApprove(
                     submissionToApprove,
                     selectedDownloadDate.format("YYYY-MM-DD")

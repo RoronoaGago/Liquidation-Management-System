@@ -1,6 +1,9 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
+from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
+
+
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -17,9 +20,16 @@ urlpatterns = [
          name='token_obtain_pair'),
     path('token/refresh/', CustomTokenRefreshView.as_view(),
          name='token_refresh'),  # Updated
+    path('logout/', views.logout, name='logout'),
     path('change-password/', views.change_password, name='change-password'),
     path('protected/', ProtectedView.as_view(), name='protected'),
-
+    
+    # Enhanced Secure OTP Endpoints
+    path('request-otp-secure/', request_otp_secure, name='request-otp-secure'),
+    path('verify-otp-secure/', verify_otp_secure, name='verify-otp-secure'),
+    path('resend-otp-secure/', resend_otp_secure, name='resend-otp-secure'),
+    path("users/update-e-signature/",
+         update_e_signature, name="update-e-signature"),
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
@@ -27,6 +37,8 @@ urlpatterns = [
          name='schools-batch-update'),
     path('schools/<str:schoolId>/',
          views.SchoolRetrieveUpdateDestroyAPIView.as_view(), name='school-detail'),
+    path('schools/<str:school_id>/liquidation-dates/',
+         update_school_liquidation_dates, name='update-school-liquidation-dates'),
     path('legislative-districts/', views.legislative_districts,
          name='legislative-districts'),
 
@@ -34,6 +46,12 @@ urlpatterns = [
          name='requirement-list-create'),
     path('requirements/<int:requirementID>/',
          views.RequirementRetrieveUpdateDestroyAPIView.as_view(), name='requirement-detail'),
+    path('requests/next-available-month/',
+         views.get_next_available_month, name='next-available-month'),
+    path('requests/check-eligibility/', views.check_request_eligibility,
+         name='check-request-eligibility'),
+#     path('debug/liquidation-times/', views.debug_liquidation_times,
+     #     name='debug-liquidation-times'),
 
     path('priorities/', views.ListOfPriorityListCreateAPIView.as_view(),
          name='priority-list-create'),
@@ -48,11 +66,13 @@ urlpatterns = [
          name='check-pending-requests'),
     path('requests/<str:request_id>/resubmit/',
          views.resubmit_request, name='resubmit-request'),
+     # path('requests/<str:request_id>/generate-demand-letter/', views.generate_demand_letter, name='generate-demand-letter'),
     # In urls.py
     path('requests/<str:pk>/approve/',
          views.ApproveRequestView.as_view(), name='approve-request'),
     path('requests/<str:pk>/reject/',
          views.RejectRequestView.as_view(), name='reject-request'),
+
     # Liquidation Management URLs
     path('liquidations/', views.LiquidationManagementListCreateAPIView.as_view(),
          name='liquidation-list-create'),
@@ -64,8 +84,9 @@ urlpatterns = [
          views.LiquidationDocumentListCreateAPIView.as_view(), name='liquidation-document-list'),
     path('liquidations/<str:LiquidationID>/documents/<int:pk>/',
          views.LiquidationDocumentRetrieveUpdateDestroyAPIView.as_view(), name='liquidation-document-detail'),
-    path('liquidations/<str:LiquidationID>/approve/',
-         views.approve_liquidation, name='approve-liquidation'),
+    path('documents/<int:document_id>/versions/',
+         views.DocumentVersionListAPIView.as_view(), name='document-versions'),
+    # Removed approve_liquidation URL - now handled through PATCH on liquidation-detail
 
     # Additional custom endpoints
     path('user-requests/', views.UserRequestListAPIView.as_view(),
@@ -85,4 +106,39 @@ urlpatterns = [
          views.request_history, name='request-history'),
     path('liquidations/<str:LiquidationID>/history/',
          views.liquidation_management_history, name='liquidation-history'),
+    path('school-districts/', SchoolDistrictListCreateAPIView.as_view(),
+         name='school-district-list-create'),
+    path('school-districts/<str:districtId>/',
+         SchoolDistrictRetrieveUpdateDestroyAPIView.as_view(), name='school-district-detail'),
+    path('school-districts/<str:districtId>/archive/',
+         archive_school_district, name='school-district-archive'),
+    path('last-liquidated-request/',
+         views.last_liquidated_request, name='last_liquidated_request'),
+
+    # Report URLs
+    path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
+         name='unliquidated-schools-report'),
+    path('reports/liquidation/', liquidation_report,
+         name='liquidation-report'),
+    path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
+    path('liquidations/<str:LiquidationID>/generate-report/',
+         views.generate_liquidation_report, name='generate-liquidation-report'),
+    path('requests/<str:request_id>/generate-pdf/',
+         generate_approved_request_pdf, name='generate-approved-request-pdf'),
+
+    # Backup/Restore
+    path('backup/', initiate_backup, name='initiate-backup'),
+    path('restore/', initiate_restore, name='initiate-restore'),
+    path('backups/', list_backups, name='list-backups'),
+    path('audit-logs/', views.AuditLogListView.as_view(), name='audit-logs'),
+
+    path('school-head/dashboard/', school_head_dashboard, name='school-head-dashboard'),
+
+    # Budget Allocation URLs
+    path('budget-allocations/', BudgetAllocationListCreateAPIView.as_view(), name='budget-allocation-list-create'),
+    path('budget-allocations/<int:pk>/', BudgetAllocationRetrieveUpdateDestroyAPIView.as_view(), name='budget-allocation-detail'),
+    path('budget-allocations/batch-create/', batch_create_budget_allocations, name='batch-create-budget-allocations'),
+    path('budget-allocations/check-status/', check_yearly_budget_status, name='check-yearly-budget-status'),
+    path('budget-allocations/first-monday-info/', get_first_monday_january_info, name='get-first-monday-january-info'),
+
 ]

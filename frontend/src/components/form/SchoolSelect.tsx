@@ -9,14 +9,14 @@ import {
   Label,
 } from "@headlessui/react";
 import { searchSchools } from "@/services/SchoolApi";
-import { School } from "@/lib/types";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
+import { School } from "@/lib/types";
 
 interface SchoolSelectProps {
   value: number | School | null;
   onChange: (value: number | null) => void;
   required?: boolean;
-  error?: string;
+  error?: string | undefined;
 }
 
 export default function SchoolSelect({
@@ -91,9 +91,12 @@ export default function SchoolSelect({
                 <ComboboxOption
                   key={school.schoolId}
                   value={school}
-                  className={({ focus }) =>
+                  disabled={!school.is_active}
+                  className={({ focus, disabled }) =>
                     `relative cursor-pointer select-none px-4 py-2.5 ${
-                      focus
+                      disabled
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
+                        : focus
                         ? "bg-brand-100 text-gray-900 dark:bg-brand-900 dark:text-white"
                         : "text-gray-900 dark:text-gray-200"
                     }`
@@ -105,9 +108,10 @@ export default function SchoolSelect({
                         <span
                           className={`block truncate ${
                             selected ? "font-semibold" : "font-normal"
-                          }`}
+                          } ${!school.is_active ? "text-gray-400" : ""}`}
                         >
                           {school.schoolName}
+                          {!school.is_active && " (inactive)"}
                         </span>
                         {selected && (
                           <span className="flex items-center text-brand-600 dark:text-brand-400">
@@ -116,9 +120,16 @@ export default function SchoolSelect({
                         )}
                       </div>
                       <div
-                        className={`text-xs ${"text-gray-500 dark:text-gray-400"}`}
+                        className={`text-xs ${
+                          !school.is_active
+                            ? "text-gray-400"
+                            : "text-gray-500 dark:text-gray-400"
+                        }`}
                       >
-                        {school.district}, {school.municipality}
+                        {/* {school.district?
+                          ? school.district.districtName
+                          : "No District"}
+                        , {school.municipality} */}
                       </div>
                     </>
                   )}

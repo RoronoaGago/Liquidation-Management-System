@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router";
 import desktopLogo from "../images/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
+  BoxCubeIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -24,10 +25,19 @@ import {
   FileSearch,
   UserRoundPenIcon,
   HandCoinsIcon,
-  FileUserIcon,
-  StampIcon, // <-- Add this
+  StampIcon,
+  LandPlotIcon,
+  FileChartColumnIcon,
+  ClipboardCheckIcon,
+  DatabaseBackupIcon,
+  CalendarIcon,
+  FileIcon,
+  LogsIcon,
+  HelpCircleIcon,
+  PieChartIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import AuditLogPage from "../pages/AuditLogPage";
 
 // Define all possible navigation items with role permissions
 const allNavItems: NavItem[] = [
@@ -35,7 +45,7 @@ const allNavItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
-    roles: ["admin", "school_head", "teacher", "superintendent"], // All roles can access
+    roles: ["admin", "school_head", "teacher", "superintendent", "district_admin", "accountant", "liquidator"], // All roles can access
   },
   {
     icon: <UserCircleIcon />,
@@ -48,6 +58,12 @@ const allNavItems: NavItem[] = [
     name: "Manage Schools",
     path: "/schools",
     roles: ["admin"], // Only admin
+  },
+  {
+    icon: <ClipboardCheckIcon />,
+    name: "Finalize Liquidation Report",
+    path: "/division-review",
+    roles: ["accountant"], // Only for division accountant
   },
   {
     icon: <FileCheck2Icon />,
@@ -75,14 +91,20 @@ const allNavItems: NavItem[] = [
     roles: ["admin"], // Only admin
   },
   {
+    icon: <LandPlotIcon />, // <-- Add this block for requirements
+    name: "Manage Districts",
+    path: "/school-districts",
+    roles: ["admin"], // Only admin
+  },
+  {
     icon: <StampIcon />,
-    name: "Finalize Liquidation Report",
+    name: "Liquidator Review",
     path: "/liquidation-finalize",
     roles: ["liquidator"], // Only liquidator
   },
   {
     icon: <FileSearch />, // <-- Use FileSearch or any icon you prefer
-    name: "Pre Audit",
+    name: "District Review",
     path: "/pre-auditing",
     roles: ["district_admin"], // Only for district_admin
   },
@@ -145,6 +167,38 @@ const allNavItems: NavItem[] = [
   //   ],
   // },
   {
+    icon: <FileChartColumnIcon />,
+    name: "Generate Report",
+    roles: ["admin"], // Only for admin
+
+    subItems: [
+      {
+        icon: <CalendarIcon />, // <-- Add icon here
+        name: "Aging",
+        path: "/report/aging", // Make sure this route exists in your App.tsx
+        roles: ["admin"],
+      },
+      {
+        icon: <HandCoinsIcon />, // <-- Add icon here
+        name: "Liquidation",
+        path: "/report/liquidation", // Make sure this route exists in your App.tsx
+        roles: ["admin"],
+      },
+    ],
+  },
+  {
+    icon: <DatabaseBackupIcon />,
+    name: "Backup & Restore",
+    path: "/backup-restore",
+    roles: ["admin"],
+  },
+  {
+    icon: <LogsIcon />,
+    name: "Audit Logs",
+    path: "/audit-logs",
+    roles: ["admin"], // Only admins should access audit logs
+  },
+  {
     icon: <UserRoundPenIcon />,
     name: "User Profile",
     path: "/profile",
@@ -158,39 +212,47 @@ const allNavItems: NavItem[] = [
       "accountant",
     ], // All roles
   },
-  {
-    icon: <UserCircleIcon />,
-    name: "My Classes",
-    path: "/classes",
-    roles: ["teacher"], // Only teachers
-  },
 ];
 
-// const othersItems: NavItem[] = [
-//   {
-//     icon: <PieChartIcon />,
-//     name: "Charts",
-//     roles: ["admin", "school_head"],
-//     subItems: [
-//       {
-//         name: "Line Chart",
-//         path: "/line-chart",
-//         pro: false,
-//         roles: ["admin", "school_head"],
-//       },
-//       { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
-//     ],
-//   },
-//   {
-//     icon: <BoxCubeIcon />,
-//     name: "UI Elements",
-//     roles: ["admin"],
-//     subItems: [
-//       { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
-//       { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
-//     ],
-//   },
-// ];
+const othersItems = [
+  // {
+  //   icon: <PieChartIcon />,
+  //   name: "Charts",
+  //   roles: ["admin", "school_head"],
+  //   subItems: [
+  //     {
+  //       name: "Line Chart",
+  //       path: "/line-chart",
+  //       pro: false,
+  //       roles: ["admin", "school_head"],
+  //     },
+  //     { name: "Bar Chart", path: "/bar-chart", pro: false, roles: ["admin"] },
+  //   ],
+  // },
+  // {
+  //   icon: <BoxCubeIcon />,
+  //   name: "UI Elements",
+  //   roles: ["admin"],
+  //   subItems: [
+  //     { name: "Alerts", path: "/alerts", pro: false, roles: ["admin"] },
+  //     { name: "Avatar", path: "/avatars", pro: false, roles: ["admin"] },
+  //   ],
+  // },
+  {
+    icon: <HelpCircleIcon />,
+    name: "Help Center",
+    path: "/help",
+    roles: [
+      "admin",
+      "school_head",
+      "school_admin",
+      "district_admin",
+      "superintendent",
+      "liquidator",
+      "accountant",
+    ],
+  },
+];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -245,13 +307,15 @@ const AppSidebar: React.FC = () => {
   };
 
   const [navItems, setNavItems] = useState<NavItem[]>([]);
-  const [filteredOthersItems] = useState<NavItem[]>([]);
+  const [filteredOthersItems, setFilteredOthersItems] = useState<NavItem[]>([]);
 
   useEffect(() => {
     // Filter items whenever userRole changes
     setNavItems(filterItemsByRole(allNavItems));
-    // setFilteredOthersItems(filterItemsByRole(othersItems));
+    setFilteredOthersItems(filterItemsByRole(othersItems));
     console.log(user?.role);
+    // setFilteredOthersItems(filterItemsByRole(othersItems));
+    console.log('User role:', user?.role);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
@@ -486,9 +550,7 @@ const AppSidebar: React.FC = () => {
         </Link>
       </div>
       {(isExpanded || isHovered || isMobileOpen) && (
-        <h1 className="text-xl mb-4 font-bold">
-          Maintenance and Other Operating Expenses Liquidation Management System
-        </h1>
+        <h1 className="text-xl mb-4 font-bold">MOOELMS</h1>
       )}
 
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
@@ -512,7 +574,7 @@ const AppSidebar: React.FC = () => {
             </div>
 
             {/* Others menu section */}
-            {/* {filteredOthersItems.length > 0 && (
+            {filteredOthersItems.length > 0 && (
               <div className="">
                 <h2
                   className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
@@ -522,14 +584,14 @@ const AppSidebar: React.FC = () => {
                   }`}
                 >
                   {isExpanded || isHovered || isMobileOpen ? (
-                    "Others"
+                    "Utilities"
                   ) : (
                     <HorizontaLDots />
                   )}
                 </h2>
                 {renderMenuItems(filteredOthersItems, "others")}
               </div>
-            )} */}
+            )}
           </div>
         </nav>
       </div>

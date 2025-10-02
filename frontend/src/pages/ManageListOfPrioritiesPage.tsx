@@ -21,6 +21,8 @@ import {
   LOPSortableField,
   SortDirection,
 } from "@/lib/types";
+import { Loader2 } from "lucide-react";
+import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
 
 interface LOPFormData {
   expenseTitle: string;
@@ -71,6 +73,7 @@ const ManageListOfPrioritiesPage = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [allLOPs, setAllLOPs] = useState<ListOfPriority[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -92,14 +95,17 @@ const ManageListOfPrioritiesPage = () => {
     }
   );
 
-  // NEW: Requirement search state for dialog
+  // Requirement search state for dialog
   const [requirementSearch, setRequirementSearch] = useState("");
 
-  // Filter requirements in dialog based on search
+  // Only active requirements for selection
+  const activeRequirements = requirements.filter((req) => req.is_active);
+
+  // Filter requirements in dialog based on search (only active)
   const filteredRequirements = useMemo(() => {
-    if (!requirementSearch.trim()) return requirements;
+    if (!requirementSearch.trim()) return activeRequirements;
     const term = requirementSearch.toLowerCase();
-    return requirements.filter((req) =>
+    return activeRequirements.filter((req) =>
       req.requirementTitle.toLowerCase().includes(term)
     );
   }, [requirements, requirementSearch]);
@@ -112,7 +118,7 @@ const ManageListOfPrioritiesPage = () => {
     formData.requirement_ids.length > 0 &&
     Object.keys(errors).length === 0;
 
-  // Fetch LOPs and requirements
+  // Fetch LOPs and requirements (all, including inactive)
   const fetchLOPs = async () => {
     setLoading(true);
     setError(null);
@@ -121,7 +127,9 @@ const ManageListOfPrioritiesPage = () => {
         axios.get(`${API_BASE_URL}/api/priorities/`, {
           params: { archived: showArchived },
         }),
-        axios.get(`${API_BASE_URL}/api/requirements/`), // <--- This should fetch ALL requirements
+        axios.get(`${API_BASE_URL}/api/requirements/`, {
+          params: { show_inactive: true }, // fetch all requirements
+        }),
       ]);
       setAllLOPs(Array.isArray(lopsRes.data) ? lopsRes.data : []);
       setRequirements(Array.isArray(reqsRes.data) ? reqsRes.data : []);
@@ -220,8 +228,10 @@ const ManageListOfPrioritiesPage = () => {
     });
   };
 
+  // Update the handleSubmit function
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     // Validate requirements
     if (formData.requirement_ids.length === 0) {
       setErrors((prev) => ({
@@ -231,22 +241,33 @@ const ManageListOfPrioritiesPage = () => {
       toast.error("Please select at least one requirement.");
       return;
     }
+
     if (!isFormValid) {
       toast.error("Please fill in all required fields correctly!");
       return;
     }
+
+    // Show confirmation dialog instead of submitting directly
+    setShowConfirmation(true);
+  };
+
+  // Add the confirmed submit function
+  const handleConfirmSubmit = async () => {
+    setShowConfirmation(false);
     setIsSubmitting(true);
+
     try {
       await axios.post(`${API_BASE_URL}/api/priorities/`, {
         ...formData,
         category: formData.category || "other_maintenance",
       });
-      // Toasts
+
       toast.success("List of Priority added successfully!", {
         position: "top-center",
         autoClose: 2000,
         transition: Bounce,
       });
+
       setFormData({
         expenseTitle: "",
         requirement_ids: [],
@@ -255,11 +276,9 @@ const ManageListOfPrioritiesPage = () => {
       });
       setErrors({});
       setIsDialogOpen(false);
-      setRequirementSearch(""); // Reset search
+      setRequirementSearch("");
       await fetchLOPs();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      // Toasts
       toast.error("Failed to add List of Priority. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -270,6 +289,7 @@ const ManageListOfPrioritiesPage = () => {
     <div className="container mx-auto px-4 py-6">
       <PageBreadcrumb pageTitle="Manage List of Priorities" />
       <div className="space-y-6">
+        <DynamicContextualHelp variant="inline" className="mb-6" /> 
         <div className="flex justify-end">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -354,42 +374,37 @@ const ManageListOfPrioritiesPage = () => {
                         No requirements found.
                       </div>
                     )}
-                    {filteredRequirements.map((req) => {
-                      const matchIndex = req.requirementTitle
-                        .toLowerCase()
-                        .indexOf(requirementSearch.toLowerCase());
+                    {/* Show all requirements, but only allow selection of active ones */}
+                    {requirements.map((req) => {
+                      const isSelected = formData.requirement_ids.includes(
+                        req.requirementID
+                      );
                       return (
                         <label
                           key={req.requirementID}
-                          className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          className={`flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                            !req.is_active
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
                         >
                           <input
                             type="checkbox"
-                            checked={formData.requirement_ids.includes(
-                              req.requirementID
-                            )}
+                            checked={isSelected}
+                            disabled={!req.is_active}
                             onChange={() =>
+                              req.is_active &&
                               handleRequirementToggle(req.requirementID)
                             }
-                            className="h-5 w-5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150" // <-- outlined, matches input
+                            className="h-5 w-5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
                             style={{ minWidth: 20, minHeight: 20 }}
                           />
                           <span>
-                            {matchIndex !== -1 ? (
-                              <>
-                                {req.requirementTitle.substring(0, matchIndex)}
-                                <span className="bg-yellow-200 dark:bg-yellow-700 font-bold">
-                                  {req.requirementTitle.substring(
-                                    matchIndex,
-                                    matchIndex + requirementSearch.length
-                                  )}
-                                </span>
-                                {req.requirementTitle.substring(
-                                  matchIndex + requirementSearch.length
-                                )}
-                              </>
-                            ) : (
-                              req.requirementTitle
+                            {req.requirementTitle}
+                            {!req.is_active && (
+                              <span className="ml-1 text-xs text-red-500">
+                                (inactive)
+                              </span>
                             )}
                           </span>
                         </label>
@@ -431,6 +446,53 @@ const ManageListOfPrioritiesPage = () => {
                   </Button>
                 </div>
               </form>
+              {showConfirmation && (
+                <Dialog
+                  open={showConfirmation}
+                  onOpenChange={setShowConfirmation}
+                >
+                  <DialogContent className="w-full rounded-lg bg-white dark:bg-gray-800 p-8 shadow-xl">
+                    <DialogHeader className="mb-8">
+                      <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+                        Confirm Creation
+                      </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                      <p className="text-gray-600 dark:text-gray-400">
+                        Are you sure you want to create this new List of
+                        Priority?
+                      </p>
+
+                      <div className="flex justify-end gap-3 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowConfirmation(false)}
+                          disabled={isSubmitting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={handleConfirmSubmit}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="animate-spin size-4" />
+                              Creating...
+                            </span>
+                          ) : (
+                            "Confirm Creation"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </DialogContent>
           </Dialog>
         </div>
@@ -455,3 +517,32 @@ const ManageListOfPrioritiesPage = () => {
 };
 
 export default ManageListOfPrioritiesPage;
+
+// When rendering requirements for a List of Priority (in LOPsTable or elsewhere)
+export function renderLOPRequirements(requirements: Requirement[]) {
+  const maxToShow = 3;
+  const shown = requirements.slice(0, maxToShow);
+  return (
+    <>
+      {shown.map((req) => (
+        <span
+          key={req.requirementID}
+          className={
+            req.is_active
+              ? "inline-block px-2 py-1 rounded bg-green-100 text-green-800 mr-2"
+              : "inline-block px-2 py-1 rounded bg-gray-200 text-gray-500 mr-2 line-through"
+          }
+          title={req.is_active ? "" : "This requirement is inactive"}
+        >
+          {req.requirementTitle}
+          {!req.is_active && (
+            <span className="ml-1 text-xs text-red-500">(inactive)</span>
+          )}
+        </span>
+      ))}
+      {requirements.length > maxToShow && (
+        <span className="ml-1 text-gray-500">...</span>
+      )}
+    </>
+  );
+}

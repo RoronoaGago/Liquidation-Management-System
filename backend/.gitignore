@@ -4,6 +4,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+/backups/
+*.zip
+media/backups/
+
 # Virtual environment
 .venv/
 venv/
@@ -16,8 +20,10 @@ env/
 db.sqlite3 # If you're using sqlite3
 /media/
 /proj_backend/media/profile_pictures/
+/proj_backend/media/e_signatures/
 /proj_backend/media/liquidation_documents/
 /profile_pictures/
+/e_signatures
 /staticfiles/ # Collected static files
 local_settings.py # If you have a separate local settings file for development
 

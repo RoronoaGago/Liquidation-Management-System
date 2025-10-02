@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,21 +40,36 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',  # Add JWT blacklist support
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
     'api',
+    'auditlog',
     'django_celery_results',  # For storing Celery task results
     'django_celery_beat',     # For scheduled tasks
     'simple_history',  # For tracking model history
 ]
+
+# Optional: Configure auditlog settings
+# Set to True to track all models automatically
+AUDITLOG_INCLUDE_ALL_MODELS = False
+AUDITLOG_EXCLUDE_TRACKING_MODELS = ()  # Exclude specific models if needed
 # JWT Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
+
+# JWT Authentication with blacklist
+REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
+    'rest_framework_simplejwt.authentication.JWTAuthentication',
+)
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -63,6 +79,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'api.middleware.AllowIframeForMediaMiddleware',
+    'api.middleware.AuditMiddleware',  # Custom middleware for audit logging
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -145,17 +162,17 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
-    'UPDATE_LAST_LOGIN': False,
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Reduced from 50 minutes
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Reduced from 1 day
+    'ROTATE_REFRESH_TOKENS': True,                   # Enable token rotation
+    'BLACKLIST_AFTER_ROTATION': True,                # Enable blacklisting
+    'UPDATE_LAST_LOGIN': True,                       # Track last login
 
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
-    'ISSUER': None,
+    'ISSUER': 'liquidation-management-system',       # Add issuer
     'JWK_URL': None,
     'LEEWAY': 0,
 
@@ -173,7 +190,12 @@ SIMPLE_JWT = {
 
     'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
-    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=7),
+    
+    # Add blacklist settings
+    'BLACKLIST_TOKEN_CHECKS': [
+        'rest_framework_simplejwt.token_blacklist.blacklist_checks.check_blacklist',
+    ],
 }
 
 # Internationalization
@@ -181,7 +203,7 @@ SIMPLE_JWT = {
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -211,7 +233,7 @@ EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
 
 EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
 # Default sender email
-DEFAULT_FROM_EMAIL = 'DepEd LUSDO <riverajanlester.st.maria@gmail.com>'
+DEFAULT_FROM_EMAIL = 'DepEd LUSDO <noreply@deped.gov.ph>'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
@@ -220,29 +242,66 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+
+CELERY_BEAT_SCHEDULE = {
+    'process-advanced-requests-precise': {
+        'task': 'api.tasks.process_advanced_requests',
+        'schedule': crontab(minute='*'),  # Daily at 6:00 AM
+    },
+    'monthly-audit-precise': {
+        'task': 'api.tasks.monthly_request_status_audit',
+        # 1st of month at 2:00 AM
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),
+    },
+    'check-liquidation-reminders-every-minute': {
+        'task': 'api.tasks.check_liquidation_reminders',
+        # 1st of month at 2:00 AM
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),
+    },
+    'send-urgent-reminders-every-2-minutes': {
+        'task': 'api.tasks.send_urgent_liquidation_reminders',
+        # 1st of month at 2:00 AM
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),
+    },
+    'update-remaining-days-daily': {
+        'task': 'api.tasks.update_liquidation_remaining_days',
+        # 1st of month at 2:00 AM
+        'schedule': crontab(hour=2, minute=0, day_of_month=1),
+    },
+}
+
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
         'console': {
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'DEBUG',  # Show all logs, including debug
+        'level': 'DEBUG',
     },
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',  # You can set this to 'DEBUG' if you want more Django internals
+            'level': 'INFO',
             'propagate': False,
         },
-        # Your app logger
-        'api': {
+        'api': {  # Replace with your actual app name
             'handlers': ['console'],
-            'level': 'WARNING',
-            'propagate': False
+            'level': 'DEBUG',
+            'propagate': False,
         },
     },
+}
+# Backup/Restore settings
+# Server-managed defaults to avoid trusting client-supplied filesystem paths
+BACKUP_SETTINGS = {
+    'DEFAULT_BACKUP_DIR': os.path.join(BASE_DIR, 'Backups'),
+    'MAX_BACKUP_AGE_DAYS': 30,
+    'ALLOW_CUSTOM_PATHS': False,
+    'COMPRESSION_LEVEL': 6,
 }

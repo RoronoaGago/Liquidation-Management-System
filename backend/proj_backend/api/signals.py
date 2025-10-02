@@ -12,6 +12,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
 import logging
+import random
+
 import geoip2.database
 import user_agents
 
@@ -19,7 +21,6 @@ DEFAULT_PASSWORD = "password123"
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-
 # Existing request management signals
 
 
@@ -36,7 +37,8 @@ def handle_request_notifications(sender, instance, created, **kwargs):
 
 
 def create_new_request_notification(instance):
-    superintendent = User.objects.filter(role='superintendent').first()
+    superintendent = User.objects.filter(
+        role='superintendent', is_active=True).first()
     if superintendent:
         Notification.objects.create(
             notification_title=f"New Request from {instance.user.get_full_name()}",
@@ -47,7 +49,8 @@ def create_new_request_notification(instance):
 
 
 def send_notification_email(subject, message, recipient, template_name=None, context=None):
-    if recipient and getattr(recipient, 'email', None):
+    # Check if recipient is active and has an email
+    if recipient and recipient.is_active and getattr(recipient, 'email', None):
         html_message = None
         if template_name and context:
             # Render the email body from template
@@ -117,7 +120,8 @@ def handle_status_change_notification(instance):
 
             # If approved, also notify the division accountant
             if instance.status == 'approved':
-                accountant = User.objects.filter(role='accountant').first()
+                accountant = User.objects.filter(
+                    role='accountant', is_active=True).first()
                 if accountant:
                     Notification.objects.create(
                         notification_title=f"Request {instance.request_id} approved",
@@ -141,21 +145,20 @@ def handle_liquidation_notifications(sender, instance, created, **kwargs):
         if created:
             create_new_liquidation_notification(instance)
         else:
-            if instance.status == 'downloaded' and instance.downloaded_at:
-                # Schedule reminders
-                send_liquidation_reminder.apply_async(
-                    args=[instance.pk, 15],
-                    eta=instance.downloaded_at + timedelta(days=15)
-                )
-                send_liquidation_reminder.apply_async(
-                    args=[instance.pk, 5],
-                    eta=instance.downloaded_at + timedelta(days=25)
-                )
-                # Schedule demand letter on 30th day
-                send_liquidation_demand_letter.apply_async(
-                    args=[instance.pk],
-                    eta=instance.downloaded_at + timedelta(days=30)
-                )
+            # FIXED: Only send reminders when remaining_days actually changes
+            # and only for specific day thresholds
+            if hasattr(instance, '_old_remaining_days'):
+                old_days = instance._old_remaining_days
+                new_days = instance.remaining_days
+
+                # Send reminder only when crossing specific thresholds
+                if (old_days != new_days and new_days in [15, 5] and
+                        instance.status not in ['liquidated', 'draft']):
+                    send_liquidation_reminder.delay(instance.pk, new_days)
+                elif (old_days != new_days and new_days == 0 and
+                      instance.status not in ['liquidated', 'draft']):
+                    send_liquidation_demand_letter.delay(instance.pk)
+
             handle_liquidation_status_change(instance)
     except Exception as e:
         logger.error(
@@ -171,7 +174,8 @@ def create_new_liquidation_notification(instance):
     # Notify only the district admin for the requestor's district
     district_admins = User.objects.filter(
         role='district_admin',
-        school_district=school.district
+        school_district=school.district,
+        is_active=True
     )
     for admin in district_admins:
         Notification.objects.create(
@@ -197,6 +201,12 @@ def handle_liquidation_status_change(instance):
             'receivers': [instance.request.user],
             'additional_receivers': []
         },
+        'under_review_liquidator': {
+            'title': "Liquidation Under Liquidator Review",
+            'details': f"Your liquidation {instance.LiquidationID} is now under review by the liquidator",
+            'receivers': [instance.request.user],
+            'additional_receivers': []
+        },
         'under_review_division': {
             'title': "Liquidation Under Division Review",
             'details': f"Your liquidation {instance.LiquidationID} is now under review by the liquidator",
@@ -213,7 +223,13 @@ def handle_liquidation_status_change(instance):
             'title': "Liquidation Approved by District",
             'details': f"Your liquidation {instance.LiquidationID} has been approved by the district",
             'receivers': [instance.request.user],
-            'additional_receivers': User.objects.filter(role='liquidator')
+            'additional_receivers': User.objects.filter(role='liquidator', is_active=True)
+        },
+        'approved_liquidator': {
+            'title': "Liquidation Approved by Liquidator",
+            'details': f"Your liquidation {instance.LiquidationID} has been approved by the liquidator",
+            'receivers': [instance.request.user],
+            'additional_receivers': User.objects.filter(role='accountant', is_active=True)
         },
         'liquidated': {
             'title': "Liquidation Completed",
@@ -234,106 +250,109 @@ def handle_liquidation_status_change(instance):
 
         # Notify primary receivers
         for receiver in notification_info['receivers']:
-            Notification.objects.create(
-                notification_title=notification_info['title'],
-                details=notification_info['details'],
-                receiver=receiver,
-                sender=changed_by
-            )
-            # Prepare context for the email template
-            context = {
-                "user": receiver,
-                "object": instance,
-                "object_type": "liquidation",
-                "status": instance.status,
-            }
-            # Send email to the receiver using the liquidation template
-            send_notification_email(
-                subject=notification_info['title'],
-                message=notification_info['details'],
-                recipient=receiver,
-                template_name="emails/liquidation_status_change.html",
-                context=context
-            )
+            if receiver.is_active:
+                Notification.objects.create(
+                    notification_title=notification_info['title'],
+                    details=notification_info['details'],
+                    receiver=receiver,
+                    sender=changed_by
+                )
+                # Prepare context for the email template
+                context = {
+                    "user": receiver,
+                    "object": instance,
+                    "object_type": "liquidation",
+                    "status": instance.status,
+                }
+                # Send email to the receiver using the liquidation template
+                send_notification_email(
+                    subject=notification_info['title'],
+                    message=notification_info['details'],
+                    recipient=receiver,
+                    template_name="emails/liquidation_status_change.html",
+                    context=context
+                )
 
         # Notify additional receivers if any
         for receiver in notification_info['additional_receivers']:
-            subject = f"Liquidation {instance.status.replace('_', ' ').title()}"
-            message = f"Liquidation {instance.LiquidationID} for request {instance.request.request_id} is now {instance.status.replace('_', ' ')}"
-            Notification.objects.create(
-                notification_title=subject,
-                details=message,
-                receiver=receiver,
-                sender=changed_by
-            )
-            # Prepare context for the email template
-            context = {
-                "user": receiver,
-                "object": instance,
-                "object_type": "liquidation",
-                "status": instance.status,
-            }
-            # Send email to the additional receiver using the liquidation template
-            send_notification_email(
-                subject=subject,
-                message=message,
-                recipient=receiver,
-                template_name="emails/liquidation_status_change.txt",
-                context=context
-            )
+            if receiver.is_active:
+                subject = f"Liquidation {instance.status.replace('_', ' ').title()}"
+                message = f"Liquidation {instance.LiquidationID} for request {instance.request.request_id} is now {instance.status.replace('_', ' ')}"
+                Notification.objects.create(
+                    notification_title=subject,
+                    details=message,
+                    receiver=receiver,
+                    sender=changed_by
+                )
+                # Prepare context for the email template
+                context = {
+                    "user": receiver,
+                    "object": instance,
+                    "object_type": "liquidation",
+                    "status": instance.status,
+                }
+                # Send email to the additional receiver using the liquidation template
+                send_notification_email(
+                    subject=subject,
+                    message=message,
+                    recipient=receiver,
+                    template_name="emails/liquidation_status_change.html",
+                    context=context
+                )
 
 
-@receiver(user_logged_in)
-def send_login_email(sender, user, request, **kwargs):
-    # Get IP address
-    ip_address = request.META.get('REMOTE_ADDR')
+# @receiver(user_logged_in)
+# def send_login_email(sender, user, request, **kwargs):
+#     # Get IP address
+#     ip_address = request.META.get('REMOTE_ADDR')
 
-    # Get approximate location (requires GeoIP2 database)
-    location = None
-    try:
-        with geoip2.database.Reader('path/to/GeoLite2-City.mmdb') as reader:
-            response = reader.city(ip_address)
-            location_parts = []
-            if response.city.name:
-                location_parts.append(response.city.name)
-            if response.subdivisions.most_specific.name:
-                location_parts.append(response.subdivisions.most_specific.name)
-            if response.country.name:
-                location_parts.append(response.country.name)
-            location = ', '.join(location_parts)
-    except Exception:
-        pass
+#     # Get approximate location (requires GeoIP2 database)
+#     location = None
+#     try:
+#         with geoip2.database.Reader('path/to/GeoLite2-City.mmdb') as reader:
+#             response = reader.city(ip_address)
+#             location_parts = []
+#             if response.city.name:
+#                 location_parts.append(response.city.name)
+#             if response.subdivisions.most_specific.name:
+#                 location_parts.append(response.subdivisions.most_specific.name)
+#             if response.country.name:
+#                 location_parts.append(response.country.name)
+#             location = ', '.join(location_parts)
+#     except Exception:
+#         pass
 
-    # Parse user agent
-    user_agent = request.META.get('HTTP_USER_AGENT', '')
-    agent = user_agents.parse(user_agent)
-    device_info = f"{agent.get_device()} ({agent.get_browser()} {agent.browser.version_string})"
+#     # Parse user agent
+#     user_agent = request.META.get('HTTP_USER_AGENT', '')
+#     agent = user_agents.parse(user_agent)
+#     device_info = f"{agent.get_device()} ({agent.get_browser()} {agent.browser.version_string})"
 
-    # Prepare context
-    context = {
-        'user': user,
-        'ip': ip_address,
-        'login_time': timezone.now(),
-        'location': location,
-        'device_info': device_info,
-        'account_settings_url': request.build_absolute_uri('/account/settings/'),
-        'now': timezone.now(),
-    }
+#     # Prepare context
+#     context = {
+#         'user': user,
+#         'ip': ip_address,
+#         'login_time': timezone.now(),
+#         'location': location,
+#         'device_info': device_info,
+#         'account_settings_url': request.build_absolute_uri('/account/settings/'),
+#         'now': timezone.now(),
+#     }
 
     # Render both text and HTML versions
-    text_message = render_to_string('emails/login_notification.txt', context)
+
     html_message = render_to_string('emails/login_notification.html', context)
+    text_message = render_to_string('emails/login_notification.txt', context)
 
-    subject = "Login Notification"
+#     subject = "Login Notification"
 
-    send_mail(
-        subject,
-        text_message,
-        None,  # Uses DEFAULT_FROM_EMAIL
-        [user.email],
-        html_message=html_message,  # Add HTML version
-        fail_silently=True,
-    )
+#     send_mail(
+#         subject,
+#         text_message,
+#         None,  # Uses DEFAULT_FROM_EMAIL
+#         [user.email],
+#         html_message=html_message,  # Add HTML version
+#         fail_silently=True,
+#     )
 
 
 @receiver(post_save, sender=User)

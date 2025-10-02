@@ -59,14 +59,16 @@ const monthNames = [
 type School = {
   schoolId: string;
   schoolName: string;
-  max_budget: number;
+  current_monthly_budget: number;
+  current_yearly_budget: number;
   municipality?: string;
   district?: string;
   legislativeDistrict?: string;
   is_active?: boolean;
   hasUnliquidated?: boolean;
-  last_liquidated_month?: number;
-  last_liquidated_year?: number;
+  last_liquidated_month?: number | null;
+  last_liquidated_year?: number | null;
+  hasAllocation?: boolean; // New field to track if school has budget allocation
 };
 
 const ResourceAllocation = () => {
@@ -74,6 +76,7 @@ const ResourceAllocation = () => {
   const [editingBudgets, setEditingBudgets] = useState<Record<string, number>>(
     {}
   );
+  const [currentYear] = useState<number>(new Date().getFullYear());
   const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -84,7 +87,6 @@ const ResourceAllocation = () => {
   const [bulkAmount, setBulkAmount] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [adjustmentAmount, setAdjustmentAmount] = useState(1000);
   const [expandedCards, setExpandedCards] = useState<string[]>([]);
@@ -118,11 +120,13 @@ const ResourceAllocation = () => {
     []
   );
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
-  const [bulkActionType, setBulkActionType] = useState<
+  const [bulkActionType] = useState<
     "set" | "increase" | "decrease" | null
   >(null);
   const [undoStack, setUndoStack] = useState<Record<string, number>[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [editingLiquidationDates, setEditingLiquidationDates] = useState<Record<string, { month: number | null; year: number | null }>>({});
+  const [allocationProgress, setAllocationProgress] = useState<{ allocated: number; total: number }>({ allocated: 0, total: 0 });
 
   const canRequestNextMonth = useCallback((school: School) => {
     if (!school.is_active) return false;
@@ -153,26 +157,26 @@ const ResourceAllocation = () => {
     }
   };
 
-  // Bulk handlers
-  const handleBulkSet = (amount: number) => {
-    setEditingBudgets((prev) => {
-      const updated = { ...prev };
-      selectedSchools.forEach((id) => {
-        updated[id] = Math.max(0, amount);
-      });
-      return updated;
-    });
-  };
+  // Bulk handlers (commented out as they're not currently used)
+  // const handleBulkSet = (amount: number) => {
+  //   setEditingBudgets((prev) => {
+  //     const updated = { ...prev };
+  //     selectedSchools.forEach((id) => {
+  //       updated[id] = Math.max(0, amount);
+  //     });
+  //     return updated;
+  //   });
+  // };
 
-  const handleBulkAdjust = (amount: number) => {
-    setEditingBudgets((prev) => {
-      const updated = { ...prev };
-      selectedSchools.forEach((id) => {
-        updated[id] = Math.max(0, (prev[id] || 0) + amount);
-      });
-      return updated;
-    });
-  };
+  // const handleBulkAdjust = (amount: number) => {
+  //   setEditingBudgets((prev) => {
+  //     const updated = { ...prev };
+  //     selectedSchools.forEach((id) => {
+  //       updated[id] = Math.max(0, (prev[id] || 0) + amount);
+  //     });
+  //     return updated;
+  //   });
+  // };
 
   // Bulk confirmation and undo
   // Replace the existing handleBulkConfirm with this version
@@ -187,7 +191,7 @@ const ResourceAllocation = () => {
     const updated = { ...editingBudgets };
     selectedSchools.forEach((id) => {
       const current = Number(
-        updated[id] || schools.find((s) => s.schoolId === id)?.max_budget || 0
+        updated[id] || schools.find((s) => s.schoolId === id)?.current_yearly_budget || 0
       );
       if (type === "set") {
         updated[id] = Math.max(0, bulkAmount);
@@ -232,29 +236,32 @@ const ResourceAllocation = () => {
       if (filterDistrict) params.district = filterDistrict;
 
       const schoolsRes = await api.get("schools/", { params });
+      console.log(schoolsRes.data.results);
       let schoolsData = schoolsRes.data.results || schoolsRes.data;
 
       if (filterCanRequest !== null) {
-        schoolsData = schoolsData.filter((school: School) =>
+        schoolsData = schoolsData.filter((school: any) =>
           filterCanRequest
             ? canRequestNextMonth(school)
             : !canRequestNextMonth(school)
         );
       }
 
-      const schoolIds = schoolsData.map((school: School) => school.schoolId);
+      const schoolIds = schoolsData.map((school: any) => school.schoolId);
       const backlogData = await fetchBacklogData(schoolIds);
 
-      const schoolsWithBacklog = schoolsData.map((school: School) => {
+      const schoolsWithBacklog = schoolsData.map((school: any) => {
         const hasUnliquidated = backlogData.has(school.schoolId);
+        const hasAllocation = school.current_yearly_budget > 0;
         return {
           ...school,
           hasUnliquidated,
+          hasAllocation,
         };
       });
       const initialBudgets = schoolsWithBacklog.reduce(
         (acc: Record<string, number>, school: School) => {
-          acc[school.schoolId] = school.max_budget || 0;
+          acc[school.schoolId] = school.current_yearly_budget || 0;
           return acc;
         },
         {} as Record<string, number>
@@ -263,6 +270,11 @@ const ResourceAllocation = () => {
       setEditingBudgets(initialBudgets);
       setSchools(schoolsWithBacklog);
       setTotalSchools(schoolsRes.data.count ?? schoolsData.length);
+      
+      // Calculate allocation progress
+      const totalActiveSchools = schoolsWithBacklog.filter((school: any) => school.is_active).length;
+      const allocatedSchools = schoolsWithBacklog.filter((school: any) => school.is_active && school.hasAllocation).length;
+      setAllocationProgress({ allocated: allocatedSchools, total: totalActiveSchools });
     } catch (error) {
       console.error("Error fetching schools data:", error);
     } finally {
@@ -354,29 +366,29 @@ const ResourceAllocation = () => {
   const totalDifference = useMemo(
     () =>
       selectedSchools.reduce((sum, id) => {
-        const prev = schools.find((s) => s.schoolId === id)?.max_budget || 0;
+        const prev = schools.find((s) => s.schoolId === id)?.current_yearly_budget || 0;
         const current = Number(editingBudgets[id]) || 0;
         return sum + (current - Number(prev));
       }, 0),
     [selectedSchools, schools, editingBudgets]
   );
 
-  const resetBudgets = () => {
-    const initialBudgets = schools.reduce(
-      (acc: Record<string, number>, school) => {
-        acc[school.schoolId] = school.max_budget || 0;
-        return acc;
-      },
-      {}
-    );
-    const updated = { ...editingBudgets };
-    selectedSchools.forEach((schoolId) => {
-      updated[schoolId] = initialBudgets[schoolId];
-    });
-    setEditingBudgets(updated);
-    setShowResetConfirm(false);
-    toast.info("Selected budgets reset to original values");
-  };
+  // const resetBudgets = () => {
+  //   const initialBudgets = schools.reduce(
+  //     (acc: Record<string, number>, school) => {
+  //       acc[school.schoolId] = school.current_yearly_budget || 0;
+  //       return acc;
+  //     },
+  //     {}
+  //   );
+  //   const updated = { ...editingBudgets };
+  //   selectedSchools.forEach((schoolId) => {
+  //     updated[schoolId] = initialBudgets[schoolId];
+  //   });
+  //   setEditingBudgets(updated);
+  //   setShowResetConfirm(false);
+  //   toast.info("Selected budgets reset to original values");
+  // };
 
   const totalSelected = useMemo(
     () =>
@@ -410,7 +422,7 @@ const ResourceAllocation = () => {
     const avgBudget =
       selectedSchools.reduce((sum, id) => {
         const school = schools.find((s) => s.schoolId === id);
-        return sum + (school?.max_budget || 0);
+        return sum + (school?.current_yearly_budget || 0);
       }, 0) / selectedSchools.length;
 
     if (eligibleCount / selectedSchools.length > 0.7) {
@@ -431,7 +443,7 @@ const ResourceAllocation = () => {
     const initialBudgets = schools.reduce(
       (acc, school) => ({
         ...acc,
-        [school.schoolId]: school.max_budget || 0,
+        [school.schoolId]: school.current_yearly_budget || 0,
       }),
       {}
     );
@@ -443,6 +455,92 @@ const ResourceAllocation = () => {
     setSelectedSchools([]);
     setExpandedCards([]);
   };
+
+  const validateLiquidationDate = (month: number | null, year: number | null): string | null => {
+    if (!month || !year) return null;
+    
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
+    
+    // Check if the date is in the future
+    if (year > currentYear || (year === currentYear && month > currentMonth)) {
+      return "Cannot set liquidation date in the future";
+    }
+    
+    return null;
+  };
+
+  const isFutureMonth = (monthIndex: number, selectedYear: number | null): boolean => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+    
+    return selectedYear === currentYear && (monthIndex + 1) > currentMonth;
+  };
+
+  const handleLiquidationDateChange = (schoolId: string, field: 'month' | 'year', value: number | null) => {
+    const currentDates = editingLiquidationDates[schoolId] || {};
+    const newDates = {
+      ...currentDates,
+      [field]: value
+    };
+    
+    // Validate the new date combination
+    const validationError = validateLiquidationDate(newDates.month, newDates.year);
+    
+    if (validationError) {
+      toast.error(validationError);
+      return; // Don't update if validation fails
+    }
+    
+    setEditingLiquidationDates(prev => ({
+      ...prev,
+      [schoolId]: newDates
+    }));
+  };
+
+  const saveLiquidationDates = async (schoolId: string) => {
+    const dates = editingLiquidationDates[schoolId];
+    if (!dates) return;
+
+    // Final validation before saving
+    const validationError = validateLiquidationDate(dates.month, dates.year);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
+    try {
+      await api.patch(`schools/${schoolId}/liquidation-dates/`, {
+        last_liquidated_month: dates.month,
+        last_liquidated_year: dates.year
+      });
+
+      // Update the school in the local state
+      setSchools(prev => prev.map(school => 
+        school.schoolId === schoolId 
+          ? { 
+              ...school, 
+              last_liquidated_month: dates.month, 
+              last_liquidated_year: dates.year 
+            }
+          : school
+      ));
+
+      // Clear the editing state
+      setEditingLiquidationDates(prev => {
+        const newState = { ...prev };
+        delete newState[schoolId];
+        return newState;
+      });
+
+      toast.success("Liquidation dates updated successfully");
+    } catch (error: any) {
+      console.error("Error updating liquidation dates:", error);
+      toast.error(`Failed to update liquidation dates: ${error.response?.data?.error || error.message}`);
+    }
+  };
   // 4. Enhance saveBudgets with validation
   const saveBudgets = async () => {
     if (selectedSchools.length === 0) {
@@ -452,24 +550,22 @@ const ResourceAllocation = () => {
 
     setIsSaving(true);
     try {
-      const updates = selectedSchools.map((schoolId) => {
-        const budget = Number(editingBudgets[schoolId]) || 0;
-        const original =
-          schools.find((s) => s.schoolId === schoolId)?.max_budget || 0;
+      const allocations = selectedSchools.map((schoolId) => {
+        const yearlyBudget = Number(editingBudgets[schoolId]) || 0;
 
         return {
-          schoolId: String(schoolId),
-          max_budget: parseFloat(budget.toFixed(2)),
-          original_budget: original,
-          difference: parseFloat((budget - original).toFixed(2)),
+          school_id: String(schoolId),
+          yearly_budget: parseFloat(yearlyBudget.toFixed(2)),
         };
       });
 
-      // Validate large changes
-
-      await api.patch("/schools/batch_update/", { updates });
+      // Create or update budget allocations for the current year
+      await api.post("/budget-allocations/batch-create/", { 
+        year: currentYear,
+        allocations 
+      });
       setShowSuccessDialog(true);
-      setTimeout(() => setShowSuccessDialog(false), 2500);
+      setTimeout(() => setShowSuccessDialog(false), 3000);
 
       // Refresh data
       await fetchData();
@@ -563,10 +659,10 @@ const ResourceAllocation = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Confirm Budget Changes
+                Confirm Yearly Budget Changes
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                You're about to update budgets for {selectedSchools.length}{" "}
+                You're about to update yearly budgets for {selectedSchools.length}{" "}
                 schools
               </p>
             </div>
@@ -743,19 +839,41 @@ const ResourceAllocation = () => {
   );
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
-      <PageBreadcrumb pageTitle="Resource Allocation" />
+      <PageBreadcrumb pageTitle="Yearly Budget Allocation" />
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center">
-          <div className="flex flex-col items-center py-8">
-            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Budgets Updated!
-            </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-center mb-2">
-              School budgets were updated successfully.
-            </p>
+        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+          {/* Main Content Container */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            {/* Animated Checkmark Icon */}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
+              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
+            </div>
+
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+                Yearly Budgets Updated Successfully
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                School yearly budgets have been updated and saved to the system.
+              </p>
+            </div>
+
+            {/* Action Indicator */}
+            <div className="pt-2">
+              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+                <span className="animate-pulse">•</span>
+                <span>Closing automatically</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Animated Progress Bar */}
+          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
           </div>
         </DialogContent>
       </Dialog>
@@ -768,7 +886,7 @@ const ResourceAllocation = () => {
         <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
           <Disclosure>
             {({ open }) => (
-              <>
+              <div>
                 <DisclosureButton
                   className="flex w-full items-center justify-between p-3 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                   aria-label="Resource allocation guide"
@@ -776,7 +894,7 @@ const ResourceAllocation = () => {
                   <div className="flex items-center gap-2">
                     <Info className="h-5 w-5 flex-shrink-0 text-brand-600 dark:text-brand-400" />
                     <span className="font-medium text-brand-800 dark:text-brand-200">
-                      How to allocate resources
+                      How to allocate yearly budgets
                     </span>
                   </div>
                   <ChevronDownIcon
@@ -799,19 +917,53 @@ const ResourceAllocation = () => {
                       <li>Select an adjustment amount from the top controls</li>
                       <li>
                         Use the + and - buttons in each selected school to
-                        adjust the budget
+                        adjust the yearly budget
                       </li>
                       <li>Click "Save Selected" when ready</li>
                       <li>
-                        Use filters to find schools that can request next month
+                        Monthly budget is automatically calculated (yearly ÷ 12)
                       </li>
                     </ol>
                   </Disclosure.Panel>
                 </Transition>
-              </>
+              </div>
             )}
           </Disclosure>
         </div>
+
+        {/* Allocation Progress Bar */}
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <CheckCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Budget Allocation Progress
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {allocationProgress.allocated} of {allocationProgress.total} active schools have budget allocations
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {allocationProgress.total > 0 ? Math.round((allocationProgress.allocated / allocationProgress.total) * 100) : 0}%
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Complete</div>
+            </div>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div 
+              className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-500 ease-out"
+              style={{ 
+                width: `${allocationProgress.total > 0 ? (allocationProgress.allocated / allocationProgress.total) * 100 : 0}%` 
+              }}
+            />
+          </div>
+        </div>
+
         {/* Search and Controls */}
         <div className="flex flex-col gap-4">
           {/* Top controls row */}
@@ -875,7 +1027,7 @@ const ResourceAllocation = () => {
         {/* Adjustment Controls */}
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mt-4">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Adjustment Amount
+            Yearly Budget Adjustment Amount
           </h3>
           <div className="flex flex-wrap gap-2">
             {QUICK_ADD_AMOUNTS.map((amount) => (
@@ -894,7 +1046,7 @@ const ResourceAllocation = () => {
         {selectedSchools.length > 0 && (
           <div className="flex flex-col md:flex-row gap-4 items-center mb-4 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20">
             <span className="font-medium text-blue-800 dark:text-blue-200">
-              Bulk Adjust {selectedSchools.length} selected school(s):
+              Bulk Adjust Yearly Budget for {selectedSchools.length} selected school(s):
             </span>
             <input
               type="number"
@@ -1012,24 +1164,36 @@ const ResourceAllocation = () => {
             sortedSchools.map((school) => {
               const isSelected = selectedSchools.includes(school.schoolId);
               const isExpanded = expandedCards.includes(school.schoolId);
-              const prevBudget = Number(school.max_budget || 0);
+              const prevBudget = Number(school.current_yearly_budget || 0);
               const currentBudget = editingBudgets[school.schoolId] ?? 0;
               const difference = currentBudget - prevBudget;
-              const canRequest = canRequestNextMonth(school);
+              // const canRequest = canRequestNextMonth(school);
 
               return (
                 <div
                   key={school.schoolId}
                   className={`rounded-lg border transition-all overflow-hidden cursor-pointer flex flex-col 
-                      ${isExpanded ? "h-auto" : "h-[120px]"} ${
-                    isSelected
-                      ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
-                      : "border-gray-200 dark:border-gray-700"
-                  } hover:border-brand-400 dark:hover:border-brand-500`}
+      ${isExpanded ? "h-auto" : "h-[120px]"} 
+      ${
+        isSelected
+          ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
+          : school.hasAllocation
+          ? "border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10"
+          : "border-gray-200 dark:border-gray-700"
+      } 
+      ${
+        !school.is_active
+          ? "bg-gray-50 opacity-75 dark:bg-gray-800/50"
+          : school.hasAllocation
+          ? "bg-green-50/30 dark:bg-green-900/10"
+          : "bg-white dark:bg-gray-900"
+      }
+      hover:border-brand-400 dark:hover:border-brand-500`}
                   onClick={(e) => {
                     if (
                       e.target instanceof HTMLButtonElement ||
-                      e.target instanceof HTMLInputElement
+                      e.target instanceof HTMLInputElement ||
+                      e.target instanceof HTMLSelectElement
                     ) {
                       return;
                     }
@@ -1039,13 +1203,29 @@ const ResourceAllocation = () => {
                   <div className="p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="font-medium text-gray-800 dark:text-gray-200">
+                        <div className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
                           {school.schoolName}
+                          {!school.is_active && (
+                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded-full dark:bg-gray-700 dark:text-gray-400">
+                              Inactive
+                            </span>
+                          )}
+                          {school.hasAllocation && school.is_active && (
+                            <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full dark:bg-green-900/30 dark:text-green-200">
+                              Allocated
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                           ID: {school.schoolId}
                         </div>
                       </div>
+                      {!school.is_active && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          This school is inactive. Budget cannot be modified.
+                        </div>
+                      )}
+
                       <div className="flex flex-col items-end gap-1">
                         {difference !== 0 && (
                           <div
@@ -1095,7 +1275,7 @@ const ResourceAllocation = () => {
                       <>
                         <div className="mt-4 flex items-center justify-between">
                           <div className="text-sm text-gray-600 dark:text-gray-300">
-                            Current Budget
+                            Current Yearly Budget
                           </div>
                           <div className="font-medium">
                             {formatCurrency(currentBudget)}
@@ -1103,11 +1283,118 @@ const ResourceAllocation = () => {
                         </div>
                         <div className="mt-1 flex items-center justify-between">
                           <div className="text-sm text-gray-600 dark:text-gray-300">
-                            Previous Budget
+                            Previous Yearly Budget
                           </div>
                           <div className="text-sm">
                             {formatCurrency(prevBudget)}
                           </div>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between">
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
+                            Monthly Budget
+                          </div>
+                          <div className="text-sm">
+                            {formatCurrency(currentBudget / 12)}
+                          </div>
+                        </div>
+
+                        {/* Liquidation Date Inputs */}
+                        <div className="mt-4 space-y-3">
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Last Liquidation Date
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                Month
+                              </label>
+                              <select
+                                value={editingLiquidationDates[school.schoolId]?.month ?? school.last_liquidated_month ?? ""}
+                                onChange={(e) => handleLiquidationDateChange(school.schoolId, 'month', e.target.value ? parseInt(e.target.value) : null)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
+                                disabled={!school.is_active}
+                              >
+                                <option value="">Select Month</option>
+                                {monthNames.map((month, index) => {
+                                  const selectedYear = editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? null;
+                                  const futureMonth = isFutureMonth(index, selectedYear);
+                                  
+                                  return (
+                                    <option 
+                                      key={index} 
+                                      value={index + 1}
+                                      disabled={futureMonth}
+                                      style={futureMonth ? { color: '#9CA3AF', fontStyle: 'italic' } : {}}
+                                    >
+                                      {futureMonth ? `${month} (Future)` : month}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                Year
+                              </label>
+                              <input
+                                type="number"
+                                min="2020"
+                                max={new Date().getFullYear()}
+                                value={editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? ""}
+                                onChange={(e) => {
+                                  const yearValue = e.target.value ? parseInt(e.target.value) : null;
+                                  
+                                  // Check if future year is entered
+                                  if (yearValue && yearValue > new Date().getFullYear()) {
+                                    toast.error("Cannot set liquidation date in the future");
+                                    return; // Don't update the state
+                                  }
+                                  
+                                  handleLiquidationDateChange(school.schoolId, 'year', yearValue);
+                                }}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
+                                disabled={!school.is_active}
+                                placeholder="e.g., 2024"
+                              />
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Cannot set dates in the future
+                          </div>
+                          {(editingLiquidationDates[school.schoolId]?.month !== school.last_liquidated_month || 
+                            editingLiquidationDates[school.schoolId]?.year !== school.last_liquidated_year) && (
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  saveLiquidationDates(school.schoolId);
+                                }}
+                                variant="primary"
+                                size="sm"
+                                disabled={!school.is_active}
+                                className="px-3 py-1 text-xs"
+                              >
+                                Save Dates
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingLiquidationDates(prev => {
+                                    const newState = { ...prev };
+                                    delete newState[school.schoolId];
+                                    return newState;
+                                  });
+                                }}
+                                variant="outline"
+                                size="sm"
+                                className="px-3 py-1 text-xs"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Show liquidation details if toggled on */}
@@ -1134,12 +1421,13 @@ const ResourceAllocation = () => {
                               }}
                               variant="outline"
                               size="sm"
-                              disabled={currentBudget <= 0}
+                              disabled={currentBudget <= 0 || !school.is_active} // Add !school.is_active
                               className="px-4 py-2 h-10 w-full"
                             >
                               <Minus className="h-4 w-4" />
                               <span className="ml-2">Decrease</span>
                             </Button>
+
                             <Button
                               type="button"
                               onClick={(e) => {
@@ -1148,6 +1436,7 @@ const ResourceAllocation = () => {
                               }}
                               variant="outline"
                               size="sm"
+                              disabled={!school.is_active} // Add !school.is_active
                               className="px-4 py-2 h-10 w-full"
                             >
                               <Plus className="h-4 w-4" />
@@ -1163,11 +1452,13 @@ const ResourceAllocation = () => {
                               min={0}
                               value={editingBudgets[school.schoolId] || 0}
                               onChange={(e) =>
+                                school.is_active && // Only allow changes for active schools
                                 handleBudgetChange(
                                   school.schoolId,
                                   parseFloat(e.target.value) || 0
                                 )
                               }
+                              disabled={!school.is_active} // Disable for inactive schools
                               className="pl-8 h-10 text-center"
                             />
                           </div>

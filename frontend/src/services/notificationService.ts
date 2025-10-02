@@ -1,6 +1,6 @@
 
 import axios from "axios";
-import api from "./api";
+import api from "../api/axios";
 
 export const getNotifications = async (userId: string | undefined | number) => {
     console.log('Fetching notifications for user:', userId);

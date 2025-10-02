@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import datetime, timedelta, date
 from simple_history.models import HistoricalRecords
+from .json_utils import DecimalJSONEncoder  # Import your custom encoder
 import string
 import logging
 # Configure logging
@@ -81,15 +82,27 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
-    school_district = models.CharField(
-        max_length=100,
+    school_district = models.ForeignKey(
+        'SchoolDistrict',
+        on_delete=models.SET_NULL,
         blank=True,
         null=True,
+        related_name='district_users',
         help_text="District assignment (only for district administrative assistants)"
+    )
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_generated_at = models.DateTimeField(blank=True, null=True)
+    e_signature = models.ImageField(
+        upload_to='e_signatures/',
+        validators=[FileExtensionValidator(['jpg', 'jpeg', 'png'])],
+        blank=True,
+        null=True,
+        help_text="E-signature for School Head, Division Superintendent, and Division Accountant"
     )
 
     USERNAME_FIELD = 'email'  # Use email as the login identifier
     REQUIRED_FIELDS = ['first_name', 'last_name']  # Add basic required fields
+
     # Add these at the bottom of your User model class
     objects = UserManager()
 
@@ -129,34 +142,66 @@ class User(AbstractUser):
             self.phone_number = ''.join(
                 c for c in self.phone_number if c.isdigit())
 
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived user {self.get_full_name()} ({self.email})"
+        elif action == 'restore':
+            return f"Restored user {self.get_full_name()} ({self.email})"
+        return f"{action.capitalize()} user {self.get_full_name()} ({self.email})"
+
 
 class School(models.Model):
-    schoolId = models.CharField(
-        max_length=10, primary_key=True, editable=True)
+    schoolId = models.CharField(max_length=10, primary_key=True, editable=True)
     schoolName = models.CharField(max_length=255)
     municipality = models.CharField(max_length=100)
-    district = models.CharField(max_length=100)
+    district = models.ForeignKey(
+        'SchoolDistrict',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='schools'
+    )
     legislativeDistrict = models.CharField(
         max_length=100,
-        # Must match LiquidatorAssignment
         choices=[("1st District", "1st District"),
                  ("2nd District", "2nd District")]
     )
-    is_active = models.BooleanField(default=True)  # Added for archiving
-    max_budget = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=0.00,
-        verbose_name="Maximum Budget"
-    )
     is_active = models.BooleanField(default=True)
     last_liquidated_month = models.PositiveSmallIntegerField(
-        null=True, blank=True)  # 1-12
+        null=True, blank=True)
     last_liquidated_year = models.PositiveSmallIntegerField(
         null=True, blank=True)
 
     def __str__(self):
         return f"{self.schoolName} ({self.schoolId})"
+
+    def get_current_monthly_budget(self):
+        """Get the monthly budget for the current year"""
+        from datetime import date
+        current_year = date.today().year
+        try:
+            budget_allocation = self.budget_allocations.get(year=current_year, is_active=True)
+            return budget_allocation.monthly_budget
+        except BudgetAllocation.DoesNotExist:
+            return 0
+
+    def get_yearly_budget(self, year=None):
+        """Get the yearly budget for a specific year (defaults to current year)"""
+        from datetime import date
+        if year is None:
+            year = date.today().year
+        try:
+            budget_allocation = self.budget_allocations.get(year=year, is_active=True)
+            return budget_allocation.yearly_budget
+        except BudgetAllocation.DoesNotExist:
+            return 0
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived school {self.schoolName} ({self.schoolId})"
+        elif action == 'restore':
+            return f"Restored school {self.schoolName} ({self.schoolId})"
+        return f"{action.capitalize()} school {self.schoolName} ({self.schoolId})"
 
 
 class Requirement(models.Model):
@@ -167,6 +212,13 @@ class Requirement(models.Model):
 
     def __str__(self):
         return self.requirementTitle
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived requirement {self.requirementTitle}"
+        elif action == 'restore':
+            return f"Restored requirement {self.requirementTitle}"
+        return f"{action.capitalize()} requirement {self.requirementTitle}"
 
 
 class ListOfPriority(models.Model):
@@ -209,6 +261,13 @@ class ListOfPriority(models.Model):
 
     def __str__(self):
         return self.expenseTitle
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived priority {self.expenseTitle}"
+        elif action == 'restore':
+            return f"Restored priority {self.expenseTitle}"
+        return f"{action.capitalize()} priority {self.expenseTitle}"
 
 
 class PriorityRequirement(models.Model):
@@ -291,27 +350,42 @@ class RequestManagement(models.Model):
         self._old_status = self.status  # Track initial status
         self._skip_auto_status = False  # Explicit control flag
 
+    def clean(self):
+        """Validate business rules before saving"""
+        super().clean()
+
+        # Skip validation for existing records being updated (unless status change)
+        if self.pk and not self._state.adding:
+            return
+
+        # Check if user can submit a request for the requested month
+        if not self.can_user_request_for_month(self.user, self.request_monthyear):
+            raise ValidationError(
+                "You cannot submit a request for this month. Please liquidate your current request first."
+            )
+
     def save(self, *args, **kwargs):
-        """Atomic save with protected status changes"""
+        """Enhanced save with business rule enforcement"""
         from django.db import transaction
 
         try:
             with transaction.atomic():
-                # Fetch existing status safely
-                if self.pk:
-                    current_status = RequestManagement.objects.filter(
-                        pk=self.pk).values_list('status', flat=True).first()
-                    self._old_status = current_status or self.status
+                # For new requests, determine the appropriate month/year
+                if self._state.adding and not self.request_monthyear:
+                    self.request_monthyear = self.get_next_available_month()
 
                 # Set initial month/year if needed (won't affect status)
                 self.set_initial_monthyear()
 
                 # Only auto-set status if not explicitly skipped
-                if not (hasattr(self, '_status_changed_by') or not self._skip_auto_status):
+                if not (hasattr(self, '_status_changed_by') or self._skip_auto_status):
                     self.set_automatic_status()
 
                 # Handle status change dates
                 self.handle_status_change_dates()
+
+                # Validate business rules
+                self.full_clean()
 
                 logger.debug(
                     f"Saving request {self.request_id} with status {self.status}")
@@ -321,6 +395,66 @@ class RequestManagement(models.Model):
             logger.error(
                 f"Failed to save request {getattr(self, 'request_id', 'new')}: {str(e)}")
             raise
+
+    def get_next_available_month(self):
+        """Determine the next available month for the user to request"""
+        user_school = self.user.school
+        if not user_school:
+            # Default to current month if no school
+            today = date.today()
+            return f"{today.year:04d}-{today.month:02d}"
+
+        # Check if user has any liquidated requests
+        last_liquidated = RequestManagement.objects.filter(
+            user=self.user,
+            status='liquidated'
+        ).order_by('-request_monthyear').first()
+
+        if last_liquidated and last_liquidated.request_monthyear:
+            # User has liquidated requests, next month after the last liquidated
+            try:
+                year, month = map(
+                    int, last_liquidated.request_monthyear.split('-'))
+                next_month = month + 1
+                next_year = year
+                if next_month > 12:
+                    next_month = 1
+                    next_year += 1
+                return f"{next_year:04d}-{next_month:02d}"
+            except (ValueError, AttributeError):
+                pass
+
+        # Check if user has any active (non-liquidated) requests
+        active_request = RequestManagement.objects.filter(
+            user=self.user
+        ).exclude(status__in=['liquidated', 'rejected']).first()
+
+        if active_request and active_request.request_monthyear:
+            # User has active request, next available is the month after
+            try:
+                year, month = map(
+                    int, active_request.request_monthyear.split('-'))
+                next_month = month + 1
+                next_year = year
+                if next_month > 12:
+                    next_month = 1
+                    next_year += 1
+                return f"{next_year:04d}-{next_month:02d}"
+            except (ValueError, AttributeError):
+                pass
+
+        # Default: use school's last liquidated month or current month
+        if user_school.last_liquidated_month and user_school.last_liquidated_year:
+            next_month = user_school.last_liquidated_month + 1
+            next_year = user_school.last_liquidated_year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            return f"{next_year:04d}-{next_month:02d}"
+        else:
+            # No previous liquidations, use current month
+            today = date.today()
+            return f"{today.year:04d}-{today.month:02d}"
 
     def set_initial_monthyear(self):
         """Safe month/year initialization without status side effects"""
@@ -335,23 +469,116 @@ class RequestManagement(models.Model):
                     today = date.today()
                     self.request_monthyear = f"{today.year:04d}-{today.month:02d}"
 
+    @staticmethod
+    def can_user_request_for_month(user, target_month_year):
+        """Check if user can submit a request for the specified month"""
+        if not target_month_year:
+            return True  # Let the system determine the month
+
+        # Check if user already has a request for this month
+        existing_request = RequestManagement.objects.filter(
+            user=user,
+            request_monthyear=target_month_year
+        ).exclude(status='rejected').first()
+
+        if existing_request:
+            return False  # Already has a request for this month
+
+        # Parse the target month
+        try:
+            target_year, target_month = map(int, target_month_year.split('-'))
+        except (ValueError, AttributeError):
+            return False  # Invalid format
+
+        today = date.today()
+        current_year, current_month = today.year, today.month
+
+        # If requesting for current month or past months
+        if (target_year, target_month) <= (current_year, current_month):
+            # Check if user has any unliquidated requests for previous months
+            unliquidated_requests = RequestManagement.objects.filter(
+                user=user
+            ).exclude(status__in=['liquidated', 'rejected'])
+
+            for req in unliquidated_requests:
+                if req.request_monthyear:
+                    try:
+                        req_year, req_month = map(
+                            int, req.request_monthyear.split('-'))
+                        if (req_year, req_month) < (target_year, target_month):
+                            return False  # Has unliquidated request from previous months
+                    except (ValueError, AttributeError):
+                        continue
+
+        # If requesting for future months (advance requests)
+        elif (target_year, target_month) > (current_year, current_month):
+            # Must have liquidated all previous requests
+            unliquidated_requests = RequestManagement.objects.filter(
+                user=user
+            ).exclude(status__in=['liquidated', 'rejected'])
+
+            if unliquidated_requests.exists():
+                return False  # Has unliquidated requests
+
+        return True
+
+    @classmethod
+    def can_user_request_for_month_with_reason(cls, user, month_str):
+        """
+        Enhanced version of can_user_request_for_month that returns (eligible: bool, reason: str | None).
+        month_str: 'YYYY-MM' format.
+        """
+        try:
+            year, month = map(int, month_str.split('-'))
+            value = f"{year:04d}-{month:02d}"
+        except ValueError:
+            return False, "Invalid month format. Use YYYY-MM."
+
+        # Check for existing request in the same month
+        existing = cls.objects.filter(
+            user=user,
+            request_monthyear=value
+        ).exclude(status='rejected').first()
+
+        if existing:
+            return False, f"You already have a request for {value} (ID: {existing.request_id}). Please complete or liquidate it first."
+
+        # Check for unliquidated requests
+        unliquidated = cls.objects.filter(
+            user=user
+        ).exclude(status__in=['liquidated', 'rejected']).first()
+
+        if unliquidated:
+            return False, f"You have an unliquidated or pending request ({unliquidated.request_id}). Please liquidate it before submitting a new one."
+
+        return True, None
+
     def set_automatic_status(self):
-        """Only runs when not manually approving/rejecting"""
+        """Enhanced automatic status setting with business rules"""
+        if self.status in ['approved', 'downloaded', 'unliquidated', 'liquidated', 'rejected']:
+            return
         if (not hasattr(self, '_status_changed_by')
-            and not self._skip_auto_status
-            and self.request_monthyear
+                and not self._skip_auto_status
+                and self.request_monthyear
             ):
             today = date.today()
             try:
                 req_year, req_month = map(
                     int, self.request_monthyear.split('-'))
+
+                # Set status based on requested month vs current month
                 if (req_year, req_month) > (today.year, today.month):
                     self.status = 'advanced'
                 elif (req_year, req_month) == (today.year, today.month):
                     self.status = 'pending'
+                else:
+                    # Past month - should not normally happen with proper validation
+                    self.status = 'pending'
+
             except (ValueError, AttributeError):
                 logger.warning(
                     f"Invalid request_monthyear: {self.request_monthyear}")
+                self.status = 'pending'  # Default fallback
 
     def handle_status_change_dates(self):
         """Automatically set date fields based on status changes"""
@@ -378,6 +605,46 @@ class RequestManagement(models.Model):
                 self.downloaded_at = None
             if self.status != 'rejected':
                 self.rejection_date = None
+
+    def should_be_visible_to_superintendent(self):
+        """
+        Determine if this request should be visible to superintendent for approval.
+        Only pending requests for current or past months should be visible.
+        """
+        if self.status != 'pending':
+            return False
+
+        if not self.request_monthyear:
+            return True  # Default to visible if no month specified
+
+        today = date.today()
+        try:
+            req_year, req_month = map(int, self.request_monthyear.split('-'))
+            current_year, current_month = today.year, today.month
+
+            # Should be visible if request month is current or past
+            return (req_year, req_month) <= (current_year, current_month)
+        except (ValueError, AttributeError):
+            return True  # Default to visible if invalid format
+
+    def get_visibility_status(self):
+        """Get detailed visibility information for debugging"""
+        today = date.today()
+        current_month_year = f"{today.year:04d}-{today.month:02d}"
+
+        return {
+            'request_id': self.request_id,
+            'status': self.status,
+            'request_month': self.request_monthyear,
+            'current_month': current_month_year,
+            'visible_to_superintendent': self.should_be_visible_to_superintendent(),
+            'is_future_month': self.request_monthyear > current_month_year if self.request_monthyear else False
+        }
+
+    # def get_audit_description(self, created=False, action='create'):
+    #     status_action = f"changed status to {self.status}" if action == 'update' and 'status' in getattr(
+    #         self, '_audit_changed_fields', []) else action
+    #     return f"{status_action.capitalize()} request {self.request_id}"
 
 
 class RequestPriority(models.Model):
@@ -409,9 +676,11 @@ class LiquidationManagement(models.Model):
         ('draft', 'Draft'),
         ('submitted', 'Submitted'),
         ('under_review_district', 'Under Review (District)'),
+        ('under_review_liquidator', 'Under Review (Liquidator)'),
         ('under_review_division', 'Under Review (Division)'),
         ('resubmit', 'Needs Revision'),
         ('approved_district', 'Approved by District'),
+        ('approved_liquidator', 'Approved by Liquidator'),
         ('liquidated', 'Liquidated'),
     ]
 
@@ -437,13 +706,24 @@ class LiquidationManagement(models.Model):
         User, null=True, blank=True, related_name='district_reviewed_liquidations', on_delete=models.SET_NULL
     )
     reviewed_at_district = models.DateTimeField(null=True, blank=True)
+    reviewed_by_liquidator = models.ForeignKey(
+        User, null=True, blank=True, related_name='liquidator_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_liquidator = models.DateTimeField(null=True, blank=True)
     reviewed_by_division = models.ForeignKey(
         User, null=True, blank=True, related_name='division_reviewed_liquidations', on_delete=models.SET_NULL
     )
     reviewed_at_division = models.DateTimeField(null=True, blank=True)
+    reviewed_by_accountant = models.ForeignKey(  # <-- NEW
+        User, null=True, blank=True, related_name='accountant_reviewed_liquidations', on_delete=models.SET_NULL
+    )
+    reviewed_at_accountant = models.DateTimeField(null=True, blank=True)  # <-- NEW
     created_at = models.DateTimeField(auto_now_add=True)
+    date_submitted = models.DateTimeField(null=True, blank=True)
     date_districtApproved = models.DateField(null=True, blank=True)
-    date_liquidated = models.DateField(null=True, blank=True)
+    date_liquidatorApproved = models.DateField(null=True, blank=True)
+    date_liquidated = models.DateTimeField(
+        null=True, blank=True)  # Changed from DateField
     remaining_days = models.IntegerField(null=True, blank=True)
     history = HistoricalRecords()
 
@@ -451,6 +731,7 @@ class LiquidationManagement(models.Model):
         super().__init__(*args, **kwargs)
         self._old_status = self.status  # Track initial status
         self._status_changed_by = None  # Track who changed the status
+        self._old_remaining_days = self.remaining_days  # Track initial remaining_days
 
     @property
     def liquidation_deadline(self):
@@ -469,14 +750,47 @@ class LiquidationManagement(models.Model):
             return None
         return total_requested - total_liquidated
 
+    def check_and_send_reminders(self):
+        """Check and send reminders based on remaining days"""
+        if self.status in ['liquidated']:
+            return
+
+        if not self.liquidation_deadline:
+            return
+
+        from django.utils import timezone
+        today = timezone.now().date()
+        days_left = (self.liquidation_deadline - today).days
+
+        reminder_days = [15, 10, 5, 3, 1]
+
+        if days_left in reminder_days:
+            if self.request.last_reminder_sent != today:
+                from .tasks import send_liquidation_reminder
+                send_liquidation_reminder.delay(self.pk, days_left)
+                self.request.last_reminder_sent = today
+                self.request.save(update_fields=['last_reminder_sent'])
+
+        elif days_left <= 0 and not self.request.demand_letter_sent:
+            from .tasks import send_liquidation_demand_letter
+            send_liquidation_demand_letter.delay(self.pk)
+            self.request.demand_letter_sent = True
+            self.request.demand_letter_date = today
+            self.request.save(
+                update_fields=['demand_letter_sent', 'demand_letter_date'])
+
     def calculate_remaining_days(self):
         if self.request and self.request.downloaded_at:
             # Ensure downloaded_at is timezone-aware if working with timezones
-            deadline = self.request.downloaded_at + timedelta(days=30)
+            downloaded_at = self.request.downloaded_at
+            if isinstance(downloaded_at, date) and not isinstance(downloaded_at, datetime):
+                downloaded_at = timezone.datetime.combine(
+                    downloaded_at, timezone.datetime.min.time())
+
+            deadline = downloaded_at + timedelta(days=30)
 
             # Use timezone-aware now() if working with timezones
-            today = datetime.now(
-                deadline.tzinfo) if deadline.tzinfo else datetime.now()
+            today = timezone.now() if timezone.is_aware(deadline) else datetime.now()
 
             remaining = (deadline - today).days
             return max(remaining, 0)  # Returns 0 if deadline has passed
@@ -488,34 +802,51 @@ class LiquidationManagement(models.Model):
         if not is_new:
             old = LiquidationManagement.objects.get(pk=self.pk)
             self._old_status = old.status
+            self._old_remaining_days = old.remaining_days
 
-        # Set downloaded_at when status changes to 'downloaded'
-        # if self.status == 'downloaded' and not self.downloaded_at:
-        #     self.downloaded_at = timezone.now()
+        # Calculate fields BEFORE saving
+        self.refund = self.calculate_refund()
+        self.remaining_days = self.calculate_remaining_days()
 
-        # Automatically set dates based on status changes
-        if self.status == 'liquidated' and self.date_liquidated is None:
-            self.date_liquidated = timezone.now().date()
+        # Handle status-based date fields
+        now = timezone.now()
 
-            # Update the school's last liquidation date
-            if self.request and self.request.user and self.request.user.school:
-                school = self.request.user.school
-                if self.request.request_monthyear:  # Format: YYYY-MM
-                    year, month = map(
-                        int, self.request.request_monthyear.split('-'))
-                    school.last_liquidated_month = month
-                    school.last_liquidated_year = year
-                    school.save()
-        elif self.status != 'liquidated' and self.date_liquidated is not None:
-            self.date_liquidated = None
+        # District approval
+        if self.status == 'approved_district':
+            if self.date_districtApproved is None:
+                self.date_districtApproved = now.date()
+            if self.reviewed_at_district is None:
+                self.reviewed_at_district = now
 
+        # Liquidator approval
+        if self.status == 'approved_liquidator':
+            if self.date_liquidatorApproved is None:
+                self.date_liquidatorApproved = now.date()
+            if self.reviewed_at_liquidator is None:
+                self.reviewed_at_liquidator = now
+
+        # Division approval
+        if self.status == 'liquidated':
+            if self.date_liquidated is None:
+                self.date_liquidated = now
+            if self.reviewed_at_division is None:
+                self.reviewed_at_division = now
+
+        # Handle submitted status
+        if self.status == 'submitted' and self.date_submitted is None:
+            self.date_submitted = now
+        # elif self.status != 'submitted' and self.date_submitted is not None:
+        #     self.date_submitted = None
+
+        # Handle district approval - only set if not already set
         if self.status == 'approved_district' and self.date_districtApproved is None:
             self.date_districtApproved = timezone.now().date()
-        elif self.status != 'approved_district' and self.date_districtApproved is not None:
-            self.date_districtApproved = None
+        # Don't reset the date when status changes - keep the approval date
 
-        # Calculate fields
-        self.refund = self.calculate_refund()
+        # Handle liquidator approval - only set if not already set
+        if self.status == 'approved_liquidator' and self.date_liquidatorApproved is None:
+            self.date_liquidatorApproved = timezone.now().date()
+        # Don't reset the date when status changes - keep the approval date
 
         super().save(*args, **kwargs)
 
@@ -528,8 +859,91 @@ class LiquidationManagement(models.Model):
     def __str__(self):
         return f"Liquidation {self.LiquidationID} for {self.request}"
 
+    def get_audit_description(self, created=False, action='create'):
+        status_action = f"changed status to {self.status}" if action == 'update' and 'status' in getattr(
+            self, '_audit_changed_fields', []) else action
+        return f"{status_action.capitalize()} liquidation {self.LiquidationID}"
+
+    @classmethod
+    def update_all_remaining_days(cls):
+        for liquidation in cls.objects.all():
+            new_remaining = liquidation.calculate_remaining_days()
+            if liquidation.remaining_days != new_remaining:
+                liquidation.remaining_days = new_remaining
+                liquidation.save(update_fields=['remaining_days'])
+
+
+class DocumentVersion(models.Model):
+    """
+    Model to track document versions for comparison purposes.
+    Stores rejected documents when new versions are uploaded.
+    """
+    VERSION_STATUS_CHOICES = [
+        ('rejected', 'Rejected'),
+        ('superseded', 'Superseded'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    original_document = models.ForeignKey(
+        'LiquidationDocument',
+        on_delete=models.CASCADE,
+        related_name='versions'
+    )
+    document_file = models.FileField(
+        upload_to='liquidation_documents/versions/%Y/%m/%d/',
+        validators=[FileExtensionValidator(['pdf', 'jpg', 'jpeg', 'png'])]
+    )
+    version_number = models.PositiveIntegerField(default=1)
+    status = models.CharField(
+        max_length=20,
+        choices=VERSION_STATUS_CHOICES,
+        default='rejected'
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='uploaded_document_versions'
+    )
+    reviewer_comment = models.TextField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_document_versions'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-version_number']
+        indexes = [
+            models.Index(fields=['original_document', 'version_number']),
+        ]
+    
+    def __str__(self):
+        return f"Version {self.version_number} of {self.original_document}"
+    
+    def save(self, *args, **kwargs):
+        # Calculate file size if document file is provided
+        if self.document_file and not self.file_size:
+            try:
+                self.file_size = self.document_file.size
+            except (OSError, ValueError):
+                pass
+        super().save(*args, **kwargs)
+
 
 class LiquidationDocument(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('resubmitted', 'Resubmitted'),
+    ]
+
     liquidation = models.ForeignKey(
         LiquidationManagement,
         on_delete=models.CASCADE,
@@ -551,8 +965,25 @@ class LiquidationDocument(models.Model):
         null=True,
         related_name='uploaded_documents'
     )
-    is_approved = models.BooleanField(null=True, default=None)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
     reviewer_comment = models.TextField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_documents'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    # Keep is_approved for backward compatibility, but it will be deprecated
+    is_approved = models.BooleanField(null=True, default=None)
+    # Track if this is a resubmission
+    is_resubmission = models.BooleanField(default=False)
+    resubmission_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         unique_together = ('liquidation', 'request_priority', 'requirement')
@@ -561,11 +992,83 @@ class LiquidationDocument(models.Model):
         return f"Document for {self.requirement} in {self.request_priority}"
 
     def save(self, *args, **kwargs):
+        from django.utils import timezone
+        
         # Ensure the document belongs to the same request as the liquidation
         if self.request_priority.request != self.liquidation.request:
             raise ValueError(
                 "Document's priority must belong to the liquidation's request")
+        
+        # Handle status transitions and maintain backward compatibility
+        if hasattr(self, '_old_status'):
+            old_status = self._old_status
+        else:
+            old_status = None
+            
+        # Auto-set reviewed_at when status changes to approved/rejected
+        if (old_status != self.status and 
+            self.status in ['approved', 'rejected'] and 
+            not self.reviewed_at):
+            self.reviewed_at = timezone.now()
+        
+        # Maintain backward compatibility with is_approved
+        if self.is_approved is None:
+            if self.status == 'approved':
+                self.is_approved = True
+            elif self.status == 'rejected':
+                self.is_approved = False
+        
         super().save(*args, **kwargs)
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._old_status = self.status if self.pk else None
+    
+    def create_version_from_rejected(self, new_document_file, uploaded_by):
+        """
+        Create a new version from the current rejected document before replacing it.
+        """
+        if self.status != 'rejected':
+            raise ValueError("Can only create versions from rejected documents")
+        
+        # Get the next version number
+        last_version = self.versions.order_by('-version_number').first()
+        next_version = (last_version.version_number + 1) if last_version else 1
+        
+        # Create the version
+        version = DocumentVersion.objects.create(
+            original_document=self,
+            document_file=self.document,
+            version_number=next_version,
+            status='rejected',
+            uploaded_by=self.uploaded_by,
+            reviewer_comment=self.reviewer_comment,
+            reviewed_by=self.reviewed_by,
+            reviewed_at=self.reviewed_at
+        )
+        
+        # Update the current document
+        self.document = new_document_file
+        self.status = 'pending'
+        self.is_approved = None
+        self.reviewer_comment = None
+        self.reviewed_by = None
+        self.reviewed_at = None
+        self.uploaded_by = uploaded_by
+        self.uploaded_at = timezone.now()
+        self.is_resubmission = True
+        self.resubmission_count += 1
+        self.save()
+        
+        return version
+    
+    def get_latest_version(self):
+        """Get the latest version of this document"""
+        return self.versions.order_by('-version_number').first()
+    
+    def get_all_versions(self):
+        """Get all versions of this document ordered by version number"""
+        return self.versions.all().order_by('-version_number')
 
 
 class Notification(models.Model):
@@ -599,3 +1102,259 @@ class LiquidationPriority(models.Model):
 
     def __str__(self):
         return f"{self.liquidation} - {self.priority} (${self.amount})"
+
+
+class SchoolDistrict(models.Model):
+    districtId = models.AutoField(primary_key=True)
+    districtName = models.CharField(max_length=255)
+    municipality = models.CharField(max_length=100)
+    legislativeDistrict = models.CharField(
+        max_length=100,
+        choices=[("1st District", "1st District"),
+                 ("2nd District", "2nd District")]
+    )
+    logo = models.ImageField(
+        upload_to='district_logos/',
+        validators=[FileExtensionValidator(['jpg', 'jpeg', 'png', 'svg'])],
+        blank=True,
+        null=True,
+        help_text="District logo image"
+    )
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.districtName} ({self.districtId})"
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived district {self.districtName}"
+        elif action == 'restore':
+            return f"Restored district {self.districtName}"
+        return f"{action.capitalize()} district {self.districtName}"
+
+
+class BudgetAllocation(models.Model):
+    """
+    Model to track yearly and monthly budget allocations for schools.
+    Each school should have one budget allocation per year.
+    """
+    id = models.AutoField(primary_key=True)
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name='budget_allocations'
+    )
+    year = models.PositiveIntegerField(
+        help_text="Year for this budget allocation (e.g., 2024)"
+    )
+    yearly_budget = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        help_text="Total yearly budget allocated to the school"
+    )
+    monthly_budget = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        help_text="Monthly budget (yearly_budget / 12), calculated automatically"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_budget_allocations'
+    )
+    is_active = models.BooleanField(default=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        unique_together = ('school', 'year')
+        ordering = ['-year', 'school__schoolName']
+
+    def save(self, *args, **kwargs):
+        # Automatically calculate monthly budget
+        if self.yearly_budget:
+            self.monthly_budget = self.yearly_budget / 12
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.school.schoolName} - {self.year} (₱{self.yearly_budget:,.2f})"
+
+    def get_audit_description(self, created=False, action='create'):
+        if action == 'archive':
+            return f"Archived budget allocation for {self.school.schoolName} ({self.year})"
+        elif action == 'restore':
+            return f"Restored budget allocation for {self.school.schoolName} ({self.year})"
+        return f"{action.capitalize()} budget allocation for {self.school.schoolName} ({self.year})"
+
+
+class GeneratedPDF(models.Model):
+    """
+    Model to track PDF generation for audit trail and compliance
+    """
+    id = models.AutoField(primary_key=True)
+    request = models.ForeignKey(
+        RequestManagement,
+        on_delete=models.CASCADE,
+        related_name='generated_pdfs'
+    )
+    generated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='generated_pdfs'
+    )
+    generated_at = models.DateTimeField(auto_now_add=True)
+    pdf_file = models.FileField(
+        upload_to='generated_pdfs/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        help_text="Stored PDF file for audit trail"
+    )
+    file_size = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="File size in bytes"
+    )
+    generation_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('server_side', 'Server-side with signatures'),
+            ('client_side', 'Client-side (legacy)'),
+        ],
+        default='server_side'
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address of the user who generated the PDF"
+    )
+    user_agent = models.TextField(
+        blank=True,
+        null=True,
+        help_text="User agent string for audit trail"
+    )
+
+    class Meta:
+        ordering = ['-generated_at']
+        verbose_name = "Generated PDF"
+        verbose_name_plural = "Generated PDFs"
+
+    def __str__(self):
+        return f"PDF for {self.request.request_id} generated by {self.generated_by} on {self.generated_at}"
+
+    def save(self, *args, **kwargs):
+        # Calculate file size if PDF file is provided
+        if self.pdf_file and not self.file_size:
+            try:
+                self.file_size = self.pdf_file.size
+            except (OSError, ValueError):
+                pass
+        super().save(*args, **kwargs)
+
+
+class Backup(models.Model):
+    """
+    Track backup and restore operations.
+    Stores metadata about where artifacts are saved and their sizes.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    initiated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='backups'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    format = models.CharField(max_length=20, choices=[(
+        'json', 'JSON'), ('sql', 'SQL'), ('csv', 'CSV')], default='json')
+    include_media = models.BooleanField(default=True)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='pending')
+    file_size = models.BigIntegerField(
+        null=True, blank=True, help_text="Size in bytes of the main archive")
+    message = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Backup {self.id} ({self.status})"
+
+
+# Add to models.py
+# Add to models.py
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ('create', 'Create'),
+        ('update', 'Update'),
+        ('archive', 'Archive'),
+        ('restore', 'Restore'),
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('approve', 'Approve'),
+        ('reject', 'Reject'),
+        ('submit', 'Submit'),
+        ('download', 'Download'),
+        ('backup', 'Backup'),
+        ('restore', 'Restore'),
+        ('password_change', 'Password Change'),
+        ('resubmit', 'Resubmit'),
+        ('approve_district', 'Approve (District)'),
+        ('approve_liquidator', 'Approve (Liquidator)'),
+        ('approve_division', 'Approve (Division)'),
+        ('liquidate', 'Liquidate'),
+        ('batch_update', 'Batch Update'),
+    ]
+
+    MODULE_CHOICES = [
+        ('user', 'User Management'),
+        ('school', 'School Management'),
+        ('request', 'Request Management'),
+        ('liquidation', 'Liquidation Management'),
+        ('priority', 'Priority Management'),
+        ('requirement', 'Requirement Management'),
+        ('district', 'District Management'),
+        ('system', 'System Operations'),
+        ('auth', 'Authentication'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL,
+                             null=True, blank=True, related_name='audit_logs')
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    module = models.CharField(max_length=20, choices=MODULE_CHOICES)
+    object_id = models.CharField(max_length=100, null=True, blank=True)
+    object_type = models.CharField(max_length=100, null=True, blank=True)
+    object_name = models.CharField(max_length=255, null=True, blank=True)
+    description = models.TextField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    # For changes tracking
+    old_values = models.JSONField(
+        null=True, blank=True, encoder=DecimalJSONEncoder)
+    new_values = models.JSONField(
+        null=True, blank=True, encoder=DecimalJSONEncoder)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['user', 'timestamp']),
+            models.Index(fields=['module', 'action']),
+            models.Index(fields=['object_type', 'object_id']),
+        ]
+
+    def __str__(self):
+        user_name = self.user.get_full_name() if self.user else "System"
+        return f"{user_name} {self.action} {self.module} at {self.timestamp}"

@@ -14,7 +14,6 @@ import {
   AlertCircle,
   Paperclip,
   MessageCircleIcon,
-  Info,
   Clock,
   FileText,
   XCircle,
@@ -24,14 +23,11 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
 import api from "@/api/axios";
 import { DocumentTextIcon } from "@heroicons/react/outline";
-import { Progress, Skeleton } from "antd";
+import { Skeleton } from "antd";
 import { useNavigate } from "react-router";
 import { formatCurrency } from "@/lib/helpers";
 
@@ -49,6 +45,24 @@ interface UploadedDocument {
   uploaded_at?: string;
   reviewer_comment?: string;
   is_approved?: boolean | null;
+  versions?: DocumentVersion[];
+  is_resubmission?: boolean;
+  resubmission_count?: number;
+}
+
+interface DocumentVersion {
+  id: number;
+  document_url: string;
+  version_number: number;
+  status: string;
+  uploaded_at: string;
+  reviewer_comment: string | null;
+  reviewed_by: {
+    first_name: string;
+    last_name: string;
+  } | null;
+  reviewed_at: string | null;
+  file_size: number | null;
 }
 
 interface Expense {
@@ -328,26 +342,11 @@ const LiquidationPage = () => {
     const key = `${expenseId}-${requirementID}`;
     fileInputRefs.current[key]?.click();
   };
-  const hasUnmodifiedActualAmounts = useMemo(() => {
-    if (!request) return true;
-    return request.expenses.some(
-      (expense) =>
-        expense.actualAmount === undefined ||
-        isNaN(expense.actualAmount) ||
-        expense.actualAmount === expense.amount
-    );
-  }, [request]);
-  const allRejectedRevised = useMemo(() => {
-    if (!request || request.status !== "resubmit") return true;
-    const rejectedDocs = request.uploadedDocuments.filter(
-      (doc) => doc.is_approved === false
-    );
-    if (rejectedDocs.length === 0) return true;
-    return rejectedDocs.every(
-      (doc) =>
-        doc.reviewer_comment && doc.reviewer_comment.startsWith("[REVISED]")
-    );
-  }, [request]);
+
+  const triggerAdditionalFileInput = (expenseId: string, requirementID: string) => {
+    const key = `${expenseId}-${requirementID}-additional`;
+    fileInputRefs.current[key]?.click();
+  };
 
   const isSubmitDisabled =
     !request ||
@@ -1229,77 +1228,158 @@ const LiquidationPage = () => {
 
                         {/* Uploaded Requirements */}
                         {uploadedReqs.length > 0 &&
-                          uploadedReqs
-                            .filter((req) => {
-                              const doc = getUploadedDocument(
-                                expense.id,
-                                req.requirementID
-                              );
-                              return (
-                                doc &&
-                                (request.status !== "resubmit" ||
-                                  doc.is_approved === false)
-                              );
-                            })
-                            .map((req) => {
-                              const uploadedDoc = getUploadedDocument(
-                                expense.id,
-                                req.requirementID
-                              );
-                              return (
-                                <div
-                                  key={`uploaded-${expense.id}-${req.requirementID}`}
-                                  id={`requirement-${expense.id}-${req.requirementID}`}
-                                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg ${
-                                    uploadedDoc?.is_approved === false
-                                      ? "bg-red-50 dark:bg-red-900/10 border-l-4 border-red-400"
-                                      : "bg-gray-50 dark:bg-gray-700/30"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex-shrink-0">
-                                      {uploadedDoc?.is_approved === false ? (
-                                        <AlertCircle className="h-5 w-5 text-red-500" />
+                          uploadedReqs.map((req) => {
+                            const uploadedDoc = getUploadedDocument(
+                              expense.id,
+                              req.requirementID
+                            );
+                            if (!uploadedDoc) return null;
+                            return (
+                              <div
+                                key={`uploaded-${expense.id}-${req.requirementID}`}
+                                id={`requirement-${expense.id}-${req.requirementID}`}
+                                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg ${
+                                  uploadedDoc?.is_approved === false
+                                    ? "bg-red-50 dark:bg-red-900/10 border-l-4 border-red-400"
+                                    : "bg-gray-50 dark:bg-gray-700/30"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0">
+                                    {uploadedDoc?.is_approved === false ? (
+                                      <AlertCircle className="h-5 w-5 text-red-500" />
+                                    ) : (
+                                      <CheckCircle className="h-5 w-5 text-green-500" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900 dark:text-white">
+                                      {req.requirementTitle}
+                                    </p>
+                                    <div className="flex gap-2 mt-1">
+                                      {req.is_required ? (
+                                        <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
+                                          Required
+                                        </span>
                                       ) : (
-                                        <CheckCircle className="h-5 w-5 text-green-500" />
+                                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
+                                          Optional
+                                        </span>
                                       )}
                                     </div>
-                                    <div>
-                                      <p className="font-medium text-gray-900 dark:text-white">
-                                        {req.requirementTitle}
-                                      </p>
-                                      <div className="flex gap-2 mt-1">
-                                        {req.is_required ? (
-                                          <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
-                                            Required
-                                          </span>
-                                        ) : (
-                                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
-                                            Optional
-                                          </span>
-                                        )}
-                                      </div>
 
-                                      {uploadedDoc?.is_approved === false && (
-                                        <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/10 rounded">
-                                          <div className="flex items-start gap-2">
-                                            <div>
-                                              <p className="text-sm font-medium text-red-700 dark:text-red-300">
-                                                Rejected:{" "}
-                                                {uploadedDoc.reviewer_comment}
+                                    {uploadedDoc?.is_approved === false && (
+                                      <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/10 rounded">
+                                        <div className="flex items-start gap-2">
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                                              Rejected:{" "}
+                                              {uploadedDoc.reviewer_comment}
+                                            </p>
+                                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                              Please re-upload a revised
+                                              version.
+                                            </p>
+                                            {uploadedDoc.is_resubmission && (
+                                              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                                                This is resubmission #{uploadedDoc.resubmission_count}
                                               </p>
-                                              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                                Please re-upload a revised
-                                                version.
-                                              </p>
-                                            </div>
+                                            )}
                                           </div>
                                         </div>
-                                      )}
-                                    </div>
+                                      </div>
+                                    )}
                                   </div>
+                                </div>
 
-                                  <div className="flex gap-2">
+                                <div className="flex gap-2">
+                                  {/* Drag and drop area for rejected documents */}
+                                  {uploadedDoc?.is_approved === false && (
+                                    <>
+                                      <input
+                                        type="file"
+                                        ref={(el) => {
+                                          fileInputRefs.current[
+                                            `${expense.id}-${req.requirementID}-additional`
+                                          ] = el;
+                                        }}
+                                        onChange={(e) =>
+                                          handleFileUpload(
+                                            String(expense.id),
+                                            String(req.requirementID),
+                                            e
+                                          )
+                                        }
+                                        className="hidden"
+                                        accept=".pdf,application/pdf"
+                                        disabled={
+                                          uploading ===
+                                            `${expense.id}-${req.requirementID}` ||
+                                          (request.status !== "draft" &&
+                                            request.status !== "resubmit")
+                                        }
+                                        id={`file-input-additional-${expense.id}-${req.requirementID}`}
+                                      />
+                                      
+                                      <div
+                                        className={`w-40 p-2 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                                          dragActive
+                                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/10"
+                                            : "border-red-300 hover:border-red-400"
+                                        }`}
+                                        onDragEnter={handleDrag}
+                                        onDragLeave={handleDrag}
+                                        onDragOver={handleDrag}
+                                        onDrop={(e) =>
+                                          handleDrop(
+                                            e,
+                                            String(expense.id),
+                                            String(req.requirementID)
+                                          )
+                                        }
+                                        onClick={() =>
+                                          triggerAdditionalFileInput(
+                                            String(expense.id),
+                                            String(req.requirementID)
+                                          )
+                                        }
+                                        title="Upload new file to replace rejected document"
+                                      >
+                                        <div className="text-center">
+                                          <UploadIcon className="mx-auto h-4 w-4 text-red-400 mb-1" />
+                                          <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                                            {uploading ===
+                                            `${expense.id}-${req.requirementID}`
+                                              ? "Uploading..."
+                                              : "Upload New File"}
+                                          </p>
+                                          <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+                                            Replace Rejected
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                  
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      removeFile(
+                                        String(expense.id),
+                                        String(req.requirementID)
+                                      )
+                                    }
+                                    disabled={
+                                      request.status !== "draft" &&
+                                      request.status !== "resubmit"
+                                    }
+                                  >
+                                    Remove Original
+                                  </Button>
+                                  
+                                  {/* Remove reuploaded file button for rejected documents with resubmissions */}
+                                  {uploadedDoc?.is_approved === false && uploadedDoc?.is_resubmission && (
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -1314,33 +1394,35 @@ const LiquidationPage = () => {
                                         request.status !== "resubmit"
                                       }
                                     >
-                                      Remove
+                                      Remove Revised
                                     </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      startIcon={
-                                        <DownloadIcon className="h-4 w-4" />
+                                  )}
+                                  
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    startIcon={
+                                      <DownloadIcon className="h-4 w-4" />
+                                    }
+                                    onClick={() => {
+                                      if (uploadedDoc?.document_url) {
+                                        window.open(
+                                          uploadedDoc.document_url,
+                                          "_blank"
+                                        );
+                                      } else {
+                                        toast.info(
+                                          `No file available for ${req.requirementTitle}`
+                                        );
                                       }
-                                      onClick={() => {
-                                        if (uploadedDoc?.document_url) {
-                                          window.open(
-                                            uploadedDoc.document_url,
-                                            "_blank"
-                                          );
-                                        } else {
-                                          toast.info(
-                                            `No file available for ${req.requirementTitle}`
-                                          );
-                                        }
-                                      }}
-                                    >
-                                      View
-                                    </Button>
-                                  </div>
+                                    }}
+                                  >
+                                    View
+                                  </Button>
                                 </div>
-                              );
-                            })}
+                              </div>
+                            );
+                          })}
                       </div>
                     </div>
                   </div>

@@ -1,0 +1,5868 @@
+[
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "admin",
+    "model": "logentry"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "auth",
+    "model": "permission"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "auth",
+    "model": "group"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "contenttypes",
+    "model": "contenttype"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "sessions",
+    "model": "session"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "listofpriority"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "requirement"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "school"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "schooldistrict"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "user"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "historicalrequestmanagement"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "notification"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "requestmanagement"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "liquidationmanagement"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "historicalrequestpriority"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "historicalliquidationmanagement"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "requestpriority"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "priorityrequirement"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "liquidationpriority"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "liquidationdocument"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "generatedpdf"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_results",
+    "model": "taskresult"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_results",
+    "model": "chordcounter"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_results",
+    "model": "groupresult"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_beat",
+    "model": "crontabschedule"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_beat",
+    "model": "intervalschedule"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_beat",
+    "model": "periodictask"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_beat",
+    "model": "periodictasks"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_beat",
+    "model": "solarschedule"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "django_celery_beat",
+    "model": "clockedschedule"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "api",
+    "model": "backup"
+  }
+},
+{
+  "model": "api.school",
+  "pk": "100801",
+  "fields": {
+    "schoolName": "Agoo East CES",
+    "municipality": "AGOO",
+    "district": null,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.school",
+  "pk": "100802",
+  "fields": {
+    "schoolName": "Ambitacay ES",
+    "municipality": "AGOO",
+    "district": null,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.school",
+  "pk": "100803",
+  "fields": {
+    "schoolName": "Bacsil ES",
+    "municipality": "AGOO",
+    "district": null,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.school",
+  "pk": "100805",
+  "fields": {
+    "schoolName": "Macalva ES",
+    "municipality": "AGOO",
+    "district": 3,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "50000.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.school",
+  "pk": "100806",
+  "fields": {
+    "schoolName": "San Jose ES",
+    "municipality": "AGOO",
+    "district": null,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.school",
+  "pk": "100807",
+  "fields": {
+    "schoolName": "San Jose-San Joaquin ES",
+    "municipality": "AGOO",
+    "district": null,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.school",
+  "pk": "100808",
+  "fields": {
+    "schoolName": "San Vicente-San Agustin ES",
+    "municipality": "AGOO",
+    "district": null,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.school",
+  "pk": "300129",
+  "fields": {
+    "schoolName": "President Elpidio Quirino National High School",
+    "municipality": "AGOO",
+    "district": null,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.school",
+  "pk": "321027",
+  "fields": {
+    "schoolName": "Agoo National Vocational High School",
+    "municipality": "AGOO",
+    "district": null,
+    "legislativeDistrict": "2nd District",
+    "is_active": true,
+    "max_budget": "0.00",
+    "last_liquidated_month": null,
+    "last_liquidated_year": null
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 1,
+  "fields": {
+    "requirementTitle": "Abstract of Quotation (AOQ)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 2,
+  "fields": {
+    "requirementTitle": "Accomplishment Report",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 3,
+  "fields": {
+    "requirementTitle": "Acknowledgement Receipt (AR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 4,
+  "fields": {
+    "requirementTitle": "Agency Procurement Request (APR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 5,
+  "fields": {
+    "requirementTitle": "Approved Activity Request Form",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 6,
+  "fields": {
+    "requirementTitle": "Approved Authority to Travel / Locator Slip",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 7,
+  "fields": {
+    "requirementTitle": "Approved Certificate of Travel Completed",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 8,
+  "fields": {
+    "requirementTitle": "Approved Itinerary of Travel",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 9,
+  "fields": {
+    "requirementTitle": "Attendance",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 10,
+  "fields": {
+    "requirementTitle": "Authority to Claim (copy)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 11,
+  "fields": {
+    "requirementTitle": "BAC Resolution",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 12,
+  "fields": {
+    "requirementTitle": "Barangay Certificate (for initial submission)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 13,
+  "fields": {
+    "requirementTitle": "BIR Forms 2306 / 2307",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 14,
+  "fields": {
+    "requirementTitle": "Certification of Non-Availability of Stocks",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 15,
+  "fields": {
+    "requirementTitle": "Certification of Official Business (OB) calls",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 16,
+  "fields": {
+    "requirementTitle": "Certification of Stock Availability and Price Quotation",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 17,
+  "fields": {
+    "requirementTitle": "Certification: not recipient of sim card / other allowances for communication",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 18,
+  "fields": {
+    "requirementTitle": "COA Circ1 - COENRR/ Memorandum",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 19,
+  "fields": {
+    "requirementTitle": "Collection Receipt (CR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 20,
+  "fields": {
+    "requirementTitle": "Confirmation of Bond",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 21,
+  "fields": {
+    "requirementTitle": "Contract of Service / MOA",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 22,
+  "fields": {
+    "requirementTitle": "Daily Menu of food to be served",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 23,
+  "fields": {
+    "requirementTitle": "Daily Time Record (DTR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 24,
+  "fields": {
+    "requirementTitle": "Delivery Receipt (DR) / Charge Invoice (CI)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 25,
+  "fields": {
+    "requirementTitle": "Detailed Meal Plan",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 26,
+  "fields": {
+    "requirementTitle": "Disbursement Voucher (DV) / optional",
+    "is_required": false,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 27,
+  "fields": {
+    "requirementTitle": "Disbursement Voucher (for tax withheld) / optional",
+    "is_required": false,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 28,
+  "fields": {
+    "requirementTitle": "GAD Plan and Budget",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 29,
+  "fields": {
+    "requirementTitle": "Inspection and Acceptance Report (IAR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 30,
+  "fields": {
+    "requirementTitle": "Inventory Custodian Slip (if applicable)",
+    "is_required": false,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 31,
+  "fields": {
+    "requirementTitle": "List of Bondable Official",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 32,
+  "fields": {
+    "requirementTitle": "Memorandum",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 33,
+  "fields": {
+    "requirementTitle": "Menu of Food / Snacks",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 34,
+  "fields": {
+    "requirementTitle": "Narrative Report",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 35,
+  "fields": {
+    "requirementTitle": "Official Receipt (OR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 36,
+  "fields": {
+    "requirementTitle": "Official Receipt (OR) / Acknowledgement Receipt (AR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 37,
+  "fields": {
+    "requirementTitle": "Original Copy of Certificate of Appearance (CA)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 38,
+  "fields": {
+    "requirementTitle": "Original copy of Official Receipt (OR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 39,
+  "fields": {
+    "requirementTitle": "Payroll (multiple laborer)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 40,
+  "fields": {
+    "requirementTitle": "Payroll (multiple recipient)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 41,
+  "fields": {
+    "requirementTitle": "Payment Slip",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 42,
+  "fields": {
+    "requirementTitle": "Permit to Conduct / Approved Request",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 43,
+  "fields": {
+    "requirementTitle": "PhilGEPS Certification / Registration",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 44,
+  "fields": {
+    "requirementTitle": "Photocopy of check issued",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 45,
+  "fields": {
+    "requirementTitle": "Photocopy of valid ID / CTC",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 46,
+  "fields": {
+    "requirementTitle": "Pictures",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 47,
+  "fields": {
+    "requirementTitle": "Pictures (Before - During - After)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 48,
+  "fields": {
+    "requirementTitle": "Pre-Repair Inspection Report",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 49,
+  "fields": {
+    "requirementTitle": "Program",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 50,
+  "fields": {
+    "requirementTitle": "Program / Training Matrix",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 51,
+  "fields": {
+    "requirementTitle": "Program of Works / Job Order",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 52,
+  "fields": {
+    "requirementTitle": "Proof of receipt of items (signed by authorized recipients)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 53,
+  "fields": {
+    "requirementTitle": "Purchase Order (PO)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 54,
+  "fields": {
+    "requirementTitle": "Purchase Request (PR)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 55,
+  "fields": {
+    "requirementTitle": "Request for Payment",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 56,
+  "fields": {
+    "requirementTitle": "Request for Quotation (RFQ)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 57,
+  "fields": {
+    "requirementTitle": "Requisition and Issue Slip (RIS)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 58,
+  "fields": {
+    "requirementTitle": "SBFP Form 1",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 59,
+  "fields": {
+    "requirementTitle": "SBFP Form 4",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 60,
+  "fields": {
+    "requirementTitle": "Sales Invoice (SI)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 61,
+  "fields": {
+    "requirementTitle": "Signed list of recipients",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 62,
+  "fields": {
+    "requirementTitle": "Statement of Account (SOA)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 63,
+  "fields": {
+    "requirementTitle": "Tickets (if any)",
+    "is_required": false,
+    "is_active": true
+  }
+},
+{
+  "model": "api.requirement",
+  "pk": 64,
+  "fields": {
+    "requirementTitle": "Trip Ticket (for people transported)",
+    "is_required": true,
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 1,
+  "fields": {
+    "expenseTitle": "TRAVELLING EXPENSE",
+    "category": "travel",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 2,
+  "fields": {
+    "expenseTitle": "TRAINING EXPENSE",
+    "category": "training",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 3,
+  "fields": {
+    "expenseTitle": "TRAINING EXPENSES (GAD / INSET)",
+    "category": "training",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 4,
+  "fields": {
+    "expenseTitle": "TRAINING EXPENSES (LAC SESSION)",
+    "category": "training",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 5,
+  "fields": {
+    "expenseTitle": "OFFICE / OTHER SUPPLIES EXPENSE (DBM)",
+    "category": "supplies",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 6,
+  "fields": {
+    "expenseTitle": "OFFICE / OTHER SUPPLIES EXPENSE (OUTSIDE DBM)",
+    "category": "supplies",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 7,
+  "fields": {
+    "expenseTitle": "ELECTRICITY EXPENSE",
+    "category": "utilities",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 8,
+  "fields": {
+    "expenseTitle": "WATER EXPENSE",
+    "category": "utilities",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 9,
+  "fields": {
+    "expenseTitle": "INTERNET EXPENSE (DSL / GLOBE)",
+    "category": "communication",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 10,
+  "fields": {
+    "expenseTitle": "INTERNET EXPENSE (POCKET WIFI)",
+    "category": "communication",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 11,
+  "fields": {
+    "expenseTitle": "MOBILE EXPENSE",
+    "category": "communication",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 12,
+  "fields": {
+    "expenseTitle": "SECURITY SERVICES (TANOD / NON-AGENCY)",
+    "category": "services",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 13,
+  "fields": {
+    "expenseTitle": "SECURITY SERVICES (AGENCY)",
+    "category": "services",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 14,
+  "fields": {
+    "expenseTitle": "JANITORIAL SERVICES (NON-AGENCY)",
+    "category": "services",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 15,
+  "fields": {
+    "expenseTitle": "REPAIR AND MAINTENANCE - B/SB/OE/FF/MV/OPPE",
+    "category": "maintenance",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 16,
+  "fields": {
+    "expenseTitle": "FIDELITY BOND PREMIUM",
+    "category": "taxes",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 17,
+  "fields": {
+    "expenseTitle": "LABOR AND WAGES",
+    "category": "labor",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 18,
+  "fields": {
+    "expenseTitle": "REPRESENTATION EXPENSE",
+    "category": "other_maintenance",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 19,
+  "fields": {
+    "expenseTitle": "FUEL, OIL, AND LUBRICANTS EXPENSE",
+    "category": "other_maintenance",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 20,
+  "fields": {
+    "expenseTitle": "TRANSPORTATION AND DELIVERY EXPENSE (HAULING)",
+    "category": "other_maintenance",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 21,
+  "fields": {
+    "expenseTitle": "DRUGS AND MEDICINES / MEDICAL / DENTAL / LAB SUPPLIES",
+    "category": "other_maintenance",
+    "is_active": true
+  }
+},
+{
+  "model": "api.listofpriority",
+  "pk": 22,
+  "fields": {
+    "expenseTitle": "FOOD SUPPLIES EXPENSE (FEEDING)",
+    "category": "other_maintenance",
+    "is_active": true
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 1,
+  "fields": {
+    "priority": 1,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 2,
+  "fields": {
+    "priority": 1,
+    "requirement": 2
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 3,
+  "fields": {
+    "priority": 1,
+    "requirement": 3
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 4,
+  "fields": {
+    "priority": 1,
+    "requirement": 4
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 5,
+  "fields": {
+    "priority": 1,
+    "requirement": 5
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 6,
+  "fields": {
+    "priority": 1,
+    "requirement": 6
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 7,
+  "fields": {
+    "priority": 1,
+    "requirement": 7
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 8,
+  "fields": {
+    "priority": 2,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 9,
+  "fields": {
+    "priority": 2,
+    "requirement": 3
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 10,
+  "fields": {
+    "priority": 2,
+    "requirement": 4
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 11,
+  "fields": {
+    "priority": 2,
+    "requirement": 5
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 12,
+  "fields": {
+    "priority": 2,
+    "requirement": 6
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 13,
+  "fields": {
+    "priority": 2,
+    "requirement": 7
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 14,
+  "fields": {
+    "priority": 2,
+    "requirement": 11
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 15,
+  "fields": {
+    "priority": 3,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 16,
+  "fields": {
+    "priority": 3,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 17,
+  "fields": {
+    "priority": 3,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 18,
+  "fields": {
+    "priority": 3,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 19,
+  "fields": {
+    "priority": 3,
+    "requirement": 19
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 20,
+  "fields": {
+    "priority": 3,
+    "requirement": 20
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 21,
+  "fields": {
+    "priority": 3,
+    "requirement": 21
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 22,
+  "fields": {
+    "priority": 3,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 23,
+  "fields": {
+    "priority": 3,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 24,
+  "fields": {
+    "priority": 3,
+    "requirement": 24
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 25,
+  "fields": {
+    "priority": 3,
+    "requirement": 29
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 26,
+  "fields": {
+    "priority": 3,
+    "requirement": 33
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 27,
+  "fields": {
+    "priority": 3,
+    "requirement": 34
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 28,
+  "fields": {
+    "priority": 3,
+    "requirement": 35
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 29,
+  "fields": {
+    "priority": 3,
+    "requirement": 36
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 30,
+  "fields": {
+    "priority": 3,
+    "requirement": 37
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 31,
+  "fields": {
+    "priority": 4,
+    "requirement": 32
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 32,
+  "fields": {
+    "priority": 4,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 33,
+  "fields": {
+    "priority": 4,
+    "requirement": 36
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 34,
+  "fields": {
+    "priority": 4,
+    "requirement": 37
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 35,
+  "fields": {
+    "priority": 4,
+    "requirement": 38
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 36,
+  "fields": {
+    "priority": 4,
+    "requirement": 7
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 37,
+  "fields": {
+    "priority": 4,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 38,
+  "fields": {
+    "priority": 4,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 39,
+  "fields": {
+    "priority": 4,
+    "requirement": 29
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 40,
+  "fields": {
+    "priority": 5,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 41,
+  "fields": {
+    "priority": 5,
+    "requirement": 11
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 42,
+  "fields": {
+    "priority": 5,
+    "requirement": 13
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 43,
+  "fields": {
+    "priority": 5,
+    "requirement": 14
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 44,
+  "fields": {
+    "priority": 5,
+    "requirement": 15
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 45,
+  "fields": {
+    "priority": 5,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 46,
+  "fields": {
+    "priority": 5,
+    "requirement": 17
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 47,
+  "fields": {
+    "priority": 5,
+    "requirement": 18
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 48,
+  "fields": {
+    "priority": 5,
+    "requirement": 19
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 49,
+  "fields": {
+    "priority": 6,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 50,
+  "fields": {
+    "priority": 6,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 51,
+  "fields": {
+    "priority": 6,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 52,
+  "fields": {
+    "priority": 6,
+    "requirement": 13
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 53,
+  "fields": {
+    "priority": 6,
+    "requirement": 15
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 54,
+  "fields": {
+    "priority": 6,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 55,
+  "fields": {
+    "priority": 6,
+    "requirement": 17
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 56,
+  "fields": {
+    "priority": 6,
+    "requirement": 18
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 57,
+  "fields": {
+    "priority": 6,
+    "requirement": 19
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 58,
+  "fields": {
+    "priority": 6,
+    "requirement": 20
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 59,
+  "fields": {
+    "priority": 6,
+    "requirement": 21
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 60,
+  "fields": {
+    "priority": 6,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 61,
+  "fields": {
+    "priority": 6,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 62,
+  "fields": {
+    "priority": 6,
+    "requirement": 24
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 63,
+  "fields": {
+    "priority": 6,
+    "requirement": 25
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 64,
+  "fields": {
+    "priority": 6,
+    "requirement": 28
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 65,
+  "fields": {
+    "priority": 7,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 66,
+  "fields": {
+    "priority": 7,
+    "requirement": 8
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 67,
+  "fields": {
+    "priority": 7,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 68,
+  "fields": {
+    "priority": 7,
+    "requirement": 11
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 69,
+  "fields": {
+    "priority": 7,
+    "requirement": 12
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 70,
+  "fields": {
+    "priority": 8,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 71,
+  "fields": {
+    "priority": 8,
+    "requirement": 8
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 72,
+  "fields": {
+    "priority": 8,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 73,
+  "fields": {
+    "priority": 8,
+    "requirement": 11
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 74,
+  "fields": {
+    "priority": 8,
+    "requirement": 12
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 75,
+  "fields": {
+    "priority": 9,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 76,
+  "fields": {
+    "priority": 9,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 77,
+  "fields": {
+    "priority": 9,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 78,
+  "fields": {
+    "priority": 9,
+    "requirement": 11
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 79,
+  "fields": {
+    "priority": 9,
+    "requirement": 12
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 80,
+  "fields": {
+    "priority": 10,
+    "requirement": 8
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 81,
+  "fields": {
+    "priority": 10,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 82,
+  "fields": {
+    "priority": 10,
+    "requirement": 26
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 83,
+  "fields": {
+    "priority": 10,
+    "requirement": 27
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 84,
+  "fields": {
+    "priority": 11,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 85,
+  "fields": {
+    "priority": 11,
+    "requirement": 8
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 86,
+  "fields": {
+    "priority": 11,
+    "requirement": 11
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 87,
+  "fields": {
+    "priority": 11,
+    "requirement": 49
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 88,
+  "fields": {
+    "priority": 11,
+    "requirement": 50
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 89,
+  "fields": {
+    "priority": 11,
+    "requirement": 51
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 90,
+  "fields": {
+    "priority": 11,
+    "requirement": 24
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 91,
+  "fields": {
+    "priority": 11,
+    "requirement": 26
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 92,
+  "fields": {
+    "priority": 12,
+    "requirement": 32
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 93,
+  "fields": {
+    "priority": 12,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 94,
+  "fields": {
+    "priority": 12,
+    "requirement": 48
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 95,
+  "fields": {
+    "priority": 12,
+    "requirement": 31
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 96,
+  "fields": {
+    "priority": 12,
+    "requirement": 29
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 97,
+  "fields": {
+    "priority": 12,
+    "requirement": 30
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 98,
+  "fields": {
+    "priority": 12,
+    "requirement": 47
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 99,
+  "fields": {
+    "priority": 13,
+    "requirement": 32
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 100,
+  "fields": {
+    "priority": 13,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 101,
+  "fields": {
+    "priority": 13,
+    "requirement": 8
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 102,
+  "fields": {
+    "priority": 13,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 103,
+  "fields": {
+    "priority": 13,
+    "requirement": 11
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 104,
+  "fields": {
+    "priority": 13,
+    "requirement": 12
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 105,
+  "fields": {
+    "priority": 13,
+    "requirement": 21
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 106,
+  "fields": {
+    "priority": 13,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 107,
+  "fields": {
+    "priority": 13,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 108,
+  "fields": {
+    "priority": 13,
+    "requirement": 30
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 109,
+  "fields": {
+    "priority": 13,
+    "requirement": 31
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 110,
+  "fields": {
+    "priority": 14,
+    "requirement": 32
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 111,
+  "fields": {
+    "priority": 14,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 112,
+  "fields": {
+    "priority": 14,
+    "requirement": 29
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 113,
+  "fields": {
+    "priority": 14,
+    "requirement": 30
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 114,
+  "fields": {
+    "priority": 14,
+    "requirement": 31
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 115,
+  "fields": {
+    "priority": 15,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 116,
+  "fields": {
+    "priority": 15,
+    "requirement": 39
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 117,
+  "fields": {
+    "priority": 15,
+    "requirement": 40
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 118,
+  "fields": {
+    "priority": 15,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 119,
+  "fields": {
+    "priority": 15,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 120,
+  "fields": {
+    "priority": 15,
+    "requirement": 15
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 121,
+  "fields": {
+    "priority": 15,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 122,
+  "fields": {
+    "priority": 15,
+    "requirement": 19
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 123,
+  "fields": {
+    "priority": 15,
+    "requirement": 20
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 124,
+  "fields": {
+    "priority": 15,
+    "requirement": 21
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 125,
+  "fields": {
+    "priority": 15,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 126,
+  "fields": {
+    "priority": 15,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 127,
+  "fields": {
+    "priority": 15,
+    "requirement": 24
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 128,
+  "fields": {
+    "priority": 15,
+    "requirement": 25
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 129,
+  "fields": {
+    "priority": 16,
+    "requirement": 41
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 130,
+  "fields": {
+    "priority": 16,
+    "requirement": 42
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 131,
+  "fields": {
+    "priority": 16,
+    "requirement": 43
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 132,
+  "fields": {
+    "priority": 16,
+    "requirement": 44
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 133,
+  "fields": {
+    "priority": 17,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 134,
+  "fields": {
+    "priority": 17,
+    "requirement": 39
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 135,
+  "fields": {
+    "priority": 17,
+    "requirement": 40
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 136,
+  "fields": {
+    "priority": 17,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 137,
+  "fields": {
+    "priority": 17,
+    "requirement": 47
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 138,
+  "fields": {
+    "priority": 17,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 139,
+  "fields": {
+    "priority": 17,
+    "requirement": 19
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 140,
+  "fields": {
+    "priority": 17,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 141,
+  "fields": {
+    "priority": 17,
+    "requirement": 55
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 142,
+  "fields": {
+    "priority": 17,
+    "requirement": 54
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 143,
+  "fields": {
+    "priority": 17,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 144,
+  "fields": {
+    "priority": 17,
+    "requirement": 29
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 145,
+  "fields": {
+    "priority": 18,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 146,
+  "fields": {
+    "priority": 18,
+    "requirement": 33
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 147,
+  "fields": {
+    "priority": 18,
+    "requirement": 36
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 148,
+  "fields": {
+    "priority": 18,
+    "requirement": 37
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 149,
+  "fields": {
+    "priority": 18,
+    "requirement": 38
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 150,
+  "fields": {
+    "priority": 18,
+    "requirement": 7
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 151,
+  "fields": {
+    "priority": 18,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 152,
+  "fields": {
+    "priority": 18,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 153,
+  "fields": {
+    "priority": 18,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 154,
+  "fields": {
+    "priority": 18,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 155,
+  "fields": {
+    "priority": 18,
+    "requirement": 29
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 156,
+  "fields": {
+    "priority": 19,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 157,
+  "fields": {
+    "priority": 19,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 158,
+  "fields": {
+    "priority": 19,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 159,
+  "fields": {
+    "priority": 19,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 160,
+  "fields": {
+    "priority": 19,
+    "requirement": 19
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 161,
+  "fields": {
+    "priority": 19,
+    "requirement": 20
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 162,
+  "fields": {
+    "priority": 19,
+    "requirement": 21
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 163,
+  "fields": {
+    "priority": 19,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 164,
+  "fields": {
+    "priority": 19,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 165,
+  "fields": {
+    "priority": 19,
+    "requirement": 24
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 166,
+  "fields": {
+    "priority": 19,
+    "requirement": 25
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 167,
+  "fields": {
+    "priority": 19,
+    "requirement": 52
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 168,
+  "fields": {
+    "priority": 20,
+    "requirement": 32
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 169,
+  "fields": {
+    "priority": 20,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 170,
+  "fields": {
+    "priority": 20,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 171,
+  "fields": {
+    "priority": 20,
+    "requirement": 41
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 172,
+  "fields": {
+    "priority": 20,
+    "requirement": 42
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 173,
+  "fields": {
+    "priority": 20,
+    "requirement": 29
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 174,
+  "fields": {
+    "priority": 21,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 175,
+  "fields": {
+    "priority": 21,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 176,
+  "fields": {
+    "priority": 21,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 177,
+  "fields": {
+    "priority": 21,
+    "requirement": 45
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 178,
+  "fields": {
+    "priority": 21,
+    "requirement": 15
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 179,
+  "fields": {
+    "priority": 21,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 180,
+  "fields": {
+    "priority": 21,
+    "requirement": 19
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 181,
+  "fields": {
+    "priority": 21,
+    "requirement": 20
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 182,
+  "fields": {
+    "priority": 21,
+    "requirement": 21
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 183,
+  "fields": {
+    "priority": 21,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 184,
+  "fields": {
+    "priority": 21,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 185,
+  "fields": {
+    "priority": 21,
+    "requirement": 24
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 186,
+  "fields": {
+    "priority": 21,
+    "requirement": 25
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 187,
+  "fields": {
+    "priority": 22,
+    "requirement": 1
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 188,
+  "fields": {
+    "priority": 22,
+    "requirement": 9
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 189,
+  "fields": {
+    "priority": 22,
+    "requirement": 10
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 190,
+  "fields": {
+    "priority": 22,
+    "requirement": 16
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 191,
+  "fields": {
+    "priority": 22,
+    "requirement": 19
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 192,
+  "fields": {
+    "priority": 22,
+    "requirement": 20
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 193,
+  "fields": {
+    "priority": 22,
+    "requirement": 21
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 194,
+  "fields": {
+    "priority": 22,
+    "requirement": 22
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 195,
+  "fields": {
+    "priority": 22,
+    "requirement": 23
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 196,
+  "fields": {
+    "priority": 22,
+    "requirement": 24
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 197,
+  "fields": {
+    "priority": 22,
+    "requirement": 25
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 198,
+  "fields": {
+    "priority": 22,
+    "requirement": 35
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 199,
+  "fields": {
+    "priority": 22,
+    "requirement": 37
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 200,
+  "fields": {
+    "priority": 22,
+    "requirement": 43
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 201,
+  "fields": {
+    "priority": 22,
+    "requirement": 44
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 202,
+  "fields": {
+    "priority": 22,
+    "requirement": 52
+  }
+},
+{
+  "model": "api.priorityrequirement",
+  "pk": 203,
+  "fields": {
+    "priority": 22,
+    "requirement": 53
+  }
+},
+{
+  "model": "api.requestpriority",
+  "pk": 1,
+  "fields": {
+    "request": "REQ-JLC4L8",
+    "priority": 7,
+    "amount": "25000.00"
+  }
+},
+{
+  "model": "api.requestpriority",
+  "pk": 2,
+  "fields": {
+    "request": "REQ-JLC4L8",
+    "priority": 8,
+    "amount": "25000.00"
+  }
+},
+{
+  "model": "api.liquidationpriority",
+  "pk": 1,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "priority": 1,
+    "amount": "25000.00"
+  }
+},
+{
+  "model": "api.liquidationpriority",
+  "pk": 2,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "priority": 2,
+    "amount": "25000.00"
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 3,
+  "fields": {
+    "districtName": "Agoo East",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_3_b7509876-ad19-4239-8135-83fd4e1cb5e4.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 4,
+  "fields": {
+    "districtName": "Agoo West",
+    "municipality": "AGOO",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_4_4b38bacd-5c37-4d6d-a30e-3b2c27ffb415.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 5,
+  "fields": {
+    "districtName": "Luna I",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_5_946d5d4b-8a60-4181-9c59-88d0d0249144.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 6,
+  "fields": {
+    "districtName": "Luna II",
+    "municipality": "LUNA",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_6_5b2a46e9-98ac-4354-a5a3-4a5025206ecb.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 7,
+  "fields": {
+    "districtName": "Bauang North",
+    "municipality": "BAUANG",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_7_68ecec49-2ea6-430e-8e9b-fa0dce3e35fe.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 8,
+  "fields": {
+    "districtName": "Bauang South",
+    "municipality": "BAUANG",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_8_0eb94fe9-a86e-4ed8-80c2-9b4b2d480c54.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 9,
+  "fields": {
+    "districtName": "Aringay",
+    "municipality": "ARINGAY",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_9_763148a2-d0cd-416c-8ec0-a3b5e8bd25ef.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 10,
+  "fields": {
+    "districtName": "Bacnotan",
+    "municipality": "BACNOTAN",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_10_42b30872-4647-4b1c-8052-48b41be05763.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 11,
+  "fields": {
+    "districtName": "Bagulin",
+    "municipality": "BAGULIN",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_11_2abd6366-5d1c-44a0-953a-cd5d01053dc8.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 12,
+  "fields": {
+    "districtName": "Balaoan",
+    "municipality": "BALAOAN",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_12_17ff4b15-2df6-47c1-bde3-c5acd5a119f6.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 13,
+  "fields": {
+    "districtName": "Bangar",
+    "municipality": "BANGAR",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_13_25372234-8067-45bf-9180-b68ce2af0084.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 14,
+  "fields": {
+    "districtName": "Burgos",
+    "municipality": "BURGOS",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_14_6b7b079f-2461-488a-a798-d424449aa503.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 15,
+  "fields": {
+    "districtName": "Caba",
+    "municipality": "CABA",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_15_c2f08a3b-3bde-43fb-891b-777deaed8bd7.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 16,
+  "fields": {
+    "districtName": "Naguilian",
+    "municipality": "NAGUILIAN",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_16_8f0f5879-c071-4d96-bab8-2ecd0c23827b.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 17,
+  "fields": {
+    "districtName": "Rosario",
+    "municipality": "ROSARIO",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_17_671e8fad-26eb-4ace-87fa-69bb4beeead4.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 18,
+  "fields": {
+    "districtName": "Pugo",
+    "municipality": "PUGO",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_18_41742cd1-0754-4990-9716-9e27b688a91f.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 19,
+  "fields": {
+    "districtName": "San Gabriel",
+    "municipality": "SAN GABRIEL",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_19_3ad131ed-43a9-42aa-9de1-0f4c36be774c.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 20,
+  "fields": {
+    "districtName": "San Juan",
+    "municipality": "SAN JUAN",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_20_9bc24469-f702-4f57-bd48-796177852d95.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 21,
+  "fields": {
+    "districtName": "Santo Tomas",
+    "municipality": "SANTO TOMAS",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_21_74cdd7cc-2861-4544-82a3-06850d3af8e7.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 22,
+  "fields": {
+    "districtName": "Santol",
+    "municipality": "SANTOL",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_22_fcf68a03-d0d7-473b-b139-5acdc9a755dd.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 23,
+  "fields": {
+    "districtName": "Sudipen",
+    "municipality": "SUDIPEN",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_23_82868043-9eee-4f3d-8d73-d72953192c29.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 24,
+  "fields": {
+    "districtName": "Tubao",
+    "municipality": "TUBAO",
+    "legislativeDistrict": "2nd District",
+    "logo": "district_logos/district_24_7a7f51ed-fb80-40a0-958f-c8a260f1969e.png",
+    "is_active": true
+  }
+},
+{
+  "model": "api.schooldistrict",
+  "pk": 25,
+  "fields": {
+    "districtName": "dfdsfds",
+    "municipality": "BANGAR",
+    "legislativeDistrict": "1st District",
+    "logo": "district_logos/district_25_355c3344-9bf2-46e0-b2b9-81ddc75b4ec4.jpeg",
+    "is_active": true
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add log entry",
+    "content_type": [
+      "admin",
+      "logentry"
+    ],
+    "codename": "add_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change log entry",
+    "content_type": [
+      "admin",
+      "logentry"
+    ],
+    "codename": "change_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete log entry",
+    "content_type": [
+      "admin",
+      "logentry"
+    ],
+    "codename": "delete_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view log entry",
+    "content_type": [
+      "admin",
+      "logentry"
+    ],
+    "codename": "view_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add permission",
+    "content_type": [
+      "auth",
+      "permission"
+    ],
+    "codename": "add_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change permission",
+    "content_type": [
+      "auth",
+      "permission"
+    ],
+    "codename": "change_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete permission",
+    "content_type": [
+      "auth",
+      "permission"
+    ],
+    "codename": "delete_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view permission",
+    "content_type": [
+      "auth",
+      "permission"
+    ],
+    "codename": "view_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add group",
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "codename": "add_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change group",
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "codename": "change_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete group",
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "codename": "delete_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view group",
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "codename": "view_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add content type",
+    "content_type": [
+      "contenttypes",
+      "contenttype"
+    ],
+    "codename": "add_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change content type",
+    "content_type": [
+      "contenttypes",
+      "contenttype"
+    ],
+    "codename": "change_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete content type",
+    "content_type": [
+      "contenttypes",
+      "contenttype"
+    ],
+    "codename": "delete_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view content type",
+    "content_type": [
+      "contenttypes",
+      "contenttype"
+    ],
+    "codename": "view_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add session",
+    "content_type": [
+      "sessions",
+      "session"
+    ],
+    "codename": "add_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change session",
+    "content_type": [
+      "sessions",
+      "session"
+    ],
+    "codename": "change_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete session",
+    "content_type": [
+      "sessions",
+      "session"
+    ],
+    "codename": "delete_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view session",
+    "content_type": [
+      "sessions",
+      "session"
+    ],
+    "codename": "view_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add list of priority",
+    "content_type": [
+      "api",
+      "listofpriority"
+    ],
+    "codename": "add_listofpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change list of priority",
+    "content_type": [
+      "api",
+      "listofpriority"
+    ],
+    "codename": "change_listofpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete list of priority",
+    "content_type": [
+      "api",
+      "listofpriority"
+    ],
+    "codename": "delete_listofpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view list of priority",
+    "content_type": [
+      "api",
+      "listofpriority"
+    ],
+    "codename": "view_listofpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add requirement",
+    "content_type": [
+      "api",
+      "requirement"
+    ],
+    "codename": "add_requirement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change requirement",
+    "content_type": [
+      "api",
+      "requirement"
+    ],
+    "codename": "change_requirement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete requirement",
+    "content_type": [
+      "api",
+      "requirement"
+    ],
+    "codename": "delete_requirement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view requirement",
+    "content_type": [
+      "api",
+      "requirement"
+    ],
+    "codename": "view_requirement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add school",
+    "content_type": [
+      "api",
+      "school"
+    ],
+    "codename": "add_school"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change school",
+    "content_type": [
+      "api",
+      "school"
+    ],
+    "codename": "change_school"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete school",
+    "content_type": [
+      "api",
+      "school"
+    ],
+    "codename": "delete_school"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view school",
+    "content_type": [
+      "api",
+      "school"
+    ],
+    "codename": "view_school"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add school district",
+    "content_type": [
+      "api",
+      "schooldistrict"
+    ],
+    "codename": "add_schooldistrict"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change school district",
+    "content_type": [
+      "api",
+      "schooldistrict"
+    ],
+    "codename": "change_schooldistrict"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete school district",
+    "content_type": [
+      "api",
+      "schooldistrict"
+    ],
+    "codename": "delete_schooldistrict"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view school district",
+    "content_type": [
+      "api",
+      "schooldistrict"
+    ],
+    "codename": "view_schooldistrict"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add user",
+    "content_type": [
+      "api",
+      "user"
+    ],
+    "codename": "add_user"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change user",
+    "content_type": [
+      "api",
+      "user"
+    ],
+    "codename": "change_user"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete user",
+    "content_type": [
+      "api",
+      "user"
+    ],
+    "codename": "delete_user"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view user",
+    "content_type": [
+      "api",
+      "user"
+    ],
+    "codename": "view_user"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add historical request management",
+    "content_type": [
+      "api",
+      "historicalrequestmanagement"
+    ],
+    "codename": "add_historicalrequestmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change historical request management",
+    "content_type": [
+      "api",
+      "historicalrequestmanagement"
+    ],
+    "codename": "change_historicalrequestmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete historical request management",
+    "content_type": [
+      "api",
+      "historicalrequestmanagement"
+    ],
+    "codename": "delete_historicalrequestmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view historical request management",
+    "content_type": [
+      "api",
+      "historicalrequestmanagement"
+    ],
+    "codename": "view_historicalrequestmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add notification",
+    "content_type": [
+      "api",
+      "notification"
+    ],
+    "codename": "add_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change notification",
+    "content_type": [
+      "api",
+      "notification"
+    ],
+    "codename": "change_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete notification",
+    "content_type": [
+      "api",
+      "notification"
+    ],
+    "codename": "delete_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view notification",
+    "content_type": [
+      "api",
+      "notification"
+    ],
+    "codename": "view_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add request management",
+    "content_type": [
+      "api",
+      "requestmanagement"
+    ],
+    "codename": "add_requestmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change request management",
+    "content_type": [
+      "api",
+      "requestmanagement"
+    ],
+    "codename": "change_requestmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete request management",
+    "content_type": [
+      "api",
+      "requestmanagement"
+    ],
+    "codename": "delete_requestmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view request management",
+    "content_type": [
+      "api",
+      "requestmanagement"
+    ],
+    "codename": "view_requestmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add liquidation management",
+    "content_type": [
+      "api",
+      "liquidationmanagement"
+    ],
+    "codename": "add_liquidationmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change liquidation management",
+    "content_type": [
+      "api",
+      "liquidationmanagement"
+    ],
+    "codename": "change_liquidationmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete liquidation management",
+    "content_type": [
+      "api",
+      "liquidationmanagement"
+    ],
+    "codename": "delete_liquidationmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view liquidation management",
+    "content_type": [
+      "api",
+      "liquidationmanagement"
+    ],
+    "codename": "view_liquidationmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add historical request priority",
+    "content_type": [
+      "api",
+      "historicalrequestpriority"
+    ],
+    "codename": "add_historicalrequestpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change historical request priority",
+    "content_type": [
+      "api",
+      "historicalrequestpriority"
+    ],
+    "codename": "change_historicalrequestpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete historical request priority",
+    "content_type": [
+      "api",
+      "historicalrequestpriority"
+    ],
+    "codename": "delete_historicalrequestpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view historical request priority",
+    "content_type": [
+      "api",
+      "historicalrequestpriority"
+    ],
+    "codename": "view_historicalrequestpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add historical liquidation management",
+    "content_type": [
+      "api",
+      "historicalliquidationmanagement"
+    ],
+    "codename": "add_historicalliquidationmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change historical liquidation management",
+    "content_type": [
+      "api",
+      "historicalliquidationmanagement"
+    ],
+    "codename": "change_historicalliquidationmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete historical liquidation management",
+    "content_type": [
+      "api",
+      "historicalliquidationmanagement"
+    ],
+    "codename": "delete_historicalliquidationmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view historical liquidation management",
+    "content_type": [
+      "api",
+      "historicalliquidationmanagement"
+    ],
+    "codename": "view_historicalliquidationmanagement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add request priority",
+    "content_type": [
+      "api",
+      "requestpriority"
+    ],
+    "codename": "add_requestpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change request priority",
+    "content_type": [
+      "api",
+      "requestpriority"
+    ],
+    "codename": "change_requestpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete request priority",
+    "content_type": [
+      "api",
+      "requestpriority"
+    ],
+    "codename": "delete_requestpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view request priority",
+    "content_type": [
+      "api",
+      "requestpriority"
+    ],
+    "codename": "view_requestpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add priority requirement",
+    "content_type": [
+      "api",
+      "priorityrequirement"
+    ],
+    "codename": "add_priorityrequirement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change priority requirement",
+    "content_type": [
+      "api",
+      "priorityrequirement"
+    ],
+    "codename": "change_priorityrequirement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete priority requirement",
+    "content_type": [
+      "api",
+      "priorityrequirement"
+    ],
+    "codename": "delete_priorityrequirement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view priority requirement",
+    "content_type": [
+      "api",
+      "priorityrequirement"
+    ],
+    "codename": "view_priorityrequirement"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add liquidation priority",
+    "content_type": [
+      "api",
+      "liquidationpriority"
+    ],
+    "codename": "add_liquidationpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change liquidation priority",
+    "content_type": [
+      "api",
+      "liquidationpriority"
+    ],
+    "codename": "change_liquidationpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete liquidation priority",
+    "content_type": [
+      "api",
+      "liquidationpriority"
+    ],
+    "codename": "delete_liquidationpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view liquidation priority",
+    "content_type": [
+      "api",
+      "liquidationpriority"
+    ],
+    "codename": "view_liquidationpriority"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add liquidation document",
+    "content_type": [
+      "api",
+      "liquidationdocument"
+    ],
+    "codename": "add_liquidationdocument"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change liquidation document",
+    "content_type": [
+      "api",
+      "liquidationdocument"
+    ],
+    "codename": "change_liquidationdocument"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete liquidation document",
+    "content_type": [
+      "api",
+      "liquidationdocument"
+    ],
+    "codename": "delete_liquidationdocument"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view liquidation document",
+    "content_type": [
+      "api",
+      "liquidationdocument"
+    ],
+    "codename": "view_liquidationdocument"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add Generated PDF",
+    "content_type": [
+      "api",
+      "generatedpdf"
+    ],
+    "codename": "add_generatedpdf"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change Generated PDF",
+    "content_type": [
+      "api",
+      "generatedpdf"
+    ],
+    "codename": "change_generatedpdf"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete Generated PDF",
+    "content_type": [
+      "api",
+      "generatedpdf"
+    ],
+    "codename": "delete_generatedpdf"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view Generated PDF",
+    "content_type": [
+      "api",
+      "generatedpdf"
+    ],
+    "codename": "view_generatedpdf"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add task result",
+    "content_type": [
+      "django_celery_results",
+      "taskresult"
+    ],
+    "codename": "add_taskresult"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change task result",
+    "content_type": [
+      "django_celery_results",
+      "taskresult"
+    ],
+    "codename": "change_taskresult"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete task result",
+    "content_type": [
+      "django_celery_results",
+      "taskresult"
+    ],
+    "codename": "delete_taskresult"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view task result",
+    "content_type": [
+      "django_celery_results",
+      "taskresult"
+    ],
+    "codename": "view_taskresult"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add chord counter",
+    "content_type": [
+      "django_celery_results",
+      "chordcounter"
+    ],
+    "codename": "add_chordcounter"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change chord counter",
+    "content_type": [
+      "django_celery_results",
+      "chordcounter"
+    ],
+    "codename": "change_chordcounter"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete chord counter",
+    "content_type": [
+      "django_celery_results",
+      "chordcounter"
+    ],
+    "codename": "delete_chordcounter"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view chord counter",
+    "content_type": [
+      "django_celery_results",
+      "chordcounter"
+    ],
+    "codename": "view_chordcounter"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add group result",
+    "content_type": [
+      "django_celery_results",
+      "groupresult"
+    ],
+    "codename": "add_groupresult"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change group result",
+    "content_type": [
+      "django_celery_results",
+      "groupresult"
+    ],
+    "codename": "change_groupresult"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete group result",
+    "content_type": [
+      "django_celery_results",
+      "groupresult"
+    ],
+    "codename": "delete_groupresult"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view group result",
+    "content_type": [
+      "django_celery_results",
+      "groupresult"
+    ],
+    "codename": "view_groupresult"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add crontab",
+    "content_type": [
+      "django_celery_beat",
+      "crontabschedule"
+    ],
+    "codename": "add_crontabschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change crontab",
+    "content_type": [
+      "django_celery_beat",
+      "crontabschedule"
+    ],
+    "codename": "change_crontabschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete crontab",
+    "content_type": [
+      "django_celery_beat",
+      "crontabschedule"
+    ],
+    "codename": "delete_crontabschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view crontab",
+    "content_type": [
+      "django_celery_beat",
+      "crontabschedule"
+    ],
+    "codename": "view_crontabschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add interval",
+    "content_type": [
+      "django_celery_beat",
+      "intervalschedule"
+    ],
+    "codename": "add_intervalschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change interval",
+    "content_type": [
+      "django_celery_beat",
+      "intervalschedule"
+    ],
+    "codename": "change_intervalschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete interval",
+    "content_type": [
+      "django_celery_beat",
+      "intervalschedule"
+    ],
+    "codename": "delete_intervalschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view interval",
+    "content_type": [
+      "django_celery_beat",
+      "intervalschedule"
+    ],
+    "codename": "view_intervalschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add periodic task",
+    "content_type": [
+      "django_celery_beat",
+      "periodictask"
+    ],
+    "codename": "add_periodictask"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change periodic task",
+    "content_type": [
+      "django_celery_beat",
+      "periodictask"
+    ],
+    "codename": "change_periodictask"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete periodic task",
+    "content_type": [
+      "django_celery_beat",
+      "periodictask"
+    ],
+    "codename": "delete_periodictask"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view periodic task",
+    "content_type": [
+      "django_celery_beat",
+      "periodictask"
+    ],
+    "codename": "view_periodictask"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add periodic task track",
+    "content_type": [
+      "django_celery_beat",
+      "periodictasks"
+    ],
+    "codename": "add_periodictasks"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change periodic task track",
+    "content_type": [
+      "django_celery_beat",
+      "periodictasks"
+    ],
+    "codename": "change_periodictasks"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete periodic task track",
+    "content_type": [
+      "django_celery_beat",
+      "periodictasks"
+    ],
+    "codename": "delete_periodictasks"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view periodic task track",
+    "content_type": [
+      "django_celery_beat",
+      "periodictasks"
+    ],
+    "codename": "view_periodictasks"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add solar event",
+    "content_type": [
+      "django_celery_beat",
+      "solarschedule"
+    ],
+    "codename": "add_solarschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change solar event",
+    "content_type": [
+      "django_celery_beat",
+      "solarschedule"
+    ],
+    "codename": "change_solarschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete solar event",
+    "content_type": [
+      "django_celery_beat",
+      "solarschedule"
+    ],
+    "codename": "delete_solarschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view solar event",
+    "content_type": [
+      "django_celery_beat",
+      "solarschedule"
+    ],
+    "codename": "view_solarschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add clocked",
+    "content_type": [
+      "django_celery_beat",
+      "clockedschedule"
+    ],
+    "codename": "add_clockedschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change clocked",
+    "content_type": [
+      "django_celery_beat",
+      "clockedschedule"
+    ],
+    "codename": "change_clockedschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete clocked",
+    "content_type": [
+      "django_celery_beat",
+      "clockedschedule"
+    ],
+    "codename": "delete_clockedschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view clocked",
+    "content_type": [
+      "django_celery_beat",
+      "clockedschedule"
+    ],
+    "codename": "view_clockedschedule"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add backup",
+    "content_type": [
+      "api",
+      "backup"
+    ],
+    "codename": "add_backup"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change backup",
+    "content_type": [
+      "api",
+      "backup"
+    ],
+    "codename": "change_backup"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete backup",
+    "content_type": [
+      "api",
+      "backup"
+    ],
+    "codename": "delete_backup"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view backup",
+    "content_type": [
+      "api",
+      "backup"
+    ],
+    "codename": "view_backup"
+  }
+},
+{
+  "model": "api.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$fnywH5m0u0FZHtGncfwtRY$v8e4uEgJE78CzqA5dCvWK84ED6uPjOeLNOCKv8NPCqI=",
+    "last_login": "2025-09-18T08:26:47.132Z",
+    "is_superuser": false,
+    "first_name": "John",
+    "last_name": "Doe",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2025-09-18T07:35:09.710Z",
+    "password_change_required": false,
+    "email": "admin@slc-sflu.edu.ph",
+    "role": "admin",
+    "school": null,
+    "date_of_birth": "1990-01-01",
+    "sex": null,
+    "phone_number": "+1234567890",
+    "profile_picture": "",
+    "school_district": null,
+    "otp_code": null,
+    "otp_generated_at": null,
+    "e_signature": "",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$L8rzY8x8w68LLNnv2zL7AL$Euuby1VqdUExpUPCM198R1hGhLmFtxGi/T4MKvBfYD8=",
+    "last_login": "2025-09-18T08:16:02.755Z",
+    "is_superuser": false,
+    "first_name": "Johnrick",
+    "last_name": "Valdez",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2025-09-18T07:39:55.139Z",
+    "password_change_required": false,
+    "email": "liquidator@gmail.com",
+    "role": "liquidator",
+    "school": null,
+    "date_of_birth": "2000-02-02",
+    "sex": null,
+    "phone_number": "+639234327432",
+    "profile_picture": "",
+    "school_district": null,
+    "otp_code": null,
+    "otp_generated_at": null,
+    "e_signature": "",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$VnRwqPxFF5BMUqUaNZ4zYM$38tIjawoZwdji1sycDeV+qf4a6xjCm4T1EwNgbOlua8=",
+    "last_login": "2025-09-18T08:01:23.701Z",
+    "is_superuser": false,
+    "first_name": "school head",
+    "last_name": "1",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2025-09-18T07:49:35.422Z",
+    "password_change_required": false,
+    "email": "schoolhead@gmail.com",
+    "role": "school_head",
+    "school": "100805",
+    "date_of_birth": "2000-02-02",
+    "sex": null,
+    "phone_number": "+639723473247",
+    "profile_picture": "",
+    "school_district": null,
+    "otp_code": null,
+    "otp_generated_at": null,
+    "e_signature": "e_signatures/images.png",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$IQx1e8kXuRIsBPsD0p5dNU$kFozFkRb+MEhvEvrgVuGejyNgdIF0n1895r/4b93YxY=",
+    "last_login": "2025-09-18T07:53:15.331Z",
+    "is_superuser": false,
+    "first_name": "John",
+    "last_name": "Doe",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2025-09-18T07:52:53.212Z",
+    "password_change_required": false,
+    "email": "superintendent@gmail.com",
+    "role": "superintendent",
+    "school": null,
+    "date_of_birth": "1990-01-01",
+    "sex": null,
+    "phone_number": "+12334567890",
+    "profile_picture": "",
+    "school_district": null,
+    "otp_code": null,
+    "otp_generated_at": null,
+    "e_signature": "e_signatures/images_SWuwkVM.png",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$xCIj6Ac9ZcNpbxVEHakfkv$Ntkbd4We4gVnLfO7BXBwKOX4RdWaHEfpkdwbLA2RnTY=",
+    "last_login": "2025-09-18T08:24:07.081Z",
+    "is_superuser": false,
+    "first_name": "John",
+    "last_name": "Doe",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2025-09-18T07:58:07.773Z",
+    "password_change_required": false,
+    "email": "accountant@gmail.com",
+    "role": "accountant",
+    "school": null,
+    "date_of_birth": "1990-01-01",
+    "sex": null,
+    "phone_number": "+12334567890",
+    "profile_picture": "",
+    "school_district": null,
+    "otp_code": null,
+    "otp_generated_at": null,
+    "e_signature": "e_signatures/images_0xbCyh6.png",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$J8ZJDYw054OZjsvXnxfklN$hRZW3JtCDejCxw2llsg4gMM7lSHVz1md0p81zU1qPy4=",
+    "last_login": "2025-09-18T08:04:12.003Z",
+    "is_superuser": false,
+    "first_name": "district",
+    "last_name": "adas",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2025-09-18T08:03:53.998Z",
+    "password_change_required": false,
+    "email": "district@gmail.com",
+    "role": "district_admin",
+    "school": null,
+    "date_of_birth": "2000-02-02",
+    "sex": null,
+    "phone_number": "+639345475345",
+    "profile_picture": "",
+    "school_district": 3,
+    "otp_code": null,
+    "otp_generated_at": null,
+    "e_signature": "",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.historicalrequestmanagement",
+  "pk": 1,
+  "fields": {
+    "request_id": "REQ-JLC4L8",
+    "request_monthyear": "2025-09",
+    "status": "pending",
+    "created_at": "2025-09-18T07:52:05.297Z",
+    "last_reminder_sent": null,
+    "demand_letter_sent": false,
+    "demand_letter_date": null,
+    "date_approved": null,
+    "downloaded_at": null,
+    "rejection_comment": null,
+    "rejection_date": null,
+    "reviewed_at": null,
+    "user": [
+      "schoolhead@gmail.com"
+    ],
+    "reviewed_by": null,
+    "history_date": "2025-09-18T07:52:05.303Z",
+    "history_change_reason": null,
+    "history_type": "+",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalrequestmanagement",
+  "pk": 2,
+  "fields": {
+    "request_id": "REQ-JLC4L8",
+    "request_monthyear": "2025-09",
+    "status": "pending",
+    "created_at": "2025-09-18T07:52:05.297Z",
+    "last_reminder_sent": null,
+    "demand_letter_sent": false,
+    "demand_letter_date": null,
+    "date_approved": null,
+    "downloaded_at": null,
+    "rejection_comment": null,
+    "rejection_date": null,
+    "reviewed_at": null,
+    "user": [
+      "schoolhead@gmail.com"
+    ],
+    "reviewed_by": null,
+    "history_date": "2025-09-18T07:52:05.352Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalrequestmanagement",
+  "pk": 3,
+  "fields": {
+    "request_id": "REQ-JLC4L8",
+    "request_monthyear": "2025-09",
+    "status": "approved",
+    "created_at": "2025-09-18T07:52:05.297Z",
+    "last_reminder_sent": null,
+    "demand_letter_sent": false,
+    "demand_letter_date": null,
+    "date_approved": "2025-09-18",
+    "downloaded_at": null,
+    "rejection_comment": null,
+    "rejection_date": null,
+    "reviewed_at": "2025-09-18T07:57:12.435Z",
+    "user": [
+      "schoolhead@gmail.com"
+    ],
+    "reviewed_by": [
+      "superintendent@gmail.com"
+    ],
+    "history_date": "2025-09-18T07:57:12.452Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalrequestmanagement",
+  "pk": 4,
+  "fields": {
+    "request_id": "REQ-JLC4L8",
+    "request_monthyear": "2025-09",
+    "status": "downloaded",
+    "created_at": "2025-09-18T07:52:05.297Z",
+    "last_reminder_sent": null,
+    "demand_letter_sent": false,
+    "demand_letter_date": null,
+    "date_approved": null,
+    "downloaded_at": "2025-09-17T16:00:00Z",
+    "rejection_comment": null,
+    "rejection_date": null,
+    "reviewed_at": "2025-09-18T07:57:12.435Z",
+    "user": [
+      "schoolhead@gmail.com"
+    ],
+    "reviewed_by": [
+      "superintendent@gmail.com"
+    ],
+    "history_date": "2025-09-18T07:59:45.874Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalrequestmanagement",
+  "pk": 5,
+  "fields": {
+    "request_id": "REQ-JLC4L8",
+    "request_monthyear": "2025-09",
+    "status": "unliquidated",
+    "created_at": "2025-09-18T07:52:05.297Z",
+    "last_reminder_sent": null,
+    "demand_letter_sent": false,
+    "demand_letter_date": null,
+    "date_approved": null,
+    "downloaded_at": null,
+    "rejection_comment": null,
+    "rejection_date": null,
+    "reviewed_at": "2025-09-18T07:57:12.435Z",
+    "user": [
+      "schoolhead@gmail.com"
+    ],
+    "reviewed_by": [
+      "superintendent@gmail.com"
+    ],
+    "history_date": "2025-09-18T07:59:48.958Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalrequestmanagement",
+  "pk": 6,
+  "fields": {
+    "request_id": "REQ-JLC4L8",
+    "request_monthyear": "2025-09",
+    "status": "liquidated",
+    "created_at": "2025-09-18T07:52:05.297Z",
+    "last_reminder_sent": null,
+    "demand_letter_sent": false,
+    "demand_letter_date": null,
+    "date_approved": null,
+    "downloaded_at": null,
+    "rejection_comment": null,
+    "rejection_date": null,
+    "reviewed_at": "2025-09-18T07:57:12.435Z",
+    "user": [
+      "schoolhead@gmail.com"
+    ],
+    "reviewed_by": [
+      "superintendent@gmail.com"
+    ],
+    "history_date": "2025-09-18T08:26:15.426Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalrequestmanagement",
+  "pk": 7,
+  "fields": {
+    "request_id": "REQ-JLC4L8",
+    "request_monthyear": "2025-09",
+    "status": "liquidated",
+    "created_at": "2025-09-18T07:52:05.297Z",
+    "last_reminder_sent": null,
+    "demand_letter_sent": false,
+    "demand_letter_date": null,
+    "date_approved": "2025-09-18",
+    "downloaded_at": "2025-09-17T16:00:00Z",
+    "rejection_comment": null,
+    "rejection_date": null,
+    "reviewed_at": "2025-09-18T07:57:12.435Z",
+    "user": [
+      "schoolhead@gmail.com"
+    ],
+    "reviewed_by": [
+      "superintendent@gmail.com"
+    ],
+    "history_date": "2025-09-18T08:26:18.767Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.requestmanagement",
+  "pk": "REQ-JLC4L8",
+  "fields": {
+    "user": [
+      "schoolhead@gmail.com"
+    ],
+    "request_monthyear": "2025-09",
+    "status": "liquidated",
+    "created_at": "2025-09-18T07:52:05.297Z",
+    "last_reminder_sent": null,
+    "demand_letter_sent": false,
+    "demand_letter_date": null,
+    "date_approved": "2025-09-18",
+    "downloaded_at": "2025-09-17T16:00:00Z",
+    "rejection_comment": null,
+    "rejection_date": null,
+    "reviewed_by": [
+      "superintendent@gmail.com"
+    ],
+    "reviewed_at": "2025-09-18T07:57:12.435Z"
+  }
+},
+{
+  "model": "api.historicalrequestpriority",
+  "pk": 1,
+  "fields": {
+    "id": 1,
+    "amount": "25000.00",
+    "request": "REQ-JLC4L8",
+    "priority": 7,
+    "history_date": "2025-09-18T07:52:05.327Z",
+    "history_change_reason": null,
+    "history_type": "+",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalrequestpriority",
+  "pk": 2,
+  "fields": {
+    "id": 2,
+    "amount": "25000.00",
+    "request": "REQ-JLC4L8",
+    "priority": 8,
+    "history_date": "2025-09-18T07:52:05.339Z",
+    "history_change_reason": null,
+    "history_type": "+",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 1,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": "50000.00",
+    "rejection_comment": null,
+    "status": "draft",
+    "reviewed_at_district": null,
+    "reviewed_at_liquidator": null,
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": null,
+    "date_liquidatorApproved": null,
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": null,
+    "reviewed_by_liquidator": null,
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T07:59:48.948Z",
+    "history_change_reason": null,
+    "history_type": "+",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 2,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "submitted",
+    "reviewed_at_district": null,
+    "reviewed_at_liquidator": null,
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": "2025-09-18T08:02:46.162Z",
+    "date_districtApproved": null,
+    "date_liquidatorApproved": null,
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": null,
+    "reviewed_by_liquidator": null,
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:02:46.167Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 3,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "under_review_district",
+    "reviewed_at_district": null,
+    "reviewed_at_liquidator": null,
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": null,
+    "date_liquidatorApproved": null,
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": null,
+    "reviewed_by_liquidator": null,
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:05:21.306Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 4,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "under_review_district",
+    "reviewed_at_district": null,
+    "reviewed_at_liquidator": null,
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": null,
+    "date_liquidatorApproved": null,
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": null,
+    "reviewed_by_liquidator": null,
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:05:24.889Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 5,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "approved_district",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": null,
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": null,
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": null,
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:08:26.593Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 6,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "approved_district",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": null,
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": null,
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": null,
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:08:33.160Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 7,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "under_review_liquidator",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": null,
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": null,
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": null,
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:11:09.787Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 8,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "under_review_liquidator",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": null,
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": null,
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": null,
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:11:09.796Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 9,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "approved_liquidator",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": "2025-09-18T08:23:56.942Z",
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": "2025-09-18",
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": [
+      "liquidator@gmail.com"
+    ],
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:23:56.967Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 10,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "approved_liquidator",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": "2025-09-18T08:23:56.942Z",
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": "2025-09-18",
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": [
+      "liquidator@gmail.com"
+    ],
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:23:56.986Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 11,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "under_review_division",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": "2025-09-18T08:23:56.942Z",
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": "2025-09-18",
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": [
+      "liquidator@gmail.com"
+    ],
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:25:21.813Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 12,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "under_review_division",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": "2025-09-18T08:23:56.942Z",
+    "reviewed_at_division": null,
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": "2025-09-18",
+    "date_liquidated": null,
+    "remaining_days": 29,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": [
+      "liquidator@gmail.com"
+    ],
+    "reviewed_by_division": null,
+    "history_date": "2025-09-18T08:25:24.933Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 13,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "liquidated",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": "2025-09-18T08:23:56.942Z",
+    "reviewed_at_division": "2025-09-18T08:26:15.411Z",
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": "2025-09-18",
+    "date_liquidated": "2025-09-18T08:26:15.411Z",
+    "remaining_days": null,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": [
+      "liquidator@gmail.com"
+    ],
+    "reviewed_by_division": [
+      "accountant@gmail.com"
+    ],
+    "history_date": "2025-09-18T08:26:15.450Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.historicalliquidationmanagement",
+  "pk": 14,
+  "fields": {
+    "LiquidationID": "LQN-Y1IU11",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "liquidated",
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_at_liquidator": "2025-09-18T08:23:56.942Z",
+    "reviewed_at_division": "2025-09-18T08:26:15.411Z",
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": "2025-09-18",
+    "date_liquidated": "2025-09-18T08:26:15.411Z",
+    "remaining_days": null,
+    "request": "REQ-JLC4L8",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_by_liquidator": [
+      "liquidator@gmail.com"
+    ],
+    "reviewed_by_division": [
+      "accountant@gmail.com"
+    ],
+    "history_date": "2025-09-18T08:26:18.719Z",
+    "history_change_reason": null,
+    "history_type": "~",
+    "history_user": null
+  }
+},
+{
+  "model": "api.liquidationmanagement",
+  "pk": "LQN-Y1IU11",
+  "fields": {
+    "request": "REQ-JLC4L8",
+    "refund": null,
+    "rejection_comment": null,
+    "status": "liquidated",
+    "reviewed_by_district": [
+      "district@gmail.com"
+    ],
+    "reviewed_at_district": "2025-09-18T08:08:26.574Z",
+    "reviewed_by_liquidator": [
+      "liquidator@gmail.com"
+    ],
+    "reviewed_at_liquidator": "2025-09-18T08:23:56.942Z",
+    "reviewed_by_division": [
+      "accountant@gmail.com"
+    ],
+    "reviewed_at_division": "2025-09-18T08:26:15.411Z",
+    "created_at": "2025-09-18T07:59:48.945Z",
+    "date_submitted": null,
+    "date_districtApproved": "2025-09-18",
+    "date_liquidatorApproved": "2025-09-18",
+    "date_liquidated": "2025-09-18T08:26:15.411Z",
+    "remaining_days": null
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 1,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 1,
+    "requirement": 1,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2.pdf",
+    "uploaded_at": "2025-09-18T08:02:08.803Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 2,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 1,
+    "requirement": 8,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_jswBaFu.pdf",
+    "uploaded_at": "2025-09-18T08:02:12.336Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 3,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 1,
+    "requirement": 10,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_gsSblvU.pdf",
+    "uploaded_at": "2025-09-18T08:02:14.421Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 4,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 1,
+    "requirement": 11,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_h1UmaPH.pdf",
+    "uploaded_at": "2025-09-18T08:02:15.889Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 5,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 1,
+    "requirement": 12,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_ClPU5yd.pdf",
+    "uploaded_at": "2025-09-18T08:02:17.544Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 6,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 2,
+    "requirement": 1,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_hrVFIhH.pdf",
+    "uploaded_at": "2025-09-18T08:02:21.094Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 7,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 2,
+    "requirement": 8,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_ztBOxeH.pdf",
+    "uploaded_at": "2025-09-18T08:02:24.779Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 8,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 2,
+    "requirement": 10,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_c6H9sdk.pdf",
+    "uploaded_at": "2025-09-18T08:02:27.191Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 9,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 2,
+    "requirement": 11,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_xR2ajVT.pdf",
+    "uploaded_at": "2025-09-18T08:02:30.770Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.liquidationdocument",
+  "pk": 10,
+  "fields": {
+    "liquidation": "LQN-Y1IU11",
+    "request_priority": 2,
+    "requirement": 12,
+    "document": "liquidation_documents/2025/09/18/approved_request_REQ-JLC4L8_2_6nuGSaG.pdf",
+    "uploaded_at": "2025-09-18T08:02:34.314Z",
+    "uploaded_by": [
+      "schoolhead@gmail.com"
+    ],
+    "is_approved": true,
+    "reviewer_comment": ""
+  }
+},
+{
+  "model": "api.notification",
+  "pk": 1,
+  "fields": {
+    "notification_title": "Your request was approved",
+    "details": "Request REQ-JLC4L8 has been approved",
+    "receiver": [
+      "schoolhead@gmail.com"
+    ],
+    "sender": [
+      "superintendent@gmail.com"
+    ],
+    "notification_date": "2025-09-18T07:57:12.455Z",
+    "is_read": true
+  }
+},
+{
+  "model": "api.notification",
+  "pk": 2,
+  "fields": {
+    "notification_title": "Request ready for liquidation",
+    "details": "Request REQ-JLC4L8 has been processed and is ready for liquidation",
+    "receiver": [
+      "schoolhead@gmail.com"
+    ],
+    "sender": [
+      "accountant@gmail.com"
+    ],
+    "notification_date": "2025-09-18T07:59:45.879Z",
+    "is_read": true
+  }
+},
+{
+  "model": "api.notification",
+  "pk": 3,
+  "fields": {
+    "notification_title": "Liquidation Submitted",
+    "details": "Your liquidation LQN-Y1IU11 has been submitted.",
+    "receiver": [
+      "schoolhead@gmail.com"
+    ],
+    "sender": [
+      "schoolhead@gmail.com"
+    ],
+    "notification_date": "2025-09-18T08:02:46.170Z",
+    "is_read": false
+  }
+},
+{
+  "model": "api.notification",
+  "pk": 4,
+  "fields": {
+    "notification_title": "Liquidation Under District Review",
+    "details": "Your liquidation LQN-Y1IU11 is now under review by the district administrative assistant",
+    "receiver": [
+      "schoolhead@gmail.com"
+    ],
+    "sender": [
+      "district@gmail.com"
+    ],
+    "notification_date": "2025-09-18T08:05:21.310Z",
+    "is_read": false
+  }
+},
+{
+  "model": "api.notification",
+  "pk": 5,
+  "fields": {
+    "notification_title": "Liquidation Approved by District",
+    "details": "Your liquidation LQN-Y1IU11 has been approved by the district",
+    "receiver": [
+      "schoolhead@gmail.com"
+    ],
+    "sender": [
+      "district@gmail.com"
+    ],
+    "notification_date": "2025-09-18T08:08:26.597Z",
+    "is_read": false
+  }
+},
+{
+  "model": "api.notification",
+  "pk": 6,
+  "fields": {
+    "notification_title": "Liquidation Approved District",
+    "details": "Liquidation LQN-Y1IU11 for request REQ-JLC4L8 is now approved district",
+    "receiver": [
+      "liquidator@gmail.com"
+    ],
+    "sender": [
+      "district@gmail.com"
+    ],
+    "notification_date": "2025-09-18T08:08:29.974Z",
+    "is_read": false
+  }
+},
+{
+  "model": "api.notification",
+  "pk": 7,
+  "fields": {
+    "notification_title": "Liquidation Under Division Review",
+    "details": "Your liquidation LQN-Y1IU11 is now under review by the liquidator",
+    "receiver": [
+      "schoolhead@gmail.com"
+    ],
+    "sender": [
+      "accountant@gmail.com"
+    ],
+    "notification_date": "2025-09-18T08:25:21.817Z",
+    "is_read": false
+  }
+},
+{
+  "model": "api.notification",
+  "pk": 8,
+  "fields": {
+    "notification_title": "Liquidation Completed",
+    "details": "Your liquidation LQN-Y1IU11 has been fully processed and liquidated",
+    "receiver": [
+      "schoolhead@gmail.com"
+    ],
+    "sender": [
+      "accountant@gmail.com"
+    ],
+    "notification_date": "2025-09-18T08:26:15.453Z",
+    "is_read": false
+  }
+},
+{
+  "model": "api.generatedpdf",
+  "pk": 1,
+  "fields": {
+    "request": "REQ-JLC4L8",
+    "generated_by": [
+      "superintendent@gmail.com"
+    ],
+    "generated_at": "2025-09-18T07:56:48.237Z",
+    "pdf_file": "",
+    "file_size": null,
+    "generation_method": "server_side",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+  }
+},
+{
+  "model": "api.generatedpdf",
+  "pk": 2,
+  "fields": {
+    "request": "REQ-JLC4L8",
+    "generated_by": [
+      "superintendent@gmail.com"
+    ],
+    "generated_at": "2025-09-18T07:57:22.559Z",
+    "pdf_file": "",
+    "file_size": null,
+    "generation_method": "server_side",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+  }
+},
+{
+  "model": "api.generatedpdf",
+  "pk": 3,
+  "fields": {
+    "request": "REQ-JLC4L8",
+    "generated_by": [
+      "accountant@gmail.com"
+    ],
+    "generated_at": "2025-09-18T07:59:28.919Z",
+    "pdf_file": "",
+    "file_size": null,
+    "generation_method": "server_side",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 1,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:10:31.165Z",
+    "base_path": "C:\\Users\\johnrick\\Desktop\\Backups",
+    "archive_path": "",
+    "format": "sql",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: SQL/CSV backup only supported for SQLite in this simple implementation"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 2,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:10:37.768Z",
+    "base_path": "C:\\Users\\johnrick\\Desktop\\Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: name 'settings' is not defined"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 3,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:11:16.811Z",
+    "base_path": "C:\\Users\\johnrick\\Desktop\\Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: name 'settings' is not defined"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 4,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:20:42.589Z",
+    "base_path": "C:\\Users\\johnrick\\Desktop\\Backups",
+    "archive_path": "",
+    "format": "sql",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: [WinError 2] The system cannot find the file specified"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 5,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:20:47.835Z",
+    "base_path": "C:\\Users\\johnrick\\Desktop\\Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: name 'settings' is not defined"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 6,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:21:26.623Z",
+    "base_path": "C:\\Users\\johnrick\\Desktop\\Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: name 'settings' is not defined"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 7,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:25:29.092Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: name 'settings' is not defined"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 8,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:25:58.332Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: name 'settings' is not defined"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 9,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:26:26.197Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: name 'settings' is not defined"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 10,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:36:22.508Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: name 'sys' is not defined"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 11,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:36:29.971Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "sql",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Backup failed: [WinError 2] The system cannot find the file specified"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 12,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:39:29.267Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "sql",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "mysqldump not found. Please install MySQL client tools and ensure \"mysqldump\" is in your PATH."
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 13,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:48:53.276Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "sql",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "mysqldump not found. Please install MySQL client tools and ensure \"mysqldump\" is in your PATH."
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 14,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T09:49:08.324Z",
+    "base_path": "Backups",
+    "archive_path": "Backups\\backup_20250918_094908.json.zip",
+    "format": "json",
+    "include_media": true,
+    "status": "success",
+    "file_size": 5606879,
+    "message": "Backup completed successfully"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 15,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T10:14:09.463Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "csv",
+    "include_media": true,
+    "status": "failed",
+    "file_size": null,
+    "message": "Unsupported format csv for database engine django.db.backends.mysql"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 16,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T10:14:22.065Z",
+    "base_path": "Backups",
+    "archive_path": "Backups\\backup_20250918_101422.json.zip",
+    "format": "json",
+    "include_media": true,
+    "status": "success",
+    "file_size": 5607012,
+    "message": "Backup completed successfully"
+  }
+},
+{
+  "model": "api.backup",
+  "pk": 17,
+  "fields": {
+    "initiated_by": [
+      "admin@slc-sflu.edu.ph"
+    ],
+    "created_at": "2025-09-18T10:20:25.692Z",
+    "base_path": "Backups",
+    "archive_path": "",
+    "format": "json",
+    "include_media": true,
+    "status": "pending",
+    "file_size": null,
+    "message": null
+  }
+}
+]

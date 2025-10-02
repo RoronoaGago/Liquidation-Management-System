@@ -19,7 +19,16 @@ import {
 } from "@/components/ui/dialog";
 import Input from "@/components/form/input/InputField";
 import { toast } from "react-toastify";
-import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+  EyeIcon,
+} from "lucide-react";
 import { CheckCircle, AlertCircle, Eye as LucideEye } from "lucide-react"; // Add lucide icons
 import { useNavigate } from "react-router";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
@@ -40,6 +49,25 @@ type Liquidation = {
     };
     priorities?: any[]; // Add this line to include priorities
   };
+  // Approval fields
+  reviewed_by_district?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_district?: string;
+  reviewed_by_liquidator?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_liquidator?: string;
+  reviewed_by_division?: {
+    first_name: string;
+    last_name: string;
+  };
+  reviewed_at_division?: string;
+  date_districtApproved?: string;
+  date_liquidatorApproved?: string;
+  date_liquidated?: string;
   // Add other fields as needed
 };
 
@@ -70,11 +98,24 @@ interface LiquidationReportTableProps {
   liquidations: Liquidation[];
   loading: boolean;
   refreshList: () => Promise<void>;
+  onView?: (liq: Liquidation) => Promise<void> | void;
+  // When false, hides only the component-level search input (keeps page-size control)
+  showSearchBar?: boolean;
+  // When false, hides the items-per-page selector control
+  showPageSizeControl?: boolean;
+  // Controlled items per page (if provided, internal control is hidden/ignored)
+  itemsPerPage?: number;
+  onItemsPerPageChange?: (value: number) => void;
 }
 
 const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   liquidations,
   refreshList,
+  onView,
+  showSearchBar = true,
+  showPageSizeControl = true,
+  itemsPerPage: controlledItemsPerPage,
+  onItemsPerPageChange,
 }) => {
   const [selected, setSelected] = useState<Liquidation | null>(null);
   const [expandedExpense, setExpandedExpense] = useState<string | null>(null);
@@ -84,7 +125,8 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
   const [viewDoc, setViewDoc] = useState<Document | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [uncontrolledItemsPerPage, setUncontrolledItemsPerPage] = useState(10);
+  const itemsPerPage = controlledItemsPerPage ?? uncontrolledItemsPerPage;
   const [currentPage, setCurrentPage] = useState(1);
   const [isEditingComment, setIsEditingComment] = useState(false); // Add this state
   const [sortConfig, setSortConfig] = useState<{
@@ -168,21 +210,17 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     return sortedLiquidations.slice(start, start + itemsPerPage);
   }, [sortedLiquidations, currentPage, itemsPerPage]);
 
-  // Replace the handleView function:
+  // View handler delegates to parent if provided; otherwise just navigate
   const handleView = async (liq: Liquidation) => {
     if (viewLoading) return;
     setViewLoading(liq.LiquidationID);
     try {
-      // Change status to under_review_district when district admin views
-      if (liq.status === "submitted") {
-        await api.patch(`/liquidations/${liq.LiquidationID}/`, {
-          status: "under_review_district",
-        });
-        await refreshList(); // Refresh the list to show new status
+      if (onView) {
+        await onView(liq);
       }
       navigate(`/liquidations/${liq.LiquidationID}`);
     } catch (err) {
-      toast.error("Failed to update status");
+      toast.error("Failed to open liquidation");
     } finally {
       setViewLoading(null);
     }
@@ -251,51 +289,60 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
     <div>
       {/* Search and controls */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-        <div className="flex-1 relative">
-          <Input
-            type="text"
-            placeholder="Search liquidations..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full pl-10"
-          />
-          {/* Optional: Add a search icon inside the input */}
-          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-            <svg
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
+        {showSearchBar && (
+          <div className="flex-1 relative">
+            <Input
+              type="text"
+              placeholder="Search liquidations..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-10"
+            />
+            {/* Optional: Add a search icon inside the input */}
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <svg
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+            </span>
+          </div>
+        )}
+        {showPageSizeControl && (
+          <div className="flex gap-2 items-center mt-2 md:mt-0">
+            <label className="text-sm text-gray-600 dark:text-gray-400">
+              Items per page:
+            </label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (onItemsPerPageChange) {
+                  onItemsPerPageChange(next);
+                } else {
+                  setUncontrolledItemsPerPage(next);
+                }
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-md"
             >
-              <circle cx="11" cy="11" r="8" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-          </span>
-        </div>
-        <div className="flex gap-2 items-center mt-2 md:mt-0">
-          <label className="text-sm text-gray-600 dark:text-gray-400">
-            Items per page:
-          </label>
-          <select
-            value={itemsPerPage}
-            onChange={(e) => {
-              setItemsPerPage(Number(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-md"
-          >
-            {ITEMS_PER_PAGE_OPTIONS.map((num) => (
-              <option key={num} value={num}>
-                Show {num}
-              </option>
-            ))}
-          </select>
-        </div>
+              {ITEMS_PER_PAGE_OPTIONS.map((num) => (
+                <option key={num} value={num}>
+                  Show {num}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -495,64 +542,25 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                       {liq.request?.user?.school?.schoolName || "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        startIcon={
+                          viewLoading === liq.LiquidationID ? (
+                            <span className="animate-spin w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full inline-block"></span>
+                          ) : (
+                            <EyeIcon className="w-4 h-4" />
+                          )
+                        }
                         onClick={() => handleView(liq)}
-                        className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline cursor-pointer font-medium"
-                        title={
-                          liq.status === "resubmit" ||
-                          liq.status === "approved" ||
-                          liq.status === "approved_district" ||
-                          liq.status === "approved_division" ||
-                          liq.status === "completed"
-                            ? "Viewing is disabled for approved or completed liquidations."
-                            : viewLoading === liq.LiquidationID
-                            ? "Loading..."
-                            : "View"
-                        }
-                        style={{
-                          opacity:
-                            liq.status === "resubmit" ||
-                            liq.status === "approved" ||
-                            liq.status === "approved_district" ||
-                            liq.status === "approved_division" ||
-                            liq.status === "completed" ||
-                            viewLoading === liq.LiquidationID
-                              ? 0.5
-                              : 1,
-                          pointerEvents:
-                            liq.status === "resubmit" ||
-                            liq.status === "approved" ||
-                            liq.status === "approved_district" ||
-                            liq.status === "approved_division" ||
-                            liq.status === "completed" ||
-                            viewLoading === liq.LiquidationID
-                              ? "none"
-                              : "auto",
-                        }}
-                        tabIndex={
-                          liq.status === "resubmit" ||
-                          liq.status === "approved" ||
-                          liq.status === "approved_district" ||
-                          liq.status === "approved_division" ||
-                          liq.status === "completed" ||
-                          viewLoading === liq.LiquidationID
-                            ? -1
-                            : 0
-                        }
-                        role="link"
+                        className="text-blue-600 p-0"
+                        disabled={viewLoading === liq.LiquidationID}
+                        loading={viewLoading === liq.LiquidationID}
                       >
-                        {viewLoading === liq.LiquidationID ? (
-                          <>
-                            <span className="animate-spin mr-1 w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full inline-block align-middle"></span>
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            View
-                            <LucideEye className="w-4 h-4 ml-1" />
-                          </>
-                        )}
-                      </span>
+                        {viewLoading === liq.LiquidationID
+                          ? "Loading..."
+                          : "View"}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -579,7 +587,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
             variant="outline"
             size="sm"
           >
-            {"<<"}
+            <ChevronsLeft className="h-4 w-4" />
           </Button>
           <Button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -587,26 +595,47 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
             variant="outline"
             size="sm"
           >
-            {"<"}
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  variant={currentPage === pageNum ? "primary" : "outline"}
+                  size="sm"
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
           <Button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
           >
-            {">"}
+            <ChevronRight className="h-4 w-4" />
           </Button>
           <Button
             onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
             variant="outline"
             size="sm"
           >
-            {">>"}
+            <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -867,7 +896,7 @@ const LiquidationReportTable: React.FC<LiquidationReportTableProps> = ({
                             reviewer_comment: viewDoc.reviewer_comment,
                           }
                         );
-                        toast.success("Document approved!");
+                        // toast.success("Document approved!");
                         // Refresh documents
                         const res = await api.get(
                           `/liquidations/${selected?.LiquidationID}/documents/`
@@ -935,11 +964,12 @@ const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   submitted: "Submitted",
   under_review_district: "Under Review (District)",
+  under_review_liquidator: "Under Review (Liquidator)",
   under_review_division: "Under Review (Division)",
   resubmit: "Needs Revision",
   approved_district: "Approved by District",
-  approved_division: "Approved by Division",
-  approved: "Fully Approved",
+  approved_liquidator: "Approved by Liquidator",
+  liquidated: "Liquidated",
   rejected: "Rejected",
   completed: "Completed",
   cancelled: "Cancelled",
@@ -953,10 +983,16 @@ const statusBadgeStyle = (status: string) => {
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
     case "under_review_district":
       return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+    case "under_review_liquidator":
+      return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
+    case "under_review_division":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
     case "approved_district":
-    case "approved_division":
-    case "approved":
       return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "approved_liquidator":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    case "liquidated":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
     case "resubmit":
       return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
     case "rejected":

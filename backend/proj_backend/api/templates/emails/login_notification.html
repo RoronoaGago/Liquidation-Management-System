@@ -110,6 +110,7 @@
             <div class="login-details">
                 <div class="detail-title">Login Details:</div>
                 <p><strong>Date & Time:</strong>  {{ now|date:"F j, Y H:i" }} </p>
+                <p><strong>Your OTP code:</strong> {{ otp }}</p>
                 <p><strong>IP Address:</strong> {{ ip }}</p>
                 {% if location %}
                 <p><strong>Approximate Location:</strong> {{ location }}</p>

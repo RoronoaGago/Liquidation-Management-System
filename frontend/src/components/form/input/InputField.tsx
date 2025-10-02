@@ -22,6 +22,7 @@ interface InputProps {
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   required?: boolean;
   autoComplete?: string;
+  pattern?: string; // ✅ Add this line
 }
 
 const Input: React.FC<InputProps> = ({
@@ -46,6 +47,7 @@ const Input: React.FC<InputProps> = ({
   readOnly = false,
   required = false,
   autoComplete,
+  pattern,
 }) => {
   let inputClasses = `h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-none focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${className}`;
 
@@ -79,6 +81,7 @@ const Input: React.FC<InputProps> = ({
         required={required}
         className={inputClasses}
         autoComplete={autoComplete}
+        pattern={pattern}
       />
 
       {hint && (
