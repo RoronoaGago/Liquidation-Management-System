@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',  # Add JWT blacklist support
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
@@ -59,8 +60,16 @@ AUDITLOG_EXCLUDE_TRACKING_MODELS = ()  # Exclude specific models if needed
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
+
+# JWT Authentication with blacklist
+REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
+    'rest_framework_simplejwt.authentication.JWTAuthentication',
+)
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -153,17 +162,17 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=50),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
-    'UPDATE_LAST_LOGIN': False,
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Reduced from 50 minutes
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Reduced from 1 day
+    'ROTATE_REFRESH_TOKENS': True,                   # Enable token rotation
+    'BLACKLIST_AFTER_ROTATION': True,                # Enable blacklisting
+    'UPDATE_LAST_LOGIN': True,                       # Track last login
 
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
-    'ISSUER': None,
+    'ISSUER': 'liquidation-management-system',       # Add issuer
     'JWK_URL': None,
     'LEEWAY': 0,
 
@@ -181,7 +190,12 @@ SIMPLE_JWT = {
 
     'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
-    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=7),
+    
+    # Add blacklist settings
+    'BLACKLIST_TOKEN_CHECKS': [
+        'rest_framework_simplejwt.token_blacklist.blacklist_checks.check_blacklist',
+    ],
 }
 
 # Internationalization

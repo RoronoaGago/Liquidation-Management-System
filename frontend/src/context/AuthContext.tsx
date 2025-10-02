@@ -11,6 +11,10 @@ import api from "@/api/axios";
 import axios from "axios";
 import { useNavigate } from "react-router";
 import { District } from "@/lib/types";
+import SecureStorage from "../lib/secureStorage";
+import { API_CONFIG, API_ENDPOINTS } from "../config/api";
+import { useInactivity } from "../hooks/useInactivity";
+import AutoLogoutModal from "../components/AutoLogoutModal";
 
 interface UserData {
   user_id: string | number;
@@ -40,6 +44,7 @@ interface AuthContextType {
   eSignatureRequired: boolean;
   setupFlowActive: boolean;
   completeSetupFlow: () => void;
+  showAutoLogoutModal: (reason: 'inactivity' | 'token_expired' | 'session_expired') => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +57,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const [eSignatureRequired, setESignatureRequired] = useState(false);
   const [setupFlowActive, setSetupFlowActive] = useState(false);
+  const [autoLogoutModal, setAutoLogoutModal] = useState<{
+    visible: boolean;
+    reason: 'inactivity' | 'token_expired' | 'session_expired';
+  }>({
+    visible: false,
+    reason: 'inactivity'
+  });
+  const [inactivityModalShown, setInactivityModalShown] = useState(false);
+  const [isShowingLogoutModal, setIsShowingLogoutModal] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const decodeToken = (token: string): UserData => {
     try {
@@ -94,10 +109,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (response.data.access) {
-        localStorage.setItem("accessToken", response.data.access);
-        if (response.data.refresh) {
-          localStorage.setItem("refreshToken", response.data.refresh);
-        }
+        SecureStorage.setTokens(
+          response.data.access,
+          response.data.refresh || "",
+          15 * 60 // 15 minutes (access token lifetime)
+        );
         setPasswordChangeRequired(false);
 
         // Check if e-signature is required after password change
@@ -133,24 +149,102 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate("/");
   };
 
+  const showAutoLogoutModal = (reason: 'inactivity' | 'token_expired' | 'session_expired') => {
+    // Prevent showing inactivity modal multiple times
+    if (reason === 'inactivity' && inactivityModalShown) {
+      return;
+    }
+    
+    setAutoLogoutModal({ visible: true, reason });
+    setIsShowingLogoutModal(true); // Prevent checkAuth from running
+    
+    if (reason === 'inactivity') {
+      setInactivityModalShown(true);
+    }
+  };
+
+  const handleAutoLogoutModalClose = () => {
+    setAutoLogoutModal({ visible: false, reason: 'inactivity' });
+  };
+
+  const handleAutoLogoutLogin = () => {
+    // Clear authentication state when user clicks "Go to Login Page"
+    SecureStorage.clearTokens();
+    
+    // Clear axios authorization header
+    api.defaults.headers.common["Authorization"] = "";
+    
+    // Update auth state
+    setIsAuthenticated(false);
+    setUser(null);
+    setPasswordChangeRequired(false);
+    setESignatureRequired(false);
+    setSetupFlowActive(false);
+    setInactivityModalShown(false); // Reset the modal shown state
+    setIsShowingLogoutModal(false); // Reset the logout modal flag
+    setIsInitialized(false); // Reset initialization flag
+    
+    // Clear initialization flag
+    localStorage.removeItem('app_initialized');
+    
+    // Close modal and navigate to login
+    setAutoLogoutModal({ visible: false, reason: 'inactivity' });
+    navigate('/login');
+  };
+
+  // Handle inactivity detection (15 minutes = 900000 ms)
+  const handleInactivity = () => {
+    if (isAuthenticated) {
+      showAutoLogoutModal('inactivity');
+      // Don't clear tokens immediately - let user decide when to logout
+    }
+  };
+
+  // Use inactivity hook only when authenticated and not in setup flow
+  useInactivity({
+    timeout: 15 * 60 * 1000, // 15 minutes in milliseconds
+    onInactivity: handleInactivity,
+    events: ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'keydown'],
+    enabled: isAuthenticated && !setupFlowActive && !isLoading
+  });
+
+  // Listen for logout events from axios interceptor
+  useEffect(() => {
+    const handleLogout = (event: CustomEvent) => {
+      console.log('Logout event received:', event.detail);
+      
+      // Don't show logout modal during initial app load
+      if (!isInitialized) {
+        console.log('Ignoring logout event during initialization');
+        return;
+      }
+      
+      const reason = event.detail?.reason === 'token_refresh_failed' ? 'token_expired' : 'session_expired';
+      showAutoLogoutModal(reason);
+      // Don't clear tokens immediately - let user decide when to logout
+    };
+
+    window.addEventListener('auth:logout', handleLogout as EventListener);
+    
+    return () => {
+      window.removeEventListener('auth:logout', handleLogout as EventListener);
+    };
+  }, [navigate, isInitialized]);
+
   useEffect(() => {
     const checkAuth = async () => {
-      let token = localStorage.getItem("accessToken");
-      const refreshToken = localStorage.getItem("refreshToken");
+      // Don't run checkAuth if logout modal is showing
+      if (isShowingLogoutModal) {
+        return;
+      }
+      
+      // Use SecureStorage to get tokens
+      const accessToken = SecureStorage.getAccessToken();
+      const refreshToken = SecureStorage.getRefreshToken();
 
-      // Helper to decode and check expiry
-      const isTokenExpired = (token: string) => {
+      if (accessToken && !SecureStorage.isAccessTokenExpired()) {
         try {
-          const { exp } = jwtDecode<{ exp: number }>(token);
-          return exp * 1000 < Date.now();
-        } catch {
-          return true;
-        }
-      };
-
-      if (token && !isTokenExpired(token)) {
-        try {
-          const userData = decodeToken(token);
+          const userData = decodeToken(accessToken);
           setUser(userData);
           setIsAuthenticated(true);
           setPasswordChangeRequired(userData.password_change_required || false);
@@ -158,10 +252,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             (userData.role === "school_head" ||
               userData.role === "superintendent" ||
               userData.role === "accountant") &&
-              !userData.e_signature // <-- This line was missing a closing parenthesis
+              !userData.e_signature
           );
         } catch {
-          localStorage.removeItem("accessToken");
+          SecureStorage.clearTokens();
           setIsAuthenticated(false);
           setUser(null);
         }
@@ -173,43 +267,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (refreshToken) {
         try {
           const response = await axios.post(
-            "http://127.0.0.1:8000/api/token/refresh/",
+            `${API_CONFIG.baseURL}${API_ENDPOINTS.AUTH.REFRESH}`,
             { refresh: refreshToken }
           );
           if (response.data?.access) {
-            localStorage.setItem("accessToken", response.data.access);
-            token = response.data.access;
-            if (token) {
-              const userData = decodeToken(token);
-              setUser(userData);
-              setIsAuthenticated(true);
-              setPasswordChangeRequired(
-                userData.password_change_required || false
-              );
-              setESignatureRequired(
-                // <-- You should also add this for the refresh case
-                (userData.role === "school_head" ||
-                  userData.role === "superintendent" ||
-                  userData.role === "accountant") &&
-                  !userData.e_signature
-              );
-            }
+            // Update tokens securely
+            SecureStorage.setTokens(
+              response.data.access,
+              response.data.refresh || refreshToken,
+              15 * 60 // 15 minutes (access token lifetime)
+            );
+            
+            const userData = decodeToken(response.data.access);
+            setUser(userData);
+            setIsAuthenticated(true);
+            setPasswordChangeRequired(
+              userData.password_change_required || false
+            );
+            setESignatureRequired(
+              (userData.role === "school_head" ||
+                userData.role === "superintendent" ||
+                userData.role === "accountant") &&
+                !userData.e_signature
+            );
             setIsLoading(false);
             return;
           }
         } catch {
           // Refresh failed, clear tokens
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
+          SecureStorage.clearTokens();
           setIsAuthenticated(false);
           setUser(null);
         }
       }
 
       setIsLoading(false);
+      setIsInitialized(true); // Mark as initialized after first auth check
+      localStorage.setItem('app_initialized', 'true'); // Set flag for axios interceptor
     };
     checkAuth();
-  }, []);
+  }, [isShowingLogoutModal]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -227,6 +324,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(userData);
       setIsAuthenticated(true);
       setPasswordChangeRequired(userData.password_change_required || false);
+      setInactivityModalShown(false); // Reset inactivity modal state on login
+      setIsShowingLogoutModal(false); // Reset logout modal flag on login
 
       // Check if setup flow should be activated
       if (userData.password_change_required) {
@@ -266,6 +365,8 @@ const logout = async () => {
     authLogout();
     setIsAuthenticated(false);
     setUser(null);
+    setIsInitialized(false); // Reset initialization flag
+    localStorage.removeItem('app_initialized'); // Clear initialization flag
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error('Logout failed:', error.response?.data || error.message);
@@ -282,7 +383,8 @@ const logout = async () => {
   const updateUser = (userData: UserData, newToken?: string) => {
     setUser(userData);
     if (newToken) {
-      localStorage.setItem("accessToken", newToken);
+      // Update only the access token securely
+      SecureStorage.updateAccessToken(newToken, 15 * 60); // 15 minutes
     }
   };
 
@@ -300,9 +402,16 @@ const logout = async () => {
         eSignatureRequired,
         setupFlowActive,
         completeSetupFlow,
+        showAutoLogoutModal,
       }}
     >
       {children}
+      <AutoLogoutModal
+        visible={autoLogoutModal.visible}
+        reason={autoLogoutModal.reason}
+        onClose={handleAutoLogoutModalClose}
+        onLogin={handleAutoLogoutLogin}
+      />
     </AuthContext.Provider>
   );
 };

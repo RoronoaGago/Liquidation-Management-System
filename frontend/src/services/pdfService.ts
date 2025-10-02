@@ -1,4 +1,4 @@
-import api from './api';
+import api from '../api/axios';
 
 /**
  * PDF Service for server-side PDF generation with actual e-signatures

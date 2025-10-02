@@ -1,4 +1,5 @@
-import api from './api';
+import api from "./axios";
+
 
 export interface SchoolHeadDashboardData {
   liquidationProgress: {

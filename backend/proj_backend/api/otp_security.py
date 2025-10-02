@@ -19,8 +19,8 @@ class OTPSecurityManager:
     # Configuration constants
     OTP_LENGTH = 6
     OTP_LIFETIME_MINUTES = 5
-    MAX_ATTEMPTS_PER_IP = 5  # Per hour
-    MAX_ATTEMPTS_PER_USER = 3  # Per hour
+    MAX_ATTEMPTS_PER_IP = 100  # Per hour
+    MAX_ATTEMPTS_PER_USER = 100  # Per hour
     MAX_FAILED_VERIFICATIONS = 5  # Per OTP
     ACCOUNT_LOCKOUT_MINUTES = 15
     

@@ -293,8 +293,15 @@ def verify_otp_secure(request):
                 details={'user_agent': user_agent}
             )
             
+            # Generate JWT tokens for the user
+            from rest_framework_simplejwt.tokens import RefreshToken
+            refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
+            
             return Response({
-                'message': 'OTP verified successfully'
+                'message': 'OTP verified successfully',
+                'access': str(access_token),
+                'refresh': str(refresh)
             })
         else:
             # Increment failed attempts
