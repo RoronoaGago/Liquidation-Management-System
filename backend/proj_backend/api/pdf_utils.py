@@ -855,11 +855,12 @@ class DemandLetterGenerator(PDFGenerator):
     def setup_demand_letter_styles(self):
         """Setup custom paragraph styles for demand letter matching exact specs"""
         try:
-            # Register required fonts
+            # Register required fonts first
             self._register_required_fonts()
+            
             # Ensure we have a font mapping for use in styles
             # Defaults map to base ReportLab fonts if custom ones are unavailable
-            if not hasattr(self, 'font_names'):
+            if not hasattr(self, 'font_names') or not self.font_names:
                 self.font_names = {
                     'old_english': 'Times-Roman',
                     'trajan_regular': 'Helvetica',
@@ -869,13 +870,13 @@ class DemandLetterGenerator(PDFGenerator):
                     'times_italic': 'Times-Italic',
                 }
             
-            # Header styles
+            # Header styles - compact spacing
             if not hasattr(self.styles, 'HeaderRepublic'):
                 self.styles.add(ParagraphStyle(
                     name='HeaderRepublic',
                     parent=self.styles['Normal'],
                     fontSize=12,
-                    spaceAfter=2,
+                    spaceAfter=0,  # Reduced from 2 to 0
                     alignment=TA_CENTER,
                     fontName=self.font_names.get('old_english', 'Times-Roman')  # Old English Text MT or fallback
                 ))
@@ -885,7 +886,7 @@ class DemandLetterGenerator(PDFGenerator):
                     name='HeaderDepartment',
                     parent=self.styles['Normal'],
                     fontSize=20,
-                    spaceAfter=2,
+                    spaceAfter=0,  # Reduced from 2 to 0
                     alignment=TA_CENTER,
                     fontName=self.font_names.get('old_english', 'Times-Roman')  # Old English Text MT or fallback
                 ))
@@ -895,9 +896,9 @@ class DemandLetterGenerator(PDFGenerator):
                     name='HeaderRegion',
                     parent=self.styles['Normal'],
                     fontSize=10,
-                    spaceAfter=2,
+                    spaceAfter=0,   # Keep no space after
                     alignment=TA_CENTER,
-                    fontName=self.font_names.get('trajan_regular', 'Helvetica')  # Trajan Pro or fallback
+                    fontName=self.font_names.get('trajan_regular', 'Times-Roman')  # Trajan Pro or fallback
                 ))
             
             if not hasattr(self.styles, 'HeaderDivision'):
@@ -905,9 +906,9 @@ class DemandLetterGenerator(PDFGenerator):
                     name='HeaderDivision',
                     parent=self.styles['Normal'],
                     fontSize=12.5,
-                    spaceAfter=6,
+                    spaceAfter=0,  # Reduced from 1 to 0
                     alignment=TA_CENTER,
-                    fontName=self.font_names.get('trajan_bold', 'Helvetica-Bold')
+                    fontName=self.font_names.get('trajan_bold', 'Times-Roman')
                 ))
             
             # Body styles (Times New Roman, size 10)
@@ -1020,9 +1021,10 @@ class DemandLetterGenerator(PDFGenerator):
                 try:
                     if ttf_path and os.path.exists(ttf_path):
                         pdfmetrics.registerFont(TTFont(preferred_name, ttf_path))
+                        logger.info(f"Successfully registered font: {preferred_name}")
                         return preferred_name
                     else:
-                        logger.warning(f"Font file not found for {preferred_name}, falling back to {fallback_name}")
+                        logger.warning(f"Font file not found for {preferred_name} at {ttf_path}, falling back to {fallback_name}")
                         return fallback_name
                 except Exception as ex:
                     logger.warning(f"Failed to register {preferred_name}, using fallback {fallback_name}: {ex}")
@@ -1034,9 +1036,9 @@ class DemandLetterGenerator(PDFGenerator):
 
             # Trajan Pro (regular and bold)
             trajan_regular_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'TrajanPro-Regular.ttf')
-            self.font_names['trajan_regular'] = register_font_or_fallback('TrajanPro', trajan_regular_path, 'Helvetica')
+            self.font_names['trajan_regular'] = register_font_or_fallback('TrajanPro-Regular', trajan_regular_path, 'Helvetica')
             # For bold, try a bold file if exists, else fallback to Helvetica-Bold
-            trajan_bold_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'TrajanPro-Bold.ttf')
+            trajan_bold_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'TrajanPro-Bold.otf')
             self.font_names['trajan_bold'] = register_font_or_fallback('TrajanPro-Bold', trajan_bold_path, 'Helvetica-Bold')
 
             # Times family (mostly built-in in ReportLab, no need to register files)
@@ -1044,8 +1046,20 @@ class DemandLetterGenerator(PDFGenerator):
             self.font_names['times_bold'] = 'Times-Bold'
             self.font_names['times_italic'] = 'Times-Italic'
             
+            # Log final font mapping
+            logger.info(f"Final font mapping: {self.font_names}")
+            
         except Exception as e:
             logger.error(f"Error registering fonts: {e}")
+            # Set fallback fonts if registration fails completely
+            self.font_names = {
+                'old_english': 'Times-Roman',
+                'trajan_regular': 'Helvetica',
+                'trajan_bold': 'Helvetica-Bold',
+                'times_regular': 'Times-Roman',
+                'times_bold': 'Times-Bold',
+                'times_italic': 'Times-Italic',
+            }
 
     def _create_official_header(self):
         """Create official header with DepEd seal and proper typography"""
@@ -1054,27 +1068,22 @@ class DemandLetterGenerator(PDFGenerator):
             seal_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'seal_deped.png')
             seal_img = None
             if os.path.exists(seal_path):
-                seal_img = Image(seal_path, width=1.5*inch, height=1.5*inch)  # Slightly larger for emphasis
+                seal_img = Image(seal_path, width=1*inch, height=1*inch)  # Slightly larger for emphasis
 
-            header_data = []
+            # Add DepEd seal if available
             if seal_img:
-                header_data.append([seal_img])
-            header_data.append([Paragraph("Republic of the Philippines", self.styles['HeaderRepublic'])])
-            header_data.append([Paragraph("Department of Education", self.styles['HeaderDepartment'])])
-            header_data.append([Paragraph("REGION I", self.styles['HeaderRegion'])])
-            header_data.append([Paragraph("<u>SCHOOLS DIVISION OF LA UNION</u>", self.styles['HeaderDivision'])])
-
-            header_table = Table(header_data, colWidths=[6*inch])
-            header_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-                ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ]))
-            story.append(header_table)
-            story.append(Spacer(1, 6))
-            story.append(HorizontalLine(6*inch, thickness=0.5, color=colors.black))
-            story.append(Spacer(1, 12))
+                story.append(seal_img)
+                story.append(Spacer(1, 2))  # Small space after seal
+            
+            # Add header text as individual paragraphs for better spacing control
+            story.append(Paragraph("Republic of the Philippines", self.styles['HeaderRepublic']))
+            story.append(Paragraph("Department of Education", self.styles['HeaderDepartment']))
+            story.append(Spacer(1, 6))  # Add space before REGION I to prevent overlapping
+            story.append(Paragraph("REGION I", self.styles['HeaderRegion']))
+            story.append(Paragraph("SCHOOLS DIVISION OF LA UNION", self.styles['HeaderDivision']))
+            story.append(Spacer(1, 3))  # Reduced from 6 to 3
+            story.append(HorizontalLine(6.5*inch, thickness=1.5, color=colors.black))
+            story.append(Spacer(1, 8))  # Reduced from 12 to 8
         except Exception as e:
             logger.error(f"Error creating official header: {e}")
             story.append(Paragraph("Department of Education - Region I", self.styles['HeaderDivision']))
@@ -1148,13 +1157,13 @@ class DemandLetterGenerator(PDFGenerator):
             # Create a BytesIO buffer to hold the PDF
             buffer = io.BytesIO()
 
-            # Create the PDF document with 1-inch margins
+            # Create the PDF document with reduced top margin for compact header
             doc = SimpleDocTemplate(
                 buffer,
                 pagesize=letter,
                 rightMargin=72,  # 1 inch
                 leftMargin=72,   # 1 inch
-                topMargin=72,    # 1 inch
+                topMargin=10,    # Reduced from 72 (1 inch) to 36 (0.5 inch)
                 bottomMargin=72  # 1 inch
             )
 
@@ -1166,10 +1175,10 @@ class DemandLetterGenerator(PDFGenerator):
             # Official, centered header with static images
             story.extend(self._create_official_header())
 
-            # Add date (empty field as in template)
+            # Add date (empty field as in template) - reduced spacing
             current_date = datetime.now().strftime("%B %d, %Y")
             story.append(Paragraph(f"DATE: _________________________", self.styles['DemandBodyLeft']))
-            story.append(Spacer(1, 12))
+            story.append(Spacer(1, 8))  # Reduced from 12 to 8
 
             # Add demand letter title
             story.append(Paragraph("DEMAND LETTER", self.styles['DemandTitle']))

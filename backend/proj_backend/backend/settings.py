@@ -162,7 +162,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=400),  # Reduced from 50 minutes
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=900),  # Reduced from 50 minutes
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Reduced from 1 day
     'ROTATE_REFRESH_TOKENS': True,                   # Enable token rotation
     'BLACKLIST_AFTER_ROTATION': True,                # Enable blacklisting
