@@ -107,10 +107,58 @@
                 <p><strong>Date & Time:</strong>  {{ now|date:"F j, Y H:i" }} </p>
             </div>
 
+            <!-- Approval Information -->
+            {% if status == 'approved_district' or status == 'approved_liquidator' or object.reviewed_by_district or object.reviewed_by_liquidator %}
+            <div class="approval-info" style="background: #f0f8ff; border-left: 4px solid #094684; padding: 16px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+                <p><strong>Approval Details:</strong></p>
+                
+                {% if object.reviewed_by_district %}
+                <div style="margin: 10px 0; padding: 8px; background: #fff; border-radius: 4px; border-left: 3px solid #28a745;">
+                    <p><strong>District Approval:</strong></p>
+                    <p><strong>Approved by:</strong> {{ object.reviewed_by_district.first_name }} {{ object.reviewed_by_district.last_name }}</p>
+                    <p><strong>Position:</strong> {{ object.reviewed_by_district.position|default:"District Administrator" }}</p>
+                    <p><strong>Date Approved:</strong> {{ object.reviewed_at_district|date:"F j, Y H:i" }}</p>
+                </div>
+                {% endif %}
+                
+                {% if object.reviewed_by_liquidator %}
+                <div style="margin: 10px 0; padding: 8px; background: #fff; border-radius: 4px; border-left: 3px solid #17a2b8;">
+                    <p><strong>Liquidator Approval:</strong></p>
+                    <p><strong>Approved by:</strong> {{ object.reviewed_by_liquidator.first_name }} {{ object.reviewed_by_liquidator.last_name }}</p>
+                    <p><strong>Position:</strong> {{ object.reviewed_by_liquidator.position|default:"Liquidator" }}</p>
+                    <p><strong>Date Approved:</strong> {{ object.reviewed_at_liquidator|date:"F j, Y H:i" }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Review Information -->
+            {% if status == 'under_review_district' or status == 'under_review_liquidator' or status == 'under_review_division' %}
+            <div class="review-info" style="background: #fff8e1; border-left: 4px solid #ff9800; padding: 16px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+                <p><strong>Review Information:</strong></p>
+                <p><strong>Currently under review by:</strong> 
+                {% if status == 'under_review_district' %}District Office{% endif %}
+                {% if status == 'under_review_liquidator' %}Liquidator{% endif %}
+                {% if status == 'under_review_division' %}Division Office{% endif %}
+                </p>
+                <p><strong>Review started:</strong> {{ now|date:"F j, Y H:i" }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Rejection Information -->
+            {% if status == 'resubmit' %}
+            <div class="rejection-info" style="background: #fff0f0; border-left: 4px solid #DD1F2F; padding: 16px; margin: 20px 0; border-radius: 0 6px 6px 0;">
+                <p><strong>Rejection Details:</strong></p>
+                <p><strong>Rejected by:</strong> {{ changed_by.first_name }} {{ changed_by.last_name }}</p>
+                <p><strong>Position:</strong> {{ changed_by.position|default:"Reviewer" }}</p>
+                <p><strong>Date Rejected:</strong> {{ now|date:"F j, Y H:i" }}</p>
+            </div>
+            {% endif %}
+
             {% if object.rejection_comment %}
             <div class="reason-box">
                 <p><strong>Reason for Update:</strong></p>
-                <p>{{ abject.rejection_comment }}</p>
+                <p>{{ object.rejection_comment }}</p>
             </div>
             {% endif %}
 

@@ -57,3 +57,4 @@ def test_password_generation():
 
 if __name__ == "__main__":
     test_password_generation()
+
