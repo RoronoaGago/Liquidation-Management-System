@@ -917,7 +917,7 @@ class DemandLetterGenerator(PDFGenerator):
                     name='DemandBody',
                     parent=self.styles['Normal'],
                     fontSize=10,
-                    spaceAfter=6,
+                    spaceAfter=8,
                     alignment=TA_JUSTIFY,
                     fontName=self.font_names.get('times_regular', 'Times-Roman'),
                     leading=12
@@ -942,6 +942,108 @@ class DemandLetterGenerator(PDFGenerator):
                     name='DemandBodyIndent',
                     parent=self.styles['DemandBody'],
                     leftIndent=20
+                ))
+            
+            # Specific indentation styles for demand letter
+            if not hasattr(self.styles, 'DemandBodyIndentHalf'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyIndentHalf',
+                    parent=self.styles['DemandBody'],
+                    leftIndent=36  # 0.5 inch = 36 points
+                ))
+            
+            if not hasattr(self.styles, 'DemandBodyIndentFull'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyIndentFull',
+                    parent=self.styles['DemandBody'],
+                    leftIndent=72  # 1 inch = 72 points
+                ))
+            
+            # Italicized style for district supervisor info
+            if not hasattr(self.styles, 'DemandBodyItalic'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyItalic',
+                    parent=self.styles['DemandBody'],
+                    fontName=self.font_names.get('times_italic', 'Times-Italic'),
+                    spaceAfter=2  # Reduced spacing
+                ))
+            
+            # Italicized style for school head info with 1 inch indent
+            if not hasattr(self.styles, 'DemandBodyItalicIndent'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyItalicIndent',
+                    parent=self.styles['DemandBody'],
+                    fontName=self.font_names.get('times_italic', 'Times-Italic'),
+                    leftIndent=72,  # 1 inch = 72 points
+                    spaceAfter=2  # Reduced spacing
+                ))
+            
+            # Compact bold style for signature names
+            if not hasattr(self.styles, 'DemandBodyBoldCompact'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyBoldCompact',
+                    parent=self.styles['DemandBody'],
+                    fontName=self.font_names.get('times_bold', 'Times-Bold'),
+                    spaceAfter=0  # No spacing for maximum tightness
+                ))
+            
+            # Compact italicized style for signature titles/positions
+            if not hasattr(self.styles, 'DemandBodyItalicCompact'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodyItalicCompact',
+                    parent=self.styles['DemandBody'],
+                    fontName=self.font_names.get('times_italic', 'Times-Italic'),
+                    spaceAfter=0  # No spacing for maximum tightness
+                ))
+            
+            # Small font style for carbon copy section
+            if not hasattr(self.styles, 'DemandBodySmall'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodySmall',
+                    parent=self.styles['DemandBody'],
+                    fontSize=8,
+                    spaceAfter=2  # Tight spacing
+                ))
+            
+            # Small font bold style for names in carbon copy
+            if not hasattr(self.styles, 'DemandBodySmallBold'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodySmallBold',
+                    parent=self.styles['DemandBody'],
+                    fontSize=8,
+                    fontName=self.font_names.get('times_bold', 'Times-Bold'),
+                    spaceAfter=2  # Tight spacing
+                ))
+            
+            # Small font italic style for carbon copy
+            if not hasattr(self.styles, 'DemandBodySmallItalic'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodySmallItalic',
+                    parent=self.styles['DemandBody'],
+                    fontSize=8,
+                    fontName=self.font_names.get('times_italic', 'Times-Italic'),
+                    spaceAfter=2  # Tight spacing
+                ))
+            
+            # Small font with small indent for carbon copy
+            if not hasattr(self.styles, 'DemandBodySmallIndent'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodySmallIndent',
+                    parent=self.styles['DemandBody'],
+                    fontSize=8,
+                    leftIndent=12,  # Small indent
+                    spaceAfter=2  # Tight spacing
+                ))
+            
+            # Small font italic with small indent for carbon copy
+            if not hasattr(self.styles, 'DemandBodySmallItalicIndent'):
+                self.styles.add(ParagraphStyle(
+                    name='DemandBodySmallItalicIndent',
+                    parent=self.styles['DemandBody'],
+                    fontSize=8,
+                    fontName=self.font_names.get('times_italic', 'Times-Italic'),
+                    leftIndent=12,  # Small indent
+                    spaceAfter=2  # Tight spacing
                 ))
             
             # Table styles
@@ -1091,48 +1193,122 @@ class DemandLetterGenerator(PDFGenerator):
         return story
 
     def _create_official_footer(self):
-        """Create official footer with logos and contact information"""
+        """Create official footer with simple layout for precise control"""
         story = []
         
         try:
-            # DepEd Matatag logo
-            deped_matatag_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'Deped_logo.png')
-            deped_matatag_logo = Image(deped_matatag_path, width=1.2*inch, height=0.8*inch) if os.path.exists(deped_matatag_path) else "DepED MATATAG"
+            # Create a custom footer style for Calibri font (using Helvetica as fallback)
+            if not hasattr(self.styles, 'FooterCalibri'):
+                self.styles.add(ParagraphStyle(
+                    name='FooterCalibri',
+                    parent=self.styles['Normal'],
+                    fontSize=10,
+                    spaceAfter=0,  # No space after for tight control
+                    spaceBefore=0,  # No space before for tight control
+                    leading=10,     # Set leading to match font size for tight line spacing
+                    alignment=TA_RIGHT,
+                    fontName='Helvetica-Bold',  # Using Helvetica-Bold as Calibri fallback
+                    textColor=colors.black
+                ))
+            
+            # Create a custom style for the tagline
+            if not hasattr(self.styles, 'FooterTaglineCustom'):
+                self.styles.add(ParagraphStyle(
+                    name='FooterTaglineCustom',
+                    parent=self.styles['Normal'],
+                    fontSize=8,
+                    spaceAfter=0,  # No space after for tight control
+                    spaceBefore=0,  # No space before for tight control
+                    leading=8,      # Set leading to match font size for tight line spacing
+                    alignment=TA_CENTER,  # Center aligned for full width
+                    fontName='Times-BoldItalic',  # Using Times-BoldItalic as Bookman Old Style fallback
+                    textColor=colors.red
+                ))
+            
+            # DepEd Matatag logo - exact dimensions: 1.54 inch width, 0.8 inch height
+            deped_matatag_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'Deped_matatag.png')
+            deped_matatag_logo = None
+            if os.path.exists(deped_matatag_path):
+                deped_matatag_logo = Image(deped_matatag_path, width=1.54*inch, height=0.8*inch)
+            else:
+                logger.warning("DepEd Matatag logo not found, using text fallback")
+                deped_matatag_logo = Paragraph("DepED MATATAG", self.styles['FooterCalibri'])
 
-            # SDO La Union logo
+            # SDO La Union logo - exact dimensions: 0.79 inch width, 0.79 inch height
             sdo_la_union_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
-            sdo_la_union_logo = Image(sdo_la_union_path, width=1.0*inch, height=1.0*inch) if os.path.exists(sdo_la_union_path) else "SDO La Union"
+            sdo_la_union_logo = None
+            if os.path.exists(sdo_la_union_path):
+                sdo_la_union_logo = Image(sdo_la_union_path, width=0.79*inch, height=0.79*inch)
+            else:
+                logger.warning("SDO La Union logo not found, using text fallback")
+                sdo_la_union_logo = Paragraph("SDO La Union", self.styles['FooterCalibri'])
 
-            # Contact info
-            contact_info = Paragraph(
-                "Address: Flores St. Catbangen, City of San Fernando, La Union 2500<br/>"
-                "Telephone Number: (072)607-6801<br/>"
-                "<font color='#0F4C81'>■</font> DepEd Tayo – La Union SDO<br/>"
-                "<font color='#D32F2F'>■</font> la.union@deped.gov.ph",
-                self.styles['FooterText']
-            )
-
-            footer_data = [[
-                deped_matatag_logo,
-                sdo_la_union_logo,
-                contact_info
-            ]]
-
-            # Match number of columns with width specs (3 columns)
-            footer_table = Table(footer_data, colWidths=[1.8*inch, 1.6*inch, 3.6*inch])
+            # Create text content
+            address_text = "Address: Flores St. Catbangen, City of San Fernando, La Union 2500"
+            telephone_text = "Telephone Number: (072)607-6801"
+            contact_text = "DepEd Tayo – La Union SDO"
+            email_text = "la.union@deped.gov.ph"
+            
+            # Create contact details as a single line
+            contact_combined = f"{contact_text} | {email_text}"
+            
+            # Create paragraphs for the text content
+            address_para = Paragraph(address_text, self.styles['FooterCalibri'])
+            telephone_para = Paragraph(telephone_text, self.styles['FooterCalibri'])
+            contact_para = Paragraph(contact_combined, self.styles['FooterCalibri'])
+            
+            # Combine all text into a single paragraph with line breaks for ultra-tight spacing
+            combined_text = f"{address_text}<br/>{telephone_text}<br/>{contact_combined}"
+            combined_para = Paragraph(combined_text, self.styles['FooterCalibri'])
+            
+            # Create a single row table with logos and text, but add empty text above address
+            # Add empty text content above the address to push it down
+            text_with_spacing = f"<br/>{address_text}<br/>{telephone_text}<br/>{contact_combined}"
+            combined_para_with_spacing = Paragraph(text_with_spacing, self.styles['FooterCalibri'])
+            
+            footer_data = [
+                [deped_matatag_logo, sdo_la_union_logo, combined_para_with_spacing]      # Single row with logos + text with spacing
+            ]
+            
+            # Calculate column widths
+            first_logo_width = 1.54*inch   # DepEd Matatag logo width
+            second_logo_width = 0.79*inch  # SDO La Union logo width
+            text_col_width = 4.0*inch      # Remaining space for text
+            
+            footer_table = Table(footer_data, colWidths=[first_logo_width, second_logo_width, text_col_width])
             footer_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('ALIGN', (0, 0), (2, 0), 'CENTER'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 4),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                # First logo column (DepEd Matatag)
+                ('VALIGN', (0, 0), (0, 0), 'TOP'),      # First logo aligned to top
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),      # First logo left aligned
+                
+                # Second logo column (SDO La Union)
+                ('VALIGN', (1, 0), (1, 0), 'TOP'),      # Second logo aligned to top
+                ('ALIGN', (1, 0), (1, 0), 'LEFT'),      # Second logo left aligned
+                
+                # Text column alignment
+                ('VALIGN', (2, 0), (2, 0), 'TOP'),      # Combined text aligned to top
+                ('ALIGN', (2, 0), (2, 0), 'RIGHT'),     # Text right aligned
+                
+                # Minimal padding
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                
+                # Remove grid lines
+                ('LINEBELOW', (0, 0), (-1, -1), 0, colors.white),
+                ('LINEABOVE', (0, 0), (-1, -1), 0, colors.white),
+                ('LINELEFT', (0, 0), (-1, -1), 0, colors.white),
+                ('LINERIGHT', (0, 0), (-1, -1), 0, colors.white),
             ]))
-
+            
+            # Add the complete footer table
             story.append(footer_table)
+
+            # Tagline - Bookman Old Style 8pt bold italic red, center aligned (full width)
             tagline = "Excellence We Profess, Care We Cultivate, Love We Share, Kindness We Embrace, Humility We Live."
-            story.append(Spacer(1, 6))
-            story.append(Paragraph(tagline, self.styles['FooterTagline']))
+            story.append(Paragraph(tagline, self.styles['FooterTaglineCustom']))
+            
         except Exception as e:
             logger.error(f"Error creating official footer: {e}")
             story.append(Paragraph("Department of Education - La Union SDO", self.styles['FooterText']))
@@ -1178,12 +1354,12 @@ class DemandLetterGenerator(PDFGenerator):
             # Add date (empty field as in template) - reduced spacing
             current_date = datetime.now().strftime("%B %d, %Y")
             story.append(Paragraph(f"DATE: _________________________", self.styles['DemandBodyLeft']))
-            story.append(Spacer(1, 8))  # Reduced from 12 to 8
+            story.append(Spacer(1, 15))  # Reduced from 12 to 8
 
             # Add demand letter title
             story.append(Paragraph("DEMAND LETTER", self.styles['DemandTitle']))
             story.append(Paragraph("(Re: LIQUIDATION)", self.styles['DemandTitle']))
-            story.append(Paragraph("_________________________", self.styles['DemandBodyLeft']))
+            
             story.append(Spacer(1, 12))
 
             # Add recipient information
@@ -1191,19 +1367,22 @@ class DemandLetterGenerator(PDFGenerator):
             if school:
                 district = getattr(school, 'district', None)
                 if district:
-                    story.append(Paragraph("Public Schools District Supervisor", self.styles['DemandBodyLeft']))
-                    story.append(Paragraph(f"{district.districtName} District", self.styles['DemandBodyLeft']))
-                    story.append(Spacer(1, 6))
+                    story.append(Paragraph("_________________________", self.styles['DemandBodyLeft']))
+                    story.append(Paragraph("Public Schools District Supervisor", self.styles['DemandBodyItalic']))
+                    story.append(Paragraph(f"{district.districtName} District", self.styles['DemandBodyItalic']))
+                    story.append(Spacer(1, 30))  # Reduced from 6 to 3
             
-            story.append(Paragraph("ATTENTION: ________________________", self.styles['DemandBodyLeft']))
-            story.append(Spacer(1, 6))
+            # 0.5 inch indent for ATTENTION (36 points = 0.5 inch)
+            story.append(Paragraph("ATTENTION: ________________________", self.styles['DemandBodyIndentHalf']))
+            story.append(Spacer(1, 3))  # Reduced from 6 to 3
             
             if school:
-                story.append(Paragraph("> School Head", self.styles['DemandBodyLeft']))
-                story.append(Paragraph(f"> {school.schoolName}", self.styles['DemandBodyLeft']))
+                # 1 inch indent for School Head and School Name (72 points = 1 inch) - italicized and compact
+                story.append(Paragraph("School Head", self.styles['DemandBodyItalicIndent']))
+                story.append(Paragraph(school.schoolName, self.styles['DemandBodyItalicIndent']))
             
             story.append(Spacer(1, 12))
-            story.append(Paragraph("Sir/Mam,", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("Sir/Mam:", self.styles['DemandBodyLeft']))
             story.append(Spacer(1, 12))
 
             # Add main content
@@ -1303,17 +1482,17 @@ class DemandLetterGenerator(PDFGenerator):
             story.append(Spacer(1, 12))
 
             # Add carbon copy
-            story.append(Paragraph("cc: ATTY. PAMELA DE GUZMAN", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("Legal Office", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("La Union Schools Division Office", self.styles['DemandBodyLeft']))
-            story.append(Spacer(1, 6))
-            story.append(Paragraph("JONALYN D. MANONGDO", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("State Auditor IV / Audit Team Leader", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("Commission on Audit", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("NGS Cluster 5-Audit Group A", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("Regional Office I, Government Center", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("Sevilla, San Fernando City", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("2500, La Union", self.styles['DemandBodyLeft']))
+            story.append(Paragraph("cc: ATTY. PAMELA DE GUZMAN", self.styles['DemandBodySmallBold']))
+            story.append(Paragraph("Legal Office", self.styles['DemandBodySmallItalic']))
+            story.append(Paragraph("La Union Schools Division Office", self.styles['DemandBodySmallItalic']))
+            story.append(Spacer(1, 3))  # Reduced spacing
+            story.append(Paragraph("JONALYN D. MANONGDO", self.styles['DemandBodySmallBold']))
+            story.append(Paragraph("State Auditor IV / Audit Team Leader", self.styles['DemandBodySmallItalicIndent']))
+            story.append(Paragraph("Commission on Audit", self.styles['DemandBodySmallItalicIndent']))
+            story.append(Paragraph("NGS Cluster 5-Audit Group A", self.styles['DemandBodySmallItalicIndent']))
+            story.append(Paragraph("Regional Office I, Government Center", self.styles['DemandBodySmallItalicIndent']))
+            story.append(Paragraph("Sevilla, San Fernando City", self.styles['DemandBodySmallItalicIndent']))
+            story.append(Paragraph("2500, La Union", self.styles['DemandBodySmallItalicIndent']))
 
             # Add official footer (kept on the same page; if you prefer at bottom of page, integrate via PageTemplate)
             story.append(Spacer(1, 12))
@@ -1421,9 +1600,9 @@ class DemandLetterGenerator(PDFGenerator):
             title = "Schools Division Superintendent"
             position = "La Union Schools Division Office"
         
-        story.append(Paragraph(superintendent_name, self.styles['DemandBodyBold']))
-        story.append(Paragraph(title, self.styles['DemandBody']))
-        story.append(Paragraph(position, self.styles['DemandBody']))
+        story.append(Paragraph(superintendent_name, self.styles['DemandBodyBoldCompact']))
+        story.append(Paragraph(title, self.styles['DemandBodyItalicCompact']))
+        story.append(Paragraph(position, self.styles['DemandBodyItalicCompact']))
         
         return story
 
