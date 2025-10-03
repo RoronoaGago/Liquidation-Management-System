@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import api from "@/services/api"; // Assuming this is your backend API client
+import api from "@/api/axios"; // Backend API client
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

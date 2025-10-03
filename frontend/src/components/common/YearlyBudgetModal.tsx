@@ -48,13 +48,13 @@ const YearlyBudgetModal: React.FC<YearlyBudgetModalProps> = ({
         <div className="px-8 py-6 space-y-6">
           {/* Status Overview */}
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 dark:text-white">
+            <div className="mb-3">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
                 Budget Allocation Status
               </h3>
-              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                {completionPercentage.toFixed(1)}% Complete
-              </span>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                {totalSchools - schoolsWithoutBudget} of {totalSchools} schools allocated
+              </div>
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-3">
               <div
@@ -63,7 +63,9 @@ const YearlyBudgetModal: React.FC<YearlyBudgetModalProps> = ({
               />
             </div>
             <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-              <span>{totalSchools - schoolsWithoutBudget} of {totalSchools} schools allocated</span>
+              <span className="text-xs text-gray-500 dark:text-gray-500">
+                {completionPercentage.toFixed(1)}% Complete
+              </span>
               <span>{schoolsWithoutBudget} remaining</span>
             </div>
           </div>

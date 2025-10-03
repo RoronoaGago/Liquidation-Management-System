@@ -44,7 +44,10 @@ interface AuthContextType {
   eSignatureRequired: boolean;
   setupFlowActive: boolean;
   completeSetupFlow: () => void;
-  showAutoLogoutModal: (reason: 'inactivity' | 'token_expired' | 'session_expired') => void;
+  showAutoLogoutModal: (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user') => void;
+  isNewUser: boolean;
+  showReLoginModal: (isNewUser: boolean) => void;
+  handleReLogin: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,9 +60,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const [eSignatureRequired, setESignatureRequired] = useState(false);
   const [setupFlowActive, setSetupFlowActive] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
   const [autoLogoutModal, setAutoLogoutModal] = useState<{
     visible: boolean;
-    reason: 'inactivity' | 'token_expired' | 'session_expired';
+    reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user';
   }>({
     visible: false,
     reason: 'inactivity'
@@ -109,6 +113,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (response.data.access) {
+        // Check if this is a new user before updating tokens
+        const isNewUser = response.data.is_new_user || false;
+        
         SecureStorage.setTokens(
           response.data.access,
           response.data.refresh || "",
@@ -128,8 +135,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         );
         setESignatureRequired(requiresESignature);
 
-        // Set setup flow as active if e-signature is required
-        if (requiresESignature) {
+        // For new users, show re-login modal instead of continuing setup flow
+        if (isNewUser) {
+          showReLoginModal(true);
+        } else if (requiresESignature) {
           setSetupFlowActive(true);
         } else {
           completeSetupFlow();
@@ -149,7 +158,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate("/");
   };
 
-  const showAutoLogoutModal = (reason: 'inactivity' | 'token_expired' | 'session_expired') => {
+  const showReLoginModal = (isNewUser: boolean) => {
+    setIsNewUser(isNewUser);
+    setAutoLogoutModal({
+      visible: true,
+      reason: isNewUser ? 'new_user' : 'password_changed'
+    });
+  };
+
+  const handleReLogin = () => {
+    // Close the modal first
+    setAutoLogoutModal({
+      visible: false,
+      reason: 'inactivity'
+    });
+    
+    // Clear authentication state when user clicks "Go to Login Page"
+    SecureStorage.clearTokens();
+    
+    // Clear axios authorization header
+    api.defaults.headers.common["Authorization"] = "";
+    
+    // Update auth state
+    setIsAuthenticated(false);
+    setUser(null);
+    setPasswordChangeRequired(false);
+    setESignatureRequired(false);
+    setSetupFlowActive(false);
+    setIsNewUser(false);
+    setInactivityModalShown(false);
+    setIsShowingLogoutModal(false);
+    setIsInitialized(false);
+    
+    // Clear initialization flag
+    localStorage.removeItem('app_initialized');
+    
+    // Navigate to login
+    navigate('/login');
+  };
+
+  const showAutoLogoutModal = (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user') => {
     // Prevent showing inactivity modal multiple times
     if (reason === 'inactivity' && inactivityModalShown) {
       return;
@@ -318,7 +366,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const token = authData.access;
-      localStorage.setItem("accessToken", token);
       const userData = decodeToken(token);
 
       setUser(userData);
@@ -346,8 +393,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     } catch (error) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
+      // Clear tokens using secure storage
+      SecureStorage.clearTokens();
       setIsAuthenticated(false);
       setUser(null);
       throw error;
@@ -403,6 +450,9 @@ const logout = async () => {
         setupFlowActive,
         completeSetupFlow,
         showAutoLogoutModal,
+        isNewUser,
+        showReLoginModal,
+        handleReLogin,
       }}
     >
       {children}
@@ -410,7 +460,9 @@ const logout = async () => {
         visible={autoLogoutModal.visible}
         reason={autoLogoutModal.reason}
         onClose={handleAutoLogoutModalClose}
-        onLogin={handleAutoLogoutLogin}
+        onLogin={autoLogoutModal.reason === 'password_changed' || autoLogoutModal.reason === 'new_user' ? handleReLogin : handleAutoLogoutLogin}
+        userName={user?.first_name || "User"}
+        isNewUser={isNewUser}
       />
     </AuthContext.Provider>
   );

@@ -364,9 +364,10 @@ const LiquidationPage = () => {
       ));
 
   const calculateProgress = () => {
-    if (!request) return { uploadedRequired: 0, totalRequired: 0 };
+    if (!request) return { uploadedRequired: 0, totalRequired: 0, autoApprovedOptional: 0 };
     let totalRequired = 0;
     let uploadedRequired = 0;
+    let autoApprovedOptional = 0;
 
     request.expenses.forEach((expense) => {
       expense.requirements.forEach((req) => {
@@ -375,14 +376,20 @@ const LiquidationPage = () => {
           if (getUploadedDocument(expense.id, req.requirementID)) {
             uploadedRequired++;
           }
+        } else {
+          // For optional requirements, check if they're auto-approved
+          const doc = getUploadedDocument(expense.id, req.requirementID);
+          if (doc && doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+            autoApprovedOptional++;
+          }
         }
       });
     });
 
-    return { uploadedRequired, totalRequired };
+    return { uploadedRequired, totalRequired, autoApprovedOptional };
   };
 
-  const { uploadedRequired, totalRequired } = calculateProgress();
+  const { uploadedRequired, totalRequired, autoApprovedOptional } = calculateProgress();
 
   const handleSubmit = async () => {
     if (!request) return;
@@ -802,8 +809,12 @@ const LiquidationPage = () => {
                   Document Completion
                 </h3>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {uploadedRequired} of {totalRequired} required documents
-                  uploaded
+                  {uploadedRequired} of {totalRequired} required documents uploaded
+                  {autoApprovedOptional > 0 && (
+                    <span className="ml-2 text-green-600 dark:text-green-400">
+                      • {autoApprovedOptional} optional auto-approved
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
@@ -1007,12 +1018,21 @@ const LiquidationPage = () => {
           </h3>
 
           {request.expenses.map((expense) => {
-            const pendingReqs = expense.requirements.filter(
-              (req) => !getUploadedDocument(expense.id, req.requirementID)
-            );
-            const uploadedReqs = expense.requirements.filter((req) =>
-              getUploadedDocument(expense.id, req.requirementID)
-            );
+            const pendingReqs = expense.requirements.filter((req) => {
+              const doc = getUploadedDocument(expense.id, req.requirementID);
+              // For required docs, they're pending if not uploaded
+              // For optional docs, they're pending if not uploaded AND not auto-approved
+              if (req.is_required) {
+                return !doc;
+              } else {
+                return !doc || (doc && !(doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")));
+              }
+            });
+            const uploadedReqs = expense.requirements.filter((req) => {
+              const doc = getUploadedDocument(expense.id, req.requirementID);
+              // Include both uploaded docs and auto-approved optional docs
+              return doc && (req.is_required || (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")));
+            });
 
             return (
               <div
@@ -1248,6 +1268,8 @@ const LiquidationPage = () => {
                                   <div className="flex-shrink-0">
                                     {uploadedDoc?.is_approved === false ? (
                                       <AlertCircle className="h-5 w-5 text-red-500" />
+                                    ) : uploadedDoc?.reviewer_comment?.includes("Auto-approved") ? (
+                                      <CheckCircle className="h-5 w-5 text-green-500" />
                                     ) : (
                                       <CheckCircle className="h-5 w-5 text-green-500" />
                                     )}
@@ -1264,6 +1286,11 @@ const LiquidationPage = () => {
                                       ) : (
                                         <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
                                           Optional
+                                        </span>
+                                      )}
+                                      {uploadedDoc?.reviewer_comment?.includes("Auto-approved") && (
+                                        <span className="text-xs px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 rounded-full">
+                                          Auto-approved
                                         </span>
                                       )}
                                     </div>
@@ -1285,6 +1312,21 @@ const LiquidationPage = () => {
                                                 This is resubmission #{uploadedDoc.resubmission_count}
                                               </p>
                                             )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {uploadedDoc?.reviewer_comment?.includes("Auto-approved") && (
+                                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/10 rounded">
+                                        <div className="flex items-start gap-2">
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                                              Auto-approved: This optional requirement was automatically approved since no document was provided.
+                                            </p>
+                                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                              No action required - this requirement is considered complete.
+                                            </p>
                                           </div>
                                         </div>
                                       </div>
@@ -1372,7 +1414,13 @@ const LiquidationPage = () => {
                                     }
                                     disabled={
                                       request.status !== "draft" &&
-                                      request.status !== "resubmit"
+                                      request.status !== "resubmit" ||
+                                      uploadedDoc?.is_approved === true
+                                    }
+                                    title={
+                                      uploadedDoc?.is_approved === true
+                                        ? "Cannot remove approved documents"
+                                        : "Remove this document"
                                     }
                                   >
                                     Remove Original
@@ -1393,6 +1441,7 @@ const LiquidationPage = () => {
                                         request.status !== "draft" &&
                                         request.status !== "resubmit"
                                       }
+                                      title="Remove this revised document"
                                     >
                                       Remove Revised
                                     </Button>
@@ -1442,12 +1491,21 @@ const LiquidationPage = () => {
 
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {request.expenses.map((expense) => {
-              const pendingReqs = expense.requirements.filter(
-                (req) => !getUploadedDocument(expense.id, req.requirementID)
-              );
-              const uploadedReqs = expense.requirements.filter((req) =>
-                getUploadedDocument(expense.id, req.requirementID)
-              );
+              const pendingReqs = expense.requirements.filter((req) => {
+                const doc = getUploadedDocument(expense.id, req.requirementID);
+                // For required docs, they're pending if not uploaded
+                // For optional docs, they're pending if not uploaded AND not auto-approved
+                if (req.is_required) {
+                  return !doc;
+                } else {
+                  return !doc || (doc && !(doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")));
+                }
+              });
+              const uploadedReqs = expense.requirements.filter((req) => {
+                const doc = getUploadedDocument(expense.id, req.requirementID);
+                // Include both uploaded docs and auto-approved optional docs
+                return doc && (req.is_required || (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")));
+              });
 
               return (
                 <div key={expense.id} className="p-6">
@@ -1496,12 +1554,21 @@ const LiquidationPage = () => {
                               >
                                 {doc.document_url.split("/").pop()}
                               </a>
+                            ) : doc?.reviewer_comment?.includes("Auto-approved") ? (
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {req.requirementTitle} (Auto-approved)
+                              </span>
                             ) : (
                               req.requirementTitle
                             )}
                             {doc?.is_approved === false && (
                               <span className="ml-auto text-xs bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full px-2 py-0.5">
                                 Rejected
+                              </span>
+                            )}
+                            {doc?.reviewer_comment?.includes("Auto-approved") && (
+                              <span className="ml-auto text-xs bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 rounded-full px-2 py-0.5">
+                                Auto-approved
                               </span>
                             )}
                           </li>

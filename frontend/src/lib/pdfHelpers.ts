@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import { depedLogoBase64 } from "@/lib/depedLogo";
 import { Submission } from "./types";
 import { getDistrictLogoFilename } from "./helpers";
-import api from "@/services/api"; // or your axios instance
+import api from "@/api/axios"; // Backend API client
 import { generateApprovedRequestPDF, canGeneratePDF } from "@/services/pdfService";
 
 // Usage in your code
