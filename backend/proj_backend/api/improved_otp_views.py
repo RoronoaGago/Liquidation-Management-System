@@ -298,6 +298,9 @@ def verify_otp_secure(request):
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
             
+            # Log token generation for debugging
+            logger.info(f"Token generated for user {user.email}: {str(access_token)[:50]}...")
+            
             return Response({
                 'message': 'OTP verified successfully',
                 'access': str(access_token),

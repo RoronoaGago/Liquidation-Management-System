@@ -23,6 +23,7 @@ import SkeletonRow from "@/components/ui/skeleton";
 
 import { SortDirection } from "@/lib/types";
 import { AuditLog, SortableAuditField } from "@/pages/AuditLogPage";
+import { BadgeColor } from "@/components/ui/badge/Badge";
 
 interface AuditLogsTableProps {
   auditLogs: AuditLog[];
@@ -38,8 +39,8 @@ interface AuditLogsTableProps {
     direction: SortDirection;
   } | null;
   onViewDetails: (log: AuditLog) => void;
-  getActionColor: (action: string) => string;
-  getModuleColor: (module: string) => string;
+  getActionColor: (action: string) => BadgeColor;
+  getModuleColor: (module: string) => BadgeColor;
 }
 
 export default function AuditLogsTable({
@@ -240,12 +241,12 @@ export default function AuditLogsTable({
                       </span>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                      <Badge color={getActionColor(log.action)}>
+                      <Badge color={getActionColor(log.action) as BadgeColor}>
                         {log.action}
                       </Badge>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 sm:px-6 text-start">
-                      <Badge color={getModuleColor(log.module)}>
+                      <Badge color={getModuleColor(log.module) as BadgeColor}>
                         {log.module}
                       </Badge>
                     </TableCell>
