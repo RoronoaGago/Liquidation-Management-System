@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const BackupRestorePage = () => {
   const [includeMedia, setIncludeMedia] = useState(false);
@@ -27,6 +34,7 @@ const BackupRestorePage = () => {
     "info"
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
@@ -107,33 +115,22 @@ const BackupRestorePage = () => {
   }
 
   async function onRestore() {
+    if (!selectedFile) {
+      setMessage("Please select a backup file to restore");
+      setMessageType("error");
+      return;
+    }
+
+    setShowRestoreConfirm(true);
+  }
+
+  async function confirmRestore() {
     setRestoreLoading(true);
     setMessage(null);
+    setShowRestoreConfirm(false);
+    
     try {
-      if (!selectedFile) {
-        // ← Changed from fileInputRef to selectedFile
-        setMessage("Please select a backup file to restore");
-        setMessageType("error");
-        setRestoreLoading(false);
-        return;
-      }
-
-      const file = selectedFile; // ← Changed from fileInputRef to selectedFile
-
-      // Show confirmation dialog
-      if (
-        !window.confirm(
-          "⚠️ CRITICAL WARNING ⚠️\n\n" +
-            "This restore operation will:\n" +
-            "• Replace existing data with backup data\n" +
-            "• Log out all current users\n" +
-            "• Cannot be undone\n\n" +
-            "Are you absolutely sure you want to continue?"
-        )
-      ) {
-        setRestoreLoading(false);
-        return;
-      }
+      const file = selectedFile!;
 
       // Use the corrected initiateRestore function
       const res: RestoreResponse = await initiateRestore(file, true);
@@ -166,7 +163,7 @@ const BackupRestorePage = () => {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-      setSelectedFile(null); // ← Clear the state as well
+      setSelectedFile(null);
     }
   }
 
@@ -534,6 +531,41 @@ const BackupRestorePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Restore Confirmation Dialog */}
+      <Dialog open={showRestoreConfirm} onOpenChange={setShowRestoreConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Restore</DialogTitle>
+            <DialogDescription>
+              ⚠️ CRITICAL WARNING ⚠️
+              <br /><br />
+              This restore operation will:
+              <br />• Replace existing data with backup data
+              <br />• Log out all current users
+              <br />• Cannot be undone
+              <br /><br />
+              Are you absolutely sure you want to continue?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowRestoreConfirm(false)}
+              disabled={restoreLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRestore}
+              disabled={restoreLoading}
+            >
+              {restoreLoading ? "Restoring..." : "Confirm Restore"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -129,6 +129,9 @@ def change_password(request):
     if len(new_password) < 8:
         return Response({"error": "Password must be at least 8 characters"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Check if this is a new user (first password change)
+    is_new_user = user.password_change_required
+
     user.set_password(new_password)
     user.password_change_required = False
     user.save()
@@ -147,7 +150,8 @@ def change_password(request):
     return Response({
         "access": str(refresh.access_token),
         "refresh": str(refresh),
-        "message": "Password updated successfully"
+        "message": "Password updated successfully",
+        "is_new_user": is_new_user
     })
 
 
@@ -1501,6 +1505,31 @@ def submit_liquidation(request, LiquidationID):
                     {'error': 'All required documents must be uploaded before submission'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            # Auto-approve optional requirements that don't have documents uploaded
+            # This creates a record showing the requirement was considered but not provided
+            for rp in liquidation.request.requestpriority_set.all():
+                for req in rp.priority.requirements.filter(is_required=False):
+                    # Check if document already exists for this optional requirement
+                    existing_doc = LiquidationDocument.objects.filter(
+                        liquidation=liquidation,
+                        request_priority=rp,
+                        requirement=req
+                    ).first()
+                    
+                    # If no document exists, create an auto-approved record
+                    if not existing_doc:
+                        LiquidationDocument.objects.create(
+                            liquidation=liquidation,
+                            request_priority=rp,
+                            requirement=req,
+                            # No document file since it's optional and not provided
+                            document=None,
+                            is_approved=True,  # Auto-approve since it's optional
+                            reviewer_comment="Auto-approved: Optional requirement not provided",
+                            reviewed_by=request.user,
+                            reviewed_at=timezone.now()
+                        )
 
             # Get the actual amounts from the request data
             actual_amounts = request.data.get('actual_amounts', [])
