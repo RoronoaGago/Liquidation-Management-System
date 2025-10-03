@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify Your Identity - MOOE Liquidation Management System</title>
+    <style>
+        /* Base Styles */
+        body {
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #334155;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Header Section */
+        .header {
+            background: linear-gradient(
+                135deg,
+                #094684 0%,
+                #dd1f2f 50%,
+                #fbaf3d 100%
+            );
+            color: #fff;
+            text-align: center;
+            padding: 40px 0 30px 0;
+            position: relative;
+        }
+        .header:after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .header img {
+            max-height: 70px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        }
+        .company-name {
+            font-size: 1.75em;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        .company-subtitle {
+            font-size: 1em;
+            opacity: 0.9;
+            font-weight: 400;
+            margin-top: 5px;
+        }
+
+        /* Content Section */
+        .content {
+            padding: 40px;
+        }
+        .greeting {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #1e293b;
+        }
+        .intro-text {
+            margin-bottom: 30px;
+            color: #475569;
+            font-size: 1.05em;
+        }
+
+        /* OTP Section */
+        .otp-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+            border-left: 5px solid #094684;
+            box-shadow: 0 4px 12px rgba(9, 70, 132, 0.1);
+            text-align: center;
+        }
+        .otp-title {
+            font-size: 1.25em;
+            font-weight: 700;
+            color: #094684;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .otp-title:before {
+            content: "🔐";
+            margin-right: 10px;
+            font-size: 1.3em;
+        }
+        .otp-code {
+            background: #fff;
+            border: 3px solid #094684;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 2em;
+            font-weight: 700;
+            color: #094684;
+            letter-spacing: 8px;
+            box-shadow: 0 4px 12px rgba(9, 70, 132, 0.15);
+        }
+        .otp-timer {
+            background: #fff8f0;
+            border: 1px solid #fbaf3d;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 15px 0;
+            color: #92400e;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        /* Verification Steps */
+        .verification-section {
+            background: linear-gradient(135deg, #f0fff4 0%, #dcfce7 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 30px 0;
+            border-left: 5px solid #16a34a;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.1);
+        }
+        .verification-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: #166534;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .verification-title:before {
+            content: "✅";
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        .verification-steps {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+        .verification-steps li {
+            margin-bottom: 12px;
+            color: #475569;
+            position: relative;
+            padding-left: 5px;
+        }
+        .verification-steps li:before {
+            content: "•";
+            color: #16a34a;
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+
+        /* Action Section */
+        .action-section {
+            text-align: center;
+            margin: 35px 0;
+            padding: 25px;
+            background: #f8fafc;
+            border-radius: 12px;
+        }
+        .button {
+            display: inline-block;
+            padding: 16px 36px;
+            background: linear-gradient(135deg, #094684 0%, #003366 100%);
+            color: #fff !important;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.05em;
+            box-shadow: 0 4px 12px rgba(9, 70, 132, 0.25);
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            animation: pulse 2s infinite;
+        }
+        .button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(9, 70, 132, 0.35);
+        }
+
+        /* Security Section */
+        .security-section {
+            background: linear-gradient(135deg, #fff8f0 0%, #fff1e6 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 35px 0;
+            border-left: 5px solid #fbaf3d;
+            box-shadow: 0 4px 12px rgba(251, 175, 61, 0.1);
+        }
+        .security-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .security-title:before {
+            content: "🚨";
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        .security-list {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+        .security-list li {
+            margin-bottom: 10px;
+            color: #475569;
+            position: relative;
+            padding-left: 5px;
+        }
+        .security-list li:before {
+            content: "•";
+            color: #fbaf3d;
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+
+        /* Device Info Section */
+        .device-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #e2e8f0;
+        }
+        .device-title {
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+        .device-info {
+            color: #64748b;
+            font-size: 0.9em;
+        }
+
+        /* Signature */
+        .signature {
+            margin-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 25px;
+        }
+        .signature p {
+            margin: 8px 0;
+        }
+        .signature-name {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 1.1em;
+        }
+
+        /* Footer */
+        .footer {
+            background: #f1f5f9;
+            color: #64748b;
+            text-align: center;
+            padding: 30px 25px;
+            font-size: 0.85em;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer p {
+            margin: 8px 0;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 12px rgba(9, 70, 132, 0.25); }
+            50% { box-shadow: 0 4px 20px rgba(9, 70, 132, 0.4); }
+            100% { box-shadow: 0 4px 12px rgba(9, 70, 132, 0.25); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 10px;
+            }
+            .content {
+                padding: 25px;
+            }
+            .greeting {
+                font-size: 1.3em;
+            }
+            .otp-code {
+                font-size: 1.5em;
+                letter-spacing: 4px;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-container">
+                <img src="DepEd_logo-W.png" alt="DepEd Logo" />
+            </div>
+            <div class="company-name">MOOE Liquidation Management System</div>
+            <div class="company-subtitle">
+                Department of Education, La Union Schools Division
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="greeting">
+                Dear {{ user.first_name|default:user.username }},
+            </div>
+
+            <p class="intro-text">
+                We received a request to reset your password. To ensure the security of your account, please verify your identity using the One-Time Password (OTP) below:
+            </p>
+
+            <!-- OTP Section -->
+            <div class="otp-section">
+                <div class="otp-title">Your Verification Code</div>
+                <div class="otp-code">
+                    {{ otp_code }}
+                </div>
+                <div class="otp-timer">
+                    ⏰ This OTP will expire in <strong>10 minutes</strong> for security reasons
+                </div>
+                <p style="color: #64748b; margin-top: 15px;">
+                    Enter this code on the password reset verification page to continue.
+                </p>
+            </div>
+
+            <!-- Verification Steps -->
+            <div class="verification-section">
+                <div class="verification-title">Verification Steps</div>
+                <ol class="verification-steps">
+                    <li>
+                        <strong>Return to the password reset page</strong> in your browser
+                    </li>
+                    <li>
+                        <strong>Enter the OTP code</strong> shown above in the verification field
+                    </li>
+                    <li>
+                        <strong>Click "Verify OTP"</strong> to confirm your identity
+                    </li>
+                    <li>
+                        <strong>Create your new password</strong> after successful verification
+                    </li>
+                </ol>
+                <p style="margin-top: 15px; color: #166534; font-weight: 500;">
+                    🔒 This extra step ensures that only you can reset your password.
+                </p>
+            </div>
+
+            <!-- Security Section -->
+            <div class="security-section">
+                <div class="security-title">Security Alert</div>
+                <p>If you didn't request this password reset:</p>
+                <ul class="security-list">
+                    <li>
+                        <strong>Do not share</strong> this OTP with anyone
+                    </li>
+                    <li>
+                        <strong>Ignore this email</strong> - the OTP will expire automatically
+                    </li>
+                    <li>
+                        <strong>Secure your account</strong> by changing your password immediately
+                    </li>
+                    <li>
+                        <strong>Contact support</strong> if you suspect unauthorized activity
+                    </li>
+                </ul>
+            </div>
+
+            <div class="signature">
+                <p>Best regards,</p>
+                <p class="signature-name">System Security Team</p>
+                <p>
+                    Liquidation Management System<br />
+                    Department of Education - La Union Schools Division
+                </p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>
+                &copy; {{ now|date:"Y" }} La Union Schools Division Office. All rights
+                reserved.
+            </p>
+            <p>This is an automated security message. Please do not reply to this email.</p>
+            <p>If you need assistance, contact your system administrator immediately.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -263,6 +263,8 @@ def handle_liquidation_status_change(instance):
                     "object": instance,
                     "object_type": "liquidation",
                     "status": instance.status,
+                    "changed_by": changed_by,
+                    "now": timezone.now(),
                 }
                 # Send email to the receiver using the liquidation template
                 send_notification_email(
@@ -290,6 +292,8 @@ def handle_liquidation_status_change(instance):
                     "object": instance,
                     "object_type": "liquidation",
                     "status": instance.status,
+                    "changed_by": changed_by,
+                    "now": timezone.now(),
                 }
                 # Send email to the additional receiver using the liquidation template
                 send_notification_email(

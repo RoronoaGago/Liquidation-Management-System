@@ -129,6 +129,9 @@ def change_password(request):
     if len(new_password) < 8:
         return Response({"error": "Password must be at least 8 characters"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Check if this is a new user (first password change)
+    is_new_user = user.password_change_required
+
     user.set_password(new_password)
     user.password_change_required = False
     user.save()
@@ -147,7 +150,8 @@ def change_password(request):
     return Response({
         "access": str(refresh.access_token),
         "refresh": str(refresh),
-        "message": "Password updated successfully"
+        "message": "Password updated successfully",
+        "is_new_user": is_new_user
     })
 
 
@@ -1501,6 +1505,31 @@ def submit_liquidation(request, LiquidationID):
                     {'error': 'All required documents must be uploaded before submission'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            # Auto-approve optional requirements that don't have documents uploaded
+            # This creates a record showing the requirement was considered but not provided
+            for rp in liquidation.request.requestpriority_set.all():
+                for req in rp.priority.requirements.filter(is_required=False):
+                    # Check if document already exists for this optional requirement
+                    existing_doc = LiquidationDocument.objects.filter(
+                        liquidation=liquidation,
+                        request_priority=rp,
+                        requirement=req
+                    ).first()
+                    
+                    # If no document exists, create an auto-approved record
+                    if not existing_doc:
+                        LiquidationDocument.objects.create(
+                            liquidation=liquidation,
+                            request_priority=rp,
+                            requirement=req,
+                            # No document file since it's optional and not provided
+                            document=None,
+                            is_approved=True,  # Auto-approve since it's optional
+                            reviewer_comment="Auto-approved: Optional requirement not provided",
+                            reviewed_by=request.user,
+                            reviewed_at=timezone.now()
+                        )
 
             # Get the actual amounts from the request data
             actual_amounts = request.data.get('actual_amounts', [])
@@ -3674,6 +3703,57 @@ def generate_approved_request_pdf(request, request_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def generate_demand_letter(request, request_id):
+    """
+    Generate demand letter PDF for a specific request
+    """
+    try:
+        from .models import RequestManagement
+        from .pdf_utils import generate_demand_letter_pdf
+        from django.http import HttpResponse
+        from datetime import datetime, timedelta
+        
+        # Get the request object
+        try:
+            request_obj = RequestManagement.objects.get(request_id=request_id)
+        except RequestManagement.DoesNotExist:
+            return Response({
+                'error': 'Request not found'
+            }, status=404)
+        
+        # Mock unliquidated data (you can replace this with actual data from your models)
+        unliquidated_data = [
+            {
+                "check_ada_no": "ADA-12345",
+                "issue_date": "2025-01-15",
+                "particulars": "Cash Advance for School Supplies",
+                "balance": 5000.00
+            },
+            {
+                "check_ada_no": "ADA-67890", 
+                "issue_date": "2025-01-10",
+                "particulars": "Cash Advance for Travel Expenses",
+                "balance": 3000.00
+            }
+        ]
+        
+        # Set due date (30 days from now)
+        due_date = (datetime.now() + timedelta(days=30)).strftime("%B %d, %Y")
+        
+        # Generate the PDF
+        pdf_content = generate_demand_letter_pdf(request_obj, unliquidated_data, due_date)
+        
+        # Return the PDF as a response
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="demand_letter_{request_id}.pdf"'
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating demand letter: {e}")
+        return Response({
+            'error': 'Failed to generate demand letter'
+        }, status=500)
+
 def liquidation_report(request):
     """
     Generate liquidation report with filtering and export capabilities
@@ -3799,10 +3879,16 @@ class AuditLogSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class AuditLogPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class AuditLogListView(generics.ListAPIView):
     serializer_class = AuditLogSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PageNumberPagination
+    pagination_class = AuditLogPagination
 
     def get_queryset(self):
         if not self.request.user.role == 'admin':
@@ -3826,8 +3912,8 @@ class AuditLogListView(generics.ListAPIView):
             queryset = queryset.filter(user_id=user_id)
 
         # Filter by date range
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
+        start_date = self.request.query_params.get('timestamp_after') or self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('timestamp_before') or self.request.query_params.get('end_date')
         if start_date and end_date:
             queryset = queryset.filter(timestamp__date__range=[
                                        start_date, end_date])
