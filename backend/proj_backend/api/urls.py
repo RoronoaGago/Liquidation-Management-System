@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, generate_demand_letter, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
 from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
 
 
@@ -66,7 +66,7 @@ urlpatterns = [
          name='check-pending-requests'),
     path('requests/<str:request_id>/resubmit/',
          views.resubmit_request, name='resubmit-request'),
-     # path('requests/<str:request_id>/generate-demand-letter/', views.generate_demand_letter, name='generate-demand-letter'),
+    path('requests/<str:request_id>/generate-demand-letter/', views.generate_demand_letter, name='generate-demand-letter'),
     # In urls.py
     path('requests/<str:pk>/approve/',
          views.ApproveRequestView.as_view(), name='approve-request'),

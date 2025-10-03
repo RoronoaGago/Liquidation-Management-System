@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { FilterOptions, SortDirection } from "@/lib/types";
 import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
+import Badge, { BadgeColor } from "@/components/ui/badge/Badge";
 
 export interface AuditLog {
   id: number;
@@ -237,7 +238,7 @@ const AuditLogPage = () => {
     setIsDetailDialogOpen(true);
   };
 
-  const getActionColor = (action: string) => {
+  const getActionColor = (action: string): BadgeColor => {
     switch (action) {
       case "create":
         return "success";
@@ -266,7 +267,7 @@ const AuditLogPage = () => {
     }
   };
 
-  const getModuleColor = (module: string) => {
+  const getModuleColor = (module: string): BadgeColor => {
     switch (module) {
       case "user":
         return "primary";
