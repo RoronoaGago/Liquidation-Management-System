@@ -15,7 +15,6 @@ import {
   CheckCircle,
   FileText,
   Copy,
-  BadgeCheck,
 } from "lucide-react";
 
 import Button from "@/components/ui/button/Button";
@@ -57,6 +56,55 @@ const CATEGORY_LABELS: Record<string, string> = {
   losses: "Losses",
 };
 
+// Utility function to format date from YYYY-MM format to "Month YYYY"
+const formatDateToMonthYear = (dateString: string): string => {
+  if (!dateString) return "";
+  
+  try {
+    // Handle different possible formats
+    let year: string, month: string;
+    
+    if (dateString.includes('-')) {
+      // Format: YYYY-MM or MM-YYYY
+      const parts = dateString.split('-');
+      if (parts[0].length === 4) {
+        // YYYY-MM format
+        [year, month] = parts;
+      } else {
+        // MM-YYYY format
+        [month, year] = parts;
+      }
+    } else if (dateString.length === 6) {
+      // Format: YYYYMM or MMYYYY
+      if (dateString.startsWith('20')) {
+        // YYYYMM format
+        year = dateString.substring(0, 4);
+        month = dateString.substring(4, 6);
+      } else {
+        // MMYYYY format
+        month = dateString.substring(0, 2);
+        year = dateString.substring(2, 6);
+      }
+    } else {
+      return dateString; // Return as-is if format is not recognized
+    }
+    
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    
+    const monthIndex = parseInt(month) - 1;
+    if (monthIndex >= 0 && monthIndex < 12) {
+      return `${monthNames[monthIndex]} ${year}`;
+    }
+    
+    return dateString; // Return as-is if month is invalid
+  } catch (error) {
+    return dateString; // Return as-is if parsing fails
+  }
+};
+
 const MOOERequestPage = () => {
   const [agreed, setAgreed] = useState(false);
   const location = useLocation();
@@ -94,6 +142,18 @@ const MOOERequestPage = () => {
 
   // State for submit confirmation dialog
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+
+  // State for budget exceed dialog
+  const [showBudgetExceedDialog, setShowBudgetExceedDialog] = useState(false);
+
+  // State for unused budget dialog
+  const [showUnusedBudgetDialog, setShowUnusedBudgetDialog] = useState(false);
+
+  // State for tracking empty inputs during submission
+  const [emptyInputs, setEmptyInputs] = useState<Set<string>>(new Set());
+
+  // State for minimum selection dialog
+  const [showMinSelectionDialog, setShowMinSelectionDialog] = useState(false);
 
   // State for selecting all in a category
   const [categoryToSelect, setCategoryToSelect] = useState<string | null>(null);
@@ -273,9 +333,7 @@ const MOOERequestPage = () => {
       const newTotal = currentTotal + newAmount;
 
       if (newTotal > allocatedBudget) {
-        toast.error(
-          `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
-        );
+        setShowBudgetExceedDialog(true);
         return;
       }
 
@@ -386,7 +444,7 @@ const MOOERequestPage = () => {
       // Show appropriate message based on whether it's an advance request
       if (is_advance_request) {
         toast.success(
-          `Advance request submitted for ${next_available_month}. It will become pending when the month arrives.`,
+          `Advance request submitted for ${formatDateToMonthYear(next_available_month)}. It will become pending when the month arrives.`,
           { autoClose: 6000 }
         );
       } else {
@@ -632,9 +690,25 @@ const MOOERequestPage = () => {
     {/* Animated Progress Bar */}
     <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
       <div 
-        className="bg-green-500 h-1.5 rounded-full animate-[shrink_3s_linear_forwards]"
+        className="bg-green-500 h-1.5 rounded-full w-0 animate-[progressFill_3s_linear_forwards]"
+        style={{
+          animation: 'progressFill 3s linear forwards'
+        }}
       ></div>
     </div>
+    
+    <style dangerouslySetInnerHTML={{
+      __html: `
+        @keyframes progressFill {
+          0% {
+            width: 0%;
+          }
+          100% {
+            width: 100%;
+          }
+        }
+      `
+    }} />
   </DialogContent>
 </Dialog>
 
@@ -735,7 +809,7 @@ const MOOERequestPage = () => {
                       </span>{" "}
                       a new request because you have an active request for{" "}
                       <span className="font-semibold text-brand-600 dark:text-brand-400">
-                        {pendingRequestData?.request_month}
+                        {formatDateToMonthYear(pendingRequestData?.request_month || "")}
                       </span>
                       , which must be completed first before submitting new
                       requests.
@@ -757,7 +831,7 @@ const MOOERequestPage = () => {
                     <p>
                       You have an advance request for{" "}
                       <span className="font-semibold text-blue-600 dark:text-blue-400">
-                        {pendingRequestData?.request_monthyear}
+                        {formatDateToMonthYear(pendingRequestData?.request_monthyear || "")}
                       </span>
                       . It will become active when the month arrives.
                     </p>
@@ -857,7 +931,7 @@ const MOOERequestPage = () => {
 
       {/* Submit Confirmation Dialog */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-  <DialogContent className="w-full sm:max-w-md xl:max-w-2xl rounded-lg flex flex-col overflow-y-auto">
+  <DialogContent className="w-full max-w-[95vw] sm:max-w-4xl rounded-lg flex flex-col overflow-y-auto max-h-[90vh]">
     <div className="p-6 space-y-4">
       {/* Header with icon */}
       <div className="flex items-center gap-3 mb-2">
@@ -869,9 +943,27 @@ const MOOERequestPage = () => {
         </h2>
       </div>
 
-      {/* Budget Compliance Check */}
+      {/* Request Information & Budget Summary */}
       <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-100 dark:border-green-900/20">
         <div className="flex justify-between items-center">
+          <span className="text-sm font-medium text-green-800 dark:text-green-200">
+            Requesting for:
+          </span>
+          <span className="font-bold text-green-800 dark:text-green-200">
+            {formatDateToMonthYear(targetMonth)}
+          </span>
+        </div>
+        {isAdvanceRequest && (
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-sm font-medium text-green-800 dark:text-green-200">
+              Request Type:
+            </span>
+            <span className="font-bold text-green-800 dark:text-green-200">
+              Advance Request
+            </span>
+          </div>
+        )}
+        <div className="flex justify-between items-center mt-1">
           <span className="text-sm font-medium text-green-800 dark:text-green-200">
             Allocated Budget:
           </span>
@@ -886,6 +978,33 @@ const MOOERequestPage = () => {
           <span className="font-bold text-green-800 dark:text-green-200">
             ₱{totalAmount.toLocaleString()}
           </span>
+        </div>
+      </div>
+
+      {/* Selected Items Summary */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Selected Expenses ({Object.keys(selected).length}):
+        </h3>
+        <div className="max-h-[50vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md">
+          <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+            {Object.entries(selected).map(([expenseTitle, amount]) => (
+              <li key={expenseTitle} className="px-4 py-3">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-gray-700 dark:text-gray-300 block leading-relaxed">
+                      {expenseTitle}
+                    </span>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                      ₱{amount || "0"}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
@@ -914,80 +1033,59 @@ const MOOERequestPage = () => {
 
 {/* Terms of Service Dialog */}
 <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
-  <DialogContent className="w-full max-w-[95vw] sm:max-w-2xl rounded-lg flex flex-col max-h-[90vh]">
+  <DialogContent className="w-full max-w-[95vw] sm:max-w-4xl lg:max-w-5xl rounded-lg flex flex-col max-h-[95vh]">
     <DialogHeader>
-      <DialogTitle className="text-xl">MOOE Request Terms of Service</DialogTitle>
-      <DialogDescription className="text-base">
+      <DialogTitle className="text-2xl font-bold">MOOE Request Terms of Service</DialogTitle>
+      <DialogDescription className="text-lg">
         Please read and understand the following terms and conditions regarding the MOOE request process.
       </DialogDescription>
     </DialogHeader>
-    <div className="mt-4 max-h-[60vh] overflow-y-auto px-1">
-      <div className="space-y-4 text-[1.1rem] text-gray-700 dark:text-gray-300">
-        <p>
+    <div className="mt-6 max-h-[70vh] overflow-y-auto px-2">
+      <div className="space-y-6 text-lg text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p className="text-xl font-medium">
           By submitting this MOOE request, you acknowledge and consent to the following procedures:
         </p>
-        <div className="space-y-3">
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg">
-            <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2 text-lg">Approval Process:</h4>
-            <p>
+        <div className="space-y-4">
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/20">
+            <h4 className="font-bold text-blue-800 dark:text-blue-200 mb-3 text-xl">Approval Process:</h4>
+            <p className="text-lg leading-relaxed">
               This request will be forwarded to the Division Superintendent for approval. Once approved, the Division Accountant will facilitate the release of funds, initiating a 30-day liquidation period.
             </p>
           </div>
-          <div className="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
-            <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2 text-lg">Liquidation Timeline:</h4>
-            <p>
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-900/20">
+            <h4 className="font-bold text-amber-800 dark:text-amber-200 mb-3 text-xl">Liquidation Timeline:</h4>
+            <p className="text-lg leading-relaxed">
               Failure to submit the required liquidation documents within 30 days from the date of fund release will result in the issuance of a demand letter, requiring immediate compliance.
             </p>
           </div>
-          <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
-            <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2 text-lg">Liquidation Review Process:</h4>
-            <p>
+          <div className="p-4 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/20">
+            <h4 className="font-bold text-green-800 dark:text-green-200 mb-3 text-xl">Liquidation Review Process:</h4>
+            <p className="text-lg leading-relaxed">
               Once the liquidation report is prepared, it will undergo pre-audit by the District Administrative Assistant, followed by a review and approval process by the Division Liquidator. The finalization of liquidation will then be completed by the Division Accountant. Please note that no new MOOE requests may be submitted until this process is fully completed.
             </p>
           </div>
         </div>
-        <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg mt-4">
-          <p className="text-base text-gray-600 dark:text-gray-400">
-            <strong>Note:</strong> By checking the agreement checkbox, you confirm that you have read, understood, and agreed to comply with these terms and conditions.
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+          <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
+            <strong className="text-gray-800 dark:text-gray-200">Note:</strong> By checking the agreement checkbox, you confirm that you have read, understood, and agreed to comply with these terms and conditions.
           </p>
         </div>
       </div>
     </div>
-    <div className="mt-4 flex justify-end">
+    <div className="mt-6 flex justify-end">
       <Button
         variant="primary"
         onClick={() => {
           setShowTermsDialog(false);
           setAgreed(true); // Check the agreement checkbox
         }}
+        className="px-6 py-3 text-lg"
       >
         I Understand
       </Button>
     </div>
   </DialogContent>
 </Dialog>
-      {/* Selected Items Summary */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Selected Expenses ({Object.keys(selected).length}):
-        </h3>
-        <div className="max-h-[40vh] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md">
-          <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-            {Object.entries(selected).map(([expenseTitle, amount]) => (
-              <li key={expenseTitle} className="px-3 py-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[180px]">
-                    {expenseTitle}
-                  </span>
-                  <span className="text-sm font-mono font-medium">
-                    ₱{amount || "0"}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -1041,6 +1139,209 @@ const MOOERequestPage = () => {
   </DialogContent>
 </Dialog>
 
+      {/* Budget Exceed Dialog */}
+      <Dialog open={showBudgetExceedDialog} onOpenChange={setShowBudgetExceedDialog}>
+        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+          {/* Main Content Container */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            
+            {/* Warning Icon */}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-red-100 dark:bg-red-900/20 rounded-full scale-110 animate-pulse"></div>
+              <AlertTriangle className="relative h-12 w-12 text-red-500 dark:text-red-400" />
+            </div>
+
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+                Budget Exceeded
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                The total amount cannot exceed your allocated budget.
+              </p>
+            </div>
+
+            {/* Budget Information */}
+            <div className="bg-red-50 dark:bg-red-900/10 rounded-lg px-4 py-3 border border-red-200 dark:border-red-900/20 w-full">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Allocated Budget:
+                  </span>
+                  <span className="font-bold text-red-800 dark:text-red-200">
+                    ₱{allocatedBudget.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Current Total:
+                  </span>
+                  <span className="font-bold text-red-800 dark:text-red-200">
+                    ₱{totalAmount.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Message */}
+            <div className="pt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Please reduce the amount to stay within your budget limit.
+              </p>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div className="mt-6 flex justify-center">
+            <Button
+              variant="primary"
+              onClick={() => setShowBudgetExceedDialog(false)}
+              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white"
+            >
+              I Understand
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unused Budget Dialog */}
+      <Dialog open={showUnusedBudgetDialog} onOpenChange={setShowUnusedBudgetDialog}>
+        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+          {/* Main Content Container */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            
+            {/* Info Icon */}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-blue-100 dark:bg-blue-900/20 rounded-full scale-110 animate-pulse"></div>
+              <Info className="relative h-12 w-12 text-blue-500 dark:text-blue-400" />
+            </div>
+
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+                Unused Budget Available
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                You have unused budget remaining. Are you sure you want to submit with this amount?
+              </p>
+            </div>
+
+            {/* Budget Information */}
+            <div className="bg-blue-50 dark:bg-blue-900/10 rounded-lg px-4 py-3 border border-blue-200 dark:border-blue-900/20 w-full">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Allocated Budget:
+                  </span>
+                  <span className="font-bold text-blue-800 dark:text-blue-200">
+                    ₱{allocatedBudget.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Request Total:
+                  </span>
+                  <span className="font-bold text-blue-800 dark:text-blue-200">
+                    ₱{totalAmount.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center border-t border-blue-200 dark:border-blue-800 pt-2">
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Unused Budget:
+                  </span>
+                  <span className="font-bold text-blue-800 dark:text-blue-200">
+                    ₱{(allocatedBudget - totalAmount).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Message */}
+            <div className="pt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                You can add more expenses or increase amounts to utilize your full budget.
+              </p>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div className="mt-6 flex justify-center">
+            <Button
+              variant="primary"
+              onClick={() => setShowUnusedBudgetDialog(false)}
+              className="px-6 py-2"
+            >
+              Go Back
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Minimum Selection Dialog */}
+      <Dialog open={showMinSelectionDialog} onOpenChange={setShowMinSelectionDialog}>
+        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+          {/* Main Content Container */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            
+            {/* Warning Icon */}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-amber-100 dark:bg-amber-900/20 rounded-full scale-110 animate-pulse"></div>
+              <AlertTriangle className="relative h-12 w-12 text-amber-500 dark:text-amber-400" />
+            </div>
+
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+                Minimum Selection Required
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                You must select at least 2 expense items to submit a MOOE request.
+              </p>
+            </div>
+
+            {/* Current Selection Info */}
+            <div className="bg-amber-50 dark:bg-amber-900/10 rounded-lg px-4 py-3 border border-amber-200 dark:border-amber-900/20 w-full">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Currently Selected:
+                  </span>
+                  <span className="font-bold text-amber-800 dark:text-amber-200">
+                    {Object.keys(selected).length} item(s)
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Required Minimum:
+                  </span>
+                  <span className="font-bold text-amber-800 dark:text-amber-200">
+                    2 items
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Message */}
+            <div className="pt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Please select at least one more expense item from the list to continue.
+              </p>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div className="mt-6 flex justify-center">
+            <Button
+              variant="primary"
+              onClick={() => setShowMinSelectionDialog(false)}
+              className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              I Understand
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="mt-8">
         {!isFormDisabled && (
           <div className="mb-4 bg-brand-50/80 dark:bg-brand-900/10 rounded-lg border border-brand-100 dark:border-brand-900/20 overflow-hidden transition-colors">
@@ -1089,7 +1390,7 @@ const MOOERequestPage = () => {
                           <p>
                             Enter amounts using the{" "}
                             <span className="font-semibold">
-                              +500/+1000 buttons
+                              +5k/+10k buttons
                             </span>{" "}
                             or type manually
                           </p>
@@ -1138,18 +1439,18 @@ const MOOERequestPage = () => {
                 {isAdvanceRequest ? (
                   <>
                     This will be an <strong>advance request</strong> for{" "}
-                    <strong>{targetMonth}</strong>
+                    <strong>{formatDateToMonthYear(targetMonth)}</strong>
                   </>
                 ) : (
                   <>
-                    Requesting for <strong>{targetMonth}</strong>
+                    Requesting for <strong>{formatDateToMonthYear(targetMonth)}</strong>
                   </>
                 )}
               </span>
             </div>
             {isAdvanceRequest && (
               <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                This request will become pending when {targetMonth} arrives.
+                This request will become pending when {formatDateToMonthYear(targetMonth)} arrives.
               </p>
             )}
           </div>
@@ -1157,25 +1458,47 @@ const MOOERequestPage = () => {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            // Only show confirmation dialog if all amounts are filled
+            // Clear previous empty input tracking
+            setEmptyInputs(new Set());
+            
+            // Check minimum selection requirement
+            if (Object.keys(selected).length < 2) {
+              setShowMinSelectionDialog(true);
+              return;
+            }
+            
+            // Check for empty amounts and track them
             const emptyAmounts = Object.entries(selected).filter(
               ([, amount]) => !amount || amount === "0"
             );
-            if (Object.keys(selected).length < 2) {
-              toast.error("Please select at least two expenses.");
+            
+            if (emptyAmounts.length > 0) {
+              // Track empty inputs for visual validation
+              const emptyInputSet = new Set(emptyAmounts.map(([expense]) => expense));
+              setEmptyInputs(emptyInputSet);
+              
+              // Show toast for empty inputs
+              toast.error("Please enter amounts for all selected expenses.");
               return;
             }
+            
+            // Check budget exceed
             if (totalAmount > allocatedBudget) {
               toast.error(
                 `Total amount cannot exceed allocated budget of ₱${allocatedBudget.toLocaleString()}`
               );
               return;
             }
-            if (emptyAmounts.length > 0) {
-              toast.error("Please enter amounts for all selected expenses.");
-              return;
+            
+            // Check for unused budget (show modal if there's significant unused budget)
+            const unusedBudget = allocatedBudget - totalAmount;
+            const unusedPercentage = (unusedBudget / allocatedBudget) * 100;
+            
+            if (unusedPercentage > 10) { // Show modal if more than 10% of budget is unused
+              setShowUnusedBudgetDialog(true);
+            } else {
+              setShowSubmitDialog(true);
             }
-            setShowSubmitDialog(true);
           }}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1453,12 +1776,12 @@ const MOOERequestPage = () => {
                                           Number(amount.replace(/,/g, "")) || 0;
                                         handleAmountChange(
                                           expenseTitle,
-                                          (current + 1000).toString()
+                                          (current + 10000).toString()
                                         );
                                       }}
                                       tabIndex={-1}
                                     >
-                                      +1000
+                                      +10k
                                     </button>
                                     <button
                                       type="button"
@@ -1469,12 +1792,12 @@ const MOOERequestPage = () => {
                                           Number(amount.replace(/,/g, "")) || 0;
                                         handleAmountChange(
                                           expenseTitle,
-                                          (current + 500).toString()
+                                          (current + 5000).toString()
                                         );
                                       }}
                                       tabIndex={-1}
                                     >
-                                      +500
+                                      +5k
                                     </button>
                                   </div>
                                   {/* Amount input */}
@@ -1485,21 +1808,38 @@ const MOOERequestPage = () => {
                                     <input
                                       type="text"
                                       value={amount}
-                                      onChange={(e) =>
+                                      onChange={(e) => {
                                         handleAmountChange(
                                           expenseTitle,
                                           e.target.value
-                                        )
-                                      }
+                                        );
+                                        // Clear empty input validation when user starts typing
+                                        if (emptyInputs.has(expenseTitle)) {
+                                          setEmptyInputs(prev => {
+                                            const newSet = new Set(prev);
+                                            newSet.delete(expenseTitle);
+                                            return newSet;
+                                          });
+                                        }
+                                      }}
                                       disabled={isFormDisabled}
-                                      className={`w-full pl-6 pr-2 py-1 text-sm border border-gray-300 rounded focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                                      className={`w-full pl-6 pr-2 py-1 text-sm border rounded focus:border-brand-500 focus:ring-brand-500 dark:bg-gray-700 dark:text-white ${
+                                        emptyInputs.has(expenseTitle)
+                                          ? "border-red-500 bg-red-50 dark:bg-red-900/10"
+                                          : "border-gray-300 dark:border-gray-600"
+                                      } ${
                                         isFormDisabled
                                           ? "opacity-50 cursor-not-allowed"
                                           : ""
                                       }`}
-                                      placeholder="0.00"
+                                      placeholder={emptyInputs.has(expenseTitle) ? "Required" : "0.00"}
                                       onClick={(e) => e.stopPropagation()}
                                     />
+                                    {emptyInputs.has(expenseTitle) && (
+                                      <div className="absolute -bottom-5 left-0 text-xs text-red-500 whitespace-nowrap">
+                                        Cannot be empty
+                                      </div>
+                                    )}
                                   </div>
                                   {/* Remove button */}
                                   <button
