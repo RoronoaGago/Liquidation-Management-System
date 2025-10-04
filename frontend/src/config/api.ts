@@ -47,6 +47,9 @@ export const API_ENDPOINTS = {
     REFRESH: '/token/refresh/',
     LOGOUT: '/logout/',
     CHANGE_PASSWORD: '/change-password/',
+    FORGOT_PASSWORD: '/forgot-password/',
+    VERIFY_PASSWORD_RESET_OTP: '/verify-password-reset-otp/',
+    RESET_PASSWORD: '/reset-password/',
   },
   
   // OTP

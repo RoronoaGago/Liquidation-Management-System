@@ -256,4 +256,120 @@ export const resendOTP = async (email: string) => {
   }
 };
 
+// Password Reset Functions
+export const requestPasswordResetOTP = async (email: string) => {
+  try {
+    // Create a new axios instance without interceptors for auth requests
+    const authApi = axios.create({
+      baseURL: API_CONFIG.baseURL,
+      timeout: API_CONFIG.timeout,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const response = await authApi.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorData = error.response?.data;
+    
+    // Handle specific error cases
+    if (status === 423) {
+      // Account locked
+      throw new Error(errorData?.error || "Account temporarily locked due to suspicious activity. Please try again later.");
+    } else if (status === 429) {
+      // Rate limited
+      throw new Error(errorData?.error || "Too many requests. Please wait before requesting another OTP.");
+    } else if (status === 403) {
+      // Account inactive
+      throw new Error(errorData?.error || "Your account is inactive. Please contact the administrator.");
+    } else if (!error.response) {
+      // Network error
+      throw new Error(ERROR_MESSAGES.NETWORK_ERROR);
+    } else {
+      // Generic error
+      throw new Error(errorData?.error || "Failed to send password reset OTP. Please try again.");
+    }
+  }
+};
+
+export const verifyPasswordResetOTP = async (email: string, otp: string) => {
+  try {
+    // Create a new axios instance without interceptors for auth requests
+    const authApi = axios.create({
+      baseURL: API_CONFIG.baseURL,
+      timeout: API_CONFIG.timeout,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const response = await authApi.post(API_ENDPOINTS.AUTH.VERIFY_PASSWORD_RESET_OTP, { email, otp });
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorData = error.response?.data;
+    
+    // Handle specific error cases
+    if (status === 423) {
+      // Account locked
+      throw new Error(errorData?.error || "Account temporarily locked due to suspicious activity. Please try again later.");
+    } else if (status === 429) {
+      // Rate limited
+      throw new Error(errorData?.error || "Too many attempts. Please wait before trying again.");
+    } else if (status === 400) {
+      // Invalid OTP or expired
+      throw new Error(errorData?.error || "Invalid or expired OTP. Please try again.");
+    } else if (status === 403) {
+      // Account inactive
+      throw new Error(errorData?.error || "Your account is inactive. Please contact the administrator.");
+    } else if (!error.response) {
+      // Network error
+      throw new Error(ERROR_MESSAGES.NETWORK_ERROR);
+    } else {
+      // Generic error
+      throw new Error(errorData?.error || "Invalid OTP. Please try again.");
+    }
+  }
+};
+
+export const resetPasswordWithToken = async (userId: string, resetToken: string, newPassword: string) => {
+  try {
+    // Create a new axios instance without interceptors for auth requests
+    const authApi = axios.create({
+      baseURL: API_CONFIG.baseURL,
+      timeout: API_CONFIG.timeout,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const response = await authApi.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, { 
+      user_id: userId, 
+      reset_token: resetToken, 
+      new_password: newPassword 
+    });
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status;
+    const errorData = error.response?.data;
+    
+    // Handle specific error cases
+    if (status === 400) {
+      // Invalid token or password requirements
+      throw new Error(errorData?.error || "Invalid reset token or password does not meet requirements.");
+    } else if (status === 403) {
+      // Account inactive
+      throw new Error(errorData?.error || "Your account is inactive. Please contact the administrator.");
+    } else if (!error.response) {
+      // Network error
+      throw new Error(ERROR_MESSAGES.NETWORK_ERROR);
+    } else {
+      // Generic error
+      throw new Error(errorData?.error || "Failed to reset password. Please try again.");
+    }
+  }
+};
+
 export default api;

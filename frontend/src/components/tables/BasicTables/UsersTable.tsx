@@ -18,7 +18,6 @@ import { toast } from "react-toastify";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import {
-  EyeIcon,
   ChevronUp,
   ChevronDown,
   ChevronLeft,
@@ -30,7 +29,6 @@ import {
   Loader2,
   Archive,
   ArchiveRestore,
-  EyeClosedIcon,
   User as UserIcon,
   Filter,
   Loader2Icon,
@@ -56,7 +54,6 @@ import {
   getAvatarColor,
   getUserInitials,
   validateEmail,
-  validatePassword,
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { roleOptions } from "@/pages/ManageUsers";
@@ -93,8 +90,6 @@ interface FormErrors {
   last_name?: string;
   username?: string;
   email?: string;
-  password?: string;
-  confirm_password?: string;
   role?: string;
   school?: string;
   school_district_id?: string; // Added for district validation
@@ -140,8 +135,6 @@ export default function UsersTable({
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToView, setUserToView] = useState<User | null>(null);
   const [userToArchive, setUserToArchive] = useState<User | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -262,13 +255,6 @@ export default function UsersTable({
             newErrors.email = "Please enter a valid email address";
           } else {
             delete newErrors.email;
-          }
-          break;
-        case "password":
-          if (value && !validatePassword(value)) {
-            newErrors.password = "Password must be at least 8 characters";
-          } else {
-            delete newErrors.password;
           }
           break;
         case "role":
@@ -397,7 +383,7 @@ export default function UsersTable({
   };
 
   const handleEditUser = (user: User) => {
-    setSelectedUser({ ...user, password: "", confirm_password: "" });
+    setSelectedUser({ ...user });
     setFormErrors({});
     setIsDialogOpen(true);
   };
@@ -481,9 +467,6 @@ export default function UsersTable({
 
       formData.append("role", selectedUser.role);
 
-      if (selectedUser.password) {
-        formData.append("password", selectedUser.password);
-      }
       if (profilePictureFile) {
         formData.append("profile_picture", profilePictureFile);
       } else if (!selectedUser.profile_picture) {
@@ -1293,75 +1276,6 @@ export default function UsersTable({
                   error={formErrors.school}
                 />
               )}
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-base">
-                  New Password (leave blank to keep current)
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    id="password"
-                    name="password"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="••••••••"
-                    value={selectedUser.password || ""}
-                    onChange={handleChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showPassword ? (
-                      <EyeClosedIcon className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <EyeIcon className="h-5 w-5 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                {formErrors.password && (
-                  <p className="text-red-500 text-sm">{formErrors.password}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirm_password" className="text-base">
-                  Confirm New Password
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showConfirmPassword ? "text" : "password"}
-                    id="confirm_password"
-                    name="confirm_password"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="••••••••"
-                    value={selectedUser.confirm_password || ""}
-                    onChange={handleChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                    aria-label={
-                      showConfirmPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showConfirmPassword ? (
-                      <EyeClosedIcon className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <EyeIcon className="h-5 w-5 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                {formErrors.confirm_password && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.confirm_password}
-                  </p>
-                )}
-              </div>
 
 
               <div className="flex justify-end gap-3 pt-4">

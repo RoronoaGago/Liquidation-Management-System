@@ -8,6 +8,7 @@ import companyLogo from "../../images/company-logo.png";
 import { useAuth } from "@/context/AuthContext";
 import { requestOTP } from "@/api/axios";
 import OTPVerification from "../OTPVerification";
+import PasswordResetFlow from "./PasswordResetFlow";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -18,6 +19,7 @@ export default function SignInForm() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -175,8 +177,29 @@ export default function SignInForm() {
               "Login"
             )}
           </button>
+
+          {/* Forgot Password Link */}
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => setShowPasswordReset(true)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
+            >
+              Forgot your password?
+            </button>
+          </div>
         </form>
       </div>
+
+      {/* Password Reset Flow */}
+      <PasswordResetFlow
+        isOpen={showPasswordReset}
+        onClose={() => setShowPasswordReset(false)}
+        onSuccess={() => {
+          setShowPasswordReset(false);
+          // Optionally show a success message or redirect
+        }}
+      />
     </div>
   );
 }

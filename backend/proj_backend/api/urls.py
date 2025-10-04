@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, generate_demand_letter, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
 from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
+from .password_reset_views import request_password_reset_otp, verify_password_reset_otp, reset_password_with_token
 
 
 from rest_framework_simplejwt.views import (
@@ -28,6 +29,11 @@ urlpatterns = [
     path('request-otp-secure/', request_otp_secure, name='request-otp-secure'),
     path('verify-otp-secure/', verify_otp_secure, name='verify-otp-secure'),
     path('resend-otp-secure/', resend_otp_secure, name='resend-otp-secure'),
+    
+    # Password Reset Endpoints
+    path('forgot-password/', request_password_reset_otp, name='request-password-reset-otp'),
+    path('verify-password-reset-otp/', verify_password_reset_otp, name='verify-password-reset-otp'),
+    path('reset-password/', reset_password_with_token, name='reset-password-with-token'),
     path("users/update-e-signature/",
          update_e_signature, name="update-e-signature"),
     path('schools/', views.SchoolListCreateAPIView.as_view(),
