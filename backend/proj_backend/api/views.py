@@ -3754,121 +3754,124 @@ def generate_demand_letter(request, request_id):
             'error': 'Failed to generate demand letter'
         }, status=500)
 
-def liquidation_report(request):
+class LiquidationReportView(APIView):
     """
     Generate liquidation report with filtering and export capabilities
     """
-    from .liquidation_report_utils import (
-        generate_liquidation_report_data,
-        generate_liquidation_csv_report,
-        generate_liquidation_excel_report,
-        LiquidationReportPagination,
-        get_liquidation_summary_stats
-    )
-    from datetime import datetime
+    permission_classes = [IsAuthenticated]
 
-    # Get filter parameters
-    status_filter = request.GET.get('status', 'all')
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
-    legislative_district = request.GET.get('legislative_district')
-    municipality = request.GET.get('municipality')
-    school_district = request.GET.get('school_district')
-    school_ids = request.GET.get('school_ids')
-    export_format = request.GET.get('export')
-    page_size = request.GET.get('page_size', 50)
+    def get(self, request):
+        from .liquidation_report_utils import (
+            generate_liquidation_report_data,
+            generate_liquidation_csv_report,
+            generate_liquidation_excel_report,
+            LiquidationReportPagination,
+            get_liquidation_summary_stats
+        )
+        from datetime import datetime
 
-    # Convert string dates to date objects
-    start_date = None
-    end_date = None
+        # Get filter parameters
+        status_filter = request.query_params.get('status', 'all')
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        legislative_district = request.query_params.get('legislative_district')
+        municipality = request.query_params.get('municipality')
+        school_district = request.query_params.get('school_district')
+        school_ids = request.query_params.get('school_ids')
+        export_format = request.query_params.get('export')
+        page_size = request.query_params.get('page_size', 50)
 
-    if start_date_str:
-        try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return Response({"error": "Invalid start_date format. Use YYYY-MM-DD"}, status=400)
+        # Convert string dates to date objects
+        start_date = None
+        end_date = None
 
-    if end_date_str:
-        try:
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return Response({"error": "Invalid end_date format. Use YYYY-MM-DD"}, status=400)
+        if start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response({"error": "Invalid start_date format. Use YYYY-MM-DD"}, status=400)
 
-    # Generate report data
-    report_data = generate_liquidation_report_data(
-        status_filter=status_filter,
-        start_date=start_date,
-        end_date=end_date,
-        legislative_district=legislative_district,
-        municipality=municipality,
-        school_district=school_district,
-        school_ids=school_ids
-    )
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response({"error": "Invalid end_date format. Use YYYY-MM-DD"}, status=400)
 
-    # Get summary statistics - FIXED: Use the same function with proper parameters
-    summary_stats = get_liquidation_summary_stats(
-        start_date=start_date,
-        end_date=end_date,
-        legislative_district=legislative_district,
-        municipality=municipality,
-        school_district=school_district,
-        school_ids=school_ids
-    )
+        # Generate report data
+        report_data = generate_liquidation_report_data(
+            status_filter=status_filter,
+            start_date=start_date,
+            end_date=end_date,
+            legislative_district=legislative_district,
+            municipality=municipality,
+            school_district=school_district,
+            school_ids=school_ids
+        )
 
-    # Handle export formats
-    if export_format == 'csv':
-        return generate_liquidation_csv_report(report_data, {
-            'status': status_filter,
-            'start_date': start_date_str,
-            'end_date': end_date_str,
-            'legislative_district': legislative_district,
-            'municipality': municipality,
-            'school_district': school_district,
-            'school_ids': school_ids
-        })
-    elif export_format == 'excel':
-        return generate_liquidation_excel_report(report_data, {
-            'status': status_filter,
-            'start_date': start_date_str,
-            'end_date': end_date_str,
-            'legislative_district': legislative_district,
-            'municipality': municipality,
-            'school_district': school_district,
-            'school_ids': school_ids
-        }, request.user)  # Pass the request user
+        # Get summary statistics - FIXED: Use the same function with proper parameters
+        summary_stats = get_liquidation_summary_stats(
+            start_date=start_date,
+            end_date=end_date,
+            legislative_district=legislative_district,
+            municipality=municipality,
+            school_district=school_district,
+            school_ids=school_ids
+        )
 
-    # Apply pagination for regular API response
-    paginator = LiquidationReportPagination()
-    paginator.page_size = int(page_size)
-    paginated_data = paginator.paginate_queryset(report_data, request)
+        # Handle export formats
+        if export_format == 'csv':
+            return generate_liquidation_csv_report(report_data, {
+                'status': status_filter,
+                'start_date': start_date_str,
+                'end_date': end_date_str,
+                'legislative_district': legislative_district,
+                'municipality': municipality,
+                'school_district': school_district,
+                'school_ids': school_ids
+            })
+        elif export_format == 'excel':
+            return generate_liquidation_excel_report(report_data, {
+                'status': status_filter,
+                'start_date': start_date_str,
+                'end_date': end_date_str,
+                'legislative_district': legislative_district,
+                'municipality': municipality,
+                'school_district': school_district,
+                'school_ids': school_ids
+            }, request.user)  # Pass the request user
 
-    # Calculate status counts for filters
-    status_counts = {}
-    for item in report_data:
-        status = item['status']
-        status_counts[status] = status_counts.get(status, 0) + 1
+        # Apply pagination for regular API response
+        paginator = LiquidationReportPagination()
+        paginator.page_size = int(page_size)
+        paginated_data = paginator.paginate_queryset(report_data, request)
 
-    # FIXED: Return summary at the root level as expected by frontend
-    response_data = {
-        'count': len(report_data),
-        'next': None,  # You'll need to implement pagination properly
-        'previous': None,
-        'results': paginated_data,
-        'total_count': len(report_data),
-        'filters': {
-            'status_filter': status_filter,
-            'start_date': start_date_str,
-            'end_date': end_date_str,
-            'legislative_district': legislative_district,
-            'municipality': municipality,
-            'school_district': school_district,
-            'school_ids': school_ids,
-            'status_counts': status_counts
-        },
-        'summary': summary_stats  # This is what your frontend expects
-    }
+        # Calculate status counts for filters
+        status_counts = {}
+        for item in report_data:
+            status = item['status']
+            status_counts[status] = status_counts.get(status, 0) + 1
 
-    return Response(response_data)
+        # FIXED: Return summary at the root level as expected by frontend
+        response_data = {
+            'count': len(report_data),
+            'next': None,  # You'll need to implement pagination properly
+            'previous': None,
+            'results': paginated_data,
+            'total_count': len(report_data),
+            'filters': {
+                'status_filter': status_filter,
+                'start_date': start_date_str,
+                'end_date': end_date_str,
+                'legislative_district': legislative_district,
+                'municipality': municipality,
+                'school_district': school_district,
+                'school_ids': school_ids,
+                'status_counts': status_counts
+            },
+            'summary': summary_stats  # This is what your frontend expects
+        }
+
+        return Response(response_data)
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
