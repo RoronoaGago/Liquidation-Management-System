@@ -1930,12 +1930,18 @@ def request_otp(request):
         user = authenticate(email=email, password=password)
         if not user:
             return Response({'message': 'Invalid email or password'}, status=400)
-        otp = generate_otp()
-        user.otp_code = otp
-        user.otp_generated_at = timezone.now()
-        user.save()
-        send_otp_email(user, otp)
-        return Response({'message': 'OTP sent to your email'})
+        
+        # DEVELOPMENT MODE: Bypass OTP generation for faster development
+        # TODO: Uncomment the lines below to re-enable OTP functionality
+        # otp = generate_otp()
+        # user.otp_code = otp
+        # user.otp_generated_at = timezone.now()
+        # user.save()
+        # send_otp_email(user, otp)
+        # return Response({'message': 'OTP sent to your email'})
+        
+        # For development: Just return success without sending OTP
+        return Response({'message': 'Credentials validated (OTP bypassed for development)'})
     except User.DoesNotExist:
         return Response({'message': 'Invalid email or password'}, status=400)
 
@@ -1946,34 +1952,41 @@ def verify_otp(request):
     email = request.data.get('email')
     otp = request.data.get('otp')
     
-    if not email or not otp:
-        return Response({'error': 'Email and OTP are required'}, status=400)
+    # DEVELOPMENT MODE: Bypass OTP verification for faster development
+    # TODO: Uncomment the lines below to re-enable OTP verification
+    # if not email or not otp:
+    #     return Response({'error': 'Email and OTP are required'}, status=400)
     
     try:
         user = User.objects.get(email=email)
         if not user.is_active:
             return Response({'error': 'Your account is inactive. Please contact the administrator.'}, status=403)
         
-        # Check if OTP exists
-        if not user.otp_code or not user.otp_generated_at:
-            return Response({'error': 'No OTP found. Please request a new OTP.'}, status=400)
+        # DEVELOPMENT MODE: Always return success for any OTP
+        # TODO: Uncomment the lines below to re-enable OTP verification
+        # # Check if OTP exists
+        # if not user.otp_code or not user.otp_generated_at:
+        #     return Response({'error': 'No OTP found. Please request a new OTP.'}, status=400)
+        # 
+        # # Check OTP expiry (5 minutes)
+        # if timezone.now() - user.otp_generated_at > timezone.timedelta(minutes=5):
+        #     # Clear expired OTP
+        #     user.otp_code = None
+        #     user.otp_generated_at = None
+        #     user.save()
+        #     return Response({'error': 'OTP has expired. Please request a new OTP.'}, status=400)
+        # 
+        # if user.otp_code == otp:
+        #     # Clear OTP after successful verification
+        #     user.otp_code = None
+        #     user.otp_generated_at = None
+        #     user.save()
+        #     return Response({'message': 'OTP verified successfully'})
+        # else:
+        #     return Response({'error': 'Invalid OTP. Please try again.'}, status=400)
         
-        # Check OTP expiry (5 minutes)
-        if timezone.now() - user.otp_generated_at > timezone.timedelta(minutes=5):
-            # Clear expired OTP
-            user.otp_code = None
-            user.otp_generated_at = None
-            user.save()
-            return Response({'error': 'OTP has expired. Please request a new OTP.'}, status=400)
-
-        if user.otp_code == otp:
-            # Clear OTP after successful verification
-            user.otp_code = None
-            user.otp_generated_at = None
-            user.save()
-            return Response({'message': 'OTP verified successfully'})
-        else:
-            return Response({'error': 'Invalid OTP. Please try again.'}, status=400)
+        # For development: Always return success
+        return Response({'message': 'OTP verified successfully (bypassed for development)'})
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
@@ -1993,15 +2006,20 @@ def resend_otp(request):
         if not user.is_active:
             return Response({'error': 'Your account is inactive. Please contact the administrator.'}, status=403)
         
-        # Generate new OTP
-        otp = generate_otp()
-        user.otp_code = otp
-        user.otp_generated_at = timezone.now()
-        user.save()
+        # DEVELOPMENT MODE: Bypass OTP resending for faster development
+        # TODO: Uncomment the lines below to re-enable OTP resending
+        # # Generate new OTP
+        # otp = generate_otp()
+        # user.otp_code = otp
+        # user.otp_generated_at = timezone.now()
+        # user.save()
+        # 
+        # # Send OTP email
+        # send_otp_email(user, otp)
+        # return Response({'message': 'OTP resent successfully'})
         
-        # Send OTP email
-        send_otp_email(user, otp)
-        return Response({'message': 'OTP resent successfully'})
+        # For development: Just return success without sending OTP
+        return Response({'message': 'OTP resent successfully (bypassed for development)'})
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
