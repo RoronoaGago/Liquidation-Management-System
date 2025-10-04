@@ -72,10 +72,8 @@ class User(AbstractUser):
         null=True,
         related_name='users'
     )
-    date_of_birth = models.DateField(null=True, blank=True)
     sex = models.CharField(
         max_length=10, choices=SEX_CHOICES, null=True, blank=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
     profile_picture = models.ImageField(
         upload_to='profile_pictures/',
         validators=[FileExtensionValidator(['jpg', 'jpeg', 'png'])],
@@ -137,10 +135,6 @@ class User(AbstractUser):
     def clean(self):
         super().clean()
         # Add any additional validation here
-        if self.phone_number:
-            # Example: Remove all non-digit characters
-            self.phone_number = ''.join(
-                c for c in self.phone_number if c.isdigit())
 
     def get_audit_description(self, created=False, action='create'):
         if action == 'archive':

@@ -1,10 +1,7 @@
 // components/OTPVerification.tsx
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { ArrowLeft, Mail, RefreshCw, Loader2, Shield, AlertTriangle, Clock } from "lucide-react";
+import { ArrowLeft, Mail, RefreshCw, AlertTriangle, Clock } from "lucide-react";
 import Button from "./ui/button/Button";
-import Input from "./form/input/InputField";
-import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { verifyOTP, resendOTP } from "@/api/axios";
 
@@ -19,6 +16,11 @@ export default function OTPVerification({
   onBack,
   onSuccess,
 }: OTPVerificationProps) {
+  console.log('📧 OTPVerification: Component initialized', {
+    email,
+    timestamp: new Date().toISOString()
+  });
+
   const [otp, setOtp] = useState(Array(6).fill(""));
   const [isLoading, setIsLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -28,8 +30,6 @@ export default function OTPVerification({
   const [lockoutTime, setLockoutTime] = useState(0);
   const [otpExpiry, setOtpExpiry] = useState(5 * 60); // 5 minutes in seconds
   const inputRefs = useRef<HTMLInputElement[]>([]);
-  const navigate = useNavigate();
-  const { login } = useAuth();
 
   // Set up resend cooldown timer
   useEffect(() => {
@@ -67,10 +67,26 @@ export default function OTPVerification({
   }, [lockoutTime, isAccountLocked]);
 
   const handleChange = (value: string, index: number) => {
-    if (!/^\d*$/.test(value)) return; // Only allow numbers
+    if (!/^\d*$/.test(value)) {
+      console.log('📧 OTPVerification: Invalid OTP input - non-numeric character', {
+        value,
+        index,
+        email
+      });
+      return; // Only allow numbers
+    }
 
     const newOtp = [...otp];
     newOtp[index] = value;
+    
+    console.log('📧 OTPVerification: OTP input changed', {
+      index,
+      value,
+      newOtpLength: newOtp.join('').length,
+      currentOtp: newOtp.join('').replace(/./g, '*'), // Mask for security
+      email
+    });
+
     setOtp(newOtp);
     setError(""); // Clear error when user starts typing
     setErrorType('error');
@@ -107,10 +123,24 @@ export default function OTPVerification({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpValue = otp.join("");
+    
+    console.log('📧 OTPVerification: OTP submission started', {
+      email,
+      otpValue: otpValue.replace(/./g, '*'), // Mask OTP for security
+      otpLength: otpValue.length,
+      isAccountLocked,
+      lockoutTime
+    });
+
     setError(""); // Clear previous error
     setErrorType('error');
 
     if (otpValue.length !== 6) {
+      console.log('📧 OTPVerification: OTP validation failed - invalid length', {
+        otpLength: otpValue.length,
+        expectedLength: 6,
+        email
+      });
       setError("Please enter a valid 6-digit OTP");
       setErrorType('error');
       return;
@@ -119,12 +149,30 @@ export default function OTPVerification({
     setIsLoading(true);
 
     try {
+      console.log('📧 OTPVerification: Verifying OTP with backend', {
+        email,
+        otpLength: otpValue.length
+      });
+
       await verifyOTP(email, otpValue);
+      
+      console.log('📧 OTPVerification: OTP verification successful', {
+        email
+      });
+
       toast.success("OTP verified successfully!");
       onSuccess(); // Just navigate away, no need to set loading to false
     } catch (err: any) {
       setIsLoading(false);
       const errorMessage = err.message || "Invalid OTP. Please try again.";
+      
+      console.error('📧 OTPVerification: OTP verification failed', {
+        error: errorMessage,
+        errorType: typeof err,
+        stack: err.stack,
+        email
+      });
+
       setError(errorMessage);
       
       // Determine error type based on message content
@@ -132,6 +180,11 @@ export default function OTPVerification({
         setErrorType('warning');
         setIsAccountLocked(true);
         setLockoutTime(15 * 60); // 15 minutes
+        
+        console.log('📧 OTPVerification: Account locked due to suspicious activity', {
+          lockoutTime: 15 * 60,
+          email
+        });
       } else if (errorMessage.includes('rate limit') || errorMessage.includes('too many')) {
         setErrorType('warning');
       } else {
@@ -141,7 +194,20 @@ export default function OTPVerification({
   };
 
   const handleResendOTP = async () => {
-    if (resendCooldown > 0 || isAccountLocked) return;
+    if (resendCooldown > 0 || isAccountLocked) {
+      console.log('📧 OTPVerification: Resend OTP blocked', {
+        cooldownRemaining: resendCooldown,
+        isAccountLocked,
+        email
+      });
+      return;
+    }
+
+    console.log('📧 OTPVerification: Resending OTP', {
+      email,
+      currentOtpLength: otp.join('').length,
+      currentCooldown: resendCooldown
+    });
 
     setResendCooldown(60); // 60 seconds cooldown
     setError(""); // Clear any previous errors
@@ -150,6 +216,13 @@ export default function OTPVerification({
 
     try {
       await resendOTP(email);
+      
+      console.log('📧 OTPVerification: OTP resend successful', {
+        email,
+        newCooldown: 60,
+        timerReset: 5 * 60
+      });
+
       toast.success("OTP sent to your email!");
       // Clear the current OTP inputs
       setOtp(Array(6).fill(""));
@@ -157,6 +230,14 @@ export default function OTPVerification({
       inputRefs.current[0]?.focus();
     } catch (error: any) {
       const errorMessage = error.message || "Failed to send OTP. Please try again.";
+      
+      console.error('📧 OTPVerification: OTP resend failed', {
+        error: errorMessage,
+        errorType: typeof error,
+        stack: error.stack,
+        email
+      });
+
       setError(errorMessage);
       
       // Determine error type based on message content
@@ -164,6 +245,11 @@ export default function OTPVerification({
         setErrorType('warning');
         setIsAccountLocked(true);
         setLockoutTime(15 * 60); // 15 minutes
+        
+        console.log('📧 OTPVerification: Account locked during resend', {
+          lockoutTime: 15 * 60,
+          email
+        });
       } else if (errorMessage.includes('rate limit') || errorMessage.includes('too many')) {
         setErrorType('warning');
       } else {
