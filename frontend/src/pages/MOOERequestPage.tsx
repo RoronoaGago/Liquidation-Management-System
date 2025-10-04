@@ -58,7 +58,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // Utility function to format date from YYYY-MM format to "Month YYYY"
 const formatDateToMonthYear = (dateString: string): string => {
-  if (!dateString) return "";
+  if (!dateString || dateString === "Unknown Period") return dateString;
   
   try {
     // Handle different possible formats
@@ -85,6 +85,11 @@ const formatDateToMonthYear = (dateString: string): string => {
         month = dateString.substring(0, 2);
         year = dateString.substring(2, 6);
       }
+    } else if (dateString.length === 4) {
+      // Handle YYYY format (assume current month)
+      year = dateString;
+      const currentMonth = new Date().getMonth() + 1;
+      month = currentMonth.toString().padStart(2, '0');
     } else {
       return dateString; // Return as-is if format is not recognized
     }
@@ -101,6 +106,7 @@ const formatDateToMonthYear = (dateString: string): string => {
     
     return dateString; // Return as-is if month is invalid
   } catch (error) {
+    console.warn("Error formatting date:", dateString, error);
     return dateString; // Return as-is if parsing fails
   }
 };
@@ -235,6 +241,11 @@ const MOOERequestPage = () => {
         setHasActiveLiquidation(hasActive);
         setPendingRequestData(pendingCheckResponse.data.pending_request);
         setActiveLiquidationData(activeLiquidation);
+
+        // Debug: Log the pending request data structure
+        if (pendingCheckResponse.data.pending_request) {
+          console.log("Pending Request Data:", pendingCheckResponse.data.pending_request);
+        }
 
         if (hasPending || hasActive) {
           setShowStatusDialog(true);
@@ -768,69 +779,100 @@ const MOOERequestPage = () => {
       {/* Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent
-          className="[&>button]:hidden w-full max-w-[95vw] rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]"
+          className="[&>button]:hidden w-full max-w-[95vw] rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl sm:max-w-2xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]"
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-5 border-b border  -gray-100 dark:border-gray-700">
+          <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-6 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-4">
-              <div className="p-2.5 rounded-lg bg-brand-100/80 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
-                <AlertCircle className="h-6 w-6" />
+              <div className="p-3 rounded-lg bg-brand-100/80 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
+                <AlertCircle className="h-7 w-7" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Action Required
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-base text-gray-600 dark:text-gray-300 mt-1">
                   Please review these important notifications
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="space-y-4 px-6 py-5">
+          <div className="space-y-6 px-6 py-6">
             {hasPendingRequest && (
-              <div className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
-                <div className="flex-shrink-0 p-2 rounded-md text-brand-600 dark:text-brand-400">
-                  <AlertTriangle className="h-5 w-5" />
-                </div>
-                <div className="space-y-2.5">
-                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    Pending MOOE Request
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800 dark:text-brand-200">
+              <div className="bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-900/20 shadow-sm overflow-hidden">
+                {/* Header Section */}
+                <div className="flex items-center gap-4 p-5 bg-red-100/50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-900/30">
+                  <div className="flex-shrink-0 p-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                    <AlertTriangle className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 dark:text-white text-lg">
+                      Pending MOOE Request
+                    </h3>
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-200 text-red-800 dark:bg-red-800/50 dark:text-red-200 mt-1">
                       Attention needed
                     </span>
-                  </h3>
-                  <div className="text-gray-600 dark:text-gray-300 text-sm space-y-2">
-                    <p>
-                      You{" "}
-                      <span className="font-semibold text-gray-900 dark:text-white">
-                        cannot submit
-                      </span>{" "}
-                      a new request because you have an active request for{" "}
-                      <span className="font-semibold text-brand-600 dark:text-brand-400">
-                        {formatDateToMonthYear(pendingRequestData?.request_month || "")}
-                      </span>
-                      , which must be completed first before submitting new
-                      requests.
-                    </p>
+                  </div>
+                </div>
+                
+                {/* Content Section */}
+                <div className="p-5">
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500 mt-2"></div>
+                      <p className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">
+                        You{" "}
+                        <span className="font-bold text-red-600 dark:text-red-400">
+                          cannot submit
+                        </span>{" "}
+                        a new request at this time.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-brand-500"></div>
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Active Request Details:
+                        </span>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Request Period:{" "}
+                          <span className="font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 px-3 py-1 rounded-md">
+                            {formatDateToMonthYear(
+                              pendingRequestData?.request_month || 
+                              pendingRequestData?.request_monthyear || 
+                              pendingRequestData?.month || 
+                              pendingRequestData?.period || 
+                              "Unknown Period"
+                            )}
+                          </span>
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                          This request must be completed first before submitting new requests.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
             {hasPendingRequest && pendingRequestData?.status === "advanced" && (
-              <div className="flex gap-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
-                <div className="flex-shrink-0 p-2 rounded-md text-blue-600 dark:text-blue-400">
-                  <Info className="h-5 w-5" />
+              <div className="flex gap-5 p-5 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/20 shadow-sm">
+                <div className="flex-shrink-0 p-3 rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                  <Info className="h-6 w-6" />
                 </div>
-                <div className="space-y-2.5">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                <div className="space-y-3">
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">
                     Advance Request Pending
                   </h3>
-                  <div className="text-gray-600 dark:text-gray-300 text-sm">
+                  <div className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">
                     <p>
                       You have an advance request for{" "}
-                      <span className="font-semibold text-blue-600 dark:text-blue-400">
+                      <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
                         {formatDateToMonthYear(pendingRequestData?.request_monthyear || "")}
                       </span>
                       . It will become active when the month arrives.
@@ -840,33 +882,32 @@ const MOOERequestPage = () => {
               </div>
             )}
             {hasActiveLiquidation && (
-              <div className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
-                <div className="flex-shrink-0 p-2 rounded-md text-brand-600 dark:text-brand-400">
-                  <AlertTriangle className="h-5 w-5" />
+              <div className="flex gap-5 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-900/20 shadow-sm">
+                <div className="flex-shrink-0 p-3 rounded-lg bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-6 w-6" />
                 </div>
-                <div className="space-y-2.5">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                <div className="space-y-3">
+                  <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-3 text-lg">
                     Active Liquidation Process
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800 dark:text-brand-200">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
                       Attention needed
                     </span>
                   </h3>
-                  <div className="text-gray-600 dark:text-gray-300 text-sm space-y-2">
+                  <div className="text-gray-700 dark:text-gray-300 text-base space-y-3 leading-relaxed">
                     <p>
                       You{" "}
-                      <span className="font-semibold text-gray-900 dark:text-white">
+                      <span className="font-bold text-amber-600 dark:text-amber-400">
                         cannot submit
                       </span>{" "}
-                      a new request because there's an ongoing liquidation
-                      process for Request ID:{" "}
-                      <span className="font-mono font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                      a new request because there's an ongoing liquidation process for Request ID:{" "}
+                      <span className="font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded border">
                         {activeLiquidationData?.request?.request_id}
                       </span>
                     </p>
                     <div className="space-y-2">
                       <p>
                         Current status:{" "}
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-100 dark:bg-brand-900/30 text-brand-800 dark:text-brand-200 capitalize">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-brand-100 dark:bg-brand-900/30 text-brand-800 dark:text-brand-200 capitalize">
                           {activeLiquidationData?.status?.replace(/_/g, " ")}
                         </span>
                       </p>
@@ -877,15 +918,15 @@ const MOOERequestPage = () => {
             )}
           </div>
 
-          <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+          <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-5 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
             <div></div>
             <Button
               variant="primary"
               onClick={handleNavigation}
-              className="px-4 py-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 dark:from-brand-700 dark:to-brand-600 dark:hover:from-brand-800 dark:hover:to-brand-700 text-white shadow-sm"
+              className="px-6 py-3 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 dark:from-brand-700 dark:to-brand-600 dark:hover:from-brand-800 dark:hover:to-brand-700 text-white shadow-sm text-base font-semibold"
             >
               View Full Details
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
           </div>
         </DialogContent>
