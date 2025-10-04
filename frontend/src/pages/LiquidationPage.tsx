@@ -1403,31 +1403,8 @@ const LiquidationPage = () => {
                                     </>
                                   )}
                                   
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      removeFile(
-                                        String(expense.id),
-                                        String(req.requirementID)
-                                      )
-                                    }
-                                    disabled={
-                                      request.status !== "draft" &&
-                                      request.status !== "resubmit" ||
-                                      uploadedDoc?.is_approved === true
-                                    }
-                                    title={
-                                      uploadedDoc?.is_approved === true
-                                        ? "Cannot remove approved documents"
-                                        : "Remove this document"
-                                    }
-                                  >
-                                    Remove Original
-                                  </Button>
-                                  
-                                  {/* Remove reuploaded file button for rejected documents with resubmissions */}
-                                  {uploadedDoc?.is_approved === false && uploadedDoc?.is_resubmission && (
+                                  {/* Only show Remove Original button for documents that are not approved and not rejected */}
+                                  {uploadedDoc?.is_approved !== true && uploadedDoc?.is_approved !== false && (
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -1441,11 +1418,12 @@ const LiquidationPage = () => {
                                         request.status !== "draft" &&
                                         request.status !== "resubmit"
                                       }
-                                      title="Remove this revised document"
+                                      title="Remove this document"
                                     >
-                                      Remove Revised
+                                      Remove Original
                                     </Button>
                                   )}
+                                  
                                   
                                   <Button
                                     variant="outline"

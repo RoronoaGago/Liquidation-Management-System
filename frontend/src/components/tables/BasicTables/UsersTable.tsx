@@ -36,7 +36,6 @@ import {
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
-import { CalenderIcon } from "@/icons";
 import {
   District,
   FilterOptions,
@@ -61,6 +60,7 @@ import { roleMap } from "@/lib/constants";
 import SkeletonRow from "@/components/ui/skeleton";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
+import { CalenderIcon } from "@/icons";
 
 interface UsersTableProps {
   users: User[];
@@ -1153,12 +1153,9 @@ export default function UsersTable({
                     placeholder="John"
                     value={selectedUser.first_name}
                     onChange={handleChange}
+                    error={!!formErrors.first_name}
+                    hint={formErrors.first_name || undefined}
                   />
-                  {formErrors.first_name && (
-                    <p className="text-red-500 text-sm">
-                      {formErrors.first_name}
-                    </p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="last_name" className="text-base">
@@ -1172,12 +1169,9 @@ export default function UsersTable({
                     placeholder="Doe"
                     value={selectedUser.last_name}
                     onChange={handleChange}
+                    error={!!formErrors.last_name}
+                    hint={formErrors.last_name || undefined}
                   />
-                  {formErrors.last_name && (
-                    <p className="text-red-500 text-sm">
-                      {formErrors.last_name}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -1193,10 +1187,9 @@ export default function UsersTable({
                   placeholder="john@example.com"
                   value={selectedUser.email}
                   onChange={handleChange}
+                  error={!!formErrors.email}
+                  hint={formErrors.email || undefined}
                 />
-                {formErrors.email && (
-                  <p className="text-red-500 text-sm">{formErrors.email}</p>
-                )}
               </div>
 
               <div className="space-y-2">

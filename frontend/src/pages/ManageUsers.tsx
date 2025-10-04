@@ -462,12 +462,9 @@ const ManageUsers = () => {
                       placeholder="John"
                       value={formData.first_name}
                       onChange={handleChange}
+                      error={!!errors.first_name}
+                      hint={errors.first_name || undefined}
                     />
-                    {errors.first_name && (
-                      <p className="text-red-500 text-sm">
-                        {errors.first_name}
-                      </p>
-                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="last_name" className="text-base">
@@ -481,10 +478,9 @@ const ManageUsers = () => {
                       placeholder="Doe"
                       value={formData.last_name}
                       onChange={handleChange}
+                      error={!!errors.last_name}
+                      hint={errors.last_name || undefined}
                     />
-                    {errors.last_name && (
-                      <p className="text-red-500 text-sm">{errors.last_name}</p>
-                    )}
                   </div>
                 </div>
 
@@ -500,10 +496,9 @@ const ManageUsers = () => {
                     placeholder="john@example.com"
                     value={formData.email}
                     onChange={handleChange}
+                    error={!!errors.email}
+                    hint={errors.email || undefined}
                   />
-                  {errors.email && (
-                    <p className="text-red-500 text-sm">{errors.email}</p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role" className="text-base">

@@ -1077,10 +1077,9 @@ export default function SchoolsTable({
                   value={selectedSchool.schoolId}
                   onChange={handleChange}
                   disabled
+                  error={!!formErrors.schoolId}
+                  hint={formErrors.schoolId}
                 />
-                {formErrors.schoolId && (
-                  <p className="text-red-500 text-sm">{formErrors.schoolId}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="schoolName" className="text-base">
@@ -1094,12 +1093,9 @@ export default function SchoolsTable({
                   placeholder="School Name"
                   value={selectedSchool.schoolName}
                   onChange={handleChange}
+                  error={!!formErrors.schoolName}
+                  hint={formErrors.schoolName}
                 />
-                {formErrors.schoolName && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.schoolName}
-                  </p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="legislativeDistrict" className="text-base">
