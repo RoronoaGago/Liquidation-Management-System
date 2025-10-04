@@ -52,14 +52,11 @@ import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
 import {
-  calculateAge,
   formatDateTime,
   getAvatarColor,
   getUserInitials,
-  validateDateOfBirth,
   validateEmail,
   validatePassword,
-  validatePhoneNumber,
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { roleOptions } from "@/pages/ManageUsers";
@@ -67,7 +64,6 @@ import { roleMap } from "@/lib/constants";
 import SkeletonRow from "@/components/ui/skeleton";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
-import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
 
 interface UsersTableProps {
   users: User[];
@@ -99,8 +95,6 @@ interface FormErrors {
   email?: string;
   password?: string;
   confirm_password?: string;
-  phone_number?: string;
-  date_of_birth?: string;
   role?: string;
   school?: string;
   school_district_id?: string; // Added for district validation
@@ -275,22 +269,6 @@ export default function UsersTable({
             newErrors.password = "Password must be at least 8 characters";
           } else {
             delete newErrors.password;
-          }
-          break;
-        case "date_of_birth":
-          // eslint-disable-next-line no-case-declarations
-          const dateError = validateDateOfBirth(value);
-          if (dateError) {
-            newErrors.date_of_birth = dateError;
-          } else {
-            delete newErrors.date_of_birth;
-          }
-          break;
-        case "phone_number":
-          if (value && !validatePhoneNumber(value)) {
-            newErrors.phone_number = "Please enter a valid phone number";
-          } else {
-            delete newErrors.phone_number;
           }
           break;
         case "role":
@@ -479,7 +457,6 @@ export default function UsersTable({
       formData.append("first_name", selectedUser.first_name);
       formData.append("last_name", selectedUser.last_name);
       formData.append("email", selectedUser.email);
-      formData.append("date_of_birth", selectedUser.date_of_birth || "");
 
       if (
         selectedUser.school_district &&
@@ -501,9 +478,6 @@ export default function UsersTable({
       }
       // else: do not append school_id at all
 
-      if (selectedUser.phone_number) {
-        formData.append("phone_number", selectedUser.phone_number);
-      }
 
       formData.append("role", selectedUser.role);
 
@@ -1241,19 +1215,6 @@ export default function UsersTable({
                   <p className="text-red-500 text-sm">{formErrors.email}</p>
                 )}
               </div>
-              <PhoneNumberInput
-                value={selectedUser.phone_number || ""}
-                onChange={(value) =>
-                  setSelectedUser((prev) => ({
-                    ...prev!,
-                    phone_number: value || "",
-                  }))
-                }
-                error={formErrors.phone_number}
-                id="phone_number"
-                required={false}
-                autoComplete="tel"
-              />
 
               <div className="space-y-2">
                 <Label htmlFor="role" className="text-base">
@@ -1402,30 +1363,6 @@ export default function UsersTable({
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="date_of_birth" className="text-base">
-                  Birthdate
-                </Label>
-                <div className="relative">
-                  <Input
-                    type="date"
-                    id="date_of_birth"
-                    name="date_of_birth"
-                    className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    value={selectedUser.date_of_birth || ""}
-                    onChange={handleChange}
-                    max={new Date().toISOString().split("T")[0]}
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                    <CalenderIcon className="size-5" />
-                  </span>
-                </div>
-                {formErrors.date_of_birth && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.date_of_birth}
-                  </p>
-                )}
-              </div>
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button
@@ -1558,14 +1495,6 @@ export default function UsersTable({
                         {userToView.email}
                       </p>
                     </div>
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Phone
-                      </Label>
-                      <p className="text-gray-800 dark:text-gray-200 mt-1">
-                        {userToView.phone_number || "Not provided"}
-                      </p>
-                    </div>
                   </div>
                 </div>
 
@@ -1602,23 +1531,6 @@ export default function UsersTable({
                         </p>
                       </div>
                     )}
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Date of Birth
-                      </Label>
-                      <p className="text-gray-800 dark:text-gray-200 mt-1">
-                        {userToView.date_of_birth
-                          ? new Date(
-                              userToView.date_of_birth
-                            ).toLocaleDateString()
-                          : "Not provided"}
-                        {userToView.date_of_birth && (
-                          <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
-                            ({calculateAge(userToView.date_of_birth)} years old)
-                          </span>
-                        )}
-                      </p>
-                    </div>
                     <div className="flex items-baseline gap-2">
                       <Label className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-none">
                         Status
