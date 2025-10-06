@@ -26,7 +26,7 @@ if %errorlevel% neq 0 (
 )
 
 echo Checking if Celery is installed...
-celery --version >nul 2>&1
+python -m celery --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo Celery not found. Installing dependencies...
     pip install -r requirements.txt
@@ -43,11 +43,11 @@ echo Starting Celery services...
 echo Press Ctrl+C to stop all services
 echo.
 
-start "Celery Worker" cmd /k "celery -A api worker --loglevel=info --pool=threads --concurrency=4"
+start "Celery Worker" cmd /k "python -m celery -A api worker --loglevel=info --pool=threads --concurrency=4"
 timeout /t 3 /nobreak >nul
-start "Celery Beat" cmd /k "celery -A api beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
+start "Celery Beat" cmd /k "python -m celery -A api beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
 timeout /t 3 /nobreak >nul
-start "Celery Flower" cmd /k "celery -A api flower --port=5555"
+start "Celery Flower" cmd /k "python -m celery -A api flower --port=5555"
 
 echo.
 echo All Celery services started!

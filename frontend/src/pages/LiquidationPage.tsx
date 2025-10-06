@@ -1540,16 +1540,9 @@ const LiquidationPage = () => {
               }
             });
             const uploadedReqs = expense.requirements.filter((req) => {
-              const doc = getUploadedDocument(expense.id, req.requirementID);
-              // Include both uploaded docs and auto-approved optional docs
-              return doc && (req.is_required || (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")));
+              const doc = getFilteredUploadedDocument(expense.id, req.requirementID);
+              return doc !== undefined;
             });
-            const pendingReqs = expense.requirements.filter(
-              (req) => !getUploadedDocument(expense.id, req.requirementID)
-            );
-            const uploadedReqs = expense.requirements.filter((req) =>
-              getFilteredUploadedDocument(expense.id, req.requirementID)
-            );
 
             return (
               <div
@@ -1940,12 +1933,11 @@ const LiquidationPage = () => {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() =>
-                                        removeFile(
-                                          String(expense.id),
-                                          String(req.requirementID)
-                                        )
-                                      }
+                                      onClick={() => {
+                                        if (uploadedDoc) {
+                                          handleRemoveDocument(uploadedDoc);
+                                        }
+                                      }}
                                       disabled={
                                         request.status !== "draft" &&
                                         request.status !== "resubmit"
@@ -2017,16 +2009,9 @@ const LiquidationPage = () => {
                 }
               });
               const uploadedReqs = expense.requirements.filter((req) => {
-                const doc = getUploadedDocument(expense.id, req.requirementID);
-                // Include both uploaded docs and auto-approved optional docs
-                return doc && (req.is_required || (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")));
+                const doc = getFilteredUploadedDocument(expense.id, req.requirementID);
+                return doc !== undefined;
               });
-              const pendingReqs = expense.requirements.filter(
-                (req) => !getUploadedDocument(expense.id, req.requirementID)
-              );
-              const uploadedReqs = expense.requirements.filter((req) =>
-                getFilteredUploadedDocument(expense.id, req.requirementID)
-              );
 
               return (
                 <div key={expense.id} className="p-6">
