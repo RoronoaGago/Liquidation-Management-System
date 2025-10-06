@@ -125,6 +125,9 @@ const LiquidationPage = () => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isRemovingDoc, setIsRemovingDoc] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [validationMessage, setValidationMessage] = useState("");
+  const [validationType, setValidationType] = useState<"missing" | "zero">("missing");
 
   // Fetch pending liquidation for the current user
   useEffect(() => {
@@ -141,6 +144,11 @@ const LiquidationPage = () => {
           return;
         }
         console.log(data);
+        
+        // Get saved actual amounts from localStorage
+        const savedAmounts = localStorage.getItem(`liquidation_${data.LiquidationID}_amounts`);
+        const parsedAmounts = savedAmounts ? JSON.parse(savedAmounts) : {};
+        
         // In LiquidationPage.tsx, update the data mapping:
         setRequest({
           id: data.LiquidationID || "N/A",
@@ -153,24 +161,26 @@ const LiquidationPage = () => {
                 0
               )
             : 0,
-          expenses: (data.request?.priorities || []).map((priority: any) => ({
-            id: priority.id || priority.priority?.LOPID || "",
-            title: priority.priority?.expenseTitle || "",
-            amount: Number(priority.amount) || 0,
-            // Add this line to include actual amounts from liquidation priorities
-            actualAmount:
-              data.actual_amounts?.find(
-                (a: any) =>
-                  a.expense_id === (priority.id || priority.priority?.LOPID)
-              )?.actual_amount || 0,
-            requirements: (priority.priority?.requirements || []).map(
-              (req: any) => ({
-                requirementID: req.requirementID,
-                requirementTitle: req.requirementTitle,
-                is_required: req.is_required,
-              })
-            ),
-          })),
+          expenses: (data.request?.priorities || []).map((priority: any) => {
+            const expenseId = priority.id || priority.priority?.LOPID || "";
+            return {
+              id: expenseId,
+              title: priority.priority?.expenseTitle || "",
+              amount: Number(priority.amount) || 0,
+              // Use saved amount if available, otherwise use server data, otherwise 0
+              actualAmount: parsedAmounts[expenseId] || 
+                data.actual_amounts?.find(
+                  (a: any) => a.expense_id === expenseId
+                )?.actual_amount || 0,
+              requirements: (priority.priority?.requirements || []).map(
+                (req: any) => ({
+                  requirementID: req.requirementID,
+                  requirementTitle: req.requirementTitle,
+                  is_required: req.is_required,
+                })
+              ),
+            };
+          }),
           refund: Number(data.refund) || 0,
           uploadedDocuments: data.documents || [],
           remaining_days: data.remaining_days ?? null,
@@ -336,34 +346,6 @@ const LiquidationPage = () => {
     return request.totalAmount - totalActual;
   }, [request, totalActual]);
 
-  const removeFile = async (expenseId: string, requirementID: string) => {
-    if (!request) return;
-    const doc = getUploadedDocument(expenseId, requirementID);
-    const docId = doc?.id;
-
-    if (!doc || !docId) {
-      toast.error("No document found to remove.");
-      return;
-    }
-
-    try {
-      await api.delete(
-        `/liquidations/${request.liquidationID}/documents/${docId}/`
-      );
-
-      // Refresh data
-      const res = await api.get("/liquidation/");
-      const data = Array.isArray(res.data) ? res.data[0] : null;
-      if (data) {
-        setRequest((prev) =>
-          prev ? { ...prev, uploadedDocuments: data.documents || [] } : prev
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to remove file. Please try again.");
-    }
-  };
 
   const triggerFileInput = (expenseId: string, requirementID: string) => {
     const key = `${expenseId}-${requirementID}`;
@@ -373,6 +355,93 @@ const LiquidationPage = () => {
   const triggerAdditionalFileInput = (expenseId: string, requirementID: string) => {
     const key = `${expenseId}-${requirementID}-additional`;
     fileInputRefs.current[key]?.click();
+  };
+
+  // Function to format number with commas
+  const formatNumberWithCommas = (value: string) => {
+    const num = value.replace(/,/g, "");
+    if (num === "") return "";
+    if (isNaN(Number(num))) return value;
+    return Number(num).toLocaleString();
+  };
+
+  // Function to save actual amounts to localStorage
+  const saveActualAmounts = (expenses: Expense[]) => {
+    if (!request) return;
+    
+    const amountsToSave: { [key: string]: number } = {};
+    expenses.forEach(expense => {
+      if (expense.actualAmount !== undefined && expense.actualAmount !== null) {
+        amountsToSave[String(expense.id)] = expense.actualAmount;
+      }
+    });
+    
+    localStorage.setItem(
+      `liquidation_${request.liquidationID}_amounts`, 
+      JSON.stringify(amountsToSave)
+    );
+  };
+
+  // Function to navigate to the first problematic input
+  const navigateToProblematicInput = () => {
+    if (!request) return;
+    
+    let targetExpenseId: string | null = null;
+    
+    if (validationType === "missing") {
+      // Find first expense with missing actual amount
+      const missingExpense = request.expenses.find(
+        (expense) => expense.actualAmount === undefined || isNaN(expense.actualAmount)
+      );
+      targetExpenseId = missingExpense ? String(missingExpense.id) : null;
+    } else if (validationType === "zero") {
+      // Find first expense with zero actual amount
+      const zeroExpense = request.expenses.find(
+        (expense) => expense.actualAmount === 0
+      );
+      targetExpenseId = zeroExpense ? String(zeroExpense.id) : null;
+    }
+    
+    if (targetExpenseId) {
+      // Expand the expense if it's not already expanded
+      if (!expandedExpense.includes(targetExpenseId)) {
+        setExpandedExpense(prev => [...prev, targetExpenseId!]);
+      }
+      
+      // Close the dialog
+      setShowValidationDialog(false);
+      
+      // Scroll to the input after a short delay to allow expansion
+      setTimeout(() => {
+        const inputElement = document.querySelector(`input[aria-label="Actual amount spent"][data-expense-id="${targetExpenseId}"]`) as HTMLInputElement;
+        const requiredIndicator = document.getElementById(`required-indicator-${targetExpenseId}`);
+        
+        if (inputElement) {
+          inputElement.scrollIntoView({ 
+            behavior: "smooth", 
+            block: "center" 
+          });
+          inputElement.focus();
+          // Add highlighting class
+          inputElement.classList.add('border-red-500', 'bg-red-50', 'dark:bg-red-900/10');
+          
+          // Show required field indicator
+          if (requiredIndicator) {
+            requiredIndicator.classList.remove('opacity-0');
+            requiredIndicator.classList.add('opacity-100');
+          }
+          
+          // Remove highlighting and hide indicator after 3 seconds
+          setTimeout(() => {
+            inputElement.classList.remove('border-red-500', 'bg-red-50', 'dark:bg-red-900/10');
+            if (requiredIndicator) {
+              requiredIndicator.classList.remove('opacity-100');
+              requiredIndicator.classList.add('opacity-0');
+            }
+          }, 3000);
+        }
+      }, 300);
+    }
   };
 
   // PDF Preview functions
@@ -467,7 +536,9 @@ const LiquidationPage = () => {
     );
 
     if (missingAmounts) {
-      toast.error("Please enter actual amounts for all expenses");
+      setValidationMessage("Please enter actual amounts for all expenses before submitting your liquidation.");
+      setValidationType("missing");
+      setShowValidationDialog(true);
       return;
     }
 
@@ -478,9 +549,11 @@ const LiquidationPage = () => {
 
     if (zeroAmountExpenses.length > 0) {
       const expenseNames = zeroAmountExpenses.map((e) => e.title).join(", ");
-      toast.error(
-        `Actual amount spent cannot be 0. Please update: ${expenseNames}`
+      setValidationMessage(
+        `Actual amount spent cannot be 0. Please update the following expenses: ${expenseNames}`
       );
+      setValidationType("zero");
+      setShowValidationDialog(true);
       return;
     }
 
@@ -506,6 +579,11 @@ const LiquidationPage = () => {
             }
           : null
       );
+
+      // Clear saved amounts from localStorage after successful submission
+      if (request) {
+        localStorage.removeItem(`liquidation_${request.liquidationID}_amounts`);
+      }
 
       toast.success("Liquidation submitted successfully!");
     } catch (error) {
@@ -944,7 +1022,7 @@ const LiquidationPage = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap justify-end gap-3 pt-4">
+            <div className="flex flex-col items-end gap-3 pt-4">
               <Dialog
                 open={isConfirmDialogOpen}
                 onOpenChange={setIsConfirmDialogOpen}
@@ -969,9 +1047,11 @@ const LiquidationPage = () => {
                       const expenseNames = zeroAmountExpenses
                         .map((e) => e.title)
                         .join(", ");
-                      toast.error(
-                        `Actual amount spent cannot be 0. Please update: ${expenseNames}`
+                      setValidationMessage(
+                        `Actual amount spent cannot be 0. Please update the following expenses: ${expenseNames}`
                       );
+                      setValidationType("zero");
+                      setShowValidationDialog(true);
                       return;
                     }
                     setIsConfirmDialogOpen(true); // Only open if validation passes
@@ -979,6 +1059,19 @@ const LiquidationPage = () => {
                 >
                   Submit Liquidation
                 </Button>
+                
+                {/* Disabled Button Helper Text */}
+                {isSubmitDisabled && (
+                  <div className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>
+                      {uploadedRequired < totalRequired 
+                        ? `Please upload all required documents (${uploadedRequired}/${totalRequired} uploaded)`
+                        : "Please complete all required fields before submitting"
+                      }
+                    </span>
+                  </div>
+                )}
 
                 <DialogContent className="max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-xl border border-gray-200 dark:border-gray-700">
                   <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -1155,41 +1248,56 @@ const LiquidationPage = () => {
                             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                               <span className="text-gray-500">₱</span>
                             </div>
-                            <input
-                              type="number"
-                              min={0}
-                              value={expense.actualAmount || ""}
-                              disabled={request.status !== "draft"}
-                              onChange={(event) => {
-                                const value =
-                                  parseFloat(event.target.value) || 0;
-                                const updatedExpenses = request?.expenses.map(
-                                  (exp) =>
-                                    exp.id === expense.id
-                                      ? { ...exp, actualAmount: value }
-                                      : exp
-                                );
-                                setRequest((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        expenses: updatedExpenses || [],
-                                        refund:
-                                          prev.totalAmount -
-                                          (updatedExpenses?.reduce(
-                                            (sum, e) =>
-                                              sum + (e.actualAmount || 0),
-                                            0
-                                          ) || 0),
-                                      }
-                                    : null
-                                );
-                              }}
-                              placeholder="Enter actual amount"
-                              className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:focus:ring-blue-500"
-                              onFocus={(e) => e.stopPropagation()}
-                              aria-label="Actual amount spent"
-                            />
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={expense.actualAmount ? formatNumberWithCommas(expense.actualAmount.toString()) : ""}
+                                disabled={request.status !== "draft"}
+                                data-expense-id={expense.id}
+                                onChange={(event) => {
+                                  const cleanValue = event.target.value.replace(/[^0-9.]/g, "");
+                                  const value = parseFloat(cleanValue) || 0;
+                                  const updatedExpenses = request?.expenses.map(
+                                    (exp) =>
+                                      exp.id === expense.id
+                                        ? { ...exp, actualAmount: value }
+                                        : exp
+                                  );
+                                  
+                                  // Save to localStorage
+                                  if (updatedExpenses) {
+                                    saveActualAmounts(updatedExpenses);
+                                  }
+                                  
+                                  setRequest((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          expenses: updatedExpenses || [],
+                                          refund:
+                                            prev.totalAmount -
+                                            (updatedExpenses?.reduce(
+                                              (sum, e) =>
+                                                sum + (e.actualAmount || 0),
+                                              0
+                                            ) || 0),
+                                        }
+                                      : null
+                                  );
+                                }}
+                                placeholder="Enter actual amount"
+                                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:focus:ring-blue-500"
+                                onFocus={(e) => e.stopPropagation()}
+                                aria-label="Actual amount spent"
+                              />
+                              {/* Required field indicator */}
+                              <div 
+                                id={`required-indicator-${expense.id}`}
+                                className="absolute -bottom-5 left-0 text-xs text-red-500 whitespace-nowrap opacity-0 transition-opacity duration-300"
+                              >
+                                This field is required
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1687,7 +1795,7 @@ const LiquidationPage = () => {
                   <div className="flex gap-2">
                     <Button
                       variant="destructive"
-                      disabled={isRemovingDoc}
+                      disabled={isRemovingDoc || (request.status !== "draft" && request.status !== "resubmit")}
                       startIcon={
                         isRemovingDoc ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
@@ -1695,10 +1803,20 @@ const LiquidationPage = () => {
                           <Trash2 className="h-5 w-5" />
                         )
                       }
-                      onClick={() => setShowRemoveConfirm(true)}
+                      onClick={() => {
+                        if (request.status === "draft" || request.status === "resubmit") {
+                          setShowRemoveConfirm(true);
+                        }
+                      }}
                     >
                       {isRemovingDoc ? "Removing..." : "Remove"}
                     </Button>
+                    {(request.status !== "draft" && request.status !== "resubmit") && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Cannot remove after submission
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex items-center gap-4">
@@ -1784,6 +1902,50 @@ const LiquidationPage = () => {
               }
             >
               {isRemovingDoc ? "Removing..." : "Confirm Removal"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Validation Dialog */}
+      <Dialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
+        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+          {/* Main Content Container */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            
+            {/* Warning Icon */}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-amber-100 dark:bg-amber-900/20 rounded-full scale-110 animate-pulse"></div>
+              <AlertCircle className="relative h-12 w-12 text-amber-500 dark:text-amber-400" />
+            </div>
+
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+                Validation Required
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                {validationMessage}
+              </p>
+            </div>
+
+            {/* Action Message */}
+            <div className="pt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Click "Review Expense" to navigate to the required field.
+              </p>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div className="mt-6 flex justify-center">
+            <Button
+              variant="primary"
+              onClick={navigateToProblematicInput}
+              startIcon={<AlertCircle className="h-4 w-4" />}
+              className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Review Expense
             </Button>
           </div>
         </DialogContent>
