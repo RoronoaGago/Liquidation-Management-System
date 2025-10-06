@@ -1,5 +1,5 @@
 import SecureStorage from "../lib/secureStorage";
-import { API_ENDPOINTS } from "../config/api";
+import { API_ENDPOINTS, JWT_CONFIG } from "../config/api";
 import api from "./axios";
 
 export const login = async (email: string, password: string) => {
@@ -14,7 +14,7 @@ export const login = async (email: string, password: string) => {
       SecureStorage.setTokens(
         response.data.access,
         response.data.refresh || "",
-        15 * 60 // 15 minutes (access token lifetime)
+        JWT_CONFIG.ACCESS_TOKEN_LIFETIME_MINUTES * 60 // Convert minutes to seconds
       );
       return response.data;
     }

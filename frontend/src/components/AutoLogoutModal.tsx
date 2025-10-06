@@ -72,7 +72,7 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
           iconBg: 'bg-green-100 dark:bg-green-900/30',
           headerBg: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
           borderColor: 'border-green-200 dark:border-green-800',
-          message: 'Welcome to the system!',
+          message: 'Welcome to the MOOE Liquidation Management System!',
           description: 'Your account setup is almost complete. You must log in again to continue.'
         };
       default:
@@ -96,7 +96,7 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
   return (
     <Dialog open={visible} onOpenChange={onClose}>
       <DialogContent 
-        className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+        className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden [&>button]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header with dynamic gradient background */}

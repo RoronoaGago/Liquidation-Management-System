@@ -5,6 +5,8 @@
 
 import SecureStorage from '../lib/secureStorage';
 import { API_CONFIG, API_ENDPOINTS } from '../config/api';
+import { useInactivity } from '../hooks/useInactivity';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 
 export interface AuthFlowTestResult {
   step: string;
@@ -133,9 +135,8 @@ export class AuthFlowTester {
    */
   testInactivityDetection(): boolean {
     try {
-      // Check if the inactivity hook is properly exported
-      const inactivityHook = require('../hooks/useInactivity');
-      if (!inactivityHook.useInactivity) {
+      // Check if the inactivity hook is properly imported
+      if (!useInactivity) {
         this.addResult('Inactivity Detection', false, 'useInactivity hook not found');
         return false;
       }
@@ -153,14 +154,13 @@ export class AuthFlowTester {
    */
   testAuthContext(): boolean {
     try {
-      // Check if AuthContext is properly exported
-      const authContext = require('../context/AuthContext');
-      if (!authContext.AuthProvider) {
+      // Check if AuthContext components are properly imported
+      if (!AuthProvider) {
         this.addResult('Auth Context', false, 'AuthProvider not found');
         return false;
       }
 
-      if (!authContext.useAuth) {
+      if (!useAuth) {
         this.addResult('Auth Context', false, 'useAuth hook not found');
         return false;
       }

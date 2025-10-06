@@ -10,6 +10,8 @@ import { BrowserRouter as Router } from "react-router";
 import "./utils/tokenTest"; // Import token testing utilities
 import "./utils/debugTokens"; // Import token debugging utilities
 import "./utils/authFlowTest"; // Import authentication flow testing utilities
+import "./utils/checkSessionTime"; // Import session time checking utilities
+import "./utils/debugSession"; // Import session debugging utilities
 
 createRoot(document.getElementById("root")!).render(
   <Router>
