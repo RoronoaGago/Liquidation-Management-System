@@ -36,6 +36,8 @@ ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'corsheaders',
+    'daphne',  # ASGI server for WebSockets
+    'channels',  # WebSocket support
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -121,6 +123,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
+ASGI_APPLICATION = 'backend.asgi.application'
 
 
 # Database
@@ -231,42 +234,49 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'riverajanlester.st.maria@gmail.com'  # Your email address
 
-EMAIL_HOST_PASSWORD = 'tght ymcl oqus vjyw'
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'tght ymcl oqus vjyw')
 # Default sender email
 DEFAULT_FROM_EMAIL = 'DepEd LUSDO <noreply@deped.gov.ph>'
+
+# Liquidation Reminder Configuration
+LIQUIDATION_REMINDER_DAYS = [15, 5]  # 15 days and 5 days before due date
+LIQUIDATION_DEADLINE_DAYS = 30
+EMAIL_RATE_LIMIT_PER_USER_PER_DAY = 5  # Max emails per user per day
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'django_celery_results.backends:DatabaseBackend'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_TASK_SOFT_TIME_LIMIT = 60  # 1 minute
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 
 
 CELERY_BEAT_SCHEDULE = {
-    'process-advanced-requests-precise': {
-        'task': 'api.tasks.process_advanced_requests',
-        'schedule': crontab(minute='*'),  # Daily at 6:00 AM
-    },
     'monthly-audit-precise': {
         'task': 'api.tasks.monthly_request_status_audit',
         # 1st of month at 2:00 AM
         'schedule': crontab(hour=2, minute=0, day_of_month=1),
     },
-    'check-liquidation-reminders-every-minute': {
+    'check-liquidation-reminders-daily': {
         'task': 'api.tasks.check_liquidation_reminders',
-        # 1st of month at 2:00 AM
-        'schedule': crontab(hour=2, minute=0, day_of_month=1),
-    },
-    'send-urgent-reminders-every-2-minutes': {
-        'task': 'api.tasks.send_urgent_liquidation_reminders',
-        # 1st of month at 2:00 AM
-        'schedule': crontab(hour=2, minute=0, day_of_month=1),
+        # Daily at 8:00 AM
+        'schedule': crontab(hour=8, minute=0),
     },
     'update-remaining-days-daily': {
         'task': 'api.tasks.update_liquidation_remaining_days',
-        # 1st of month at 2:00 AM
-        'schedule': crontab(hour=2, minute=0, day_of_month=1),
+        # Daily at midnight
+        'schedule': crontab(hour=0, minute=0),
+    },
+    'process-advanced-requests-daily': {
+        'task': 'api.tasks.process_advanced_requests',
+        # Run every 2 minutes for testing
+        'schedule': crontab(minute='*/2'),
     },
 }
 
@@ -304,4 +314,14 @@ BACKUP_SETTINGS = {
     'MAX_BACKUP_AGE_DAYS': 30,
     'ALLOW_CUSTOM_PATHS': False,
     'COMPRESSION_LEVEL': 6,
+}
+
+# Channels configuration for WebSocket support
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
 }

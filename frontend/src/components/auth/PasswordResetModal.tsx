@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { requestPasswordResetOTP, verifyPasswordResetOTP } from '../../api/axios';
 import { ArrowLeftIcon, MailIcon, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
+import Input from '../form/input/InputField';
+import Label from '../form/Label';
+import { validateEmail } from '../../lib/helpers';
 
 interface PasswordResetModalProps {
   isOpen: boolean;
@@ -28,7 +31,9 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
   const [errorType, setErrorType] = useState<'error' | 'warning' | 'info'>('error');
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [emailError, setEmailError] = useState('');
   const inputRefs = useRef<HTMLInputElement[]>([]);
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Countdown timer
   useEffect(() => {
@@ -46,6 +51,31 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     }
   }, [resendCooldown]);
 
+  // Debounced email validation
+  useEffect(() => {
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    if (email.trim()) {
+      debounceTimeout.current = setTimeout(() => {
+        if (!validateEmail(email.trim())) {
+          setEmailError('Please enter a valid email address');
+        } else {
+          setEmailError('');
+        }
+      }, 500);
+    } else {
+      setEmailError('');
+    }
+
+    return () => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+    };
+  }, [email]);
+
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,14 +85,22 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
       emailLength: email.trim().length
     });
 
+    // Validate email
     if (!email.trim()) {
       console.log('🔄 PasswordResetModal: Email validation failed - empty email');
-      setError('Please enter your email address');
+      setEmailError('Please enter your email address');
+      return;
+    }
+
+    if (!validateEmail(email.trim())) {
+      console.log('🔄 PasswordResetModal: Email validation failed - invalid format');
+      setEmailError('Please enter a valid email address');
       return;
     }
 
     setIsLoading(true);
     setError('');
+    setEmailError('');
 
     try {
       console.log('🔄 PasswordResetModal: Requesting password reset OTP', {
@@ -263,9 +301,14 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     setOtp(Array(6).fill(""));
     setError('');
     setErrorType('error');
+    setEmailError('');
     setIsLoading(false);
     setTimeLeft(300);
     setResendCooldown(0);
+    // Clear any pending debounce timeout
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
     onClose();
   };
 
@@ -275,15 +318,20 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     setOtp(Array(6).fill(""));
     setError('');
     setErrorType('error');
+    setEmailError('');
     setTimeLeft(300);
     setResendCooldown(0);
+    // Clear any pending debounce timeout
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center mb-6">
           <button
@@ -330,18 +378,20 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
 
               <form onSubmit={handleEmailSubmit} className="space-y-6">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <Label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Email Address
-                  </label>
-                  <input
-                    type="email"
+                  </Label>
+                  <Input
+                    type="text"
                     id="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2"
                     placeholder="Enter your email address"
                     disabled={isLoading}
                     required
+                    error={!!emailError}
+                    hint={emailError || undefined}
                   />
                 </div>
 

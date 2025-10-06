@@ -29,7 +29,7 @@ import { formatDateTime } from "@/lib/helpers";
 // --- Type Safety Improvements ---
 interface Document {
   id: number;
-  document_url: string;
+  document_url: string | null; // Make optional for auto-approved documents
   requirement_obj: {
     requirementTitle: string;
   };
@@ -352,8 +352,13 @@ const LiquidationDetailsPage = () => {
 
   // Document completion calculation
   const getCompletion = () => {
-    // Only count documents that correspond to required requirements
-    const requiredDocs = documents.filter((doc) => {
+    // Only count documents that need to be reviewed (exclude auto-approved documents entirely)
+    const reviewableDocs = documents.filter((doc) => {
+      // Exclude auto-approved documents - they don't need review
+      if (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+        return false;
+      }
+      
       const expense = expenseList.find(
         (exp) => exp.id === doc.request_priority_id
       );
@@ -362,13 +367,16 @@ const LiquidationDetailsPage = () => {
       const requirement = expense.requirements.find(
         (req) => req.requirementID === doc.requirement_id
       );
-      return requirement?.is_required === true;
+      
+      // Count all documents that need review (required + optional that were actually uploaded)
+      return requirement !== undefined;
     });
 
-    const totalRequired = requiredDocs.length;
-    const approved = requiredDocs.filter(
+    const totalRequired = reviewableDocs.length;
+    const approved = reviewableDocs.filter(
       (doc) => doc.is_approved === true
     ).length;
+    
     return { approved, totalRequired };
   };
 
@@ -377,8 +385,32 @@ const LiquidationDetailsPage = () => {
     (doc) => doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
   );
 
+  // Create filtered list of reviewable documents for modal navigation
+  const reviewableDocuments = documents.filter((doc) => {
+    // Exclude auto-approved documents - they don't need review
+    if (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+      return false;
+    }
+    
+    const expense = expenseList.find(
+      (exp) => exp.id === doc.request_priority_id
+    );
+    if (!expense) return false;
+
+    const requirement = expense.requirements.find(
+      (req) => req.requirementID === doc.requirement_id
+    );
+    
+    return requirement !== undefined;
+  });
+
   // At the bottom of the dialog, after all required documents are reviewed:
   const requiredDocs = documents.filter((doc) => {
+    // Exclude auto-approved documents - they don't need review
+    if (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+      return false;
+    }
+    
     // Find the corresponding requirement to check if it's required
     const expense = expenseList.find(
       (exp) => exp.id === doc.request_priority_id
@@ -519,10 +551,16 @@ const LiquidationDetailsPage = () => {
 
   // Always show all expenses
   const handleOpenDoc = async (doc: Document) => {
+    // Don't open auto-approved documents in modal - nothing to review
+    if (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+      return;
+    }
+    
     setIsLoadingDoc(true);
     setError(null);
     setViewDoc(doc);
-    const docIndex = documents.findIndex((d) => d.id === doc.id);
+    // Use the filtered list for navigation index
+    const docIndex = reviewableDocuments.findIndex((d) => d.id === doc.id);
     setCurrentDocIndex(docIndex);
     setZoomLevel(1); // Reset zoom when opening new document
   };
@@ -796,7 +834,7 @@ const LiquidationDetailsPage = () => {
                 Review the document and take action.
               </DialogDescription>
             </DialogHeader>
-            {viewDoc && (
+            {viewDoc && !(viewDoc.is_approved === true && viewDoc.reviewer_comment?.includes("Auto-approved")) && (
               <div className="space-y-4">
                 {/* File preview */}
                 <div className="relative h-[70vh] bg-gray-50 rounded-lg border custom-scrollbar">
@@ -863,14 +901,20 @@ const LiquidationDetailsPage = () => {
                           >
                             Reset (100%)
                           </button>
-                          <a
-                            href={viewDoc?.document_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border"
-                          >
-                            Open in New Tab
-                          </a>
+                          {viewDoc?.document_url ? (
+                            <a
+                              href={viewDoc.document_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border"
+                            >
+                              Open in New Tab
+                            </a>
+                          ) : (
+                            <span className="px-2 py-1 text-xs bg-green-50 text-green-600 rounded border">
+                              Auto-approved
+                            </span>
+                          )}
                         </div>
                       </div>
                       
@@ -924,23 +968,33 @@ const LiquidationDetailsPage = () => {
                                   <span className="text-sm font-medium text-blue-800">Current Document</span>
                                 </div>
                                 <div className="flex-1 flex items-center justify-center">
-                                  <iframe
-                                    src={`${viewDoc?.document_url}#view=fitH`}
-                                    title="Current PDF Preview"
-                                    className="border-0 bg-white"
-                                    style={{
-                                      width: `${100 * zoomLevel}%`,
-                                      height: `${100 * zoomLevel}%`,
-                                      transformOrigin: "0 0",
-                                    }}
-                                    onLoad={() => setIsLoadingDoc(false)}
-                                    onError={() => {
-                                      setIsLoadingDoc(false);
-                                      setError(
-                                        new Error("Failed to load current PDF document")
-                                      );
-                                    }}
-                                  />
+                                  {viewDoc?.document_url ? (
+                                    <iframe
+                                      src={`${viewDoc.document_url}#view=fitH`}
+                                      title="Current PDF Preview"
+                                      className="border-0 bg-white"
+                                      style={{
+                                        width: `${100 * zoomLevel}%`,
+                                        height: `${100 * zoomLevel}%`,
+                                        transformOrigin: "0 0",
+                                      }}
+                                      onLoad={() => setIsLoadingDoc(false)}
+                                      onError={() => {
+                                        setIsLoadingDoc(false);
+                                        setError(
+                                          new Error("Failed to load current PDF document")
+                                        );
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="flex items-center justify-center h-full">
+                                      <div className="text-center">
+                                        <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2" />
+                                        <p className="text-gray-600 font-medium">Auto-approved</p>
+                                        <p className="text-sm text-gray-500">No document required</p>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -975,23 +1029,33 @@ const LiquidationDetailsPage = () => {
                           </div>
                         ) : (
                           <div className="flex items-center justify-center h-full w-full custom-scrollbar">
-                            <iframe
-                              src={`${selectedVersion?.document_url || viewDoc?.document_url}#view=fitH`}
-                              title="PDF Preview"
-                              className="border-0 bg-white"
-                              style={{
-                                width: `${100 * zoomLevel}%`,
-                                height: `${100 * zoomLevel}%`,
-                                transformOrigin: "0 0",
-                              }}
-                              onLoad={() => setIsLoadingDoc(false)}
-                              onError={() => {
-                                setIsLoadingDoc(false);
-                                setError(
-                                  new Error("Failed to load PDF document")
-                                );
-                              }}
-                            />
+                            {selectedVersion?.document_url || viewDoc?.document_url ? (
+                              <iframe
+                                src={`${selectedVersion?.document_url || viewDoc?.document_url}#view=fitH`}
+                                title="PDF Preview"
+                                className="border-0 bg-white"
+                                style={{
+                                  width: `${100 * zoomLevel}%`,
+                                  height: `${100 * zoomLevel}%`,
+                                  transformOrigin: "0 0",
+                                }}
+                                onLoad={() => setIsLoadingDoc(false)}
+                                onError={() => {
+                                  setIsLoadingDoc(false);
+                                  setError(
+                                    new Error("Failed to load PDF document")
+                                  );
+                                }}
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center h-full">
+                                <div className="text-center">
+                                  <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-2" />
+                                  <p className="text-gray-600 font-medium">Document Not Available</p>
+                                  <p className="text-sm text-gray-500">This document could not be loaded</p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1138,7 +1202,7 @@ const LiquidationDetailsPage = () => {
                         variant="outline"
                         disabled={currentDocIndex === 0}
                         onClick={() => {
-                          const prevDoc = documents[currentDocIndex - 1];
+                          const prevDoc = reviewableDocuments[currentDocIndex - 1];
                           setCurrentDocIndex(currentDocIndex - 1);
                           setViewDoc(prevDoc);
                           setIsLoadingDoc(true);
@@ -1147,13 +1211,13 @@ const LiquidationDetailsPage = () => {
                         Previous
                       </Button>
                       <div className="text-sm text-gray-500">
-                        {currentDocIndex + 1} of {documents.length}
+                        {currentDocIndex + 1} of {reviewableDocuments.length}
                       </div>
                       <Button
                         variant="outline"
-                        disabled={currentDocIndex === documents.length - 1}
+                        disabled={currentDocIndex === reviewableDocuments.length - 1}
                         onClick={() => {
-                          const nextDoc = documents[currentDocIndex + 1];
+                          const nextDoc = reviewableDocuments[currentDocIndex + 1];
                           setCurrentDocIndex(currentDocIndex + 1);
                           setViewDoc(nextDoc);
                           setIsLoadingDoc(true);
@@ -1389,6 +1453,11 @@ const LiquidationDetailsPage = () => {
                         })
                         // Filter documents based on hideApproved setting and version preference
                         .filter(({ doc }) => {
+                          // Hide auto-approved documents entirely - nothing to review
+                          if (doc?.is_approved === true && doc?.reviewer_comment?.includes("Auto-approved")) {
+                            return false;
+                          }
+                          
                           // For liquidators and accountants, when showOnlyWithVersions is true, only show documents with versions
                           if ((user?.role === "liquidator" || user?.role === "accountant") && showOnlyWithVersions && !hideApproved) {
                             return doc?.versions && doc.versions.length > 0;
@@ -1421,7 +1490,7 @@ const LiquidationDetailsPage = () => {
                                     Status:{" "}
                                     {doc?.is_approved === true ? (
                                       <span className="text-green-600">
-                                        Approved
+                                        {doc?.reviewer_comment?.includes("Auto-approved") ? "Auto-approved" : "Approved"}
                                       </span>
                                     ) : doc?.is_approved === false ? (
                                       <span className="text-red-600">
@@ -1432,6 +1501,12 @@ const LiquidationDetailsPage = () => {
                                         Pending
                                       </span>
                                     )}
+                                    {/* Auto-approved indicator */}
+                                    {doc?.reviewer_comment?.includes("Auto-approved") && (
+                                      <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                        Auto-approved
+                                      </span>
+                                    )}
                                     {/* Version indicator for liquidators and accountants */}
                                     {(user?.role === "liquidator" || user?.role === "accountant") && 
                                      doc?.versions && doc.versions.length > 0 && (
@@ -1439,7 +1514,7 @@ const LiquidationDetailsPage = () => {
                                         {doc.versions.length} Version{doc.versions.length > 1 ? 's' : ''}
                                       </span>
                                     )}
-                                    {doc?.reviewer_comment && (
+                                    {doc?.reviewer_comment && !doc?.reviewer_comment?.includes("Auto-approved") && (
                                       <span className="ml-2 text-red-500">
                                         {doc.reviewer_comment}
                                       </span>
@@ -1451,15 +1526,21 @@ const LiquidationDetailsPage = () => {
                             <div className="flex flex-col gap-1">
                               {doc ? (
                                 <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleOpenDoc(doc)}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                    View Current
-                                  </Button>
+                                  {doc.document_url ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleOpenDoc(doc)}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      View Current
+                                    </Button>
+                                  ) : (
+                                    <span className="text-xs text-green-600 font-medium px-2 py-1 bg-green-50 rounded">
+                                      Auto-approved
+                                    </span>
+                                  )}
                                   {doc.versions && doc.versions.length > 0 && (
                                     <span className="text-xs text-gray-500 text-center">
                                       {doc.versions.length} version{doc.versions.length > 1 ? 's' : ''} available

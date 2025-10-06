@@ -1,7 +1,8 @@
 from api.models import (
     User, School, Requirement, ListOfPriority, RequestManagement,
     RequestPriority, LiquidationManagement, LiquidationDocument,
-    Notification, SchoolDistrict, Backup, AuditLog, BudgetAllocation
+    Notification, SchoolDistrict, Backup, AuditLog, BudgetAllocation,
+    DocumentVersion
 )
 from .models import RequestManagement
 import io
@@ -189,9 +190,9 @@ def user_list(request):
         # School filter
         if school_filter:
             queryset = queryset.filter(
-                school__schoolName__icontains=school_filter)
-            queryset = queryset.filter(
-                school__schoolId__icontains=school_filter)
+                Q(school__schoolName__icontains=school_filter) |
+                Q(school__schoolId__icontains=school_filter)
+            )
 
         # Search filter
         if search_term:
@@ -206,6 +207,15 @@ def user_list(request):
                 # <-- Optionally add this too
                 Q(school__schoolId__icontains=search_term)
             )
+
+        # Date range filters
+        date_joined_after = request.query_params.get('date_joined_after', None)
+        date_joined_before = request.query_params.get('date_joined_before', None)
+        
+        if date_joined_after:
+            queryset = queryset.filter(date_joined__date__gte=date_joined_after)
+        if date_joined_before:
+            queryset = queryset.filter(date_joined__date__lte=date_joined_before)
 
         # Add ordering support
         if ordering:
@@ -1655,6 +1665,62 @@ class UserLiquidationsAPIView(generics.ListAPIView):
             return LiquidationManagement.objects.none()
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_urgent_liquidations(request):
+    """
+    Get liquidations that are urgent (≤15 days remaining) for the authenticated user.
+    Only accessible by school heads.
+    """
+    if request.user.role != "school_head":
+        return Response(
+            {"error": "Access denied. Only school heads can view urgent liquidations."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        # Get liquidations with ≤15 days remaining and status in ['draft', 'resubmit']
+        urgent_liquidations = LiquidationManagement.objects.filter(
+            request__user=request.user,
+            status__in=['draft', 'resubmit'],
+            remaining_days__lte=15,
+            remaining_days__isnull=False
+        ).select_related(
+            'request',
+            'request__user',
+            'request__user__school'
+        ).order_by('remaining_days', '-created_at')
+        
+        # Serialize the data
+        serializer = LiquidationManagementSerializer(urgent_liquidations, many=True, context={'request': request})
+        
+        # Add summary statistics
+        total_count = urgent_liquidations.count()
+        overdue_count = urgent_liquidations.filter(remaining_days__lte=0).count()
+        critical_count = urgent_liquidations.filter(remaining_days__gt=0, remaining_days__lte=5).count()
+        warning_count = urgent_liquidations.filter(remaining_days__gt=5, remaining_days__lte=15).count()
+        
+        response_data = {
+            'liquidations': serializer.data,
+            'summary': {
+                'total_urgent': total_count,
+                'overdue': overdue_count,
+                'critical': critical_count,
+                'warning': warning_count
+            },
+            'last_checked': timezone.now().isoformat()
+        }
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error fetching urgent liquidations for user {request.user.id}: {str(e)}")
+        return Response(
+            {"error": "Failed to fetch urgent liquidations. Please try again later."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 class UserRequestListAPIView(generics.ListAPIView):
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -1717,9 +1783,42 @@ def generate_request_id():
 class NotificationListAPIView(generics.ListAPIView):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # We'll handle pagination manually for better control
 
     def get_queryset(self):
         return Notification.objects.filter(receiver=self.request.user).order_by('-notification_date')
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        # Calculate pagination
+        total_count = queryset.count()
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+        
+        # Get paginated results
+        paginated_queryset = queryset[start_index:end_index]
+        
+        # Serialize the data
+        serializer = self.get_serializer(paginated_queryset, many=True)
+        
+        # Calculate pagination info
+        has_next = end_index < total_count
+        has_previous = page > 1
+        
+        return Response({
+            'results': serializer.data,
+            'count': total_count,
+            'next': f"?page={page + 1}&page_size={page_size}" if has_next else None,
+            'previous': f"?page={page - 1}&page_size={page_size}" if has_previous else None,
+            'current_page': page,
+            'page_size': page_size,
+            'total_pages': (total_count + page_size - 1) // page_size
+        })
 
 
 class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
@@ -1735,6 +1834,46 @@ class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
         notification.is_read = True
         notification.save()
         return Response({"status": "marked as read"})
+
+
+class MarkAllNotificationsAsReadAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        updated_count = Notification.objects.filter(
+            receiver=request.user,
+            is_read=False
+        ).update(is_read=True)
+        
+        return Response({
+            "detail": f"Marked {updated_count} notifications as read.",
+            "updated_count": updated_count
+        })
+
+
+class DeleteNotificationAPIView(generics.DestroyAPIView):
+    queryset = Notification.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        notification = self.get_object()
+        if notification.receiver != request.user:
+            return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
+        
+        notification.delete()
+        return Response({"detail": "Notification deleted."})
+
+
+class DeleteAllNotificationsAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        deleted_count, _ = Notification.objects.filter(receiver=request.user).delete()
+        
+        return Response({
+            "detail": f"Deleted {deleted_count} notifications.",
+            "deleted_count": deleted_count
+        })
 
 
 @api_view(['GET'])

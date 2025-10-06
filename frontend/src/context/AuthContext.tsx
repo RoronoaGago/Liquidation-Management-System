@@ -12,7 +12,7 @@ import axios from "axios";
 import { useNavigate } from "react-router";
 import { District } from "@/lib/types";
 import SecureStorage from "../lib/secureStorage";
-import { API_CONFIG, API_ENDPOINTS } from "../config/api";
+import { API_CONFIG, API_ENDPOINTS, JWT_CONFIG } from "../config/api";
 import { useInactivity } from "../hooks/useInactivity";
 import AutoLogoutModal from "../components/AutoLogoutModal";
 
@@ -240,20 +240,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate('/login');
   };
 
-  // Handle inactivity detection (15 minutes = 900000 ms)
+  // Handle inactivity detection (1 hour = 3600000 ms)
   const handleInactivity = () => {
+    console.log('🚨 Inactivity detected! isAuthenticated:', isAuthenticated);
     if (isAuthenticated) {
+      console.log('🚨 Showing inactivity logout modal');
       showAutoLogoutModal('inactivity');
       // Don't clear tokens immediately - let user decide when to logout
     }
   };
 
   // Use inactivity hook only when authenticated and not in setup flow
+  const inactivityEnabled = isAuthenticated && !setupFlowActive && !isLoading;
+  console.log('🔧 Inactivity hook enabled:', inactivityEnabled, {
+    isAuthenticated,
+    setupFlowActive,
+    isLoading,
+    timeout: JWT_CONFIG.INACTIVITY_TIMEOUT_MINUTES
+  });
+  
   useInactivity({
-    timeout: 15 * 60 * 1000, // 15 minutes in milliseconds
+    timeout: JWT_CONFIG.INACTIVITY_TIMEOUT_MINUTES * 60 * 1000, // Convert minutes to milliseconds
     onInactivity: handleInactivity,
-    events: ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'keydown'],
-    enabled: isAuthenticated && !setupFlowActive && !isLoading
+    events: ['mousedown', 'keypress', 'touchstart', 'click', 'keydown'], // Removed mousemove and scroll to reduce frequency
+    enabled: inactivityEnabled,
+    throttleMs: 10000 // 10 seconds throttle to prevent excessive resets
   });
 
   // Listen for logout events from axios interceptor
@@ -323,7 +334,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             SecureStorage.setTokens(
               response.data.access,
               response.data.refresh || refreshToken,
-              15 * 60 // 15 minutes (access token lifetime)
+              JWT_CONFIG.ACCESS_TOKEN_LIFETIME_MINUTES * 60 // Convert minutes to seconds
             );
             
             const userData = decodeToken(response.data.access);

@@ -30,6 +30,7 @@ import { DocumentTextIcon } from "@heroicons/react/outline";
 import { Skeleton } from "antd";
 import { useNavigate } from "react-router";
 import { formatCurrency } from "@/lib/helpers";
+import LiquidationCompletionModal from "@/components/LiquidationCompletionModal";
 
 interface Requirement {
   requirementID: number | string;
@@ -84,6 +85,29 @@ interface LiquidationRequest {
   refund: number;
   uploadedDocuments: UploadedDocument[];
   remaining_days: number | null;
+  // Approval information
+  reviewed_by_district?: {
+    first_name: string;
+    last_name: string;
+    position?: string;
+  } | null;
+  reviewed_at_district?: string | null;
+  reviewed_by_liquidator?: {
+    first_name: string;
+    last_name: string;
+    position?: string;
+  } | null;
+  reviewed_at_liquidator?: string | null;
+  reviewed_by_division?: {
+    first_name: string;
+    last_name: string;
+    position?: string;
+  } | null;
+  reviewed_at_division?: string | null;
+  date_districtApproved?: string | null;
+  date_liquidatorApproved?: string | null;
+  date_liquidated?: string | null;
+  rejection_comment?: string | null;
 }
 
 const LiquidationPage = () => {
@@ -97,6 +121,8 @@ const LiquidationPage = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [hasShownCompletionModal, setHasShownCompletionModal] = useState(false);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   // Fetch pending liquidation for the current user
@@ -147,6 +173,17 @@ const LiquidationPage = () => {
           refund: Number(data.refund) || 0,
           uploadedDocuments: data.documents || [],
           remaining_days: data.remaining_days ?? null,
+          // Approval information
+          reviewed_by_district: data.reviewed_by_district || null,
+          reviewed_at_district: data.reviewed_at_district || null,
+          reviewed_by_liquidator: data.reviewed_by_liquidator || null,
+          reviewed_at_liquidator: data.reviewed_at_liquidator || null,
+          reviewed_by_division: data.reviewed_by_division || null,
+          reviewed_at_division: data.reviewed_at_division || null,
+          date_districtApproved: data.date_districtApproved || null,
+          date_liquidatorApproved: data.date_liquidatorApproved || null,
+          date_liquidated: data.date_liquidated || null,
+          rejection_comment: data.rejection_comment || null,
         });
         console.log(request);
       } catch (err) {
@@ -160,6 +197,28 @@ const LiquidationPage = () => {
 
     fetchPendingLiquidation();
   }, []);
+
+  // Show completion modal when liquidation status becomes "liquidated"
+  // COMMENTED OUT FOR NOW - Uncomment to re-enable the completion modal
+  /*
+  useEffect(() => {
+    if (
+      request?.status === "liquidated" && 
+      !hasShownCompletionModal && 
+      !loading
+    ) {
+      // Check if we've already shown the modal for this liquidation in this session
+      const modalShownKey = `liquidation-modal-shown-${request.id}`;
+      const hasShownInSession = sessionStorage.getItem(modalShownKey);
+      
+      if (!hasShownInSession) {
+        setShowCompletionModal(true);
+        setHasShownCompletionModal(true);
+        sessionStorage.setItem(modalShownKey, 'true');
+      }
+    }
+  }, [request?.status, hasShownCompletionModal, loading, request?.id]);
+  */
 
   const toggleExpense = (expenseId: string) => {
     setExpandedExpense((prev) =>
@@ -1011,6 +1070,246 @@ const LiquidationPage = () => {
           </div>
         </div>
 
+        {/* Approval Progress Section - Only show for submitted liquidations */}
+        {(request.status !== "draft" && request.status !== "cancelled") && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-blue-500" />
+                Approval Progress
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Track the progress of your liquidation request through the approval process
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Approval Steps */}
+              <div className="space-y-6">
+                {/* District Approval Step */}
+                <div className={`flex items-start gap-4 p-4 rounded-lg border ${
+                  request.reviewed_by_district 
+                    ? "border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800" 
+                    : request.status === "resubmit" 
+                    ? "border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800"
+                    : "border-gray-200 bg-gray-50 dark:bg-gray-700/30 dark:border-gray-600"
+                }`}>
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    request.reviewed_by_district 
+                      ? "bg-green-500 text-white" 
+                      : request.status === "resubmit"
+                      ? "bg-red-500 text-white"
+                      : "bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                  }`}>
+                    {request.reviewed_by_district ? (
+                      <CheckCircle className="h-5 w-5" />
+                    ) : request.status === "resubmit" ? (
+                      <AlertCircle className="h-5 w-5" />
+                    ) : (
+                      <Clock className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      District Review
+                    </h4>
+                    {request.reviewed_by_district ? (
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p className="text-green-700 dark:text-green-300">
+                          <span className="font-medium">Approved by:</span>{" "}
+                          {request.reviewed_by_district.first_name} {request.reviewed_by_district.last_name}
+                          {request.reviewed_by_district.position && (
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {" "}({request.reviewed_by_district.position})
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-green-700 dark:text-green-300">
+                          <span className="font-medium">Approved on:</span>{" "}
+                          {request.date_districtApproved 
+                            ? new Date(request.date_districtApproved).toLocaleDateString()
+                            : request.reviewed_at_district 
+                            ? new Date(request.reviewed_at_district).toLocaleDateString()
+                            : "N/A"
+                          }
+                        </p>
+                      </div>
+                    ) : request.status === "resubmit" ? (
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p className="text-red-700 dark:text-red-300">
+                          <span className="font-medium">Status:</span> Needs Revision
+                        </p>
+                        {request.rejection_comment && (
+                          <p className="text-red-700 dark:text-red-300">
+                            <span className="font-medium">Comment:</span> {request.rejection_comment}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Pending district administrator review
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Liquidator Approval Step */}
+                <div className={`flex items-start gap-4 p-4 rounded-lg border ${
+                  request.reviewed_by_liquidator 
+                    ? "border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800" 
+                    : request.reviewed_by_district && !request.reviewed_by_liquidator
+                    ? "border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800"
+                    : "border-gray-200 bg-gray-50 dark:bg-gray-700/30 dark:border-gray-600"
+                }`}>
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    request.reviewed_by_liquidator 
+                      ? "bg-green-500 text-white" 
+                      : request.reviewed_by_district && !request.reviewed_by_liquidator
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                  }`}>
+                    {request.reviewed_by_liquidator ? (
+                      <CheckCircle className="h-5 w-5" />
+                    ) : request.reviewed_by_district && !request.reviewed_by_liquidator ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Clock className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      Liquidator Review
+                    </h4>
+                    {request.reviewed_by_liquidator ? (
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p className="text-green-700 dark:text-green-300">
+                          <span className="font-medium">Approved by:</span>{" "}
+                          {request.reviewed_by_liquidator.first_name} {request.reviewed_by_liquidator.last_name}
+                          {request.reviewed_by_liquidator.position && (
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {" "}({request.reviewed_by_liquidator.position})
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-green-700 dark:text-green-300">
+                          <span className="font-medium">Approved on:</span>{" "}
+                          {request.date_liquidatorApproved 
+                            ? new Date(request.date_liquidatorApproved).toLocaleDateString()
+                            : request.reviewed_at_liquidator 
+                            ? new Date(request.reviewed_at_liquidator).toLocaleDateString()
+                            : "N/A"
+                          }
+                        </p>
+                      </div>
+                    ) : request.reviewed_by_district && !request.reviewed_by_liquidator ? (
+                      <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                        Currently under liquidator review
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Waiting for district approval
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Division Approval Step */}
+                <div className={`flex items-start gap-4 p-4 rounded-lg border ${
+                  request.reviewed_by_division 
+                    ? "border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800" 
+                    : request.reviewed_by_liquidator && !request.reviewed_by_division
+                    ? "border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800"
+                    : "border-gray-200 bg-gray-50 dark:bg-gray-700/30 dark:border-gray-600"
+                }`}>
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    request.reviewed_by_division 
+                      ? "bg-green-500 text-white" 
+                      : request.reviewed_by_liquidator && !request.reviewed_by_division
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                  }`}>
+                    {request.reviewed_by_division ? (
+                      <CheckCircle className="h-5 w-5" />
+                    ) : request.reviewed_by_liquidator && !request.reviewed_by_division ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Clock className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      Division Final Review
+                    </h4>
+                    {request.reviewed_by_division ? (
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p className="text-green-700 dark:text-green-300">
+                          <span className="font-medium">Finalized by:</span>{" "}
+                          {request.reviewed_by_division.first_name} {request.reviewed_by_division.last_name}
+                          {request.reviewed_by_division.position && (
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {" "}({request.reviewed_by_division.position})
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-green-700 dark:text-green-300">
+                          <span className="font-medium">Finalized on:</span>{" "}
+                          {request.date_liquidated 
+                            ? new Date(request.date_liquidated).toLocaleDateString()
+                            : request.reviewed_at_division 
+                            ? new Date(request.reviewed_at_division).toLocaleDateString()
+                            : "N/A"
+                          }
+                        </p>
+                        <p className="text-green-700 dark:text-green-300 font-medium">
+                          🎉 Liquidation Complete!
+                        </p>
+                      </div>
+                    ) : request.reviewed_by_liquidator && !request.reviewed_by_division ? (
+                      <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                        Currently under division accountant review
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Waiting for liquidator approval
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Overall Status Summary */}
+              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      Current Status
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {request.status === "liquidated" 
+                        ? "Your liquidation has been successfully completed and finalized."
+                        : request.status === "resubmit"
+                        ? "Your liquidation requires revisions. Please address the feedback and resubmit."
+                        : "Your liquidation is currently being reviewed by the appropriate authorities."
+                      }
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      request.status === "liquidated" 
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                        : request.status === "resubmit"
+                        ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                        : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                    }`}>
+                      {statusLabels[request.status] || request.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Expenses List */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1559,6 +1858,34 @@ const LiquidationPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Completion Modal - COMMENTED OUT FOR NOW */}
+      {/* Uncomment the section below to re-enable the completion modal */}
+      {/*
+      {request && (
+        <LiquidationCompletionModal
+          visible={showCompletionModal}
+          onClose={() => setShowCompletionModal(false)}
+          liquidationData={{
+            id: request.id,
+            month: request.month,
+            totalAmount: request.totalAmount,
+            refund: request.refund,
+            date_liquidated: request.date_liquidated,
+            reviewed_by_division: request.reviewed_by_division,
+          }}
+          onViewHistory={() => {
+            setShowCompletionModal(false);
+            navigate("/requests-history");
+          }}
+          onDownloadReport={() => {
+            // You can implement download functionality here
+            toast.info("Download functionality will be implemented soon");
+            setShowCompletionModal(false);
+          }}
+        />
+      )}
+      */}
     </div>
   );
 };

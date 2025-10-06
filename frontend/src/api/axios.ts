@@ -1,6 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from "axios";
 import SecureStorage from "../lib/secureStorage";
-import { API_CONFIG, API_ENDPOINTS, HTTP_STATUS, ERROR_MESSAGES } from "../config/api";
+import { API_CONFIG, API_ENDPOINTS, HTTP_STATUS, ERROR_MESSAGES, JWT_CONFIG } from "../config/api";
 
 // Define your API response data types
 interface RefreshTokenResponse {
@@ -77,7 +77,7 @@ api.interceptors.response.use(
         SecureStorage.setTokens(
           response.data.access,
           response.data.refresh || refreshToken,
-          15 * 60 // 15 minutes (access token lifetime)
+          JWT_CONFIG.ACCESS_TOKEN_LIFETIME_MINUTES * 60 // Convert minutes to seconds
         );
 
         // Update authorization header
@@ -187,7 +187,7 @@ export const verifyOTP = async (email: string, otp: string) => {
       SecureStorage.setTokens(
         response.data.access,
         response.data.refresh || "",
-        15 * 60 // 15 minutes (access token lifetime)
+        JWT_CONFIG.ACCESS_TOKEN_LIFETIME_MINUTES * 60 // Convert minutes to seconds
       );
     }
     

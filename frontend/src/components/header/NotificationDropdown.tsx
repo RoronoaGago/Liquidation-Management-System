@@ -5,7 +5,8 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
-import { getNotifications, markAsRead } from "@/services/notificationService";
+import { getNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } from "@/services/notificationService";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { BellIcon } from "@heroicons/react/outline";
 
 interface Notification {
@@ -22,33 +23,116 @@ interface Notification {
   is_read: boolean;
 }
 
+interface NotificationResponse {
+  results: Notification[];
+  count: number;
+  next: string | null;
+  previous: string | null;
+  current_page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
   const [selectedNotification, setSelectedNotification] =
     useState<Notification | null>(null); // Modal state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // WebSocket integration
+  useWebSocket({
+    onNotification: (data) => {
+      console.log('New notification received via WebSocket:', data);
+      // Add new notification to the beginning of the list
+      if (data.notification) {
+        setNotifications(prev => [data.notification, ...prev]);
+        setHasUnread(true);
+        setTotalCount(prev => prev + 1);
+      }
+    },
+    onLiquidationReminder: (data) => {
+      console.log('Liquidation reminder received via WebSocket:', data);
+      // Handle liquidation reminder notifications
+      if (data.notification) {
+        const reminderNotification = {
+          id: `reminder_${data.notification.liquidation_id}_${Date.now()}`,
+          notification_title: `Liquidation Reminder: ${data.notification.days_left} days remaining`,
+          details: data.notification.message,
+          sender: {
+            id: 'system',
+            first_name: 'System',
+            last_name: 'Reminder',
+            profile_picture: undefined
+          },
+          notification_date: new Date().toISOString(),
+          is_read: false
+        };
+        
+        setNotifications(prev => [reminderNotification, ...prev]);
+        setHasUnread(true);
+        setTotalCount(prev => prev + 1);
+        
+        // Show browser notification if permission is granted
+        if (Notification.permission === 'granted') {
+          new Notification('Liquidation Reminder', {
+            body: data.notification.message,
+            icon: '/favicon.ico'
+          });
+        }
+      }
+    },
+    onConnected: () => {
+      console.log('WebSocket connected');
+      setWsConnected(true);
+    },
+    onDisconnected: () => {
+      console.log('WebSocket disconnected');
+      setWsConnected(false);
+    },
+    onError: (error) => {
+      console.error('WebSocket error:', error);
+      setWsConnected(false);
+    }
+  });
 
   useEffect(() => {
     if (user?.user_id) {
       fetchNotifications();
 
-      // Set up polling or consider using WebSockets for real-time updates
-      const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+      // Request browser notification permission
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+
+      // Use WebSocket for real-time updates, fallback to polling if WebSocket is not connected
+      const pollInterval = wsConnected ? 300000 : 60000; // 5 minutes if WS connected, 1 minute if not
+      const interval = setInterval(fetchNotifications, pollInterval);
       return () => clearInterval(interval);
     }
-  }, [user?.user_id]);
+  }, [user?.user_id, wsConnected]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (page: number = 1) => {
+    setLoading(true);
     try {
-      const data = await getNotifications(user?.user_id);
-      setNotifications(data);
-      setHasUnread(data.some((n: Notification) => !n.is_read));
+      const data: NotificationResponse = await getNotifications(page, 20);
+      setNotifications(data.results);
+      setHasUnread(data.results.some((n: Notification) => !n.is_read));
+      setCurrentPage(data.current_page);
+      setTotalPages(data.total_pages);
+      setTotalCount(data.count);
       console.log(data);
     } catch (error) {
       console.error("Failed to fetch notification:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -88,6 +172,46 @@ export default function NotificationDropdown() {
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead();
+      // Refresh notifications to reflect changes
+      await fetchNotifications(currentPage);
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId: string) => {
+    try {
+      await deleteNotification(notificationId);
+      // Remove from local state
+      const updatedNotifications = notifications.filter((n) => n.id !== notificationId);
+      setNotifications(updatedNotifications);
+      setHasUnread(updatedNotifications.some((n) => !n.is_read));
+      setTotalCount(totalCount - 1);
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+    }
+  };
+
+  const handleDeleteAllNotifications = async () => {
+    try {
+      await deleteAllNotifications();
+      setNotifications([]);
+      setHasUnread(false);
+      setTotalCount(0);
+      setCurrentPage(1);
+    } catch (error) {
+      console.error("Failed to delete all notifications:", error);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    fetchNotifications(page);
   };
 
   // Extracted navigation logic for modal action
@@ -208,6 +332,10 @@ export default function NotificationDropdown() {
             {notifications.filter((n) => !n.is_read).length}
           </span>
         )}
+        {/* WebSocket connection indicator */}
+        <span className={`absolute -bottom-1 -right-1 z-10 w-3 h-3 rounded-full border-2 border-white ${
+          wsConnected ? 'bg-green-500' : 'bg-gray-400'
+        }`} title={wsConnected ? 'Real-time connected' : 'Real-time disconnected'} />
         {/* Use BellIcon from icons */}
         <BellIcon className="fill-current" width={20} height={20} />
       </button>
@@ -218,27 +346,47 @@ export default function NotificationDropdown() {
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
           <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Notification
+            Notifications ({totalCount})
           </h5>
-          <button
-            onClick={closeDropdown}
-            className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            <svg
-              className="fill-current"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+          <div className="flex items-center gap-2">
+            {hasUnread && (
+              <button
+                onClick={handleMarkAllAsRead}
+                className="text-xs px-2 py-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                title="Mark all as read"
+              >
+                Mark all read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={handleDeleteAllNotifications}
+                className="text-xs px-2 py-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                title="Delete all notifications"
+              >
+                Clear all
+              </button>
+            )}
+            <button
+              onClick={closeDropdown}
+              className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M6.21967 7.28131C6.21967 6.98841 5.92678 6.65263 5.51256 6.65263C5.09835 6.65263 4.80546 6.98841 4.80546 7.28131L9.52413 12L4.80546 16.7186C4.80546 17.0115 5.09835 17.3473 5.51256 17.3473C5.92678 17.3473 6.21967 17.0115 6.21967 16.7186L10.9383 12L6.21967 7.28131Z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
+              <svg
+                className="fill-current"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M6.21967 7.28131C6.21967 6.98841 5.92678 6.65263 5.51256 6.65263C5.09835 6.65263 4.80546 6.98841 4.80546 7.28131L9.52413 12L4.80546 16.7186C4.80546 17.0115 5.09835 17.3473 5.51256 17.3473C5.92678 17.3473 6.21967 17.0115 6.21967 16.7186L10.9383 12L6.21967 7.28131Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
         <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
           {sortedNotifications.length > 0 ? (
@@ -274,7 +422,7 @@ export default function NotificationDropdown() {
                     <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
                   </span>
 
-                  <span className="block">
+                  <span className="block flex-1">
                     <span className="mb-1.5 block text-theme-sm text-gray-500 dark:text-gray-400">
                       <span className="font-medium text-gray-800 dark:text-white/90">
                         {notification.sender
@@ -289,19 +437,40 @@ export default function NotificationDropdown() {
                         {notification.details}
                       </span>
                     )}
-                    <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                      <span>{formatDate(notification.notification_date)}</span>
-                    </span>
+                    
                   </span>
                 </DropdownItem>
               </li>
             ))
           ) : (
             <li className="flex items-center justify-center p-4 text-gray-500">
-              No notifications available
+              {loading ? "Loading..." : "No notifications available"}
             </li>
           )}
         </ul>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100 dark:border-gray-700">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || loading}
+              className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-300">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages || loading}
+              className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </Dropdown>
       {/* Notification Detail Modal */}
       {selectedNotification && (

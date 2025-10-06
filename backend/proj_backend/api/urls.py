@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, generate_demand_letter, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, generate_demand_letter, initiate_backup, initiate_restore, list_backups, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
 from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
 from .password_reset_views import request_password_reset_otp, verify_password_reset_otp, reset_password_with_token
 
@@ -99,10 +99,18 @@ urlpatterns = [
          name='user-requests'),
     path('liquidation/', views.UserLiquidationsAPIView.as_view(),
          name='liquidation'),
+    path('urgent-liquidations/', views.get_urgent_liquidations,
+         name='urgent-liquidations'),
     path('notifications/', views.NotificationListAPIView.as_view(),
          name='notification-list'),
     path('notifications/<int:pk>/read/',
          views.MarkNotificationAsReadAPIView.as_view(), name='mark-notification-read'),
+    path('notifications/mark-all-read/',
+         views.MarkAllNotificationsAsReadAPIView.as_view(), name='mark-all-notifications-read'),
+    path('notifications/<int:pk>/',
+         views.DeleteNotificationAPIView.as_view(), name='delete-notification'),
+    path('notifications/delete-all/',
+         views.DeleteAllNotificationsAPIView.as_view(), name='delete-all-notifications'),
     path("users/me/", views.user_me, name="user-me"),
     path('division-signatories/', views.division_signatories,
          name='division-signatories'),
@@ -124,7 +132,7 @@ urlpatterns = [
     # Report URLs
     path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
          name='unliquidated-schools-report'),
-    path('reports/liquidation/', liquidation_report,
+    path('reports/liquidation/', views.LiquidationReportView.as_view(),
          name='liquidation-report'),
     path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
     path('liquidations/<str:LiquidationID>/generate-report/',
