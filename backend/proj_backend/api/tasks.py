@@ -38,15 +38,17 @@ def send_liquidation_reminder(liquidation_id, days_left):
         liquidation = LiquidationManagement.objects.get(pk=liquidation_id)
         if liquidation.status != 'liquidated':
             user = liquidation.request.user
-            deadline = liquidation.liquidation_deadline
-            context = {
-                'recipient_name': user.get_full_name(),
-                'request_id': liquidation.request.request_id,
-                'days_left': days_left,
-                'deadline': deadline,
-                'now': timezone.now(),
-                'contact_email': settings.DEFAULT_FROM_EMAIL,
-            }
+            deadline = liquidation.liquidation_deadline 
+            days_left = (deadline - timezone.now().date()).days
+            if days_left in [15,5,1]:
+                context = {
+                    'recipient_name': user.get_full_name(),
+                    'request_id': liquidation.request.request_id,
+                    'days_left': days_left,
+                    'deadline': deadline,
+                    'now': timezone.now(),
+                    'contact_email': settings.DEFAULT_FROM_EMAIL,
+                }
             html_message = render_to_string(
                 'emails/liquidation_reminder.html',
                 context
