@@ -7,7 +7,6 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import {
   UploadIcon,
-  DownloadIcon,
   ChevronDown,
   ChevronUp,
   CheckCircle,
@@ -18,11 +17,16 @@ import {
   FileText,
   XCircle,
   RefreshCw,
+  Eye,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
 import api from "@/api/axios";
@@ -86,6 +90,20 @@ interface LiquidationRequest {
   remaining_days: number | null;
 }
 
+// Error Boundary for Document Viewer
+function ErrorFallback() {
+  return (
+    <div className="text-center py-8 space-y-2">
+      <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
+      <h3 className="text-lg font-medium text-red-600">Failed to load PDF</h3>
+      <p className="text-gray-600">
+        The document could not be loaded. Please try opening it in a new tab or
+        contact support if the problem persists.
+      </p>
+    </div>
+  );
+}
+
 const LiquidationPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -98,6 +116,15 @@ const LiquidationPage = () => {
   const [uploading, setUploading] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  
+  // PDF Preview states
+  const [viewDoc, setViewDoc] = useState<UploadedDocument | null>(null);
+  const [isLoadingDoc, setIsLoadingDoc] = useState(false);
+  const [currentDocIndex, setCurrentDocIndex] = useState(0);
+  const [error, setError] = useState<Error | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isRemovingDoc, setIsRemovingDoc] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   // Fetch pending liquidation for the current user
   useEffect(() => {
@@ -346,6 +373,52 @@ const LiquidationPage = () => {
   const triggerAdditionalFileInput = (expenseId: string, requirementID: string) => {
     const key = `${expenseId}-${requirementID}-additional`;
     fileInputRefs.current[key]?.click();
+  };
+
+  // PDF Preview functions
+  const handleOpenDoc = async (doc: UploadedDocument) => {
+    setIsLoadingDoc(true);
+    setError(null);
+    setViewDoc(doc);
+    
+    // Find the index of the current document in the uploaded documents list
+    const docIndex = request?.uploadedDocuments.findIndex((d) => d.id === doc.id) || 0;
+    setCurrentDocIndex(docIndex);
+    setZoomLevel(1); // Reset zoom when opening new document
+  };
+
+  const getUploadedDocumentsList = () => {
+    if (!request) return [];
+    return request.uploadedDocuments.filter(doc => doc.document_url);
+  };
+
+  const handleRemoveDocument = async (doc: UploadedDocument) => {
+    if (!request) return;
+    
+    setIsRemovingDoc(true);
+    try {
+      await api.delete(
+        `/liquidations/${request.liquidationID}/documents/${doc.id}/`
+      );
+
+      // Refresh data
+      const res = await api.get("/liquidation/");
+      const data = Array.isArray(res.data) ? res.data[0] : null;
+      if (data) {
+        setRequest((prev) =>
+          prev ? { ...prev, uploadedDocuments: data.documents || [] } : prev
+        );
+      }
+      
+      // Close the preview dialog
+      setViewDoc(null);
+      toast.success("Document removed successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove document. Please try again.");
+    } finally {
+      setIsRemovingDoc(false);
+    }
   };
 
   const isSubmitDisabled =
@@ -1361,55 +1434,15 @@ const LiquidationPage = () => {
                                     </>
                                   )}
                                   
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      removeFile(
-                                        String(expense.id),
-                                        String(req.requirementID)
-                                      )
-                                    }
-                                    disabled={
-                                      request.status !== "draft" &&
-                                      request.status !== "resubmit"
-                                    }
-                                  >
-                                    Remove Original
-                                  </Button>
                                   
-                                  {/* Remove reuploaded file button for rejected documents with resubmissions */}
-                                  {uploadedDoc?.is_approved === false && uploadedDoc?.is_resubmission && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        removeFile(
-                                          String(expense.id),
-                                          String(req.requirementID)
-                                        )
-                                      }
-                                      disabled={
-                                        request.status !== "draft" &&
-                                        request.status !== "resubmit"
-                                      }
-                                    >
-                                      Remove Revised
-                                    </Button>
-                                  )}
                                   
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    startIcon={
-                                      <DownloadIcon className="h-4 w-4" />
-                                    }
+                                    startIcon={<Eye className="h-4 w-4" />}
                                     onClick={() => {
                                       if (uploadedDoc?.document_url) {
-                                        window.open(
-                                          uploadedDoc.document_url,
-                                          "_blank"
-                                        );
+                                        handleOpenDoc(uploadedDoc);
                                       } else {
                                         toast.info(
                                           `No file available for ${req.requirementTitle}`
@@ -1417,7 +1450,7 @@ const LiquidationPage = () => {
                                       }
                                     }}
                                   >
-                                    View
+                                    Preview
                                   </Button>
                                 </div>
                               </div>
@@ -1514,6 +1547,247 @@ const LiquidationPage = () => {
           </div>
         </div>
       </div>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
+        <DialogContent className="w-full max-w-2xl sm:max-w-3xl md:max-w-4xl xl:max-w-5xl h-[90vh] overflow-y-auto custom-scrollbar">
+          <DialogHeader>
+            <DialogTitle>
+              {viewDoc && (() => {
+                const expense = request?.expenses.find(
+                  (e) => String(e.id) === String(viewDoc.request_priority_id)
+                );
+                const requirement = expense?.requirements.find(
+                  (r) => String(r.requirementID) === String(viewDoc.requirement_id)
+                );
+                return requirement?.requirementTitle || "Document Preview";
+              })()}
+            </DialogTitle>
+            <DialogDescription>
+              Preview and manage your uploaded document.
+            </DialogDescription>
+          </DialogHeader>
+          {viewDoc && (
+            <div className="space-y-4">
+              {/* File preview */}
+              <div className="relative h-[60vh] bg-gray-50 rounded-lg border custom-scrollbar">
+                {isLoadingDoc && (
+                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    <span className="ml-2">Loading PDF...</span>
+                  </div>
+                )}
+
+                {error ? (
+                  <ErrorFallback />
+                ) : (
+                  <div className="h-full flex flex-col custom-scrollbar">
+                    <div className="p-2 bg-gray-100 border-b flex justify-between items-center">
+                      <div className="flex gap-2">
+                        {/* Document status indicator */}
+                        {viewDoc?.is_approved === false && (
+                          <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded border">
+                            Rejected
+                          </span>
+                        )}
+                        {viewDoc?.is_resubmission && (
+                          <span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded border">
+                            Resubmission #{viewDoc.resubmission_count}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() =>
+                            setZoomLevel((z) => Math.min(2, z + 0.1))
+                          }
+                          className="px-2 py-1 text-xs bg-white rounded border"
+                          disabled={zoomLevel >= 2}
+                        >
+                          Zoom In (+)
+                        </button>
+                        <button
+                          onClick={() =>
+                            setZoomLevel((z) => Math.max(0.5, z - 0.1))
+                          }
+                          className="px-2 py-1 text-xs bg-white rounded border"
+                          disabled={zoomLevel <= 0.5}
+                        >
+                          Zoom Out (-)
+                        </button>
+                        <button
+                          onClick={() => setZoomLevel(1)}
+                          className="px-2 py-1 text-xs bg-white rounded border"
+                        >
+                          Reset (100%)
+                        </button>
+                        <a
+                          href={viewDoc?.document_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border"
+                        >
+                          Open in New Tab
+                        </a>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-auto custom-scrollbar">
+                      <div className="flex items-center justify-center h-full w-full custom-scrollbar">
+                        <iframe
+                          src={`${viewDoc?.document_url}#view=fitH&toolbar=0&navpanes=0&scrollbar=1`}
+                          title="PDF Preview"
+                          className="border-0 bg-white"
+                          style={{
+                            width: `${100 * zoomLevel}%`,
+                            height: `${100 * zoomLevel}%`,
+                            transformOrigin: "0 0",
+                          }}
+                          onLoad={() => setIsLoadingDoc(false)}
+                          onError={() => {
+                            setIsLoadingDoc(false);
+                            setError(
+                              new Error("Failed to load PDF document")
+                            );
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Document info and actions */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      viewDoc?.is_approved === true
+                        ? "bg-green-100 text-green-800"
+                        : viewDoc?.is_approved === false
+                        ? "bg-red-100 text-red-800"
+                        : "bg-yellow-100 text-yellow-800"
+                    }`}
+                  >
+                    {viewDoc?.is_approved === true
+                      ? "Approved"
+                      : viewDoc?.is_approved === false
+                      ? "Rejected"
+                      : "Pending Review"}
+                  </span>
+                  {viewDoc?.uploaded_at && (
+                    <span className="text-xs text-gray-500">
+                      Uploaded:{" "}
+                      {new Date(viewDoc.uploaded_at).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex gap-2 mt-4 justify-between">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      disabled={isRemovingDoc}
+                      startIcon={
+                        isRemovingDoc ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-5 w-5" />
+                        )
+                      }
+                      onClick={() => setShowRemoveConfirm(true)}
+                    >
+                      {isRemovingDoc ? "Removing..." : "Remove"}
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="outline"
+                      disabled={currentDocIndex === 0}
+                      onClick={() => {
+                        const uploadedDocs = getUploadedDocumentsList();
+                        const prevDoc = uploadedDocs[currentDocIndex - 1];
+                        setCurrentDocIndex(currentDocIndex - 1);
+                        setViewDoc(prevDoc);
+                        setIsLoadingDoc(true);
+                      }}
+                    >
+                      Previous
+                    </Button>
+                    <div className="text-sm text-gray-500">
+                      {currentDocIndex + 1} of {getUploadedDocumentsList().length}
+                    </div>
+                    <Button
+                      variant="outline"
+                      disabled={currentDocIndex === getUploadedDocumentsList().length - 1}
+                      onClick={() => {
+                        const uploadedDocs = getUploadedDocumentsList();
+                        const nextDoc = uploadedDocs[currentDocIndex + 1];
+                        setCurrentDocIndex(currentDocIndex + 1);
+                        setViewDoc(nextDoc);
+                        setIsLoadingDoc(true);
+                      }}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rejection reason display */}
+              {viewDoc?.is_approved === false && viewDoc?.reviewer_comment && (
+                <div className="mt-4 space-y-2">
+                  <h4 className="text-sm font-medium">Rejection Reason</h4>
+                  <div className="bg-red-50 p-3 rounded text-sm">
+                    {viewDoc.reviewer_comment}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Confirmation Dialog */}
+      <Dialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Document Removal</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove this document? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowRemoveConfirm(false)}
+              disabled={isRemovingDoc}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (viewDoc) {
+                  await handleRemoveDocument(viewDoc);
+                  setShowRemoveConfirm(false);
+                }
+              }}
+              disabled={isRemovingDoc}
+              startIcon={
+                isRemovingDoc ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-5 w-5" />
+                )
+              }
+            >
+              {isRemovingDoc ? "Removing..." : "Confirm Removal"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
