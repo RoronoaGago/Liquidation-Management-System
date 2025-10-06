@@ -128,6 +128,7 @@ const LiquidationPage = () => {
   const [showValidationDialog, setShowValidationDialog] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
   const [validationType, setValidationType] = useState<"missing" | "zero">("missing");
+  const [showApprovedDocuments, setShowApprovedDocuments] = useState(false);
 
   // Fetch pending liquidation for the current user
   useEffect(() => {
@@ -222,6 +223,28 @@ const LiquidationPage = () => {
     if (!request) return undefined;
     return uploadedDocMap[`${expenseId}-${requirementID}`];
   };
+
+  // Filter documents based on approval status and toggle state
+  const getFilteredUploadedDocument = (
+    expenseId: string | number,
+    requirementID: string | number
+  ) => {
+    const doc = getUploadedDocument(expenseId, requirementID);
+    if (!doc) return undefined;
+    
+    // If status is resubmit and we're not showing approved documents, only show rejected ones
+    if (request?.status === "resubmit" && !showApprovedDocuments) {
+      return doc.is_approved === false ? doc : undefined;
+    }
+    
+    return doc;
+  };
+
+  // Check if there are any approved documents
+  const hasApprovedDocuments = useMemo(() => {
+    if (!request || request.status !== "resubmit") return false;
+    return request.uploadedDocuments.some(doc => doc.is_approved === true);
+  }, [request]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -648,6 +671,11 @@ const LiquidationPage = () => {
           : prev
       );
     }
+    
+    // Reset the approved documents toggle when status changes
+    if (request?.status !== "resubmit") {
+      setShowApprovedDocuments(false);
+    }
   }, [request?.status]);
 
   if (loading) {
@@ -843,7 +871,9 @@ const LiquidationPage = () => {
                     doc.is_approved === false
                 ).length === 0 && (
                   <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-                    No specific feedback provided by reviewer.
+                    {request.status === "resubmit" && !showApprovedDocuments && hasApprovedDocuments
+                      ? "No rejected documents to review. Click 'Show Approved Documents' to view all documents."
+                      : "No specific feedback provided by reviewer."}
                   </div>
                 )}
               </div>
@@ -1057,7 +1087,7 @@ const LiquidationPage = () => {
                     setIsConfirmDialogOpen(true); // Only open if validation passes
                   }}
                 >
-                  Submit Liquidation
+                  {request.status === "resubmit" ? "Resubmit Liquidation" : "Submit Liquidation"}
                 </Button>
                 
                 {/* Disabled Button Helper Text */}
@@ -1065,8 +1095,12 @@ const LiquidationPage = () => {
                   <div className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
                     <AlertCircle className="h-4 w-4" />
                     <span>
-                      {uploadedRequired < totalRequired 
-                        ? `Please upload all required documents (${uploadedRequired}/${totalRequired} uploaded)`
+                      {request.status === "resubmit" 
+                        ? "Please check rejected documents and upload new files to address reviewer feedback"
+                        : request.status === "draft"
+                        ? uploadedRequired < totalRequired 
+                          ? `Please upload all required documents (${uploadedRequired}/${totalRequired} uploaded)`
+                          : "Please complete all required fields before submitting"
                         : "Please complete all required fields before submitting"
                       }
                     </span>
@@ -1076,7 +1110,7 @@ const LiquidationPage = () => {
                 <DialogContent className="max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-xl border border-gray-200 dark:border-gray-700">
                   <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Confirm Liquidation Submission
+                      {request.status === "resubmit" ? "Confirm Liquidation Resubmission" : "Confirm Liquidation Submission"}
                     </h3>
                   </DialogHeader>
 
@@ -1157,7 +1191,7 @@ const LiquidationPage = () => {
                       loading={isSubmitting}
                       onClick={handleSubmit}
                     >
-                      Confirm & Submit
+                      {request.status === "resubmit" ? "Confirm & Resubmit" : "Confirm & Submit"}
                     </Button>
                   </div>
                 </DialogContent>
@@ -1168,16 +1202,28 @@ const LiquidationPage = () => {
 
         {/* Expenses List */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Expenses to Liquidate
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Expenses to Liquidate
+            </h3>
+            {request.status === "resubmit" && hasApprovedDocuments && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowApprovedDocuments(!showApprovedDocuments)}
+                className="text-xs"
+              >
+                {showApprovedDocuments ? "Hide Approved Documents" : "Show Approved Documents"}
+              </Button>
+            )}
+          </div>
 
           {request.expenses.map((expense) => {
             const pendingReqs = expense.requirements.filter(
               (req) => !getUploadedDocument(expense.id, req.requirementID)
             );
             const uploadedReqs = expense.requirements.filter((req) =>
-              getUploadedDocument(expense.id, req.requirementID)
+              getFilteredUploadedDocument(expense.id, req.requirementID)
             );
 
             return (
@@ -1408,9 +1454,9 @@ const LiquidationPage = () => {
                           ))}
 
                         {/* Uploaded Requirements */}
-                        {uploadedReqs.length > 0 &&
+                        {uploadedReqs.length > 0 ? (
                           uploadedReqs.map((req) => {
-                            const uploadedDoc = getUploadedDocument(
+                            const uploadedDoc = getFilteredUploadedDocument(
                               expense.id,
                               req.requirementID
                             );
@@ -1563,7 +1609,16 @@ const LiquidationPage = () => {
                                 </div>
                               </div>
                             );
-                          })}
+                          })
+                        ) : (
+                          request.status === "resubmit" && !showApprovedDocuments && hasApprovedDocuments && (
+                            <div className="p-4 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                              <p className="text-sm">
+                                No rejected documents for this expense. Click "Show Approved Documents" to view all documents.
+                              </p>
+                            </div>
+                          )
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1587,7 +1642,7 @@ const LiquidationPage = () => {
                 (req) => !getUploadedDocument(expense.id, req.requirementID)
               );
               const uploadedReqs = expense.requirements.filter((req) =>
-                getUploadedDocument(expense.id, req.requirementID)
+                getFilteredUploadedDocument(expense.id, req.requirementID)
               );
 
               return (
@@ -1613,9 +1668,9 @@ const LiquidationPage = () => {
                       ))}
 
                     {/* Uploaded Requirements */}
-                    {uploadedReqs.length > 0 &&
+                    {uploadedReqs.length > 0 ? (
                       uploadedReqs.map((req, idx) => {
-                        const doc = getUploadedDocument(
+                        const doc = getFilteredUploadedDocument(
                           expense.id,
                           req.requirementID
                         );
@@ -1647,7 +1702,14 @@ const LiquidationPage = () => {
                             )}
                           </li>
                         );
-                      })}
+                      })
+                    ) : (
+                      request.status === "resubmit" && !showApprovedDocuments && hasApprovedDocuments && (
+                        <li className="text-sm text-gray-500 dark:text-gray-400 italic">
+                          No rejected documents for this expense. Click "Show Approved Documents" to view all documents.
+                        </li>
+                      )
+                    )}
                   </ul>
                 </div>
               );
@@ -1795,7 +1857,7 @@ const LiquidationPage = () => {
                   <div className="flex gap-2">
                     <Button
                       variant="destructive"
-                      disabled={isRemovingDoc || (request.status !== "draft" && request.status !== "resubmit")}
+                      disabled={isRemovingDoc || request.status !== "draft"}
                       startIcon={
                         isRemovingDoc ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
@@ -1804,14 +1866,14 @@ const LiquidationPage = () => {
                         )
                       }
                       onClick={() => {
-                        if (request.status === "draft" || request.status === "resubmit") {
+                        if (request.status === "draft") {
                           setShowRemoveConfirm(true);
                         }
                       }}
                     >
                       {isRemovingDoc ? "Removing..." : "Remove"}
                     </Button>
-                    {(request.status !== "draft" && request.status !== "resubmit") && (
+                    {request.status !== "draft" && (
                       <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
                         <AlertCircle className="h-3 w-3 mr-1" />
                         Cannot remove after submission

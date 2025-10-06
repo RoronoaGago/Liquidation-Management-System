@@ -889,6 +889,15 @@ const LiquidationDetailsPage = () => {
                               Resubmission #{viewDoc.resubmission_count}
                             </span>
                           )}
+                          {/* Version comparison button */}
+                          {viewDoc?.versions && viewDoc.versions.length > 0 && (
+                            <button
+                              onClick={() => setShowVersionComparison(!showVersionComparison)}
+                              className="px-2 py-1 text-xs bg-purple-50 text-purple-600 rounded border"
+                            >
+                              {showVersionComparison ? "Hide Versions" : "Show Versions"}
+                            </button>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <button
@@ -925,6 +934,58 @@ const LiquidationDetailsPage = () => {
                           </a>
                         </div>
                       </div>
+                      
+                      {/* Version comparison panel - moved to top */}
+                      {showVersionComparison && viewDoc?.versions && viewDoc.versions.length > 0 && (
+                        <div className="p-3 bg-gray-50 border-b">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium">Document Versions</h4>
+                            {/* Comparison mode toggle */}
+                            {selectedVersion && (
+                              <button
+                                onClick={() => setComparisonMode(comparisonMode === 'single' ? 'side-by-side' : 'single')}
+                                className="px-2 py-1 text-xs bg-green-50 text-green-600 rounded border"
+                              >
+                                {comparisonMode === 'single' ? 'Side-by-Side' : 'Single View'}
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => setSelectedVersion(null)}
+                              className={`px-3 py-1 text-xs rounded border ${
+                                !selectedVersion
+                                  ? "bg-green-100 text-green-800 border-green-300"
+                                  : "bg-white text-gray-700 border-gray-300"
+                              }`}
+                            >
+                              Current Document
+                              <div className="text-xs text-gray-500">
+                                {new Date(viewDoc.uploaded_at).toLocaleDateString()}
+                              </div>
+                            </button>
+                            {viewDoc.versions.map((version) => (
+                              <button
+                                key={version.id}
+                                onClick={() => setSelectedVersion(version)}
+                                className={`px-3 py-1 text-xs rounded border ${
+                                  selectedVersion?.id === version.id
+                                    ? "bg-blue-100 text-blue-800 border-blue-300"
+                                    : "bg-white text-gray-700 border-gray-300"
+                                }`}
+                              >
+                                Version {version.version_number} (Rejected)
+                                {version.reviewed_at && (
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(version.reviewed_at).toLocaleDateString()}
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                          
+                        </div>
+                      )}
                       
                       <div className="flex-1 overflow-auto custom-scrollbar">
                         {comparisonMode === 'side-by-side' && selectedVersion ? (
@@ -1037,76 +1098,33 @@ const LiquidationDetailsPage = () => {
                     )}
                   </div>
 
-                  {/* Version comparison controls */}
-                  <div className="mb-4 space-y-3">
-                    <div className="flex gap-2 flex-wrap">
-                      {/* Version comparison button */}
-                      {viewDoc?.versions && viewDoc.versions.length > 0 && (
-                        <button
-                          onClick={() => setShowVersionComparison(!showVersionComparison)}
-                          className="px-2 py-1 text-xs bg-purple-50 text-purple-600 rounded border"
-                        >
-                          {showVersionComparison ? "Hide Versions" : "Show Versions"}
-                        </button>
-                      )}
-                      {/* Comparison mode toggle */}
-                      {showVersionComparison && selectedVersion && (
-                        <button
-                          onClick={() => setComparisonMode(comparisonMode === 'single' ? 'side-by-side' : 'single')}
-                          className="px-2 py-1 text-xs bg-green-50 text-green-600 rounded border"
-                        >
-                          {comparisonMode === 'single' ? 'Side-by-Side' : 'Single View'}
-                        </button>
-                      )}
-                      {/* Resubmission indicator */}
-                      {viewDoc?.is_resubmission && (
-                        <span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded border">
-                          Resubmission #{viewDoc.resubmission_count}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Version comparison panel */}
-                    {showVersionComparison && viewDoc?.versions && viewDoc.versions.length > 0 && (
-                      <div className="p-3 bg-gray-50 rounded border">
-                        <h4 className="text-sm font-medium mb-2">Document Versions</h4>
-                        <div className="flex gap-2 flex-wrap">
-                          <button
-                            onClick={() => setSelectedVersion(null)}
-                            className={`px-3 py-1 text-xs rounded border ${
-                              !selectedVersion
-                                ? "bg-green-100 text-green-800 border-green-300"
-                                : "bg-white text-gray-700 border-gray-300"
-                            }`}
-                          >
-                            Current Document
-                            <div className="text-xs text-gray-500">
-                              {new Date(viewDoc.uploaded_at).toLocaleDateString()}
-                            </div>
-                          </button>
-                          {viewDoc.versions.map((version) => (
-                            <button
-                              key={version.id}
-                              onClick={() => setSelectedVersion(version)}
-                              className={`px-3 py-1 text-xs rounded border ${
-                                selectedVersion?.id === version.id
-                                  ? "bg-blue-100 text-blue-800 border-blue-300"
-                                  : "bg-white text-gray-700 border-gray-300"
-                              }`}
-                            >
-                              Version {version.version_number} (Rejected)
-                              {version.reviewed_at && (
-                                <div className="text-xs text-gray-500">
-                                  {new Date(version.reviewed_at).toLocaleDateString()}
-                                </div>
-                              )}
-                            </button>
-                          ))}
+                  {/* Version Information Section - positioned above action buttons */}
+                  {selectedVersion && (
+                    <div className="mt-4 p-3 bg-red-50 rounded border">
+                      <h5 className="text-sm font-medium mb-2">Version {selectedVersion.version_number} Details</h5>
+                      <div className="text-sm space-y-1">
+                        <div>
+                          <span className="font-medium">Status:</span> Rejected
                         </div>
+                        {selectedVersion.reviewed_by && (
+                          <div>
+                            <span className="font-medium">Reviewed by:</span> {selectedVersion.reviewed_by.first_name} {selectedVersion.reviewed_by.last_name}
+                          </div>
+                        )}
+                        {selectedVersion.reviewed_at && (
+                          <div>
+                            <span className="font-medium">Reviewed at:</span> {new Date(selectedVersion.reviewed_at).toLocaleString()}
+                          </div>
+                        )}
+                        {selectedVersion.reviewer_comment && (
+                          <div>
+                            <span className="font-medium">Comment:</span> {selectedVersion.reviewer_comment}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                  </div>
                   <div className="flex gap-2 mt-4 justify-between">
                     <div className="flex gap-2">
                       {/* Only show approve/reject for district admin, hide for liquidator and accountant */}
@@ -1333,35 +1351,6 @@ const LiquidationDetailsPage = () => {
                   </div>
                 )}
 
-                {/* Version Information Section */}
-                {selectedVersion && (
-                  <div className="mt-4 space-y-2">
-                    <h4 className="text-sm font-medium">Version {selectedVersion.version_number} Details</h4>
-                    <div className="bg-red-50 p-3 rounded text-sm space-y-2">
-                      <div>
-                        <span className="font-medium">Status:</span> Rejected
-                      </div>
-                      <div>
-                        <span className="font-medium">Uploaded:</span> {new Date(selectedVersion.uploaded_at).toLocaleString()}
-                      </div>
-                      {selectedVersion.reviewed_by && (
-                        <div>
-                          <span className="font-medium">Reviewed by:</span> {selectedVersion.reviewed_by.first_name} {selectedVersion.reviewed_by.last_name}
-                        </div>
-                      )}
-                      {selectedVersion.reviewed_at && (
-                        <div>
-                          <span className="font-medium">Reviewed at:</span> {new Date(selectedVersion.reviewed_at).toLocaleString()}
-                        </div>
-                      )}
-                      {selectedVersion.reviewer_comment && (
-                        <div>
-                          <span className="font-medium">Comment:</span> {selectedVersion.reviewer_comment}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </DialogContent>
