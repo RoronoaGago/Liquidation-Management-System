@@ -1,6 +1,14 @@
 import os
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "proj_backend.settings") # or your actual settings module
+import sys
 import django
+from pathlib import Path
+
+# Add the project root to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+# Set up Django
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "proj_backend.settings")
 django.setup()
 
 from proj_backend.api.pdf_utils import generate_demand_letter_pdf

@@ -18,7 +18,6 @@ import { toast } from "react-toastify";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import {
-  EyeIcon,
   ChevronUp,
   ChevronDown,
   ChevronLeft,
@@ -30,7 +29,6 @@ import {
   Loader2,
   Archive,
   ArchiveRestore,
-  EyeClosedIcon,
   User as UserIcon,
   Filter,
   Loader2Icon,
@@ -38,7 +36,6 @@ import {
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
-import { CalenderIcon } from "@/icons";
 import {
   District,
   FilterOptions,
@@ -52,14 +49,10 @@ import axios from "axios";
 import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
 import {
-  calculateAge,
   formatDateTime,
   getAvatarColor,
   getUserInitials,
-  validateDateOfBirth,
   validateEmail,
-  validatePassword,
-  validatePhoneNumber,
 } from "@/lib/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { roleOptions } from "@/pages/ManageUsers";
@@ -67,7 +60,7 @@ import { roleMap } from "@/lib/constants";
 import SkeletonRow from "@/components/ui/skeleton";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
-import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
+import { CalenderIcon } from "@/icons";
 
 interface UsersTableProps {
   users: User[];
@@ -97,10 +90,6 @@ interface FormErrors {
   last_name?: string;
   username?: string;
   email?: string;
-  password?: string;
-  confirm_password?: string;
-  phone_number?: string;
-  date_of_birth?: string;
   role?: string;
   school?: string;
   school_district_id?: string; // Added for district validation
@@ -146,8 +135,6 @@ export default function UsersTable({
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToView, setUserToView] = useState<User | null>(null);
   const [userToArchive, setUserToArchive] = useState<User | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -268,29 +255,6 @@ export default function UsersTable({
             newErrors.email = "Please enter a valid email address";
           } else {
             delete newErrors.email;
-          }
-          break;
-        case "password":
-          if (value && !validatePassword(value)) {
-            newErrors.password = "Password must be at least 8 characters";
-          } else {
-            delete newErrors.password;
-          }
-          break;
-        case "date_of_birth":
-          // eslint-disable-next-line no-case-declarations
-          const dateError = validateDateOfBirth(value);
-          if (dateError) {
-            newErrors.date_of_birth = dateError;
-          } else {
-            delete newErrors.date_of_birth;
-          }
-          break;
-        case "phone_number":
-          if (value && !validatePhoneNumber(value)) {
-            newErrors.phone_number = "Please enter a valid phone number";
-          } else {
-            delete newErrors.phone_number;
           }
           break;
         case "role":
@@ -419,7 +383,7 @@ export default function UsersTable({
   };
 
   const handleEditUser = (user: User) => {
-    setSelectedUser({ ...user, password: "", confirm_password: "" });
+    setSelectedUser({ ...user });
     setFormErrors({});
     setIsDialogOpen(true);
   };
@@ -479,7 +443,6 @@ export default function UsersTable({
       formData.append("first_name", selectedUser.first_name);
       formData.append("last_name", selectedUser.last_name);
       formData.append("email", selectedUser.email);
-      formData.append("date_of_birth", selectedUser.date_of_birth || "");
 
       if (
         selectedUser.school_district &&
@@ -501,15 +464,9 @@ export default function UsersTable({
       }
       // else: do not append school_id at all
 
-      if (selectedUser.phone_number) {
-        formData.append("phone_number", selectedUser.phone_number);
-      }
 
       formData.append("role", selectedUser.role);
 
-      if (selectedUser.password) {
-        formData.append("password", selectedUser.password);
-      }
       if (profilePictureFile) {
         formData.append("profile_picture", profilePictureFile);
       } else if (!selectedUser.profile_picture) {
@@ -1196,12 +1153,9 @@ export default function UsersTable({
                     placeholder="John"
                     value={selectedUser.first_name}
                     onChange={handleChange}
+                    error={!!formErrors.first_name}
+                    hint={formErrors.first_name || undefined}
                   />
-                  {formErrors.first_name && (
-                    <p className="text-red-500 text-sm">
-                      {formErrors.first_name}
-                    </p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="last_name" className="text-base">
@@ -1215,12 +1169,9 @@ export default function UsersTable({
                     placeholder="Doe"
                     value={selectedUser.last_name}
                     onChange={handleChange}
+                    error={!!formErrors.last_name}
+                    hint={formErrors.last_name || undefined}
                   />
-                  {formErrors.last_name && (
-                    <p className="text-red-500 text-sm">
-                      {formErrors.last_name}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -1236,24 +1187,10 @@ export default function UsersTable({
                   placeholder="john@example.com"
                   value={selectedUser.email}
                   onChange={handleChange}
+                  error={!!formErrors.email}
+                  hint={formErrors.email || undefined}
                 />
-                {formErrors.email && (
-                  <p className="text-red-500 text-sm">{formErrors.email}</p>
-                )}
               </div>
-              <PhoneNumberInput
-                value={selectedUser.phone_number || ""}
-                onChange={(value) =>
-                  setSelectedUser((prev) => ({
-                    ...prev!,
-                    phone_number: value || "",
-                  }))
-                }
-                error={formErrors.phone_number}
-                id="phone_number"
-                required={false}
-                autoComplete="tel"
-              />
 
               <div className="space-y-2">
                 <Label htmlFor="role" className="text-base">
@@ -1332,100 +1269,7 @@ export default function UsersTable({
                   error={formErrors.school}
                 />
               )}
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-base">
-                  New Password (leave blank to keep current)
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    id="password"
-                    name="password"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="••••••••"
-                    value={selectedUser.password || ""}
-                    onChange={handleChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showPassword ? (
-                      <EyeClosedIcon className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <EyeIcon className="h-5 w-5 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                {formErrors.password && (
-                  <p className="text-red-500 text-sm">{formErrors.password}</p>
-                )}
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirm_password" className="text-base">
-                  Confirm New Password
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showConfirmPassword ? "text" : "password"}
-                    id="confirm_password"
-                    name="confirm_password"
-                    className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="••••••••"
-                    value={selectedUser.confirm_password || ""}
-                    onChange={handleChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                    aria-label={
-                      showConfirmPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showConfirmPassword ? (
-                      <EyeClosedIcon className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <EyeIcon className="h-5 w-5 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                {formErrors.confirm_password && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.confirm_password}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="date_of_birth" className="text-base">
-                  Birthdate
-                </Label>
-                <div className="relative">
-                  <Input
-                    type="date"
-                    id="date_of_birth"
-                    name="date_of_birth"
-                    className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                    value={selectedUser.date_of_birth || ""}
-                    onChange={handleChange}
-                    max={new Date().toISOString().split("T")[0]}
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                    <CalenderIcon className="size-5" />
-                  </span>
-                </div>
-                {formErrors.date_of_birth && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.date_of_birth}
-                  </p>
-                )}
-              </div>
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button
@@ -1558,14 +1402,6 @@ export default function UsersTable({
                         {userToView.email}
                       </p>
                     </div>
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Phone
-                      </Label>
-                      <p className="text-gray-800 dark:text-gray-200 mt-1">
-                        {userToView.phone_number || "Not provided"}
-                      </p>
-                    </div>
                   </div>
                 </div>
 
@@ -1602,23 +1438,6 @@ export default function UsersTable({
                         </p>
                       </div>
                     )}
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Date of Birth
-                      </Label>
-                      <p className="text-gray-800 dark:text-gray-200 mt-1">
-                        {userToView.date_of_birth
-                          ? new Date(
-                              userToView.date_of_birth
-                            ).toLocaleDateString()
-                          : "Not provided"}
-                        {userToView.date_of_birth && (
-                          <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
-                            ({calculateAge(userToView.date_of_birth)} years old)
-                          </span>
-                        )}
-                      </p>
-                    </div>
                     <div className="flex items-baseline gap-2">
                       <Label className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-none">
                         Status

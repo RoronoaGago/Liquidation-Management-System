@@ -321,18 +321,57 @@ const MOOERequestPage = () => {
     const num = value.replace(/,/g, "");
     if (num === "") return "";
     if (isNaN(Number(num))) return value;
-    return Number(num).toLocaleString();
+    
+    // Handle decimal values properly
+    const number = Number(num);
+    
+    // If it's a valid number, format it with commas but preserve decimals
+    if (number >= 0) {
+      // Use toLocaleString to add commas, preserving decimal places
+      return number.toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+    }
+    
+    return num;
   };
 
   const handleAmountChange = (expense: string, value: string) => {
+    console.log("Input value:", value); // Debug log
+    
+    // Allow decimal values by keeping dots and numbers
     const cleanValue = value.replace(/[^0-9.]/g, "");
+    console.log("Clean value:", cleanValue); // Debug log
 
     if (cleanValue === "") {
       setSelected((prev) => ({ ...prev, [expense]: "" }));
       return;
     }
 
+    // Prevent multiple decimal points
+    const parts = cleanValue.split(".");
+    if (parts.length > 2) {
+      console.log("Multiple decimal points detected"); // Debug log
+      return; // Don't update if more than one decimal point
+    }
+
+    // Allow up to 2 decimal places
+    if (parts.length === 2 && parts[1].length > 2) {
+      console.log("Too many decimal places"); // Debug log
+      return; // Don't update if more than 2 decimal places
+    }
+
+    // Allow decimal values - be more permissive
+    if (cleanValue === "." || cleanValue.endsWith(".")) {
+      console.log("Allowing decimal point"); // Debug log
+      // Allow typing decimal point
+      setSelected((prev) => ({ ...prev, [expense]: cleanValue }));
+      return;
+    }
+
     if (!isNaN(Number(cleanValue)) && Number(cleanValue) >= 0) {
+      console.log("Valid number:", Number(cleanValue)); // Debug log
       const newAmount = Number(cleanValue);
       const currentTotal = Object.entries(selected).reduce(
         (sum, [key, amt]) =>
@@ -348,8 +387,12 @@ const MOOERequestPage = () => {
         return;
       }
 
+      // Format with commas but preserve decimal places
       const formattedValue = formatNumberWithCommas(cleanValue);
+      console.log("Formatted value:", formattedValue); // Debug log
       setSelected((prev) => ({ ...prev, [expense]: formattedValue }));
+    } else {
+      console.log("Invalid number or negative value"); // Debug log
     }
   };
 
@@ -701,9 +744,10 @@ const MOOERequestPage = () => {
     {/* Animated Progress Bar */}
     <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
       <div 
-        className="bg-green-500 h-1.5 rounded-full w-0 animate-[progressFill_3s_linear_forwards]"
+        className="bg-green-500 h-1.5 rounded-full transition-all duration-[3000ms] ease-linear"
         style={{
-          animation: 'progressFill 3s linear forwards'
+          width: '100%',
+          animation: 'progressShrink 3s linear forwards'
         }}
       ></div>
     </div>

@@ -20,9 +20,7 @@ import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2Icon, XIcon } from "lucide-react";
 import {
-  validateDateOfBirth,
   validateEmail,
-  validatePhoneNumber,
 } from "@/lib/helpers";
 import {
   District,
@@ -34,8 +32,6 @@ import {
 } from "@/lib/types";
 import api from "@/api/axios";
 import SchoolSelect from "@/components/form/SchoolSelect";
-import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
-import { DatePicker } from "antd";
 import dayjs from "@/lib/dayjs";
 import InlinePageHelp from "@/components/help/InlinePageHelp";
 import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
@@ -44,9 +40,7 @@ import { useHelpTrigger } from "@/context/HelpContext";
 interface UserFormData {
   first_name: string;
   last_name: string;
-  date_of_birth: string;
   email: string;
-  phone_number: string;
   role: string;
   school_id: string;
   school_district_id?: number; // Changed from school_district: string
@@ -69,7 +63,6 @@ const requiredFields = [
   "last_name",
   "email",
   "role",
-  "date_of_birth",
 ];
 
 const ManageUsers = () => {
@@ -101,9 +94,7 @@ const ManageUsers = () => {
   const [formData, setFormData] = useState<UserFormData>({
     first_name: "",
     last_name: "",
-    date_of_birth: "",
     email: "",
-    phone_number: "",
     role: "admin",
     school_id: "",
     school_district_id: undefined, // Changed from school_district
@@ -183,15 +174,6 @@ const ManageUsers = () => {
       | null,
     name?: keyof UserFormData
   ) => {
-    if (name === "date_of_birth") {
-      const dateString = e ? (e as dayjs.Dayjs).format("YYYY-MM-DD") : "";
-      setFormData((prev) => ({ ...prev, date_of_birth: dateString }));
-      const dateError = dateString
-        ? validateDateOfBirth(dateString)
-        : undefined;
-      setErrors((prev) => ({ ...prev, date_of_birth: dateError }));
-      return;
-    }
 
     if (!e || !("target" in e)) return;
     const { name: inputName, value } = e.target as {
@@ -226,12 +208,6 @@ const ManageUsers = () => {
             newErrors.email = !validateEmail(value)
               ? "Please enter a valid email address"
               : undefined;
-            break;
-          case "phone_number":
-            newErrors.phone_number =
-              value && !validatePhoneNumber(value)
-                ? "Please enter a valid phone number"
-                : undefined;
             break;
           case "role":
             newErrors.role =
@@ -347,9 +323,7 @@ const ManageUsers = () => {
       setFormData({
         first_name: "",
         last_name: "",
-        date_of_birth: "",
         email: "",
-        phone_number: "",
         role: "school_admin",
         school_id: "",
         school_district_id: undefined,
@@ -488,12 +462,9 @@ const ManageUsers = () => {
                       placeholder="John"
                       value={formData.first_name}
                       onChange={handleChange}
+                      error={!!errors.first_name}
+                      hint={errors.first_name || undefined}
                     />
-                    {errors.first_name && (
-                      <p className="text-red-500 text-sm">
-                        {errors.first_name}
-                      </p>
-                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="last_name" className="text-base">
@@ -507,10 +478,9 @@ const ManageUsers = () => {
                       placeholder="Doe"
                       value={formData.last_name}
                       onChange={handleChange}
+                      error={!!errors.last_name}
+                      hint={errors.last_name || undefined}
                     />
-                    {errors.last_name && (
-                      <p className="text-red-500 text-sm">{errors.last_name}</p>
-                    )}
                   </div>
                 </div>
 
@@ -526,21 +496,10 @@ const ManageUsers = () => {
                     placeholder="john@example.com"
                     value={formData.email}
                     onChange={handleChange}
+                    error={!!errors.email}
+                    hint={errors.email || undefined}
                   />
-                  {errors.email && (
-                    <p className="text-red-500 text-sm">{errors.email}</p>
-                  )}
                 </div>
-                <PhoneNumberInput
-                  value={formData.phone_number}
-                  onChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      phone_number: value || "",
-                    }))
-                  }
-                  error={errors.phone_number || undefined}
-                />
                 <div className="space-y-2">
                   <Label htmlFor="role" className="text-base">
                     Role *
@@ -620,37 +579,6 @@ const ManageUsers = () => {
                   />
                 )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="date_of_birth" className="text-base">
-                    Birthdate
-                  </Label>
-                  <DatePicker
-                    id="date_of_birth"
-                    name="date_of_birth"
-                    className="custom-date-picker"
-                    placeholder="Select birthdate"
-                    format="YYYY-MM-DD"
-                    value={
-                      formData.date_of_birth
-                        ? dayjs(formData.date_of_birth)
-                        : null
-                    }
-                    onChange={(date) => {
-                      handleChange(date, "date_of_birth");
-                      setFormData((prev) => ({ ...prev }));
-                    }}
-                    disabledDate={(current) =>
-                      current && current > dayjs().endOf("day")
-                    }
-                    showNow={false}
-                    allowClear={true}
-                  />
-                  {errors.date_of_birth && (
-                    <p className="text-red-500 text-sm">
-                      {errors.date_of_birth}
-                    </p>
-                  )}
-                </div>
 
                 <div className="flex justify-end gap-3 pt-4">
                   <Button
@@ -663,9 +591,7 @@ const ManageUsers = () => {
                       setFormData({
                         first_name: "",
                         last_name: "",
-                        date_of_birth: "",
                         email: "",
-                        phone_number: "",
                         role: "school_admin",
                         school_id: "",
                         school_district_id: undefined,

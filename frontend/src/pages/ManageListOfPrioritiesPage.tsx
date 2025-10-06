@@ -14,7 +14,6 @@ import { PlusIcon } from "../icons";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import { useState, useEffect, useMemo } from "react";
-import axios from "axios";
 import {
   Requirement,
   ListOfPriority,
@@ -23,6 +22,7 @@ import {
 } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
+import api from "@/api/axios";
 
 interface LOPFormData {
   expenseTitle: string;
@@ -32,7 +32,6 @@ interface LOPFormData {
 
 const requiredFields = ["expenseTitle"];
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 const LOP_CATEGORIES = [
   { value: "travel", label: "Travel Expenses" },
@@ -124,10 +123,10 @@ const ManageListOfPrioritiesPage = () => {
     setError(null);
     try {
       const [lopsRes, reqsRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/priorities/`, {
+        api.get(`priorities/`, {
           params: { archived: showArchived },
         }),
-        axios.get(`${API_BASE_URL}/api/requirements/`, {
+        api.get(`requirements/`, {
           params: { show_inactive: true }, // fetch all requirements
         }),
       ]);
@@ -257,7 +256,7 @@ const ManageListOfPrioritiesPage = () => {
     setIsSubmitting(true);
 
     try {
-      await axios.post(`${API_BASE_URL}/api/priorities/`, {
+      await api.post(`priorities/`, {
         ...formData,
         category: formData.category || "other_maintenance",
       });
@@ -323,12 +322,9 @@ const ManageListOfPrioritiesPage = () => {
                     placeholder="Enter list of priority"
                     value={formData.expenseTitle}
                     onChange={handleChange}
+                    error={!!errors.expenseTitle}
+                    hint={errors.expenseTitle}
                   />
-                  {errors.expenseTitle && (
-                    <p className="text-red-500 text-sm">
-                      {errors.expenseTitle}
-                    </p>
-                  )}
                 </div>
                 {/* Category Dropdown */}
                 <div className="space-y-2">
@@ -368,7 +364,7 @@ const ManageListOfPrioritiesPage = () => {
                     value={requirementSearch}
                     onChange={(e) => setRequirementSearch(e.target.value)}
                   />
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                  <div className={`space-y-1 max-h-40 overflow-y-auto border rounded-lg p-2 ${errors.requirement_ids ? 'border-error-500' : 'border-gray-200'}`}>
                     {filteredRequirements.length === 0 && (
                       <div className="text-gray-400 px-2 py-1">
                         No requirements found.
@@ -412,7 +408,7 @@ const ManageListOfPrioritiesPage = () => {
                     })}
                   </div>
                   {errors.requirement_ids && (
-                    <p className="text-red-500 text-sm">
+                    <p className="text-error-500 text-sm mt-1">
                       {errors.requirement_ids}
                     </p>
                   )}

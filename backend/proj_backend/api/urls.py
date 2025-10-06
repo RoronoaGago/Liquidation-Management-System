@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
-from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, request_otp, verify_otp, resend_otp, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, initiate_backup, initiate_restore, list_backups, liquidation_report, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
+from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, generate_demand_letter, initiate_backup, initiate_restore, list_backups, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
+from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
+from .password_reset_views import request_password_reset_otp, verify_password_reset_otp, reset_password_with_token
 
 
 from rest_framework_simplejwt.views import (
@@ -22,11 +24,16 @@ urlpatterns = [
     path('logout/', views.logout, name='logout'),
     path('change-password/', views.change_password, name='change-password'),
     path('protected/', ProtectedView.as_view(), name='protected'),
-    path('auth/request-otp/', views.request_otp, name='request-otp'),
-    path('auth/verify-otp/', views.verify_otp, name='verify-otp'),
-    path('request-otp/', request_otp, name='request-otp'),
-    path('verify-otp/', verify_otp, name='verify-otp'),
-    path('resend-otp/', resend_otp, name='resend-otp'),
+    
+    # Enhanced Secure OTP Endpoints
+    path('request-otp-secure/', request_otp_secure, name='request-otp-secure'),
+    path('verify-otp-secure/', verify_otp_secure, name='verify-otp-secure'),
+    path('resend-otp-secure/', resend_otp_secure, name='resend-otp-secure'),
+    
+    # Password Reset Endpoints
+    path('forgot-password/', request_password_reset_otp, name='request-password-reset-otp'),
+    path('verify-password-reset-otp/', verify_password_reset_otp, name='verify-password-reset-otp'),
+    path('reset-password/', reset_password_with_token, name='reset-password-with-token'),
     path("users/update-e-signature/",
          update_e_signature, name="update-e-signature"),
     path('schools/', views.SchoolListCreateAPIView.as_view(),
@@ -65,7 +72,7 @@ urlpatterns = [
          name='check-pending-requests'),
     path('requests/<str:request_id>/resubmit/',
          views.resubmit_request, name='resubmit-request'),
-     # path('requests/<str:request_id>/generate-demand-letter/', views.generate_demand_letter, name='generate-demand-letter'),
+    path('requests/<str:request_id>/generate-demand-letter/', views.generate_demand_letter, name='generate-demand-letter'),
     # In urls.py
     path('requests/<str:pk>/approve/',
          views.ApproveRequestView.as_view(), name='approve-request'),
@@ -92,10 +99,18 @@ urlpatterns = [
          name='user-requests'),
     path('liquidation/', views.UserLiquidationsAPIView.as_view(),
          name='liquidation'),
+    path('urgent-liquidations/', views.get_urgent_liquidations,
+         name='urgent-liquidations'),
     path('notifications/', views.NotificationListAPIView.as_view(),
          name='notification-list'),
     path('notifications/<int:pk>/read/',
          views.MarkNotificationAsReadAPIView.as_view(), name='mark-notification-read'),
+    path('notifications/mark-all-read/',
+         views.MarkAllNotificationsAsReadAPIView.as_view(), name='mark-all-notifications-read'),
+    path('notifications/<int:pk>/',
+         views.DeleteNotificationAPIView.as_view(), name='delete-notification'),
+    path('notifications/delete-all/',
+         views.DeleteAllNotificationsAPIView.as_view(), name='delete-all-notifications'),
     path("users/me/", views.user_me, name="user-me"),
     path('division-signatories/', views.division_signatories,
          name='division-signatories'),
@@ -117,7 +132,7 @@ urlpatterns = [
     # Report URLs
     path('reports/unliquidated-schools/', schools_with_unliquidated_requests,
          name='unliquidated-schools-report'),
-    path('reports/liquidation/', liquidation_report,
+    path('reports/liquidation/', views.LiquidationReportView.as_view(),
          name='liquidation-report'),
     path('admin-dashboard/', admin_dashboard, name='admin-dashboard'),
     path('liquidations/<str:LiquidationID>/generate-report/',

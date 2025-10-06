@@ -79,6 +79,20 @@
             margin: 20px 0;
             border-left: 4px solid #094684;
         }
+        .approval-info {
+            background: #f0f8f0;
+            border-left: 4px solid #28a745;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .rejection-info {
+            background: #fff5f5;
+            border-left: 4px solid #dc3545;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+        }
         .footer { 
             background: #f0f3f7; 
             color: #666; 
@@ -102,10 +116,34 @@
 
             <div class="item-details">
                 <p>This is to formally notify you that your <strong>{{ object_type|title }}</strong> status has been updated:</p>
-                <p><strong>Reference ID:</strong> {{ object.request_id }}</p>
+                <p><strong>Request ID:</strong> {{ object.request_id }}</p>
                 <p><strong>New Status:</strong> <span class="status-badge">{{ status|title }}</span></p>
                 <p><strong>Date & Time:</strong>  {{ now|date:"F j, Y H:i" }} </p>
             </div>
+
+            {% if status == 'approved' and object.reviewed_by %}
+            <div class="approval-info">
+                <p><strong>Approved by:</strong> {{ object.reviewed_by.get_full_name }}</p>
+                <p><strong>Position:</strong> {{ object.reviewed_by.get_role_display }}</p>
+                {% if object.date_approved %}
+                <p><strong>Date Approved:</strong> {{ object.date_approved|date:"F j, Y" }}</p>
+                {% endif %}
+                {% if object.reviewed_at %}
+                <p><strong>Time Approved:</strong> {{ object.reviewed_at|date:"H:i" }}</p>
+                {% endif %}
+            </div>
+            {% elif status == 'rejected' and object.reviewed_by %}
+            <div class="rejection-info">
+                <p><strong>Rejected by:</strong> {{ object.reviewed_by.get_full_name }}</p>
+                <p><strong>Position:</strong> {{ object.reviewed_by.get_role_display }}</p>
+                {% if object.rejection_date %}
+                <p><strong>Date Rejected:</strong> {{ object.rejection_date|date:"F j, Y" }}</p>
+                {% endif %}
+                {% if object.reviewed_at %}
+                <p><strong>Time Rejected:</strong> {{ object.reviewed_at|date:"H:i" }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
 
             {% if object.rejection_comment %}
             <div class="reason-box">

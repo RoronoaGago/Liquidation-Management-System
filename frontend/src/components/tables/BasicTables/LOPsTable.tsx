@@ -26,9 +26,6 @@ import {
   Search,
   Archive,
   ArchiveRestore,
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  SquarePenIcon,
   AlertTriangle,
   RefreshCw,
   Loader2,
@@ -818,12 +815,9 @@ export default function LOPsTable({
                   placeholder="Enter list of priority"
                   value={selectedLOP.expenseTitle}
                   onChange={handleChange}
+                  error={!!formErrors.expenseTitle}
+                  hint={formErrors.expenseTitle}
                 />
-                {formErrors.expenseTitle && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.expenseTitle}
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">

@@ -399,12 +399,9 @@ const ManageDistricts = () => {
                     placeholder="School District Name"
                     value={formData.districtName}
                     onChange={handleChange}
+                    error={!!errors.districtName}
+                    hint={errors.districtName}
                   />
-                  {errors.districtName && (
-                    <p className="text-red-500 text-sm">
-                      {errors.districtName}
-                    </p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="legislativeDistrict" className="text-base">

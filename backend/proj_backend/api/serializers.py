@@ -15,10 +15,34 @@ import uuid
 import binascii
 import string
 import logging
+import secrets
 from simple_history.utils import update_change_reason
 logger = logging.getLogger(__name__)
 
-DEFAULT_PASSWORD = "password123"  # Define this at the top of your file
+def generate_random_password(length=12):
+    """Generate a secure random password with mixed case letters, numbers, and symbols"""
+    # Define character sets
+    lowercase = string.ascii_lowercase
+    uppercase = string.ascii_uppercase
+    digits = string.digits
+    symbols = "!@#$%^&*"
+    
+    # Ensure at least one character from each set
+    password = [
+        secrets.choice(lowercase),
+        secrets.choice(uppercase),
+        secrets.choice(digits),
+        secrets.choice(symbols)
+    ]
+    
+    # Fill the rest with random characters from all sets
+    all_chars = lowercase + uppercase + digits + symbols
+    for _ in range(length - 4):
+        password.append(secrets.choice(all_chars))
+    
+    # Shuffle the password
+    secrets.SystemRandom().shuffle(password)
+    return ''.join(password)
 
 
 class SchoolDistrictSerializer(serializers.ModelSerializer):
@@ -201,9 +225,7 @@ class UserSerializer(serializers.ModelSerializer):
             "school",
             "school_id",
             "school_district_id",
-            "date_of_birth",
             "sex",
-            "phone_number",
             "school_district",
             "profile_picture",
             "profile_picture_base64",
@@ -372,8 +394,10 @@ class UserSerializer(serializers.ModelSerializer):
         profile_picture_base64 = validated_data.pop(
             'profile_picture_base64', None)
 
-        # Set default password if not provided
-        password = validated_data.pop('password', DEFAULT_PASSWORD)
+        # Generate random password if not provided
+        password = validated_data.pop('password', None)
+        if not password:
+            password = generate_random_password()
 
         # Remove email from validated_data since we'll pass it separately
         email = validated_data.pop('email')
@@ -396,26 +420,33 @@ class UserSerializer(serializers.ModelSerializer):
             user.profile_picture = data
             user.save()
 
-        # self.send_welcome_email(user)
+        # Send welcome email with the generated password
+        self.send_welcome_email(user, password)
         return user
 
-    # def send_welcome_email(self, user):
-    #     """Send welcome email with instructions to change password"""
-    #     subject = "Welcome to the Maintenance and Operating Expenses System"
-    #     message = render_to_string('emails/welcome_email.html', {
-    #         'user': user,
-    #         'login_url': settings.FRONTEND_LOGIN_URL,
-    #         'default_password': DEFAULT_PASSWORD
-    #     })
+    def send_welcome_email(self, user, temp_password):
+        """Send welcome email with instructions to change password"""
+        subject = "Welcome to MOOE Liquidation Management System"
+        
+        # Get the frontend login URL from settings
+        login_url = getattr(settings, 'FRONTEND_LOGIN_URL', 'http://localhost:3000/login')
+        
+        # Render the email template with the generated password
+        html_message = render_to_string('emails/new_user_welcome.html', {
+            'user': user,
+            'temp_password': temp_password,
+            'login_url': login_url,
+            'now': timezone.now(),
+        })
 
-    #     send_mail(
-    #         subject=subject,
-    #         message="",  # Empty message since we're using html_message
-    #         from_email=None,  # Uses DEFAULT_FROM_EMAIL
-    #         recipient_list=[user.email],
-    #         html_message=message,
-    #         fail_silently=True,
-    #     )
+        send_mail(
+            subject=subject,
+            message="",  # Empty message since we're using html_message
+            from_email=None,  # Uses DEFAULT_FROM_EMAIL
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=True,
+        )
 
     def update(self, instance, validated_data):
         profile_picture_base64 = validated_data.pop(

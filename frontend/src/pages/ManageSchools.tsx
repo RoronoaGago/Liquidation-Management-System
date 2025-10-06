@@ -475,10 +475,9 @@ const ManageSchools = () => {
                     onChange={handleChange}
                     pattern="[0-9]*"
                     inputMode="numeric"
+                    error={!!errors.schoolId}
+                    hint={errors.schoolId}
                   />
-                  {errors.schoolId && (
-                    <p className="text-red-500 text-sm">{errors.schoolId}</p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="schoolName" className="text-base">
@@ -492,10 +491,9 @@ const ManageSchools = () => {
                     placeholder="School Name"
                     value={formData.schoolName}
                     onChange={handleChange}
+                    error={!!errors.schoolName}
+                    hint={errors.schoolName}
                   />
-                  {errors.schoolName && (
-                    <p className="text-red-500 text-sm">{errors.schoolName}</p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="legislativeDistrict" className="text-base">

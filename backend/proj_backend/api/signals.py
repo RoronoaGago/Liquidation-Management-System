@@ -2,6 +2,7 @@
 from django.db.models.signals import post_save
 from django.core.mail import send_mail
 from django.dispatch import receiver
+from django.utils import timezone
 from .models import RequestManagement, LiquidationManagement, Notification
 from django.contrib.auth import get_user_model
 from django.template.loader import render_to_string
@@ -11,6 +12,8 @@ from django.contrib.auth.signals import user_logged_in
 from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 import logging
 import random
 
@@ -21,6 +24,34 @@ DEFAULT_PASSWORD = "password123"
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+def send_websocket_notification(notification):
+    """Send notification via WebSocket to the receiver"""
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f'notifications_{notification.receiver.id}',
+                {
+                    'type': 'notification_message',
+                    'notification': {
+                        'id': str(notification.id),
+                        'notification_title': notification.notification_title,
+                        'details': notification.details,
+                        'sender': {
+                            'id': str(notification.sender.id) if notification.sender else None,
+                            'first_name': notification.sender.first_name if notification.sender else None,
+                            'last_name': notification.sender.last_name if notification.sender else None,
+                            'profile_picture': notification.sender.profile_picture.url if notification.sender and notification.sender.profile_picture else None,
+                        } if notification.sender else None,
+                        'notification_date': notification.notification_date.isoformat(),
+                        'is_read': notification.is_read,
+                    }
+                }
+            )
+    except Exception as e:
+        logger.error(f"Failed to send WebSocket notification: {str(e)}")
+
 # Existing request management signals
 
 
@@ -45,6 +76,15 @@ def create_new_request_notification(instance):
             details=f"New request {instance.request_id} has been submitted for {instance.request_monthyear}",
             receiver=superintendent,
             sender=instance.user
+        )
+        
+        # Send email notification to superintendent
+        send_notification_email(
+            subject=f"New Request from {instance.user.get_full_name()}",
+            message=f"New request {instance.request_id} has been submitted for {instance.request_monthyear}",
+            recipient=superintendent,
+            template_name=None,
+            context=None
         )
 
 
@@ -133,7 +173,9 @@ def handle_status_change_notification(instance):
                     send_notification_email(
                         subject=f"Request {instance.request_id} approved",
                         message=f"Request {instance.request_id} has been approved and is ready for accounting.",
-                        recipient=accountant
+                        recipient=accountant,
+                        template_name=None,
+                        context=None
                     )
 
 # New liquidation management signals
@@ -152,11 +194,18 @@ def handle_liquidation_notifications(sender, instance, created, **kwargs):
                 new_days = instance.remaining_days
 
                 # Send reminder only when crossing specific thresholds
-                if (old_days != new_days and new_days in [15, 5] and
-                        instance.status not in ['liquidated', 'draft']):
+                # and not already sent today
+                from django.conf import settings
+                today = timezone.now().date()
+                reminder_days = getattr(settings, 'LIQUIDATION_REMINDER_DAYS', [15, 5, 0])
+                
+                if (old_days != new_days and new_days in reminder_days and
+                        instance.status not in ['liquidated', 'draft'] and
+                        instance.request.last_reminder_sent != today):
                     send_liquidation_reminder.delay(instance.pk, new_days)
-                elif (old_days != new_days and new_days == 0 and
-                      instance.status not in ['liquidated', 'draft']):
+                elif (old_days != new_days and new_days <= 0 and
+                      instance.status not in ['liquidated', 'draft'] and
+                      not instance.request.demand_letter_sent):
                     send_liquidation_demand_letter.delay(instance.pk)
 
             handle_liquidation_status_change(instance)
@@ -183,6 +232,15 @@ def create_new_liquidation_notification(instance):
             details=f"New liquidation {instance.LiquidationID} has been submitted for request {instance.request.request_id}",
             receiver=admin,
             sender=instance.request.user
+        )
+        
+        # Send email notification to district admin
+        send_notification_email(
+            subject="New Liquidation Submitted",
+            message=f"New liquidation {instance.LiquidationID} has been submitted for request {instance.request.request_id}",
+            recipient=admin,
+            template_name=None,
+            context=None
         )
 
 
@@ -263,6 +321,8 @@ def handle_liquidation_status_change(instance):
                     "object": instance,
                     "object_type": "liquidation",
                     "status": instance.status,
+                    "changed_by": changed_by,
+                    "now": timezone.now(),
                 }
                 # Send email to the receiver using the liquidation template
                 send_notification_email(
@@ -274,31 +334,21 @@ def handle_liquidation_status_change(instance):
                 )
 
         # Notify additional receivers if any
-        for receiver in notification_info['additional_receivers']:
+        for receiver in notification_info.get('additional_receivers', []):
             if receiver.is_active:
-                subject = f"Liquidation {instance.status.replace('_', ' ').title()}"
-                message = f"Liquidation {instance.LiquidationID} for request {instance.request.request_id} is now {instance.status.replace('_', ' ')}"
                 Notification.objects.create(
-                    notification_title=subject,
-                    details=message,
+                    notification_title=notification_info['title'],
+                    details=notification_info['details'],
                     receiver=receiver,
                     sender=changed_by
                 )
-                # Prepare context for the email template
-                context = {
-                    "user": receiver,
-                    "object": instance,
-                    "object_type": "liquidation",
-                    "status": instance.status,
-                }
-                # Send email to the additional receiver using the liquidation template
-                send_notification_email(
-                    subject=subject,
-                    message=message,
-                    recipient=receiver,
-                    template_name="emails/liquidation_status_change.html",
-                    context=context
-                )
+
+
+@receiver(post_save, sender=Notification)
+def send_notification_websocket(sender, instance, created, **kwargs):
+    """Send WebSocket notification when a new notification is created"""
+    if created:
+        send_websocket_notification(instance)
 
 
 # @receiver(user_logged_in)
@@ -339,9 +389,9 @@ def handle_liquidation_status_change(instance):
 #     }
 
     # Render both text and HTML versions
-
-    html_message = render_to_string('emails/login_notification.html', context)
-    text_message = render_to_string('emails/login_notification.txt', context)
+    # Note: This section is commented out and context is not defined
+    # html_message = render_to_string('emails/login_notification.html', context)
+    # text_message = render_to_string('emails/login_notification.txt', context)
 
 #     subject = "Login Notification"
 

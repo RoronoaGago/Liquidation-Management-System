@@ -29,7 +29,7 @@ import { formatDateTime } from "@/lib/helpers";
 // --- Type Safety Improvements ---
 interface Document {
   id: number;
-  document_url: string;
+  document_url: string | null; // Make optional for auto-approved documents
   requirement_obj: {
     requirementTitle: string;
   };
@@ -400,6 +400,25 @@ const LiquidationDetailsPage = () => {
     (doc) => doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
   );
 
+  // Create filtered list of reviewable documents for modal navigation
+  const reviewableDocuments = documents.filter((doc) => {
+    // Exclude auto-approved documents - they don't need review
+    if (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+      return false;
+    }
+    
+    const expense = expenseList.find(
+      (exp) => exp.id === doc.request_priority_id
+    );
+    if (!expense) return false;
+
+    const requirement = expense.requirements.find(
+      (req) => req.requirementID === doc.requirement_id
+    );
+    
+    return requirement !== undefined;
+  });
+
   // Count rejected documents for each expense
   const getRejectedCount = (expense: Expense) => {
     return expense.requirements.filter((req) => {
@@ -589,10 +608,16 @@ const LiquidationDetailsPage = () => {
 
   // Always show all expenses
   const handleOpenDoc = async (doc: Document) => {
+    // Don't open auto-approved documents in modal - nothing to review
+    if (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+      return;
+    }
+    
     setIsLoadingDoc(true);
     setError(null);
     setViewDoc(doc);
-    const docIndex = documents.findIndex((d) => d.id === doc.id);
+    // Use the filtered list for navigation index
+    const docIndex = reviewableDocuments.findIndex((d) => d.id === doc.id);
     setCurrentDocIndex(docIndex);
     setZoomLevel(1); // Reset zoom when opening new document
   };
@@ -866,7 +891,7 @@ const LiquidationDetailsPage = () => {
                 Review the document and take action.
               </DialogDescription>
             </DialogHeader>
-            {viewDoc && (
+            {viewDoc && !(viewDoc.is_approved === true && viewDoc.reviewer_comment?.includes("Auto-approved")) && (
               <div className="space-y-4">
                 {/* File preview */}
                 <div className="relative h-[60vh] bg-gray-50 rounded-lg border custom-scrollbar">
@@ -924,14 +949,20 @@ const LiquidationDetailsPage = () => {
                           >
                             Reset (100%)
                           </button>
-                          <a
-                            href={viewDoc?.document_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border"
-                          >
-                            Open in New Tab
-                          </a>
+                          {viewDoc?.document_url ? (
+                            <a
+                              href={viewDoc.document_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border"
+                            >
+                              Open in New Tab
+                            </a>
+                          ) : (
+                            <span className="px-2 py-1 text-xs bg-green-50 text-green-600 rounded border">
+                              Auto-approved
+                            </span>
+                          )}
                         </div>
                       </div>
                       
@@ -1239,7 +1270,7 @@ const LiquidationDetailsPage = () => {
                         variant="outline"
                         disabled={currentDocIndex === 0}
                         onClick={() => {
-                          const prevDoc = documents[currentDocIndex - 1];
+                          const prevDoc = reviewableDocuments[currentDocIndex - 1];
                           setCurrentDocIndex(currentDocIndex - 1);
                           setViewDoc(prevDoc);
                           setIsLoadingDoc(true);
@@ -1248,13 +1279,13 @@ const LiquidationDetailsPage = () => {
                         Previous
                       </Button>
                       <div className="text-sm text-gray-500">
-                        {currentDocIndex + 1} of {documents.length}
+                        {currentDocIndex + 1} of {reviewableDocuments.length}
                       </div>
                       <Button
                         variant="outline"
-                        disabled={currentDocIndex === documents.length - 1}
+                        disabled={currentDocIndex === reviewableDocuments.length - 1}
                         onClick={() => {
-                          const nextDoc = documents[currentDocIndex + 1];
+                          const nextDoc = reviewableDocuments[currentDocIndex + 1];
                           setCurrentDocIndex(currentDocIndex + 1);
                           setViewDoc(nextDoc);
                           setIsLoadingDoc(true);
@@ -1601,7 +1632,7 @@ const LiquidationDetailsPage = () => {
                                     Status:{" "}
                                     {doc?.is_approved === true ? (
                                       <span className="text-green-600">
-                                        Approved
+                                        {doc?.reviewer_comment?.includes("Auto-approved") ? "Auto-approved" : "Approved"}
                                       </span>
                                     ) : doc?.is_approved === false ? (
                                       <span className="text-red-600">
@@ -1610,6 +1641,12 @@ const LiquidationDetailsPage = () => {
                                     ) : (
                                       <span className="text-yellow-600">
                                         Pending
+                                      </span>
+                                    )}
+                                    {/* Auto-approved indicator */}
+                                    {doc?.reviewer_comment?.includes("Auto-approved") && (
+                                      <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                        Auto-approved
                                       </span>
                                     )}
                                     {/* Version indicator for liquidators and accountants */}

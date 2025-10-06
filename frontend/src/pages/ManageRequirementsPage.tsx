@@ -14,11 +14,11 @@ import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import { Bounce, toast } from "react-toastify";
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { Loader2 } from "lucide-react";
 import DynamicContextualHelp from "@/components/help/DynamicContextualHelpComponent";
+import api from "@/api/axios";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+
 
 export interface Requirement {
   requirementID: number;
@@ -59,7 +59,7 @@ const ManageRequirementsPage = () => {
       } else {
         params.is_active = true;
       }
-      const res = await axios.get(`${API_BASE_URL}/api/requirements/`, {
+      const res = await api.get(`requirements/`, {
         params,
       });
       setRequirements(Array.isArray(res.data) ? res.data : []);
@@ -118,7 +118,7 @@ const ManageRequirementsPage = () => {
     setIsSubmitting(true);
 
     try {
-      await axios.post(`${API_BASE_URL}/api/requirements/`, formData);
+      await api.post(`requirements/`, formData);
       toast.success("Requirement added successfully!", {
         position: "top-center",
         autoClose: 2000,
@@ -179,12 +179,9 @@ const ManageRequirementsPage = () => {
                     placeholder="Enter requirement title"
                     value={formData.requirementTitle}
                     onChange={handleChange}
+                    error={!!errors.requirementTitle}
+                    hint={errors.requirementTitle}
                   />
-                  {errors.requirementTitle && (
-                    <p className="text-red-500 text-sm">
-                      {errors.requirementTitle}
-                    </p>
-                  )}
                 </div>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 w-full">

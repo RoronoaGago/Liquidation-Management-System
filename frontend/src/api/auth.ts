@@ -1,20 +1,24 @@
+import SecureStorage from "../lib/secureStorage";
+import { API_ENDPOINTS, JWT_CONFIG } from "../config/api";
 import api from "./axios";
 
 export const login = async (email: string, password: string) => {
   try {
-    const response = await api.post("http://127.0.0.1:8000/api/token/", {
+    const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, {
       email,
       password,
     });
 
     if (response.data?.access) {
-      localStorage.setItem("accessToken", response.data.access);
-      if (response.data.refresh) {
-        localStorage.setItem("refreshToken", response.data.refresh);
-      }
+      // Store tokens securely
+      SecureStorage.setTokens(
+        response.data.access,
+        response.data.refresh || "",
+        JWT_CONFIG.ACCESS_TOKEN_LIFETIME_MINUTES * 60 // Convert minutes to seconds
+      );
       return response.data;
     }
-    //  date time nalang average
+    
     throw new Error("Authentication failed: No access token received");
   } catch (error: any) {
     // Transform Axios error to a more specific error
@@ -32,13 +36,12 @@ export const login = async (email: string, password: string) => {
 };
 
 export const logout = () => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
+  SecureStorage.clearTokens();
 };
 
 export const getProtectedData = async () => {
   try {
-    const response = await api.get("http://127.0.0.1:8000/api/protected/");
+    const response = await api.get("/protected/");
     return response.data;
   } catch (error) {
     console.error("Failed to fetch protected data:", error);

@@ -72,10 +72,8 @@ class User(AbstractUser):
         null=True,
         related_name='users'
     )
-    date_of_birth = models.DateField(null=True, blank=True)
     sex = models.CharField(
         max_length=10, choices=SEX_CHOICES, null=True, blank=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
     profile_picture = models.ImageField(
         upload_to='profile_pictures/',
         validators=[FileExtensionValidator(['jpg', 'jpeg', 'png'])],
@@ -137,10 +135,6 @@ class User(AbstractUser):
     def clean(self):
         super().clean()
         # Add any additional validation here
-        if self.phone_number:
-            # Example: Remove all non-digit characters
-            self.phone_number = ''.join(
-                c for c in self.phone_number if c.isdigit())
 
     def get_audit_description(self, created=False, action='create'):
         if action == 'archive':
@@ -735,8 +729,14 @@ class LiquidationManagement(models.Model):
 
     @property
     def liquidation_deadline(self):
+        """
+        Standardized liquidation deadline calculation.
+        Uses the same logic as the reminder system for consistency.
+        """
+        from django.conf import settings
+        deadline_days = getattr(settings, 'LIQUIDATION_DEADLINE_DAYS', 30)
         if self.request.downloaded_at:
-            return (self.request.downloaded_at + timezone.timedelta(days=30)).date()
+            return (self.request.downloaded_at + timezone.timedelta(days=deadline_days)).date()
         return None
 
     def calculate_refund(self):
@@ -759,10 +759,12 @@ class LiquidationManagement(models.Model):
             return
 
         from django.utils import timezone
+        from django.conf import settings
         today = timezone.now().date()
         days_left = (self.liquidation_deadline - today).days
 
-        reminder_days = [15, 10, 5, 3, 1]
+        # Use settings configuration for reminder days
+        reminder_days = getattr(settings, 'LIQUIDATION_REMINDER_DAYS', [15, 5, 0])
 
         if days_left in reminder_days:
             if self.request.last_reminder_sent != today:

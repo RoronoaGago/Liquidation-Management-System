@@ -1,6 +1,6 @@
 // src/api/schoolApi.ts
 
-import api from "./api";
+import api from "../api/axios";
 
 
 export const searchSchools = async (query: string) => {

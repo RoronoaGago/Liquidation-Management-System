@@ -949,12 +949,9 @@ export default function DistrictsTable({
                   value={selectedDistrict.districtId}
                   onChange={handleChange}
                   disabled
+                  error={!!formErrors.districtId}
+                  hint={formErrors.districtId}
                 />
-                {formErrors.districtId && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.districtId}
-                  </p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-logo" className="text-base">
@@ -1023,12 +1020,9 @@ export default function DistrictsTable({
                   className="w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
                   value={selectedDistrict.districtName}
                   onChange={handleChange}
+                  error={!!formErrors.districtName}
+                  hint={formErrors.districtName}
                 />
-                {formErrors.districtName && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.districtName}
-                  </p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="legislativeDistrict" className="text-base">

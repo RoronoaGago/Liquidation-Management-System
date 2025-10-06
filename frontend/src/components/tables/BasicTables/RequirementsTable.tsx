@@ -782,12 +782,9 @@ export default function RequirementsTable({
                   name="requirementTitle"
                   value={selectedRequirement.requirementTitle}
                   onChange={handleChange}
+                  error={!!formErrors.requirementTitle}
+                  hint={formErrors.requirementTitle}
                 />
-                {formErrors.requirementTitle && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.requirementTitle}
-                  </p>
-                )}
               </div>
               <div>
                 <label className="flex items-center gap-2 cursor-pointer">

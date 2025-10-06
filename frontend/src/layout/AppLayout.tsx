@@ -4,6 +4,7 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import ToastProvider from "@/components/ui/ToastProvider";
+import LiquidationAlertBanner from "@/components/LiquidationAlertBanner";
 import { Bounce, ToastContainer } from "react-toastify";
 
 // Only allow +63 and numbers starting with 9 (PH mobile)
@@ -19,6 +20,7 @@ const LayoutContent: React.FC<{ children?: React.ReactNode }> = ({
 
   return (
     <div className="min-h-screen xl:flex">
+      <LiquidationAlertBanner />
       <div>
         <AppSidebar />
         <Backdrop />
