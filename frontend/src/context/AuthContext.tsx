@@ -15,6 +15,8 @@ import SecureStorage from "../lib/secureStorage";
 import { API_CONFIG, API_ENDPOINTS, JWT_CONFIG } from "../config/api";
 import { useInactivity } from "../hooks/useInactivity";
 import AutoLogoutModal from "../components/AutoLogoutModal";
+import "../utils/debugAuth"; // Import debug utilities
+import "../utils/debugRefresh"; // Import refresh debug utilities
 
 interface UserData {
   user_id: string | number;
@@ -206,6 +208,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAutoLogoutModal({ visible: true, reason });
     setIsShowingLogoutModal(true); // Prevent checkAuth from running
     
+    // Persist modal state to localStorage
+    SecureStorage.setLogoutModalState(true, reason);
+    
     if (reason === 'inactivity') {
       setInactivityModalShown(true);
     }
@@ -213,6 +218,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const handleAutoLogoutModalClose = () => {
     setAutoLogoutModal({ visible: false, reason: 'inactivity' });
+    // Clear persisted modal state
+    SecureStorage.clearLogoutModalState();
   };
 
   const handleAutoLogoutLogin = () => {
@@ -235,6 +242,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Clear initialization flag
     localStorage.removeItem('app_initialized');
     
+    // Clear persisted modal state
+    SecureStorage.clearLogoutModalState();
+    
     // Close modal and navigate to login
     setAutoLogoutModal({ visible: false, reason: 'inactivity' });
     navigate('/login');
@@ -243,7 +253,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Handle inactivity detection (1 hour = 3600000 ms)
   const handleInactivity = () => {
     console.log('🚨 Inactivity detected! isAuthenticated:', isAuthenticated);
-    if (isAuthenticated) {
+    if (isAuthenticated && !isShowingLogoutModal) {
       console.log('🚨 Showing inactivity logout modal');
       showAutoLogoutModal('inactivity');
       // Don't clear tokens immediately - let user decide when to logout
@@ -264,7 +274,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     onInactivity: handleInactivity,
     events: ['mousedown', 'keypress', 'touchstart', 'click', 'keydown'], // Removed mousemove and scroll to reduce frequency
     enabled: inactivityEnabled,
-    throttleMs: 10000 // 10 seconds throttle to prevent excessive resets
+    throttleMs: 5000 // 5 seconds throttle to prevent excessive resets (reduced from 10 seconds)
   });
 
   // Listen for logout events from axios interceptor
@@ -297,9 +307,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      // Use SecureStorage to get tokens
+      // Check for persisted logout modal state first
+      const persistedModalState = SecureStorage.getLogoutModalState();
+      if (persistedModalState?.visible) {
+        console.log('🔄 Restoring persisted logout modal state:', persistedModalState);
+        setAutoLogoutModal({ visible: true, reason: persistedModalState.reason });
+        setIsShowingLogoutModal(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Use SecureStorage to get tokens from localStorage
       const accessToken = SecureStorage.getAccessToken();
       const refreshToken = SecureStorage.getRefreshToken();
+      
+      console.log('🔍 AuthContext checkAuth:');
+      console.log('- Has access token:', !!accessToken);
+      console.log('- Has refresh token:', !!refreshToken);
+      console.log('- Access token expired:', SecureStorage.isAccessTokenExpired());
 
       if (accessToken && !SecureStorage.isAccessTokenExpired()) {
         try {
@@ -324,6 +349,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // If access token is missing or expired, try to refresh
       if (refreshToken) {
+        console.log('🔄 Attempting token refresh in AuthContext...');
         try {
           const response = await axios.post(
             `${API_CONFIG.baseURL}${API_ENDPOINTS.AUTH.REFRESH}`,
@@ -352,12 +378,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setIsLoading(false);
             return;
           }
-        } catch {
+        } catch (error) {
+          console.log('❌ Token refresh failed in AuthContext:', error);
           // Refresh failed, clear tokens
           SecureStorage.clearTokens();
           setIsAuthenticated(false);
           setUser(null);
         }
+      } else {
+        console.log('❌ No refresh token available in AuthContext');
       }
 
       setIsLoading(false);
@@ -384,6 +413,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setPasswordChangeRequired(userData.password_change_required || false);
       setInactivityModalShown(false); // Reset inactivity modal state on login
       setIsShowingLogoutModal(false); // Reset logout modal flag on login
+      
+      // Clear any persisted logout modal state on successful login
+      SecureStorage.clearLogoutModalState();
 
       // Check if setup flow should be activated
       if (userData.password_change_required) {
@@ -470,7 +502,6 @@ const logout = async () => {
       <AutoLogoutModal
         visible={autoLogoutModal.visible}
         reason={autoLogoutModal.reason}
-        onClose={handleAutoLogoutModalClose}
         onLogin={autoLogoutModal.reason === 'password_changed' || autoLogoutModal.reason === 'new_user' ? handleReLogin : handleAutoLogoutLogin}
         userName={user?.first_name || "User"}
         isNewUser={isNewUser}

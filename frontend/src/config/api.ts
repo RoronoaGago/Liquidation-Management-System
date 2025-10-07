@@ -51,7 +51,7 @@ export const JWT_CONFIG = {
   CLOCK_SKEW_BUFFER_MINUTES: 5,
   
   // Inactivity timeout in minutes (frontend-only setting)
-  INACTIVITY_TIMEOUT_MINUTES: 60, // 1 hour
+  INACTIVITY_TIMEOUT_MINUTES: 5, // 5 minutes
 } as const;
 
 // API Endpoints

@@ -4,6 +4,34 @@ from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school
 from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
 from .password_reset_views import request_password_reset_otp, verify_password_reset_otp, reset_password_with_token
 
+# Debug wrapper for update_e_signature
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def debug_update_e_signature(request):
+    print("🔍 DEBUG: URL routing - update_e_signature endpoint hit")
+    print(f"- Request path: {request.path}")
+    print(f"- Request method: {request.method}")
+    print(f"- Request META: {request.META.get('PATH_INFO')}")
+    print(f"- Request GET: {request.GET}")
+    print(f"- Request POST: {request.POST}")
+    return update_e_signature(request)
+
+# Simple test endpoint
+def test_endpoint(request):
+    print("🔍 DEBUG: Test endpoint hit")
+    from django.http import JsonResponse
+    return JsonResponse({"message": "Test endpoint working", "path": request.path, "method": request.method})
+
+# Debug catch-all to see what URLs are being requested
+def debug_catch_all(request):
+    print("🔍 DEBUG: Catch-all debug - URL not found")
+    print(f"- Request path: {request.path}")
+    print(f"- Request method: {request.method}")
+    print(f"- Request META PATH_INFO: {request.META.get('PATH_INFO')}")
+    from django.http import JsonResponse
+    return JsonResponse({"error": "URL not found", "path": request.path, "method": request.method}, status=404)
+
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -12,11 +40,24 @@ from rest_framework_simplejwt.views import (
 
 
 urlpatterns = [
+    # Debug test endpoint
+    path('test/', test_endpoint, name='test-endpoint'),
+    
     # User URLs
     path('requests/', views.RequestManagementListCreateView.as_view(),
          name='request-list'),
     path("users/", views.user_list, name="user-list"),
-    path("users/<int:pk>/", views.user_detail, name="user-detail"),
+    
+    # E-signature endpoint (must come before users/<str:pk>/ to avoid conflicts)
+    path("users/update-e-signature/",
+         debug_update_e_signature, name="update-e-signature"),
+    path("users/update-e-signature",
+         debug_update_e_signature, name="update-e-signature-no-slash"),
+    path("test-signature/",
+         debug_update_e_signature, name="test-signature"),
+    
+    # User detail (must come after specific user endpoints)
+    path("users/<str:pk>/", views.user_detail, name="user-detail"),
     path('token/', CustomTokenObtainPairView.as_view(),
          name='token_obtain_pair'),
     path('token/refresh/', CustomTokenRefreshView.as_view(),
@@ -34,8 +75,6 @@ urlpatterns = [
     path('forgot-password/', request_password_reset_otp, name='request-password-reset-otp'),
     path('verify-password-reset-otp/', verify_password_reset_otp, name='verify-password-reset-otp'),
     path('reset-password/', reset_password_with_token, name='reset-password-with-token'),
-    path("users/update-e-signature/",
-         update_e_signature, name="update-e-signature"),
     path('schools/', views.SchoolListCreateAPIView.as_view(),
          name='school-list-create'),
     path('schools/search/', views.search_schools, name='school-search'),
@@ -154,5 +193,8 @@ urlpatterns = [
     path('budget-allocations/batch-create/', batch_create_budget_allocations, name='batch-create-budget-allocations'),
     path('budget-allocations/check-status/', check_yearly_budget_status, name='check-yearly-budget-status'),
     path('budget-allocations/first-monday-info/', get_first_monday_january_info, name='get-first-monday-january-info'),
+    
+    # Debug catch-all (must be last)
+    path('<path:path>', debug_catch_all, name='debug-catch-all'),
 
 ]

@@ -1,10 +1,9 @@
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import { useEffect, useMemo, useRef, useState } from "react";
-import axios from "axios";
+import api from "@/api/axios";
 import { Bounce, toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
-import { EyeCloseIcon, CalenderIcon } from "@/icons";
-import { calculateAge } from "@/lib/helpers";
+import { EyeCloseIcon } from "@/icons";
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import {
@@ -17,7 +16,7 @@ import {
 import { EyeIcon, Loader2 } from "lucide-react";
 import { User } from "@/lib/types";
 import Label from "@/components/form/Label";
-import PhoneNumberInput from "@/components/form/input/PhoneNumberInput";
+import axios from "axios";
 
 interface FormErrors {
   first_name?: string;
@@ -26,7 +25,6 @@ interface FormErrors {
   email?: string;
   password?: string;
   confirm_password?: string;
-  phone_number?: string;
 }
 
 // Validation functions
@@ -40,10 +38,6 @@ const validatePassword = (password: string) => {
   return re.test(password);
 };
 
-const validatePhoneNumber = (phone: string) => {
-  const re = /^[+\d][\d\s]*$/;
-  return re.test(phone);
-};
 
 export default function UserProfiles() {
   const [loading, setLoading] = useState(true);
@@ -80,8 +74,8 @@ export default function UserProfiles() {
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        const response = await axios.get(
-          `http://127.0.0.1:8000/api/users/${user?.user_id}`
+        const response = await api.get(
+          `users/${user?.user_id}`
         );
         setDisplayUser(response.data);
         setEditUser({ ...response.data, password: "" }); // Initialize edit user with empty password
@@ -130,11 +124,6 @@ export default function UserProfiles() {
     }
   };
 
-  // Handle phone number input
-  const handlePhoneNumberInput = (e: React.FormEvent<HTMLInputElement>) => {
-    const input = e.target as HTMLInputElement;
-    input.value = input.value.replace(/[^0-9+]/g, "");
-  };
 
   // Handle form field changes with validation
   const handleChange = (
@@ -174,13 +163,6 @@ export default function UserProfiles() {
             delete newErrors.password;
           }
           break;
-        case "phone_number":
-          if (value && !validatePhoneNumber(value)) {
-            newErrors.phone_number = "Please enter a valid phone number";
-          } else {
-            delete newErrors.phone_number;
-          }
-          break;
         default:
           // For required fields
           if (requiredFields.includes(name) && !value.trim()) {
@@ -206,8 +188,8 @@ export default function UserProfiles() {
         password: editUser.password || undefined,
       };
 
-      const response = await axios.put(
-        `http://127.0.0.1:8000/api/users/${editUser.id}/`,
+      const response = await api.put(
+        `/api/users/${editUser.id}/`,
         payload
       );
 
@@ -407,34 +389,6 @@ export default function UserProfiles() {
                 {displayUser?.email || "-"}
               </p>
             </div>
-            <div>
-              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                Phone
-              </p>
-              <p className="text-base font-medium text-gray-800 dark:text-white/90">
-                {displayUser?.phone_number || "-"}
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                Birthdate
-              </p>
-              <p className="text-base font-medium text-gray-800 dark:text-white/90">
-                {displayUser?.date_of_birth
-                  ? new Date(displayUser.date_of_birth).toLocaleDateString()
-                  : "-"}
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                Age
-              </p>
-              <p className="text-base font-medium text-gray-800 dark:text-white/90">
-                {displayUser?.date_of_birth
-                  ? calculateAge(displayUser.date_of_birth)
-                  : "-"}
-              </p>
-            </div>
             {(displayUser?.role === "school_head" ||
               displayUser?.role === "school_admin") && (
               <>
@@ -596,19 +550,6 @@ export default function UserProfiles() {
                   </div>
                 </div>
 
-                <PhoneNumberInput
-                  value={editUser.phone_number || ""}
-                  onChange={(value) =>
-                    setEditUser((prev) => ({
-                      ...prev!,
-                      phone_number: value || "",
-                    }))
-                  }
-                  error={formErrors.phone_number}
-                  id="phone_number"
-                  required={false}
-                  autoComplete="tel"
-                />
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-base">
                     Email *
@@ -657,25 +598,6 @@ export default function UserProfiles() {
                       {formErrors.password}
                     </p>
                   )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date_of_birth" className="text-base">
-                    Birthdate
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      id="date_of_birth"
-                      name="date_of_birth"
-                      className="[&::-webkit-calendar-picker-indicator]:opacity-0 w-full p-3.5 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 text-base"
-                      value={editUser?.date_of_birth || ""}
-                      onChange={handleChange}
-                      max={new Date().toISOString().split("T")[0]}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                      <CalenderIcon className="size-5" />
-                    </span>
-                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">
