@@ -11,8 +11,6 @@ import Button from "../components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
 import {
   Search,
-  Plus,
-  Minus,
   Undo2,
   X,
   ChevronLeft,
@@ -21,23 +19,19 @@ import {
   ChevronsRight,
   Info,
   AlertCircle,
-  ArrowRight,
   CheckCircle,
   Filter,
-  CalendarCheck,
-  CalendarX,
   ChevronDownIcon,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { Skeleton } from "antd";
 import { municipalityDistricts } from "@/lib/constants";
 import Label from "@/components/form/Label";
 import Toggle from "@/components/form/Toggle";
 import { Disclosure, DisclosureButton, Transition } from "@headlessui/react";
+import SchoolBudgetAllocationTable from "@/components/tables/BasicTables/SchoolBudgetAllocationTable";
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
-const QUICK_ADD_AMOUNTS = [1000, 5000, 10000];
 const MIN_SEARCH_LENGTH = 3;
 const SEARCH_DEBOUNCE_MS = 500;
 
@@ -61,14 +55,15 @@ type School = {
   schoolName: string;
   current_monthly_budget: number;
   current_yearly_budget: number;
-  municipality?: string;
-  district?: string;
-  legislativeDistrict?: string;
-  is_active?: boolean;
+  municipality: string;
+  district: { districtId: string; districtName: string; is_active?: boolean; legislativeDistrict?: string; municipality?: string; }; // Match District type
+  legislativeDistrict: string;
+  is_active: boolean;
   hasUnliquidated?: boolean;
-  last_liquidated_month?: number | null;
-  last_liquidated_year?: number | null;
+  last_liquidated_month: number | null; // Make required to match interface
+  last_liquidated_year: number | null; // Make required to match interface
   hasAllocation?: boolean; // New field to track if school has budget allocation
+  districtId: string; // Make required to match the expected interface
 };
 
 const ResourceAllocation = () => {
@@ -88,8 +83,6 @@ const ResourceAllocation = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [adjustmentAmount, setAdjustmentAmount] = useState(1000);
-  const [expandedCards, setExpandedCards] = useState<string[]>([]);
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
     useState<string>("");
@@ -126,9 +119,8 @@ const ResourceAllocation = () => {
   const [undoStack, setUndoStack] = useState<Record<string, number>[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [editingLiquidationDates, setEditingLiquidationDates] = useState<Record<string, { month: number | null; year: number | null }>>({});
-  const [allocationProgress, setAllocationProgress] = useState<{ allocated: number; total: number }>({ allocated: 0, total: 0 });
 
-  const canRequestNextMonth = useCallback((school: School) => {
+  const canRequestNextMonth = useCallback((school: any) => {
     if (!school.is_active) return false;
     if (school.hasUnliquidated) return false;
     return true;
@@ -270,11 +262,6 @@ const ResourceAllocation = () => {
       setEditingBudgets(initialBudgets);
       setSchools(schoolsWithBacklog);
       setTotalSchools(schoolsRes.data.count ?? schoolsData.length);
-      
-      // Calculate allocation progress
-      const totalActiveSchools = schoolsWithBacklog.filter((school: any) => school.is_active).length;
-      const allocatedSchools = schoolsWithBacklog.filter((school: any) => school.is_active && school.hasAllocation).length;
-      setAllocationProgress({ allocated: allocatedSchools, total: totalActiveSchools });
     } catch (error) {
       console.error("Error fetching schools data:", error);
     } finally {
@@ -316,11 +303,6 @@ const ResourceAllocation = () => {
         ? prev.filter((id) => id !== schoolId)
         : [...prev, schoolId]
     );
-    setExpandedCards((prev) =>
-      prev.includes(schoolId)
-        ? prev.filter((id) => id !== schoolId)
-        : [...prev, schoolId]
-    );
   };
 
   const handleBudgetChange = (schoolId: string, amount: number) => {
@@ -342,11 +324,6 @@ const ResourceAllocation = () => {
     });
   }, [schools, selectedSchools]);
 
-  const adjustBudget = (schoolId: string, isIncrease: boolean) => {
-    const current = Number(editingBudgets[schoolId]) || 0;
-    const adjustment = isIncrease ? adjustmentAmount : -adjustmentAmount;
-    handleBudgetChange(schoolId, current + adjustment);
-  };
 
   const totalPages = Math.ceil(totalSchools / itemsPerPage);
   const goToPage = (page: number) => {
@@ -453,7 +430,6 @@ const ResourceAllocation = () => {
 
   const clearSelection = () => {
     setSelectedSchools([]);
-    setExpandedCards([]);
   };
 
   const validateLiquidationDate = (month: number | null, year: number | null): string | null => {
@@ -570,7 +546,6 @@ const ResourceAllocation = () => {
       // Refresh data
       await fetchData();
       setSelectedSchools([]);
-      setExpandedCards([]);
       setUndoStack([]);
     } catch (error: any) {
       console.error("Error updating budgets:", error);
@@ -931,38 +906,6 @@ const ResourceAllocation = () => {
           </Disclosure>
         </div>
 
-        {/* Allocation Progress Bar */}
-        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                <CheckCircle className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Budget Allocation Progress
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  {allocationProgress.allocated} of {allocationProgress.total} active schools have budget allocations
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {allocationProgress.total > 0 ? Math.round((allocationProgress.allocated / allocationProgress.total) * 100) : 0}%
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Complete</div>
-            </div>
-          </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-            <div 
-              className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-500 ease-out"
-              style={{ 
-                width: `${allocationProgress.total > 0 ? (allocationProgress.allocated / allocationProgress.total) * 100 : 0}%` 
-              }}
-            />
-          </div>
-        </div>
 
         {/* Search and Controls */}
         <div className="flex flex-col gap-4">
@@ -1023,24 +966,6 @@ const ResourceAllocation = () => {
           </div>
           {/* Filters panel */}
           {showFilters && renderFiltersPanel()}
-        </div>
-        {/* Adjustment Controls */}
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mt-4">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Yearly Budget Adjustment Amount
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {QUICK_ADD_AMOUNTS.map((amount) => (
-              <Button
-                key={amount}
-                variant={adjustmentAmount === amount ? "primary" : "outline"}
-                size="sm"
-                onClick={() => setAdjustmentAmount(amount)}
-              >
-                {formatCurrency(amount)}
-              </Button>
-            ))}
-          </div>
         </div>
 
         {selectedSchools.length > 0 && (
@@ -1142,334 +1067,25 @@ const ResourceAllocation = () => {
             </div>
           </div>
         )}
-        {/* School Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {loading ? (
-            Array.from({ length: itemsPerPage }).map((_, idx) => (
-              <div
-                key={idx}
-                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 flex flex-col gap-3"
-              >
-                <Skeleton className="h-6 w-2/3 mb-2" />
-                <Skeleton className="h-4 w-1/3 mb-4" />
-                <Skeleton className="h-4 w-1/2 mb-2" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ))
-          ) : schools.length === 0 ? (
-            <div className="col-span-full text-gray-500 text-center py-8">
-              No schools found matching your search.
-            </div>
-          ) : (
-            sortedSchools.map((school) => {
-              const isSelected = selectedSchools.includes(school.schoolId);
-              const isExpanded = expandedCards.includes(school.schoolId);
-              const prevBudget = Number(school.current_yearly_budget || 0);
-              const currentBudget = editingBudgets[school.schoolId] ?? 0;
-              const difference = currentBudget - prevBudget;
-              // const canRequest = canRequestNextMonth(school);
-
-              return (
-                <div
-                  key={school.schoolId}
-                  className={`rounded-lg border transition-all overflow-hidden cursor-pointer flex flex-col 
-      ${isExpanded ? "h-auto" : "h-[120px]"} 
-      ${
-        isSelected
-          ? "border-brand-500 shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20"
-          : school.hasAllocation
-          ? "border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10"
-          : "border-gray-200 dark:border-gray-700"
-      } 
-      ${
-        !school.is_active
-          ? "bg-gray-50 opacity-75 dark:bg-gray-800/50"
-          : school.hasAllocation
-          ? "bg-green-50/30 dark:bg-green-900/10"
-          : "bg-white dark:bg-gray-900"
-      }
-      hover:border-brand-400 dark:hover:border-brand-500`}
-                  onClick={(e) => {
-                    if (
-                      e.target instanceof HTMLButtonElement ||
-                      e.target instanceof HTMLInputElement ||
-                      e.target instanceof HTMLSelectElement
-                    ) {
-                      return;
-                    }
-                    toggleSchoolSelection(school.schoolId);
-                  }}
-                >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                          {school.schoolName}
-                          {!school.is_active && (
-                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded-full dark:bg-gray-700 dark:text-gray-400">
-                              Inactive
-                            </span>
-                          )}
-                          {school.hasAllocation && school.is_active && (
-                            <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full dark:bg-green-900/30 dark:text-green-200">
-                              Allocated
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                          ID: {school.schoolId}
-                        </div>
-                      </div>
-                      {!school.is_active && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          This school is inactive. Budget cannot be modified.
-                        </div>
-                      )}
-
-                      <div className="flex flex-col items-end gap-1">
-                        {difference !== 0 && (
-                          <div
-                            className={`text-xs px-2 py-1 rounded-full ${
-                              difference > 0
-                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                            }`}
-                          >
-                            {difference > 0 ? "+" : ""}
-                            {formatCurrency(difference)}
-                            {difference > 0 ? (
-                              <ArrowRight className="h-3 w-3 inline ml-1 rotate-45" />
-                            ) : difference < 0 ? (
-                              <ArrowRight className="h-3 w-3 inline ml-1 -rotate-45" />
-                            ) : null}
-                          </div>
-                        )}
-
-                        {/* Liquidation status badge */}
-                        {/* Liquidation status badge - Only show when toggle is on */}
-                        {showLiquidationDetails && (
-                          <div
-                            className={`text-xs px-2 py-1 rounded-full ${
-                              canRequestNextMonth(school)
-                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
-                                : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200"
-                            }`}
-                          >
-                            {canRequestNextMonth(school) ? (
-                              <>
-                                <CalendarCheck className="h-3 w-3 inline mr-1" />
-                                Eligible
-                              </>
-                            ) : (
-                              <>
-                                <CalendarX className="h-3 w-3 inline mr-1" />
-                                Cannot Request Yet
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <>
-                        <div className="mt-4 flex items-center justify-between">
-                          <div className="text-sm text-gray-600 dark:text-gray-300">
-                            Current Yearly Budget
-                          </div>
-                          <div className="font-medium">
-                            {formatCurrency(currentBudget)}
-                          </div>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between">
-                          <div className="text-sm text-gray-600 dark:text-gray-300">
-                            Previous Yearly Budget
-                          </div>
-                          <div className="text-sm">
-                            {formatCurrency(prevBudget)}
-                          </div>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between">
-                          <div className="text-sm text-gray-600 dark:text-gray-300">
-                            Monthly Budget
-                          </div>
-                          <div className="text-sm">
-                            {formatCurrency(currentBudget / 12)}
-                          </div>
-                        </div>
-
-                        {/* Liquidation Date Inputs */}
-                        <div className="mt-4 space-y-3">
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Last Liquidation Date
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                Month
-                              </label>
-                              <select
-                                value={editingLiquidationDates[school.schoolId]?.month ?? school.last_liquidated_month ?? ""}
-                                onChange={(e) => handleLiquidationDateChange(school.schoolId, 'month', e.target.value ? parseInt(e.target.value) : null)}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
-                                disabled={!school.is_active}
-                              >
-                                <option value="">Select Month</option>
-                                {monthNames.map((month, index) => {
-                                  const selectedYear = editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? null;
-                                  const futureMonth = isFutureMonth(index, selectedYear);
-                                  
-                                  return (
-                                    <option 
-                                      key={index} 
-                                      value={index + 1}
-                                      disabled={futureMonth}
-                                      style={futureMonth ? { color: '#9CA3AF', fontStyle: 'italic' } : {}}
-                                    >
-                                      {futureMonth ? `${month} (Future)` : month}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                Year
-                              </label>
-                              <input
-                                type="number"
-                                min="2020"
-                                max={new Date().getFullYear()}
-                                value={editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? ""}
-                                onChange={(e) => {
-                                  const yearValue = e.target.value ? parseInt(e.target.value) : null;
-                                  
-                                  // Check if future year is entered
-                                  if (yearValue && yearValue > new Date().getFullYear()) {
-                                    toast.error("Cannot set liquidation date in the future");
-                                    return; // Don't update the state
-                                  }
-                                  
-                                  handleLiquidationDateChange(school.schoolId, 'year', yearValue);
-                                }}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
-                                disabled={!school.is_active}
-                                placeholder="e.g., 2024"
-                              />
-                            </div>
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Cannot set dates in the future
-                          </div>
-                          {(editingLiquidationDates[school.schoolId]?.month !== school.last_liquidated_month || 
-                            editingLiquidationDates[school.schoolId]?.year !== school.last_liquidated_year) && (
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  saveLiquidationDates(school.schoolId);
-                                }}
-                                variant="primary"
-                                size="sm"
-                                disabled={!school.is_active}
-                                className="px-3 py-1 text-xs"
-                              >
-                                Save Dates
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingLiquidationDates(prev => {
-                                    const newState = { ...prev };
-                                    delete newState[school.schoolId];
-                                    return newState;
-                                  });
-                                }}
-                                variant="outline"
-                                size="sm"
-                                className="px-3 py-1 text-xs"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Show liquidation details if toggled on */}
-                        {showLiquidationDetails &&
-                          school.last_liquidated_month && (
-                            <div className="mt-1 flex items-center justify-between">
-                              <div className="text-sm text-green-800 dark:text-green-200 ">
-                                Last Liquidation
-                              </div>
-                              <div className="text-sm text-green-800 dark:text-green-200">
-                                {monthNames[school.last_liquidated_month - 1]}{" "}
-                                {school.last_liquidated_year}
-                              </div>
-                            </div>
-                          )}
-
-                        <div className="mt-4 space-y-3">
-                          <div className="flex items-center justify-center gap-4">
-                            <Button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                adjustBudget(school.schoolId, false);
-                              }}
-                              variant="outline"
-                              size="sm"
-                              disabled={currentBudget <= 0 || !school.is_active} // Add !school.is_active
-                              className="px-4 py-2 h-10 w-full"
-                            >
-                              <Minus className="h-4 w-4" />
-                              <span className="ml-2">Decrease</span>
-                            </Button>
-
-                            <Button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                adjustBudget(school.schoolId, true);
-                              }}
-                              variant="outline"
-                              size="sm"
-                              disabled={!school.is_active} // Add !school.is_active
-                              className="px-4 py-2 h-10 w-full"
-                            >
-                              <Plus className="h-4 w-4" />
-                              <span className="ml-2">Increase</span>
-                            </Button>
-                          </div>
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                              <span className="text-gray-500">₱</span>
-                            </div>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={editingBudgets[school.schoolId] || 0}
-                              onChange={(e) =>
-                                school.is_active && // Only allow changes for active schools
-                                handleBudgetChange(
-                                  school.schoolId,
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                              disabled={!school.is_active} // Disable for inactive schools
-                              className="pl-8 h-10 text-center"
-                            />
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
+        {/* School Budget Allocation Table */}
+        <div className="mb-6 mt-8">
+          <SchoolBudgetAllocationTable
+            schools={sortedSchools}
+            selectedSchools={selectedSchools}
+            editingBudgets={editingBudgets}
+            editingLiquidationDates={editingLiquidationDates}
+            showLiquidationDetails={showLiquidationDetails}
+            onToggleSchoolSelection={toggleSchoolSelection}
+            onBudgetChange={handleBudgetChange}
+            onLiquidationDateChange={handleLiquidationDateChange}
+            onSaveLiquidationDates={saveLiquidationDates}
+            canRequestNextMonth={canRequestNextMonth}
+            formatCurrency={formatCurrency}
+            monthNames={monthNames}
+            isFutureMonth={isFutureMonth}
+            loading={loading}
+            error={null}
+          />
         </div>
         {/* Pagination */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
