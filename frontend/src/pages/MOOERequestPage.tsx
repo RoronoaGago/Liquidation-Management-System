@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import api from "@/api/axios";
 import DocumentTextIcon from "@heroicons/react/outline/DocumentTextIcon";
+import { Skeleton } from "antd";
 
 const CATEGORY_LABELS: Record<string, string> = {
   travel: "Travel Expenses",
@@ -123,6 +124,7 @@ const MOOERequestPage = () => {
   });
   const [, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [budgetLoading, setBudgetLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -268,6 +270,7 @@ const MOOERequestPage = () => {
   // Fetch school monthly budget on mount
   useEffect(() => {
     const fetchSchoolBudget = async () => {
+      setBudgetLoading(true);
       try {
         const userRes = await api.get("/users/me/");
         const schoolId = userRes.data.school?.schoolId;
@@ -299,12 +302,14 @@ const MOOERequestPage = () => {
         setAllocatedBudget(0);
         console.error("Failed to fetch allocated budget:", error);
         toast.error("Failed to fetch school budget information. Please try again later.");
+      } finally {
+        setBudgetLoading(false);
       }
     };
     fetchSchoolBudget();
   }, []);
 
-  const isFormDisabled = hasPendingRequest || hasActiveLiquidation || allocatedBudget === 0;
+  const isFormDisabled = hasPendingRequest || hasActiveLiquidation || (budgetLoading ? false : allocatedBudget === 0);
   useEffect(() => {
     const fetchNextMonth = async () => {
       try {
@@ -639,6 +644,93 @@ const MOOERequestPage = () => {
       expenseTitle: expense,
       amount: selected[expense],
     }));
+
+  // Show skeleton loading when either priorities or budget is loading
+  if (loading || budgetLoading) {
+    return (
+      <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+        {/* Page Header Skeleton */}
+        <div className="mb-8">
+          <Skeleton active paragraph={{ rows: 1 }} />
+        </div>
+
+        {/* Guide Section Skeleton */}
+        <div className="mb-6">
+          <Skeleton active paragraph={{ rows: 2 }} />
+        </div>
+
+        {/* Main Content Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column - Expense List Skeleton */}
+          <div>
+            {/* Search and Copy Button Skeleton */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
+              <div className="relative w-full flex-5/8">
+                <Skeleton.Input active style={{ width: '100%', height: 40 }} />
+              </div>
+              <div className="w-full flex-3/8">
+                <Skeleton.Button active style={{ width: '100%', height: 40 }} />
+              </div>
+            </div>
+
+            {/* Expense Categories Skeleton */}
+            <div className="space-y-3">
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                {[1, 2, 3, 4].map((item) => (
+                  <div key={item} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                    <div className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <Skeleton.Avatar active size="small" />
+                          <div className="ml-3">
+                            <Skeleton active paragraph={{ rows: 1 }} />
+                          </div>
+                        </div>
+                        <Skeleton.Button active size="small" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Summary Panel Skeleton */}
+          <div className="sticky top-4 h-fit">
+            <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 overflow-hidden">
+              {/* Header Skeleton */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-300 dark:border-gray-600">
+                <Skeleton active paragraph={{ rows: 1 }} />
+              </div>
+
+              {/* Budget Info Skeleton */}
+              <div className="p-4 pb-0">
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                  <Skeleton active paragraph={{ rows: 2 }} />
+                </div>
+              </div>
+
+              {/* Summary Content Skeleton */}
+              <div className="p-8 text-center">
+                <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                  <Skeleton.Avatar active size="large" />
+                </div>
+                <Skeleton active paragraph={{ rows: 2 }} />
+              </div>
+
+              {/* Action Buttons Skeleton */}
+              <div className="p-4 border-t border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                <div className="flex justify-between items-center">
+                  <Skeleton.Button active size="small" />
+                  <Skeleton.Button active size="default" style={{ minWidth: 180 }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
@@ -1797,7 +1889,11 @@ const MOOERequestPage = () => {
 
                 {/* Always show budget info at the top for consistent position/dimension */}
                 <div className="p-4 pb-0">
-                  {allocatedBudget === 0 ? (
+                  {budgetLoading ? (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                      <Skeleton active paragraph={{ rows: 2 }} />
+                    </div>
+                  ) : allocatedBudget === 0 ? (
                     <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/20">
                       <div className="flex items-center gap-2 mb-2">
                         <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
