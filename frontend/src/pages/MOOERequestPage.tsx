@@ -886,50 +886,106 @@ const MOOERequestPage = () => {
         open={showRequirementsDialog}
         onOpenChange={setShowRequirementsDialog}
       >
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-md flex flex-col max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Document Requirements</DialogTitle>
-            <DialogDescription>For: {currentPriorityTitle}</DialogDescription>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-lg lg:max-w-xl flex flex-col max-h-[90vh]">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
+              Document Requirements
+            </DialogTitle>
+            <DialogDescription className="text-base text-gray-600 dark:text-gray-300 mt-1">
+              For: <span className="font-medium text-gray-800 dark:text-gray-200">{currentPriorityTitle}</span>
+            </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 max-h-[60vh] overflow-y-auto px-1">
+          
+          <div className="flex-1 overflow-hidden">
             {currentPriorityRequirements.length > 0 ? (
-              <ul className="space-y-3 pr-2">
-                {currentPriorityRequirements.map((req, index) => {
-                  const isRequired = req.is_required;
-                  return (
-                    <li
-                      key={index}
-                      className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-                    >
-                      <DocumentTextIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-800 dark:text-white">
-                            {req.requirementTitle}
-                          </span>
-                          {isRequired ? (
-                            <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
-                              Required
-                            </span>
-                          ) : (
-                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
-                              Optional
-                            </span>
-                          )}
+              <div className="relative">
+                {/* Scrollable content with gradient fade indicators */}
+                <div className="max-h-[50vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                  <div className="space-y-4">
+                    {currentPriorityRequirements.map((req, index) => {
+                      const isRequired = req.is_required;
+                      return (
+                        <div
+                          key={index}
+                          className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                        >
+                          <div className="flex items-start gap-4">
+                            {/* Icon with better styling */}
+                            <div className="flex-shrink-0 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 group-hover:bg-gray-200 dark:group-hover:bg-gray-600 transition-colors">
+                              <DocumentTextIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                            </div>
+                            
+                            {/* Content area */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-base font-medium text-gray-900 dark:text-white leading-relaxed break-words">
+                                    {req.requirementTitle}
+                                  </h4>
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                      </svg>
+                                      PDF format
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                {/* Status badge */}
+                                <div className="flex-shrink-0">
+                                  {isRequired ? (
+                                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200 border border-red-200 dark:border-red-800">
+                                      <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                      </svg>
+                                      Required
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
+                                      <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                      </svg>
+                                      Optional
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          PDF format required
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Bottom gradient fade for scroll indication */}
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white dark:from-gray-800 to-transparent pointer-events-none"></div>
+              </div>
             ) : (
-              <p className="text-gray-500 dark:text-gray-400">
-                No specific requirements for this priority.
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 px-4">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                  <DocumentTextIcon className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  No Requirements
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm">
+                  This expense item doesn't have any specific document requirements.
+                </p>
+              </div>
             )}
+          </div>
+          
+          {/* Footer with close button */}
+          <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowRequirementsDialog(false)}
+              className="px-6 py-2"
+            >
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
