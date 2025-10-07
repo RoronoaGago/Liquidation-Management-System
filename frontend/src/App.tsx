@@ -22,6 +22,7 @@ import MOOERequestPage from "./pages/MOOERequestPage";
 import MOOERequestHistory from "./pages/MOOERequestHistory";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
+import LastLiquidationDatesPage from "./pages/LastLiquidationDatesPage";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
 import SetupModal from "./components/common/SetupModal";
@@ -235,6 +236,10 @@ const App = () => {
               <Route
                 path="/resource-allocation"
                 element={<ResourceAllocation />}
+              />
+              <Route
+                path="/school-liquidation-dates"
+                element={<LastLiquidationDatesPage />}
               />
             </Route>
           </Route>
