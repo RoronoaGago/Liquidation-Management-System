@@ -75,7 +75,7 @@ export default function UserProfiles() {
       setLoading(true);
       try {
         const response = await api.get(
-          `users/${user?.user_id}`
+          `users/${user?.user_id}/`
         );
         setDisplayUser(response.data);
         setEditUser({ ...response.data, password: "" }); // Initialize edit user with empty password

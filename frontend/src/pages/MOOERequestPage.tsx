@@ -276,16 +276,35 @@ const MOOERequestPage = () => {
           return;
         }
         const schoolRes = await api.get(`/schools/${schoolId}/`);
-        setAllocatedBudget(Number(schoolRes.data.current_monthly_budget) || 0);
+        const monthlyBudget = Number(schoolRes.data.current_monthly_budget) || 0;
+        setAllocatedBudget(monthlyBudget);
+        
+        // Log budget information for debugging
+        console.log("School budget info:", {
+          schoolId,
+          schoolName: schoolRes.data.schoolName,
+          current_monthly_budget: schoolRes.data.current_monthly_budget,
+          current_yearly_budget: schoolRes.data.current_yearly_budget,
+          monthlyBudget
+        });
+        
+        // Show warning if budget is 0
+        if (monthlyBudget === 0) {
+          toast.warning(
+            "No budget allocation found for your school. Please contact the Division Superintendent to set up your school's budget allocation.",
+            { autoClose: 8000 }
+          );
+        }
       } catch (error) {
         setAllocatedBudget(0);
         console.error("Failed to fetch allocated budget:", error);
+        toast.error("Failed to fetch school budget information. Please try again later.");
       }
     };
     fetchSchoolBudget();
   }, []);
 
-  const isFormDisabled = hasPendingRequest || hasActiveLiquidation;
+  const isFormDisabled = hasPendingRequest || hasActiveLiquidation || allocatedBudget === 0;
   useEffect(() => {
     const fetchNextMonth = async () => {
       try {
@@ -1778,24 +1797,39 @@ const MOOERequestPage = () => {
 
                 {/* Always show budget info at the top for consistent position/dimension */}
                 <div className="p-4 pb-0">
-                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                        Allocated Budget:
-                      </span>
-                      <span className="font-bold text-blue-800 dark:text-blue-200">
-                        ₱{allocatedBudget.toLocaleString()}
-                      </span>
+                  {allocatedBudget === 0 ? (
+                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                          No Budget Allocation
+                        </span>
+                      </div>
+                      <div className="text-xs text-red-700 dark:text-red-300">
+                        Your school doesn't have a budget allocation for the current year. 
+                        Please contact the Division Superintendent to set up your school's budget.
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center mt-1">
-                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                        Remaining Budget:
-                      </span>
-                      <span className="font-bold text-blue-800 dark:text-blue-200">
-                        ₱{(allocatedBudget - totalAmount).toLocaleString()}
-                      </span>
+                  ) : (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                          Allocated Budget:
+                        </span>
+                        <span className="font-bold text-blue-800 dark:text-blue-200">
+                          ₱{allocatedBudget.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                          Remaining Budget:
+                        </span>
+                        <span className="font-bold text-blue-800 dark:text-blue-200">
+                          ₱{(allocatedBudget - totalAmount).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {Object.keys(selected).length > 0 ? (
@@ -1962,8 +1996,12 @@ const MOOERequestPage = () => {
                           {isFormDisabled ? (
                             hasPendingRequest ? (
                               "Request Pending"
-                            ) : (
+                            ) : hasActiveLiquidation ? (
                               "Liquidation in Progress"
+                            ) : allocatedBudget === 0 ? (
+                              "No Budget Allocation"
+                            ) : (
+                              "Form Disabled"
                             )
                           ) : submitting ? (
                             "Submitting..."

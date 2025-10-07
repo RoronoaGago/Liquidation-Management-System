@@ -24,9 +24,10 @@ def test_endpoint(request):
     return JsonResponse({"message": "Test endpoint working", "path": request.path, "method": request.method})
 
 # Debug catch-all to see what URLs are being requested
-def debug_catch_all(request):
+def debug_catch_all(request, path=None):
     print("🔍 DEBUG: Catch-all debug - URL not found")
     print(f"- Request path: {request.path}")
+    print(f"- Captured path: {path}")
     print(f"- Request method: {request.method}")
     print(f"- Request META PATH_INFO: {request.META.get('PATH_INFO')}")
     from django.http import JsonResponse
@@ -55,6 +56,9 @@ urlpatterns = [
          debug_update_e_signature, name="update-e-signature-no-slash"),
     path("test-signature/",
          debug_update_e_signature, name="test-signature"),
+    
+    # User "me" endpoint (must come before users/<str:pk>/)
+    path("users/me/", views.user_me, name="user-me"),
     
     # User detail (must come after specific user endpoints)
     path("users/<str:pk>/", views.user_detail, name="user-detail"),
@@ -150,7 +154,6 @@ urlpatterns = [
          views.DeleteNotificationAPIView.as_view(), name='delete-notification'),
     path('notifications/delete-all/',
          views.DeleteAllNotificationsAPIView.as_view(), name='delete-all-notifications'),
-    path("users/me/", views.user_me, name="user-me"),
     path('division-signatories/', views.division_signatories,
          name='division-signatories'),
 
