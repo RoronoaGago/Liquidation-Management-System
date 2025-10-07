@@ -43,26 +43,28 @@ interface SchoolLiquidationDatesTableProps {
   editingLiquidationDates: {
     [schoolId: string]: { month: number | null; year: number | null };
   };
-  onLiquidationDateChange: (schoolId: string, field: 'month' | 'year', value: number | null) => void;
+  onSaveIndividualLiquidationDate: (schoolId: string, month: number | null, year: number | null) => Promise<void>;
   onSchoolSelection: (schoolId: string, selected: boolean) => void;
   onSelectAll: (selected: boolean) => void;
   isFutureMonth: (month: number, year: number | null) => boolean;
   monthNames: string[];
   loading: boolean;
   error: string | null;
+  isSaving?: boolean;
 }
 
 const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = ({
   schools,
   selectedSchools,
   editingLiquidationDates,
-  onLiquidationDateChange,
+  onSaveIndividualLiquidationDate,
   onSchoolSelection,
   onSelectAll,
   isFutureMonth,
   monthNames,
   loading,
   error,
+  isSaving = false,
 }) => {
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [dialogMonth, setDialogMonth] = useState<number | null>(null);
@@ -75,12 +77,16 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
     setDialogYear(editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year);
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     if (selectedSchool) {
-      onLiquidationDateChange(selectedSchool.schoolId, 'month', dialogMonth);
-      onLiquidationDateChange(selectedSchool.schoolId, 'year', dialogYear);
-      setSelectedSchool(null);
-      setShowSaveConfirm(false);
+      try {
+        await onSaveIndividualLiquidationDate(selectedSchool.schoolId, dialogMonth, dialogYear);
+        setSelectedSchool(null);
+        setShowSaveConfirm(false);
+      } catch (error) {
+        // Error handling is done in the parent component
+        console.error("Error saving liquidation date:", error);
+      }
     }
   };
 
@@ -391,8 +397,9 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
                 <Button
                   variant="primary"
                   onClick={handleSaveChanges}
+                  disabled={isSaving}
                 >
-                  Confirm Save
+                  {isSaving ? "Saving..." : "Confirm Save"}
                 </Button>
               </div>
             </div>

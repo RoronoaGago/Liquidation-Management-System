@@ -71,6 +71,9 @@ const LastLiquidationDatesPage: React.FC = () => {
   }>({});
   const [showFilters, setShowFilters] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showIndividualSuccessDialog, setShowIndividualSuccessDialog] = useState(false);
+  const [individualSaveMessage, setIndividualSaveMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [filterLegislativeDistrict, setFilterLegislativeDistrict] = useState<string>("");
   const [filterMunicipality, setFilterMunicipality] = useState<string>("");
@@ -257,24 +260,54 @@ const LastLiquidationDatesPage: React.FC = () => {
     return selectedYear === currentYear && (monthIndex + 1) > currentMonth;
   };
 
-  const handleLiquidationDateChange = (schoolId: string, field: 'month' | 'year', value: number | null) => {
-    const currentDates = editingLiquidationDates[schoolId] || {};
-    const newDates = {
-      ...currentDates,
-      [field]: value
-    };
-    
-    const validationError = validateLiquidationDate(newDates.month, newDates.year);
-    
-    if (validationError) {
-      toast.error(validationError);
-      return;
+
+  // Individual liquidation date save function
+  const saveIndividualLiquidationDate = async (schoolId: string, month: number | null, year: number | null) => {
+    setIsSaving(true);
+    try {
+      // Final validation before saving
+      const validationError = validateLiquidationDate(month, year);
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+
+      await api.patch(`schools/${schoolId}/liquidation-dates/`, {
+        last_liquidated_month: month,
+        last_liquidated_year: year
+      });
+
+      // Update the school in the local state
+      setSchools(prev => prev.map(school => 
+        school.schoolId === schoolId 
+          ? { 
+              ...school, 
+              last_liquidated_month: month, 
+              last_liquidated_year: year 
+            }
+          : school
+      ));
+
+      // Clear the editing state
+      setEditingLiquidationDates(prev => {
+        const newState = { ...prev };
+        delete newState[schoolId];
+        return newState;
+      });
+
+      // Show success message
+      const school = schools.find(s => s.schoolId === schoolId);
+      setIndividualSaveMessage(`Liquidation date updated successfully for ${school?.schoolName || schoolId}`);
+      setShowIndividualSuccessDialog(true);
+      setTimeout(() => setShowIndividualSuccessDialog(false), 3000);
+
+      toast.success("Liquidation dates updated successfully");
+    } catch (error: any) {
+      console.error("Error updating liquidation dates:", error);
+      toast.error(`Failed to update liquidation dates: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setIsSaving(false);
     }
-    
-    setEditingLiquidationDates(prev => ({
-      ...prev,
-      [schoolId]: newDates
-    }));
   };
 
 
@@ -392,6 +425,43 @@ const LastLiquidationDatesPage: React.FC = () => {
   return (
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="School Liquidation Dates" />
+
+      {/* Individual Success Dialog */}
+      <Dialog open={showIndividualSuccessDialog} onOpenChange={setShowIndividualSuccessDialog}>
+        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+          {/* Main Content Container */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            {/* Animated Checkmark Icon */}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
+              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
+            </div>
+
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+                Liquidation Date Updated Successfully
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                {individualSaveMessage}
+              </p>
+            </div>
+
+            {/* Action Indicator */}
+            <div className="pt-2">
+              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+                <span className="animate-pulse">•</span>
+                <span>Closing automatically</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Animated Progress Bar */}
+          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
@@ -549,7 +619,7 @@ const LastLiquidationDatesPage: React.FC = () => {
             schools={sortedSchools}
             selectedSchools={selectedSchools}
             editingLiquidationDates={editingLiquidationDates}
-            onLiquidationDateChange={handleLiquidationDateChange}
+            onSaveIndividualLiquidationDate={saveIndividualLiquidationDate}
             onSchoolSelection={toggleSchoolSelection}
             onSelectAll={(selected: boolean) => {
               if (selected) {
@@ -562,6 +632,7 @@ const LastLiquidationDatesPage: React.FC = () => {
             monthNames={monthNames}
             loading={loading}
             error={error}
+            isSaving={isSaving}
           />
         </div>
 
