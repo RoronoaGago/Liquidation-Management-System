@@ -83,6 +83,8 @@ const ResourceAllocation = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showIndividualSuccessDialog, setShowIndividualSuccessDialog] = useState(false);
+  const [individualSaveMessage, setIndividualSaveMessage] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
     useState<string>("");
@@ -244,6 +246,8 @@ const ResourceAllocation = () => {
 
       const schoolsWithBacklog = schoolsData.map((school: any) => {
         const hasUnliquidated = backlogData.has(school.schoolId);
+        // hasAllocation should be true if there's an actual budget allocation record in the database
+        // We'll check this by looking at the current_yearly_budget from the database
         const hasAllocation = school.current_yearly_budget > 0;
         return {
           ...school,
@@ -305,16 +309,6 @@ const ResourceAllocation = () => {
     );
   };
 
-  const handleBudgetChange = (schoolId: string, amount: number) => {
-    if (isNaN(amount) || amount < 0) {
-      toast.error("Budget must be a non-negative number.");
-      return;
-    }
-    setEditingBudgets((prev) => ({
-      ...prev,
-      [schoolId]: Math.max(0, amount),
-    }));
-  };
 
   const sortedSchools = useMemo(() => {
     return [...schools].sort((a, b) => {
@@ -517,6 +511,47 @@ const ResourceAllocation = () => {
       toast.error(`Failed to update liquidation dates: ${error.response?.data?.error || error.message}`);
     }
   };
+  // Individual budget save function
+  const saveIndividualBudget = async (schoolId: string, yearlyBudget: number) => {
+    setIsSaving(true);
+    try {
+      const allocation = {
+        school_id: String(schoolId),
+        yearly_budget: parseFloat(yearlyBudget.toFixed(2)),
+      };
+
+      // Create or update budget allocation for the current year
+      await api.post("/budget-allocations/batch-create/", { 
+        year: currentYear,
+        allocations: [allocation]
+      });
+
+      // Update local state
+      setEditingBudgets(prev => ({
+        ...prev,
+        [schoolId]: yearlyBudget
+      }));
+
+      // Show success message
+      const school = schools.find(s => s.schoolId === schoolId);
+      setIndividualSaveMessage(`Budget allocation updated successfully for ${school?.schoolName || schoolId}`);
+      setShowIndividualSuccessDialog(true);
+      setTimeout(() => setShowIndividualSuccessDialog(false), 3000);
+
+      // Refresh data to get updated allocation status
+      await fetchData();
+    } catch (error: any) {
+      console.error("Error updating individual budget:", error);
+      toast.error(
+        `Failed to update budget: ${
+          error.response?.data?.message || error.message
+        }`
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // 4. Enhance saveBudgets with validation
   const saveBudgets = async () => {
     if (selectedSchools.length === 0) {
@@ -816,6 +851,43 @@ const ResourceAllocation = () => {
     <div className="container mx-auto rounded-2xl bg-white px-5 pb-5 pt-5 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <PageBreadcrumb pageTitle="Yearly Budget Allocation" />
 
+      {/* Individual Success Dialog */}
+      <Dialog open={showIndividualSuccessDialog} onOpenChange={setShowIndividualSuccessDialog}>
+        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+          {/* Main Content Container */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            {/* Animated Checkmark Icon */}
+            <div className="relative mb-2">
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
+              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
+            </div>
+
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+                Budget Updated Successfully
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                {individualSaveMessage}
+              </p>
+            </div>
+
+            {/* Action Indicator */}
+            <div className="pt-2">
+              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+                <span className="animate-pulse">•</span>
+                <span>Closing automatically</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Animated Progress Bar */}
+          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
@@ -1076,15 +1148,16 @@ const ResourceAllocation = () => {
             editingLiquidationDates={editingLiquidationDates}
             showLiquidationDetails={showLiquidationDetails}
             onToggleSchoolSelection={toggleSchoolSelection}
-            onBudgetChange={handleBudgetChange}
             onLiquidationDateChange={handleLiquidationDateChange}
             onSaveLiquidationDates={saveLiquidationDates}
+            onSaveIndividualBudget={saveIndividualBudget}
             canRequestNextMonth={canRequestNextMonth}
             formatCurrency={formatCurrency}
             monthNames={monthNames}
             isFutureMonth={isFutureMonth}
             loading={loading}
             error={null}
+            isSaving={isSaving}
           />
         </div>
         {/* Pagination */}

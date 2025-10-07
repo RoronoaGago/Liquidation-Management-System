@@ -45,15 +45,16 @@ interface SchoolBudgetAllocationTableProps {
   editingLiquidationDates: Record<string, { month: number | null; year: number | null }>;
   showLiquidationDetails: boolean;
   onToggleSchoolSelection: (schoolId: string) => void;
-  onBudgetChange: (schoolId: string, amount: number) => void;
   onLiquidationDateChange: (schoolId: string, field: 'month' | 'year', value: number | null) => void;
   onSaveLiquidationDates: (schoolId: string) => void;
+  onSaveIndividualBudget: (schoolId: string, yearlyBudget: number) => Promise<void>;
   canRequestNextMonth: (school: any) => boolean;
   formatCurrency: (value: number) => string;
   monthNames: string[];
   isFutureMonth: (monthIndex: number, selectedYear: number | null) => boolean;
   loading?: boolean;
   error?: string | null;
+  isSaving?: boolean;
 }
 
 const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = ({
@@ -63,15 +64,16 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
   editingLiquidationDates,
   showLiquidationDetails,
   onToggleSchoolSelection,
-  onBudgetChange,
   onLiquidationDateChange,
   onSaveLiquidationDates,
+  onSaveIndividualBudget,
   canRequestNextMonth,
   formatCurrency,
   monthNames,
   isFutureMonth,
   loading = false,
   error = null,
+  isSaving = false,
 }) => {
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [dialogBudget, setDialogBudget] = useState<number>(0);
@@ -272,7 +274,8 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                             Unallocated
                           </span>
                         )}
-                        {difference !== 0 && (
+                        {/* Only show edit difference if school doesn't have allocation yet */}
+                        {difference !== 0 && !school.hasAllocation && (
                           <div
                             className={`text-xs px-2 py-1 rounded-full w-fit ${
                               difference > 0
@@ -602,13 +605,19 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                 </Button>
                 <Button
                   variant="primary"
-                  onClick={() => {
-                    onBudgetChange(selectedSchool.schoolId, dialogBudget);
-                    setSelectedSchool(null);
-                    setShowSaveConfirm(false);
+                  onClick={async () => {
+                    try {
+                      await onSaveIndividualBudget(selectedSchool.schoolId, dialogBudget);
+                      setSelectedSchool(null);
+                      setShowSaveConfirm(false);
+                    } catch (error) {
+                      // Error handling is done in the parent component
+                      console.error("Error saving individual budget:", error);
+                    }
                   }}
+                  disabled={isSaving}
                 >
-                  Confirm Save
+                  {isSaving ? "Saving..." : "Confirm Save"}
                 </Button>
               </div>
             </div>
