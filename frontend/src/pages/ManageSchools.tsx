@@ -131,7 +131,7 @@ const ManageSchools = () => {
       // Fetch schools and districts in parallel
       const [schoolsResponse, districtsResponse] = await Promise.all([
         api.get("schools/", { params }),
-        api.get("school-districts?show_all=true"),
+        api.get("school-districts/?show_all=true"),
       ]);
 
       const schoolsData = schoolsResponse.data.results || schoolsResponse.data;

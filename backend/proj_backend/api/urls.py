@@ -1,4 +1,5 @@
 from django.urls import path
+from django.http import JsonResponse
 from . import views
 from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, generate_demand_letter, initiate_backup, initiate_restore, list_backups, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
 from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
@@ -20,7 +21,6 @@ def debug_update_e_signature(request):
 # Simple test endpoint
 def test_endpoint(request):
     print("🔍 DEBUG: Test endpoint hit")
-    from django.http import JsonResponse
     return JsonResponse({"message": "Test endpoint working", "path": request.path, "method": request.method})
 
 # Debug catch-all to see what URLs are being requested
@@ -30,7 +30,6 @@ def debug_catch_all(request, path=None):
     print(f"- Captured path: {path}")
     print(f"- Request method: {request.method}")
     print(f"- Request META PATH_INFO: {request.META.get('PATH_INFO')}")
-    from django.http import JsonResponse
     return JsonResponse({"error": "URL not found", "path": request.path, "method": request.method}, status=404)
 
 
