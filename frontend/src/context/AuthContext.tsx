@@ -15,6 +15,8 @@ import SecureStorage from "../lib/secureStorage";
 import { API_CONFIG, API_ENDPOINTS, JWT_CONFIG } from "../config/api";
 import { useInactivity } from "../hooks/useInactivity";
 import AutoLogoutModal from "../components/AutoLogoutModal";
+import "../utils/debugAuth"; // Import debug utilities
+import "../utils/debugRefresh"; // Import refresh debug utilities
 
 interface UserData {
   user_id: string | number;
@@ -243,7 +245,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Handle inactivity detection (1 hour = 3600000 ms)
   const handleInactivity = () => {
     console.log('🚨 Inactivity detected! isAuthenticated:', isAuthenticated);
-    if (isAuthenticated) {
+    if (isAuthenticated && !isShowingLogoutModal) {
       console.log('🚨 Showing inactivity logout modal');
       showAutoLogoutModal('inactivity');
       // Don't clear tokens immediately - let user decide when to logout
@@ -264,7 +266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     onInactivity: handleInactivity,
     events: ['mousedown', 'keypress', 'touchstart', 'click', 'keydown'], // Removed mousemove and scroll to reduce frequency
     enabled: inactivityEnabled,
-    throttleMs: 10000 // 10 seconds throttle to prevent excessive resets
+    throttleMs: 5000 // 5 seconds throttle to prevent excessive resets (reduced from 10 seconds)
   });
 
   // Listen for logout events from axios interceptor
@@ -297,9 +299,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      // Use SecureStorage to get tokens
+      // Use SecureStorage to get tokens from localStorage
       const accessToken = SecureStorage.getAccessToken();
       const refreshToken = SecureStorage.getRefreshToken();
+      
+      console.log('🔍 AuthContext checkAuth:');
+      console.log('- Has access token:', !!accessToken);
+      console.log('- Has refresh token:', !!refreshToken);
+      console.log('- Access token expired:', SecureStorage.isAccessTokenExpired());
 
       if (accessToken && !SecureStorage.isAccessTokenExpired()) {
         try {
@@ -324,6 +331,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // If access token is missing or expired, try to refresh
       if (refreshToken) {
+        console.log('🔄 Attempting token refresh in AuthContext...');
         try {
           const response = await axios.post(
             `${API_CONFIG.baseURL}${API_ENDPOINTS.AUTH.REFRESH}`,
@@ -352,12 +360,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setIsLoading(false);
             return;
           }
-        } catch {
+        } catch (error) {
+          console.log('❌ Token refresh failed in AuthContext:', error);
           // Refresh failed, clear tokens
           SecureStorage.clearTokens();
           setIsAuthenticated(false);
           setUser(null);
         }
+      } else {
+        console.log('❌ No refresh token available in AuthContext');
       }
 
       setIsLoading(false);

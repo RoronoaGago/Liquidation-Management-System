@@ -16,7 +16,7 @@ urlpatterns = [
     path('requests/', views.RequestManagementListCreateView.as_view(),
          name='request-list'),
     path("users/", views.user_list, name="user-list"),
-    path("users/<int:pk>/", views.user_detail, name="user-detail"),
+    path("users/<str:pk>/", views.user_detail, name="user-detail"),
     path('token/', CustomTokenObtainPairView.as_view(),
          name='token_obtain_pair'),
     path('token/refresh/', CustomTokenRefreshView.as_view(),

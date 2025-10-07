@@ -198,20 +198,7 @@ const allNavItems: NavItem[] = [
     path: "/audit-logs",
     roles: ["admin"], // Only admins should access audit logs
   },
-  {
-    icon: <UserRoundPenIcon />,
-    name: "User Profile",
-    path: "/profile",
-    roles: [
-      "school_admin",
-      "school_head",
-      "district_admin",
-      "superintendent",
-      "admin",
-      "liquidator",
-      "accountant",
-    ], // All roles
-  },
+  
 ];
 
 const othersItems = [
@@ -239,6 +226,20 @@ const othersItems = [
   //   ],
   // },
   {
+    icon: <UserRoundPenIcon />,
+    name: "User Profile",
+    path: "/profile",
+    roles: [
+      "school_admin",
+      "school_head",
+      "district_admin",
+      "superintendent",
+      "admin",
+      "liquidator",
+      "accountant",
+    ], // All roles
+  },
+  {
     icon: <HelpCircleIcon />,
     name: "Help Center",
     path: "/help",
@@ -252,6 +253,7 @@ const othersItems = [
       "accountant",
     ],
   },
+
 ];
 
 const AppSidebar: React.FC = () => {

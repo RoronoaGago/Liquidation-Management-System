@@ -281,6 +281,13 @@ def get_liquidation_summary_stats(
 
 def generate_liquidation_excel_report(report_data, filters, request_user=None):
     """Generate Excel report for liquidation data with summary at bottom"""
+    # Get the active accountant for signature
+    from .models import User
+    active_accountant = User.objects.filter(
+        role='accountant', 
+        is_active=True
+    ).first()
+    
     # Create Excel workbook
     wb = Workbook()
     ws = wb.active
@@ -473,35 +480,61 @@ def generate_liquidation_excel_report(report_data, filters, request_user=None):
     prepared_by_row = summary_start_row + \
         len(summary_rows) + 3  # +3 for spacing
 
-   # Prepared by header
+    # Define light background fill for signature section
+    light_bg_fill = PatternFill(start_color="F8F9FA", end_color="F8F9FA", fill_type="solid")
+    
+    # Prepared by header
     ws[f'A{prepared_by_row}'] = "Prepared By:"
     ws[f'A{prepared_by_row}'].font = Font(name='Calibri', size=12)
     ws.merge_cells(f'A{prepared_by_row}:C{prepared_by_row}')
-    # Center align the header
+    # Center align the header and add background
     ws[f'A{prepared_by_row}'].alignment = Alignment(
         horizontal='center', vertical='center')
+    ws[f'A{prepared_by_row}'].fill = light_bg_fill
 
-    # Admin name (use the user who generated the report)
-    admin_name = "System Administrator"
-    if request_user:
-        admin_name = f"{request_user.first_name} {request_user.last_name}".strip()
-        if not admin_name:
-            admin_name = request_user.email
+    # Add accountant's e-signature if available (with proper spacing)
+    if active_accountant and active_accountant.e_signature:
+        try:
+            signature_path = os.path.join(
+                settings.MEDIA_ROOT, str(active_accountant.e_signature))
+            if os.path.exists(signature_path):
+                signature_img = Image(signature_path)
+                signature_img.width = 120
+                signature_img.height = 60
+                # Position signature with more spacing from the text
+                ws.add_image(signature_img, f'B{prepared_by_row + 2}')
+        except Exception as e:
+            logger.error(f"Could not add accountant signature: {e}")
 
-    # Prepared by details
-    ws[f'A{prepared_by_row + 1}'] = f"{admin_name.upper()}"
-    ws[f'A{prepared_by_row + 1}'].font = Font(
+    # Accountant name (use the active accountant)
+    accountant_name = "Division Accountant"
+    if active_accountant:
+        accountant_name = f"{active_accountant.first_name} {active_accountant.last_name}".strip()
+        if not accountant_name:
+            accountant_name = active_accountant.email
+
+    # Prepared by details - position name below signature
+    ws[f'A{prepared_by_row + 5}'] = f"{accountant_name.upper()}"
+    ws[f'A{prepared_by_row + 5}'].font = Font(
         name='Calibri', size=11, bold=True)
-    ws.merge_cells(f'A{prepared_by_row + 1}:C{prepared_by_row + 1}')
-    # Center align the name
-    ws[f'A{prepared_by_row + 1}'].alignment = Alignment(
+    ws.merge_cells(f'A{prepared_by_row + 5}:C{prepared_by_row + 5}')
+    # Center align the name and add background
+    ws[f'A{prepared_by_row + 5}'].alignment = Alignment(
         horizontal='center', vertical='center')
+    ws[f'A{prepared_by_row + 5}'].fill = light_bg_fill
 
-    ws[f'A{prepared_by_row + 2}'] = f"{request_user.role.title() if request_user else 'Administrator'}"
-    ws[f'A{prepared_by_row + 2}'].font = Font(name='Calibri', size=11)
-    ws.merge_cells(f'A{prepared_by_row + 2}:C{prepared_by_row + 2}')
-    ws[f'A{prepared_by_row + 2}'].alignment = Alignment(
+    ws[f'A{prepared_by_row + 6}'] = "Division Accountant"
+    ws[f'A{prepared_by_row + 6}'].font = Font(name='Calibri', size=11)
+    ws.merge_cells(f'A{prepared_by_row + 6}:C{prepared_by_row + 6}')
+    ws[f'A{prepared_by_row + 6}'].alignment = Alignment(
         horizontal='center', vertical='center')
+    ws[f'A{prepared_by_row + 6}'].fill = light_bg_fill
+
+    # Add background to empty rows in signature section for visual consistency
+    for row_offset in range(1, 6):  # Rows 1-5 (prepared_by_row + 1 to prepared_by_row + 5)
+        for col in ['A', 'B', 'C']:
+            cell = ws[f'{col}{prepared_by_row + row_offset}']
+            cell.fill = light_bg_fill
 
     # ws[f'A{prepared_by_row + 3}'] = f"Date Prepared: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
     # ws[f'A{prepared_by_row + 3}'].font = Font(name='Calibri', size=11)

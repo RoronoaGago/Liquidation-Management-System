@@ -61,17 +61,24 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = SecureStorage.getRefreshToken();
+        console.log('🔄 Attempting token refresh...');
+        console.log('- Has refresh token:', !!refreshToken);
+        
         if (!refreshToken) {
+          console.log('❌ No refresh token available, clearing tokens');
           // Clear any stale tokens
           SecureStorage.clearTokens();
           throw new Error(ERROR_MESSAGES.UNAUTHORIZED);
         }
 
+        console.log('- Making refresh request to:', `${API_CONFIG.baseURL}${API_ENDPOINTS.AUTH.REFRESH}`);
         const response = await axios.post<RefreshTokenResponse>(
           `${API_CONFIG.baseURL}${API_ENDPOINTS.AUTH.REFRESH}`,
           { refresh: refreshToken },
           { timeout: API_CONFIG.timeout }
         );
+        
+        console.log('✅ Token refresh successful');
 
         // Update tokens securely
         SecureStorage.setTokens(
@@ -88,11 +95,15 @@ api.interceptors.response.use(
 
         return api(originalRequest);
       } catch (refreshError) {
+        console.log('❌ Token refresh failed:', refreshError);
+        
         // Only dispatch logout event if this is not during initial app load
         // Check if the app has been initialized by looking for a flag in localStorage
         const isAppInitialized = localStorage.getItem('app_initialized') === 'true';
+        console.log('- App initialized:', isAppInitialized);
         
         if (isAppInitialized) {
+          console.log('🚨 Dispatching logout event due to refresh failure');
           // Dispatch custom event for auth context to handle - don't clear tokens yet
           window.dispatchEvent(new CustomEvent('auth:logout', { 
             detail: { 

@@ -216,10 +216,11 @@ export class AuthFlowTester {
 // Export a default instance for easy use
 export const authFlowTester = new AuthFlowTester();
 
-// Auto-run tests in development mode
-if (import.meta.env.DEV) {
-  // Run tests after a short delay to ensure all modules are loaded
-  setTimeout(() => {
-    authFlowTester.runAllTests();
-  }, 1000);
-}
+// Auto-run tests in development mode - DISABLED
+// This was causing tokens to be cleared on page refresh
+// if (import.meta.env.DEV) {
+//   // Run tests after a short delay to ensure all modules are loaded
+//   setTimeout(() => {
+//     authFlowTester.runAllTests();
+//   }, 1000);
+// }

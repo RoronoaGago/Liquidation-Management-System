@@ -331,6 +331,7 @@ def get_random_color():
     colors = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"]
     return random.choice(colors)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
 def user_detail(request, pk):
     """
     Retrieve, update or delete a user instance with enhanced permissions
@@ -3532,9 +3533,20 @@ def generate_liquidation_report(request, LiquidationID):
         ws[f'B{cert_row}'].font = base_font
         ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
 
-        # Head, Accounting Division Unit (could be division accountant)
-        # For now, we'll leave it blank as it's not directly in the model
-        ws[f'C{cert_row}'] = "________________________"
+        # Head, Accounting Division Unit (division accountant)
+        from .models import User
+        active_accountant = User.objects.filter(
+            role='accountant', 
+            is_active=True
+        ).first()
+        
+        if active_accountant:
+            accountant_name = f"{active_accountant.first_name} {active_accountant.last_name}".strip()
+            if not accountant_name:
+                accountant_name = active_accountant.email
+            ws[f'C{cert_row}'] = accountant_name
+        else:
+            ws[f'C{cert_row}'] = "________________________"
         ws[f'C{cert_row}'].font = base_font
         ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
 
@@ -3565,6 +3577,50 @@ def generate_liquidation_report(request, LiquidationID):
         ws[f'C{cert_row}'] = "Head, Accounting Division Unit"
         ws[f'C{cert_row}'].font = base_font
         ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add accountant's e-signature if available
+        if active_accountant and active_accountant.e_signature:
+            try:
+                from django.conf import settings
+                import os
+                from openpyxl.drawing.image import Image
+                signature_path = os.path.join(
+                    settings.MEDIA_ROOT, str(active_accountant.e_signature))
+                if os.path.exists(signature_path):
+                    signature_img = Image(signature_path)
+                    signature_img.width = 100
+                    signature_img.height = 50
+                    # Position the signature above the "Head, Accounting Division Unit" text
+                    ws.add_image(signature_img, f'C{cert_row - 2}')
+            except Exception as e:
+                logger.error(f"Could not add accountant signature to individual report: {e}")
+
+        # Add "Prepared by:" section
+        cert_row += 2
+        ws[f'A{cert_row}'] = "Prepared by:"
+        ws[f'A{cert_row}'].font = Font(name='Times New Roman', size=10, bold=True)
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        ws.merge_cells(f'A{cert_row}:C{cert_row}')
+
+        # Add accountant's name for prepared by section
+        cert_row += 1
+        if active_accountant:
+            accountant_name = f"{active_accountant.first_name} {active_accountant.last_name}".strip()
+            if not accountant_name:
+                accountant_name = active_accountant.email
+            ws[f'A{cert_row}'] = accountant_name.upper()
+        else:
+            ws[f'A{cert_row}'] = "DIVISION ACCOUNTANT"
+        ws[f'A{cert_row}'].font = Font(name='Times New Roman', size=10, bold=True)
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        ws.merge_cells(f'A{cert_row}:C{cert_row}')
+
+        # Add position title
+        cert_row += 1
+        ws[f'A{cert_row}'] = "Division Accountant"
+        ws[f'A{cert_row}'].font = Font(name='Times New Roman', size=10)
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        ws.merge_cells(f'A{cert_row}:C{cert_row}')
 
         # Add JEV number - we don't have this in the model, so leave blank
         cert_row += 2

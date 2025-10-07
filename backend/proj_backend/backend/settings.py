@@ -98,10 +98,14 @@ CORS_ALLOW_CREDENTIALS = True  # This is the critical missing setting
 
 FRONTEND_LOGIN_URL = 'http://localhost:5173/login'
 
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True  # If using HTTPS
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True  # If using HTTPS
+# Session and CSRF cookie settings for development
+# For development (HTTP), use 'Lax' and False
+# For production (HTTPS), use 'None' and True
+SESSION_COOKIE_SAMESITE = 'Lax'  # Changed from 'None' for HTTP compatibility
+SESSION_COOKIE_SECURE = False    # Changed from True for HTTP compatibility
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 7 days (same as refresh token lifetime)
+CSRF_COOKIE_SAMESITE = 'Lax'     # Changed from 'None' for HTTP compatibility
+CSRF_COOKIE_SECURE = False       # Changed from True for HTTP compatibility
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
