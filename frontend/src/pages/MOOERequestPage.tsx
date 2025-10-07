@@ -137,7 +137,7 @@ const MOOERequestPage = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showRequirementsDialog, setShowRequirementsDialog] = useState(false);
   const [currentPriorityRequirements, setCurrentPriorityRequirements] =
-    useState<string[]>([]);
+    useState<{requirementTitle: string; is_required: boolean}[]>([]);
   const [currentPriorityTitle, setCurrentPriorityTitle] = useState("");
   const [allocatedBudget, setAllocatedBudget] = useState<number>(0);
   const [hasPastLiquidation, setHasPastLiquidation] = useState(false);
@@ -615,7 +615,7 @@ const MOOERequestPage = () => {
     const priority = priorities.find((p) => p.expenseTitle === expenseTitle);
 
     if (priority && priority.requirements) {
-      const requirementTitles = priority.requirements
+      const requirementData = priority.requirements
         .filter(
           (
             req
@@ -625,9 +625,12 @@ const MOOERequestPage = () => {
             is_required: boolean;
           } => "requirementTitle" in req
         )
-        .map((req) => req.requirementTitle);
+        .map((req) => ({
+          requirementTitle: req.requirementTitle,
+          is_required: req.is_required
+        }));
 
-      setCurrentPriorityRequirements(requirementTitles);
+      setCurrentPriorityRequirements(requirementData);
       setCurrentPriorityTitle(expenseTitle);
       setShowRequirementsDialog(true);
     } else {
@@ -892,7 +895,7 @@ const MOOERequestPage = () => {
             {currentPriorityRequirements.length > 0 ? (
               <ul className="space-y-3 pr-2">
                 {currentPriorityRequirements.map((req, index) => {
-                  const isRequired = true; // Default to required
+                  const isRequired = req.is_required;
                   return (
                     <li
                       key={index}
@@ -902,7 +905,7 @@ const MOOERequestPage = () => {
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <span className="text-gray-800 dark:text-white">
-                            {req}
+                            {req.requirementTitle}
                           </span>
                           {isRequired ? (
                             <span className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
