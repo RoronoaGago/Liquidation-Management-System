@@ -167,8 +167,8 @@ def generate_liquidation_csv_report(report_data, filters):
             item['legislative_district'],
             item['request_month'],
             item['status'],
-            item['date_submitted'].date() if item['date_submitted'] else '',
-            item['date_liquidated'].date() if item['date_liquidated'] else '',
+            item['date_submitted'].date() if item['date_submitted'] else 'N/A',
+            item['date_liquidated'].date() if item['date_liquidated'] else 'N/A',
         ])
 
     return response
@@ -416,9 +416,9 @@ def generate_liquidation_excel_report(report_data, filters, request_user=None):
         ws.cell(row=row_num, column=7, value=item['request_month'])
         ws.cell(row=row_num, column=8, value=item['status'])
         ws.cell(row=row_num, column=9, value=item['date_submitted'].date(
-        ) if item['date_submitted'] else '')
+        ) if item['date_submitted'] else 'N/A')
         ws.cell(row=row_num, column=10, value=item['date_liquidated'].date(
-        ) if item['date_liquidated'] else '')
+        ) if item['date_liquidated'] else 'N/A')
 
     # ========== SUMMARY STATISTICS AT THE BOTTOM ==========
     summary_start_row = data_start_row + len(report_data) + 3  # +3 for spacing

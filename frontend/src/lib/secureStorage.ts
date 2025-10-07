@@ -13,6 +13,7 @@ class SecureStorage {
   private static readonly ACCESS_TOKEN_KEY = 'access_token';
   private static readonly REFRESH_TOKEN_KEY = 'refresh_token';
   private static readonly EXPIRES_AT_KEY = 'expires_at';
+  private static readonly LOGOUT_MODAL_KEY = 'logout_modal_state';
 
   /**
    * Store tokens securely in localStorage only
@@ -112,6 +113,58 @@ class SecureStorage {
     } catch (error) {
       console.error('Failed to update access token:', error);
       throw new Error('Unable to update access token');
+    }
+  }
+
+  /**
+   * Store logout modal state in localStorage
+   */
+  static setLogoutModalState(visible: boolean, reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user'): void {
+    try {
+      const modalState = { visible, reason, timestamp: Date.now() };
+      localStorage.setItem(this.LOGOUT_MODAL_KEY, JSON.stringify(modalState));
+      console.log('✅ Logout modal state stored in localStorage');
+    } catch (error) {
+      console.error('Failed to store logout modal state:', error);
+    }
+  }
+
+  /**
+   * Get logout modal state from localStorage
+   */
+  static getLogoutModalState(): { visible: boolean; reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' } | null {
+    try {
+      const stored = localStorage.getItem(this.LOGOUT_MODAL_KEY);
+      if (!stored) return null;
+      
+      const modalState = JSON.parse(stored);
+      
+      // Check if the modal state is not too old (e.g., within 1 hour)
+      const oneHour = 60 * 60 * 1000;
+      if (Date.now() - modalState.timestamp > oneHour) {
+        this.clearLogoutModalState();
+        return null;
+      }
+      
+      return {
+        visible: modalState.visible,
+        reason: modalState.reason
+      };
+    } catch (error) {
+      console.error('Failed to retrieve logout modal state:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear logout modal state from localStorage
+   */
+  static clearLogoutModalState(): void {
+    try {
+      localStorage.removeItem(this.LOGOUT_MODAL_KEY);
+      console.log('✅ Logout modal state cleared from localStorage');
+    } catch (error) {
+      console.error('Failed to clear logout modal state:', error);
     }
   }
 

@@ -18,6 +18,7 @@ import random
 from django.db.models import Sum
 from django.utils.timezone import localtime
 from openpyxl.styles import Font, Alignment
+from django.views.decorators.csrf import csrf_exempt
 import openpyxl
 from .models import User
 from django.contrib.auth import authenticate
@@ -2097,537 +2098,523 @@ def schools_with_unliquidated_requests(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_dashboard(request):
-    # Check if user is admin
-    if request.user.role != 'admin':
-        return Response({"error": "Only administrators can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        # Check if user is admin
+        if request.user.role != 'admin':
+            return Response({"error": "Only administrators can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
 
-    # Get time range parameter
-    time_range = request.GET.get('time_range', 'last_month')
+        # Get time range parameter
+        time_range = request.GET.get('time_range', 'last_month')
 
-    # Calculate date range based on parameter
-    end_date = timezone.now()
-    if time_range == 'last_week':
-        start_date = end_date - timedelta(days=7)
-    elif time_range == 'last_month':
-        start_date = end_date - timedelta(days=30)
-    elif time_range == 'last_quarter':
-        start_date = end_date - timedelta(days=90)
-    elif time_range == 'last_year':
-        start_date = end_date - timedelta(days=365)
-    else:
-        # Default to last month
-        start_date = end_date - timedelta(days=30)
+        # Calculate date range based on parameter
+        end_date = timezone.now()
+        if time_range == 'last_week':
+            start_date = end_date - timedelta(days=7)
+        elif time_range == 'last_month':
+            start_date = end_date - timedelta(days=30)
+        elif time_range == 'last_quarter':
+            start_date = end_date - timedelta(days=90)
+        elif time_range == 'last_year':
+            start_date = end_date - timedelta(days=365)
+        else:
+            # Default to last month
+            start_date = end_date - timedelta(days=30)
 
-    budget_utilization = []
-    category_breakdown = []
-    months = []
-    current = start_date.replace(day=1)  # Start at beginning of month
+        # Initialize empty data structures
+        budget_utilization = []
+        category_breakdown = []
+        request_status_distribution = []
+        liquidation_timeline = []
+        school_performance = []
+        category_spending = []
+        document_compliance = []
+        top_priorities = []
+        active_requests = []
+        liquidation_metrics = {}
+        top_schools_by_speed = []
+        school_document_compliance = []
+        overall_compliance_rate = 0
+        overall_trend = 0
 
-    while current <= end_date:
-        month_str = current.strftime('%Y-%m')
-        months.append(month_str)
-        current = current + relativedelta(months=1)
+        # 1. Budget Utilization (simplified)
+        try:
+            months = []
+            current = start_date.replace(day=1)
+            while current <= end_date:
+                month_str = current.strftime('%Y-%m')
+                months.append(month_str)
+                current = current + relativedelta(months=1)
 
-    # Fixed budget utilization calculation
-    for month in months:
-        year, month_num = map(int, month.split('-'))
+            for month in months:
+                # Get basic budget data
+                total_allocated = BudgetAllocation.objects.filter(
+                    year=timezone.now().year,
+                    is_active=True
+                ).aggregate(total=Sum('yearly_budget'))['total'] or 0
+                
+                month_requests = RequestManagement.objects.filter(
+                    request_monthyear=month
+                )
+                total_planned = RequestPriority.objects.filter(
+                    request__in=month_requests
+                ).aggregate(total=Sum('amount'))['total'] or 0
 
-        # Get requests FOR this month (request_monthyear)
-        month_requests = RequestManagement.objects.filter(
-            request_monthyear=month
-        )
+                month_liquidations = LiquidationManagement.objects.filter(
+                    request__request_monthyear=month,
+                    status='liquidated'
+                )
+                total_actual = 0
+                for liquidation in month_liquidations:
+                    liquidation_amount = liquidation.liquidation_priorities.aggregate(
+                        total=Sum('amount'))['total'] or 0
+                    total_actual += liquidation_amount
 
-        # --- 1. Planned (Requested) Amounts ---
-        # Get total allocated from current year's budget allocations
-        from datetime import date
-        current_year = date.today().year
-        total_allocated = BudgetAllocation.objects.filter(
-            year=current_year,
-            is_active=True
-        ).aggregate(total=Sum('yearly_budget'))['total'] or 0
-        total_planned = RequestPriority.objects.filter(
-            request__in=month_requests
-        ).aggregate(total=Sum('amount'))['total'] or 0
+                planned_utilization_rate = (
+                    total_planned / total_allocated * 100) if total_allocated > 0 else 0
+                actual_utilization_rate = (
+                    total_actual / total_allocated * 100) if total_allocated > 0 else 0
 
-        # --- 2. Actual (Liquidated) Amounts ---
-        # Use liquidations for requests OF this month that are completed
-        month_liquidations = LiquidationManagement.objects.filter(
-            request__request_monthyear=month,
-            status='liquidated'
-        )
+                budget_utilization.append({
+                    'month': month,
+                    'allocated': float(total_allocated),
+                    'planned': float(total_planned),
+                    'actual': float(total_actual),
+                    'plannedUtilizationRate': float(planned_utilization_rate),
+                    'actualUtilizationRate': float(actual_utilization_rate)
+                })
+        except Exception as e:
+            logging.error(f"Error in budget utilization: {str(e)}")
+            budget_utilization = []
 
-        total_actual = 0
-        for liquidation in month_liquidations:
-            liquidation_amount = liquidation.liquidation_priorities.aggregate(
-                total=Sum('amount'))['total'] or 0
-            total_actual += liquidation_amount
+        # 2. Request Status Distribution
+        try:
+            status_counts = RequestManagement.objects.values('status').annotate(
+                count=Count('status')
+            ).order_by('-count')
 
-        # --- 3. Utilization Rates ---
-        planned_utilization_rate = (
-            total_planned / total_allocated * 100) if total_allocated > 0 else 0
-        actual_utilization_rate = (
-            total_actual / total_allocated * 100) if total_allocated > 0 else 0
+            total_requests = RequestManagement.objects.count()
+            for status in status_counts:
+                percentage = (status['count'] / total_requests *
+                              100) if total_requests > 0 else 0
+                request_status_distribution.append({
+                    'status': status['status'],
+                    'count': status['count'],
+                    'percentage': float(percentage)
+                })
+        except Exception as e:
+            logging.error(f"Error in request status distribution: {str(e)}")
+            request_status_distribution = []
 
-        budget_utilization.append({
-            'month': month,
-            'allocated': float(total_allocated),
-            'planned': float(total_planned),
-            'actual': float(total_actual),
-            'plannedUtilizationRate': float(planned_utilization_rate),
-            'actualUtilizationRate': float(actual_utilization_rate)
-        })
+        # 3. Liquidation Timeline (simplified)
+        try:
+            current = start_date.replace(day=1)
+            quarterly_periods = []
 
-        # --- 4. Category Breakdown for this month ---
-        category_data_for_month = {}
-        for category_key, category_name in ListOfPriority.CATEGORY_CHOICES:
-            # Get planned amount for this category
-            planned_for_category = RequestPriority.objects.filter(
-                request__in=month_requests,
-                priority__category=category_key
-            ).aggregate(total=Sum('amount'))['total'] or 0
+            while current <= end_date:
+                quarter = (current.month - 1) // 3 + 1
+                quarter_str = f"Q{quarter} {current.year}"
+                quarterly_periods.append(quarter_str)
+                current = current + relativedelta(months=3)
 
-            # Get actual liquidated amount for this category
-            actual_for_category = 0
-            liquidations_for_category = month_liquidations.filter(
-                liquidation_priorities__priority__category=category_key
-            ).distinct()
-            for liq in liquidations_for_category:
-                amount = liq.liquidation_priorities.filter(
+            for quarter in quarterly_periods:
+                quarter_num = int(quarter[1])
+                year = int(quarter.split(' ')[1])
+                start_month = (quarter_num - 1) * 3 + 1
+                end_month = start_month + 2
+
+                quarter_requests = RequestManagement.objects.filter(
+                    request_monthyear__regex=rf'^{year}-({"|".join([f"{m:02d}" for m in range(
+                        start_month, end_month+1)])})'
+                )
+
+                quarter_liquidations = LiquidationManagement.objects.filter(
+                    request__in=quarter_requests,
+                    status='liquidated'
+                )
+
+                total_seconds = 0
+                count = 0
+
+                for liquidation in quarter_liquidations:
+                    if liquidation.date_liquidated and liquidation.created_at:
+                        time_diff = liquidation.date_liquidated - liquidation.created_at
+                        if 0 < time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                            total_seconds += time_diff.total_seconds()
+                            count += 1
+
+                avg_days = (total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
+
+                liquidation_timeline.append({
+                    'quarter': quarter,
+                    'avgProcessingTime': float(avg_days),
+                    'approved': count,
+                    'rejected': 0
+                })
+        except Exception as e:
+            logging.error(f"Error in liquidation timeline: {str(e)}")
+            liquidation_timeline = []
+
+        # 4. School Performance (simplified)
+        try:
+            schools = School.objects.all()
+            for school in schools:
+                school_requests = RequestManagement.objects.filter(user__school=school)
+                total_requests = school_requests.count()
+
+                approved_requests = school_requests.filter(status='approved').count()
+                rejected_requests = school_requests.filter(status='rejected').count()
+
+                approval_rate = (approved_requests / total_requests * 100) if total_requests > 0 else 0
+                rejection_rate = (rejected_requests / total_requests * 100) if total_requests > 0 else 0
+
+                # Calculate average processing time
+                school_liquidations = LiquidationManagement.objects.filter(
+                    request__user__school=school,
+                    status='liquidated'
+                )
+
+                total_seconds = 0
+                count = 0
+                for liquidation in school_liquidations:
+                    if liquidation.date_liquidated and liquidation.created_at:
+                        time_diff = liquidation.date_liquidated - liquidation.created_at
+                        if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                            total_seconds += time_diff.total_seconds()
+                            count += 1
+
+                avg_processing_days = (total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
+
+                # Calculate budget utilization
+                school_utilized = RequestPriority.objects.filter(
+                    request__user__school=school
+                ).aggregate(total=Sum('amount'))['total'] or 0
+
+                try:
+                    school_monthly_budget = school.get_current_monthly_budget()
+                except:
+                    school_monthly_budget = 0
+                
+                budget_utilization_rate = (
+                    school_utilized / school_monthly_budget * 100) if school_monthly_budget > 0 else 0
+
+                school_performance.append({
+                    'schoolId': school.schoolId,
+                    'schoolName': school.schoolName,
+                    'totalRequests': total_requests,
+                    'approvedRequests': approved_requests,
+                    'rejectionRate': float(rejection_rate),
+                    'avgProcessingTime': float(avg_processing_days),
+                    'budgetUtilization': float(budget_utilization_rate)
+                })
+        except Exception as e:
+            logging.error(f"Error in school performance: {str(e)}")
+            school_performance = []
+
+        # 5. Category Spending (simplified)
+        try:
+            categories = ListOfPriority.CATEGORY_CHOICES
+            for category_key, category_name in categories:
+                category_total = RequestPriority.objects.filter(
                     priority__category=category_key
                 ).aggregate(total=Sum('amount'))['total'] or 0
-                actual_for_category += amount
 
-            category_data_for_month[category_name] = {
-                'planned': float(planned_for_category),
-                'actual': float(actual_for_category)
-            }
-
-        category_breakdown.append({
-            'month': month,
-            **category_data_for_month
-        })
-
-    # 2. Request Status Distribution
-    status_counts = RequestManagement.objects.values('status').annotate(
-        count=Count('status')
-    ).order_by('-count')
-
-    total_requests = RequestManagement.objects.count()
-    request_status_distribution = []
-
-    for status in status_counts:
-        percentage = (status['count'] / total_requests *
-                      100) if total_requests > 0 else 0
-        request_status_distribution.append({
-            'status': status['status'],
-            'count': status['count'],
-            'percentage': float(percentage)
-        })
-
-    # 3. FIXED Liquidation Timeline - QUARTERLY instead of monthly
-    liquidation_timeline = []
-
-    # Generate quarterly periods instead of monthly
-    current = start_date.replace(day=1)
-    quarterly_periods = []
-
-    while current <= end_date:
-        # Get quarter
-        quarter = (current.month - 1) // 3 + 1
-        quarter_str = f"Q{quarter} {current.year}"
-        quarterly_periods.append(quarter_str)
-        # Move to next quarter
-        current = current + relativedelta(months=3)
-
-    for quarter in quarterly_periods:
-        # Extract year and quarter from string like "Q3 2025"
-        quarter_num = int(quarter[1])
-        year = int(quarter.split(' ')[1])
-
-        # Calculate month range for this quarter
-        start_month = (quarter_num - 1) * 3 + 1
-        end_month = start_month + 2
-
-        # Get requests for this quarter
-        quarter_requests = RequestManagement.objects.filter(
-            request_monthyear__regex=rf'^{year}-({"|".join([f"{m:02d}" for m in range(
-                start_month, end_month+1)])})'
-        )
-
-        # Get liquidations for these requests
-        quarter_liquidations = LiquidationManagement.objects.filter(
-            request__in=quarter_requests,
-            status='liquidated'
-        )
-
-        total_seconds = 0
-        count = 0
-
-        for liquidation in quarter_liquidations:
-            if liquidation.date_liquidated and liquidation.created_at:
-                time_diff = liquidation.date_liquidated - liquidation.created_at
-                if 0 < time_diff.total_seconds() < (365 * 24 * 60 * 60):
-                    total_seconds += time_diff.total_seconds()
-                    count += 1
-
-        # Calculate average processing time in days for the quarter
-        avg_days = (total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
-
-        liquidation_timeline.append({
-            'quarter': quarter,  # Changed from 'month' to 'quarter'
-            'avgProcessingTime': float(avg_days),
-            'approved': count,
-            'rejected': 0
-        })
-
-    # 4. FIXED School Performance - Correct approval rate calculation
-    school_performance = []
-    schools = School.objects.all()
-
-    for school in schools:
-        school_requests = RequestManagement.objects.filter(user__school=school)
-        total_requests = school_requests.count()
-
-        # CORRECTED: Calculate approved requests properly
-        # Get all request IDs that are either approved or have liquidations
-        approved_request_ids = set(school_requests.filter(
-            status='approved').values_list('request_id', flat=True))
-
-        liquidated_request_ids = set(LiquidationManagement.objects.filter(
-            request__user__school=school,
-            status='liquidated'
-        ).values_list('request_id', flat=True))
-
-        all_approved_request_ids = approved_request_ids.union(
-            liquidated_request_ids)
-        approved_requests = len(all_approved_request_ids)
-
-        rejected_requests = school_requests.filter(status='rejected').count()
-
-        # Calculate approval rate properly
-        approval_rate = (approved_requests / total_requests *
-                         100) if total_requests > 0 else 0
-        rejection_rate = (rejected_requests / total_requests *
-                          100) if total_requests > 0 else 0
-
-        # Calculate average processing time for this school
-        school_liquidations = LiquidationManagement.objects.filter(
-            request__user__school=school,
-            status='liquidated'
-        )
-
-        total_seconds = 0
-        count = 0
-
-        for liquidation in school_liquidations:
-            if liquidation.date_liquidated and liquidation.created_at:
-                time_diff = liquidation.date_liquidated - liquidation.created_at
-                # Filter out unrealistic times
-                if time_diff.total_seconds() < (365 * 24 * 60 * 60):
-                    total_seconds += time_diff.total_seconds()
-                    count += 1
-
-        avg_processing_days = (total_seconds / (24 * 60 * 60)
-                               ) / count if count > 0 else 0
-
-        # Calculate budget utilization for this school
-        school_utilized = RequestPriority.objects.filter(
-            request__user__school=school
-        ).aggregate(total=Sum('amount'))['total'] or 0
-
-        school_monthly_budget = school.get_current_monthly_budget()
-        budget_utilization_rate = (
-            school_utilized / school_monthly_budget * 100) if school_monthly_budget > 0 else 0
-
-        school_performance.append({
-            'schoolId': school.schoolId,
-            'schoolName': school.schoolName,
-            'totalRequests': total_requests,
-            'approvedRequests': approved_requests,  # Use the correctly calculated value
-            'rejectionRate': float(rejection_rate),
-            'avgProcessingTime': float(avg_processing_days),
-            'budgetUtilization': float(budget_utilization_rate)
-        })
-
-    # 5. Category Spending
-    category_spending = []
-    categories = ListOfPriority.CATEGORY_CHOICES
-
-    for category_key, category_name in categories:
-        category_total = RequestPriority.objects.filter(
-            priority__category=category_key
-        ).aggregate(total=Sum('amount'))['total'] or 0
-
-        total_all_categories = RequestPriority.objects.aggregate(total=Sum('amount'))[
-            'total'] or 0
-        percentage = (category_total / total_all_categories *
-                      100) if total_all_categories > 0 else 0
-
-        # Simple trend calculation
-        trend = 'stable'
-        if category_total > 0:
-            trend = 'up' if category_total > 10000 else 'down'
-
-        category_spending.append({
-            'category': category_name,
-            'totalAmount': float(category_total),
-            'percentage': float(percentage),
-            'trend': trend
-        })
-
-    # Sort by total amount descending
-    category_spending.sort(key=lambda x: x['totalAmount'], reverse=True)
-    category_spending = category_spending[:5]
-
-    # 6. Document Compliance
-    document_compliance = []
-    liquidations_in_period = LiquidationManagement.objects.filter(
-        created_at__range=(start_date, end_date)
-    )
-
-    total_compliance_rates = []
-    for liquidation in liquidations_in_period:
-        total_required_docs = 0
-        total_approved_docs = 0
-
-        for rp in liquidation.request.requestpriority_set.all():
-            required_docs = rp.priority.requirements.filter(
-                is_required=True).count()
-            total_required_docs += required_docs
-
-            approved_docs = LiquidationDocument.objects.filter(
-                liquidation=liquidation,
-                request_priority=rp,
-                requirement__is_required=True,
-                is_approved=True
-            ).count()
-            total_approved_docs += approved_docs
-
-        if total_required_docs > 0:
-            liquidation_compliance_rate = (
-                total_approved_docs / total_required_docs) * 100
-            total_compliance_rates.append(liquidation_compliance_rate)
-
-    overall_compliance_rate = sum(
-        total_compliance_rates) / len(total_compliance_rates) if total_compliance_rates else 0
-
-    requirements = Requirement.objects.all()
-    for requirement in requirements:
-        total_submitted = LiquidationDocument.objects.filter(
-            requirement=requirement,
-            uploaded_at__range=(start_date, end_date)
-        ).count()
-
-        compliant = LiquidationDocument.objects.filter(
-            requirement=requirement,
-            is_approved=True,
-            uploaded_at__range=(start_date, end_date)
-        ).count()
-
-        compliance_rate = (compliant / total_submitted *
-                           100) if total_submitted > 0 else 0
-
-        document_compliance.append({
-            'requirement': requirement.requirementTitle,
-            'totalSubmitted': total_submitted,
-            'compliant': compliant,
-            'complianceRate': float(compliance_rate),
-            'type': 'requirement_level'
-        })
-
-    overall_current_compliance = overall_compliance_rate
-    overall_previous_compliance = 0
-    overall_trend = overall_current_compliance - overall_previous_compliance
-
-    # 7. Top Priorities
-    top_priorities = []
-    priorities = RequestPriority.objects.values(
-        'priority__expenseTitle'
-    ).annotate(
-        frequency=Count('priority'),
-        total_amount=Sum('amount')
-    ).order_by('-total_amount')[:10]
-
-    for priority in priorities:
-        trend = 'stable'
-        if priority['total_amount']:
-            trend = 'up' if priority['total_amount'] > 5000 else 'down'
-
-        top_priorities.append({
-            'priority': priority['priority__expenseTitle'],
-            'frequency': priority['frequency'],
-            'totalAmount': float(priority['total_amount']),
-            'trend': trend
-        })
-
-    # 8. Active Requests
-    active_requests = []
-    active_request_states = ['pending',
-                             'approved', 'downloaded', 'unliquidated']
-    active_requests_data = RequestManagement.objects.filter(
-        status__in=active_request_states
-    )
-
-    for request in active_requests_data:
-        days_active = (timezone.now() - request.created_at).days
-
-        if request.status == 'pending':
-            priority = 'high' if days_active > 7 else 'medium' if days_active > 3 else 'low'
-        elif request.status == 'unliquidated':
-            priority = 'high' if days_active > 25 else 'medium' if days_active > 15 else 'low'
-        else:
-            priority = 'medium'
-
-        school_name = request.user.school.schoolName if request.user and request.user.school else "Unknown School"
-        user_name = request.user.get_full_name() if request.user else "Unknown User"
-
-        active_requests.append({
-            'id': request.request_id,
-            'type': 'request',
-            'title': f'Active Request: {request.request_id}',
-            'description': f'{user_name} from {school_name} - Status: {request.status.capitalize()}',
-            'status': request.status,
-            'priority': priority,
-            'timestamp': request.created_at.isoformat(),
-            'schoolName': school_name,
-            'userName': user_name
-        })
-
-    priority_order = {'high': 0, 'medium': 1, 'low': 2}
-    active_requests.sort(key=lambda x: (
-        priority_order[x['priority']], x['timestamp']))
-
-    # 9. Liquidation Metrics
-    liquidated_liquidations = LiquidationManagement.objects.filter(
-        status='liquidated',
-        date_liquidated__isnull=False,
-        created_at__isnull=False
-    )
-
-    realistic_liquidations = []
-    for liq in liquidated_liquidations:
-        if liq.date_liquidated and liq.created_at:
-            time_diff = liq.date_liquidated - liq.created_at
-            if time_diff.total_seconds() < (365 * 24 * 60 * 60):
-                realistic_liquidations.append(liq)
-
-    if realistic_liquidations:
-        total_seconds = sum((liq.date_liquidated - liq.created_at).total_seconds()
-                            for liq in realistic_liquidations)
-        avg_seconds = total_seconds / len(realistic_liquidations)
-        avg_liquidation_time_days = avg_seconds / (24 * 60 * 60)
-    else:
-        avg_liquidation_time_days = 0
-
-    liquidation_metrics = {
-        'total_liquidations': LiquidationManagement.objects.count(),
-        'completed_liquidations': LiquidationManagement.objects.filter(status='liquidated').count(),
-        'pending_liquidations': LiquidationManagement.objects.exclude(status='liquidated').count(),
-        'completion_rate': (LiquidationManagement.objects.filter(status='liquidated').count() /
-                            LiquidationManagement.objects.count() * 100) if LiquidationManagement.objects.count() > 0 else 0,
-        'avg_liquidation_time_days': float(avg_liquidation_time_days)
-    }
-
-    # 10. Top Schools by Speed
-    top_schools_by_speed = []
-    all_schools = School.objects.all()
-
-    for school in all_schools:
-        school_liquidations = LiquidationManagement.objects.filter(
-            request__user__school=school,
-            status='liquidated',
-            date_liquidated__isnull=False,
-            created_at__isnull=False
-        )
-
-        realistic_processing_times = []
-        for liq in school_liquidations:
-            if liq.date_liquidated and liq.created_at:
-                time_diff = liq.date_liquidated - liq.created_at
-                if time_diff.total_seconds() < (365 * 24 * 60 * 60):
-                    realistic_processing_times.append(
-                        time_diff.total_seconds())
-
-        if realistic_processing_times:
-            avg_seconds = sum(realistic_processing_times) / \
-                len(realistic_processing_times)
-            avg_days = avg_seconds / (24 * 60 * 60)
-
-            top_schools_by_speed.append({
-                'schoolId': school.schoolId,
-                'schoolName': school.schoolName,
-                'avgProcessingDays': float(avg_days)
-            })
-
-    top_schools_by_speed.sort(key=lambda x: x['avgProcessingDays'])
-    top_schools_by_speed = top_schools_by_speed[:5]
-
-    # 11. FIXED School Document Compliance - Only show schools with liquidations
-    school_document_compliance = []
-    # Only get schools that have liquidations
-    liquidation_school_ids = LiquidationManagement.objects.values_list(
-        'request__user__school_id', flat=True
-    ).distinct()
-    schools_with_liquidations = School.objects.filter(
-        schoolId__in=liquidation_school_ids)  # ← Use schoolId instead of id
-
-    for school in schools_with_liquidations:
-        school_liquidations = LiquidationManagement.objects.filter(
-            request__user__school=school
-        )
-
-        # Skip if no liquidations
-        if not school_liquidations.exists():
-            continue
-
-        total_required_docs = 0
-        total_uploaded_docs = 0
-
-        for liquidation in school_liquidations:
-            for rp in liquidation.request.requestpriority_set.all():
-                required_docs = rp.priority.requirements.filter(
-                    is_required=True).count()
-                uploaded_docs = LiquidationDocument.objects.filter(
-                    liquidation=liquidation,
-                    request_priority=rp
+                total_all_categories = RequestPriority.objects.aggregate(total=Sum('amount'))['total'] or 0
+                percentage = (category_total / total_all_categories * 100) if total_all_categories > 0 else 0
+
+                trend = 'stable'
+                if category_total > 0:
+                    trend = 'up' if category_total > 10000 else 'down'
+
+                category_spending.append({
+                    'category': category_name,
+                    'totalAmount': float(category_total),
+                    'percentage': float(percentage),
+                    'trend': trend
+                })
+
+            category_spending.sort(key=lambda x: x['totalAmount'], reverse=True)
+            category_spending = category_spending[:5]
+        except Exception as e:
+            logging.error(f"Error in category spending: {str(e)}")
+            category_spending = []
+
+        # 6. Document Compliance (simplified)
+        try:
+            liquidations_in_period = LiquidationManagement.objects.filter(
+                created_at__range=(start_date, end_date)
+            )
+
+            total_compliance_rates = []
+            for liquidation in liquidations_in_period:
+                total_required_docs = 0
+                total_approved_docs = 0
+
+                for rp in liquidation.request.requestpriority_set.all():
+                    required_docs = rp.priority.requirements.filter(
+                        is_required=True).count()
+                    total_required_docs += required_docs
+
+                    approved_docs = LiquidationDocument.objects.filter(
+                        liquidation=liquidation,
+                        request_priority=rp,
+                        requirement__is_required=True,
+                        is_approved=True
+                    ).count()
+                    total_approved_docs += approved_docs
+
+                if total_required_docs > 0:
+                    liquidation_compliance_rate = (
+                        total_approved_docs / total_required_docs) * 100
+                    total_compliance_rates.append(liquidation_compliance_rate)
+
+            overall_compliance_rate = sum(
+                total_compliance_rates) / len(total_compliance_rates) if total_compliance_rates else 0
+
+            requirements = Requirement.objects.all()
+            for requirement in requirements:
+                total_submitted = LiquidationDocument.objects.filter(
+                    requirement=requirement,
+                    uploaded_at__range=(start_date, end_date)
                 ).count()
 
-                total_required_docs += required_docs
-                total_uploaded_docs += min(uploaded_docs, required_docs)
+                compliant = LiquidationDocument.objects.filter(
+                    requirement=requirement,
+                    is_approved=True,
+                    uploaded_at__range=(start_date, end_date)
+                ).count()
 
-        compliance_rate = (total_uploaded_docs / total_required_docs *
-                           100) if total_required_docs > 0 else 0
+                compliance_rate = (compliant / total_submitted * 100) if total_submitted > 0 else 0
 
-        school_document_compliance.append({
-            'schoolId': school.schoolId,
-            'schoolName': school.schoolName,
-            'uploadedDocuments': total_uploaded_docs,
-            'requiredDocuments': total_required_docs,
-            'complianceRate': compliance_rate,
-            'pendingDocuments': max(0, total_required_docs - total_uploaded_docs)
-        })
+                document_compliance.append({
+                    'requirement': requirement.requirementTitle,
+                    'totalSubmitted': total_submitted,
+                    'compliant': compliant,
+                    'complianceRate': float(compliance_rate),
+                    'type': 'requirement_level'
+                })
 
-    school_document_compliance.sort(
-        key=lambda x: x['complianceRate'], reverse=True)
+            overall_current_compliance = overall_compliance_rate
+            overall_previous_compliance = 0
+            overall_trend = overall_current_compliance - overall_previous_compliance
+        except Exception as e:
+            logging.error(f"Error in document compliance: {str(e)}")
+            document_compliance = []
+            overall_compliance_rate = 0
+            overall_trend = 0
 
-    response_data = {
-        'budgetUtilization': budget_utilization,
-        'categoryBreakdown': category_breakdown,
-        'requestStatusDistribution': request_status_distribution,
-        'liquidationTimeline': liquidation_timeline,
-        'schoolPerformance': school_performance,
-        'categorySpending': category_spending,
-        'documentCompliance': document_compliance,
-        'overallCompliance': float(overall_compliance_rate),
-        'complianceTrend': float(overall_trend),
-        'topPriorities': top_priorities,
-        'activeRequests': active_requests,
-        'liquidationMetrics': liquidation_metrics,
-        'topSchoolsBySpeed': top_schools_by_speed,
-        'schoolDocumentCompliance': school_document_compliance,
-    }
+        # 7. Top Priorities (simplified)
+        try:
+            priorities = RequestPriority.objects.values(
+                'priority__expenseTitle'
+            ).annotate(
+                frequency=Count('priority'),
+                total_amount=Sum('amount')
+            ).order_by('-total_amount')[:10]
 
-    return Response(response_data)
+            for priority in priorities:
+                trend = 'stable'
+                if priority['total_amount']:
+                    trend = 'up' if priority['total_amount'] > 5000 else 'down'
+
+                top_priorities.append({
+                    'priority': priority['priority__expenseTitle'],
+                    'frequency': priority['frequency'],
+                    'totalAmount': float(priority['total_amount']),
+                    'trend': trend
+                })
+        except Exception as e:
+            logging.error(f"Error in top priorities: {str(e)}")
+            top_priorities = []
+
+        # 8. Active Requests (simplified)
+        try:
+            active_request_states = ['pending', 'approved', 'downloaded', 'unliquidated']
+            active_requests_data = RequestManagement.objects.filter(
+                status__in=active_request_states
+            )
+
+            for request in active_requests_data:
+                days_active = (timezone.now() - request.created_at).days
+
+                if request.status == 'pending':
+                    priority = 'high' if days_active > 7 else 'medium' if days_active > 3 else 'low'
+                elif request.status == 'unliquidated':
+                    priority = 'high' if days_active > 25 else 'medium' if days_active > 15 else 'low'
+                else:
+                    priority = 'medium'
+
+                school_name = request.user.school.schoolName if request.user and request.user.school else "Unknown School"
+                user_name = request.user.get_full_name() if request.user else "Unknown User"
+
+                active_requests.append({
+                    'id': request.request_id,
+                    'type': 'request',
+                    'title': f'Active Request: {request.request_id}',
+                    'description': f'{user_name} from {school_name} - Status: {request.status.capitalize()}',
+                    'status': request.status,
+                    'priority': priority,
+                    'timestamp': request.created_at.isoformat(),
+                    'schoolName': school_name,
+                    'userName': user_name
+                })
+
+            priority_order = {'high': 0, 'medium': 1, 'low': 2}
+            active_requests.sort(key=lambda x: (
+                priority_order[x['priority']], x['timestamp']))
+        except Exception as e:
+            logging.error(f"Error in active requests: {str(e)}")
+            active_requests = []
+
+        # 9. Liquidation Metrics (simplified)
+        try:
+            liquidated_liquidations = LiquidationManagement.objects.filter(
+                status='liquidated',
+                date_liquidated__isnull=False,
+                created_at__isnull=False
+            )
+
+            realistic_liquidations = []
+            for liq in liquidated_liquidations:
+                if liq.date_liquidated and liq.created_at:
+                    time_diff = liq.date_liquidated - liq.created_at
+                    if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                        realistic_liquidations.append(liq)
+
+            if realistic_liquidations:
+                total_seconds = sum((liq.date_liquidated - liq.created_at).total_seconds()
+                                    for liq in realistic_liquidations)
+                avg_seconds = total_seconds / len(realistic_liquidations)
+                avg_liquidation_time_days = avg_seconds / (24 * 60 * 60)
+            else:
+                avg_liquidation_time_days = 0
+
+            liquidation_metrics = {
+                'total_liquidations': LiquidationManagement.objects.count(),
+                'completed_liquidations': LiquidationManagement.objects.filter(status='liquidated').count(),
+                'pending_liquidations': LiquidationManagement.objects.exclude(status='liquidated').count(),
+                'completion_rate': (LiquidationManagement.objects.filter(status='liquidated').count() /
+                                    LiquidationManagement.objects.count() * 100) if LiquidationManagement.objects.count() > 0 else 0,
+                'avg_liquidation_time_days': float(avg_liquidation_time_days)
+            }
+        except Exception as e:
+            logging.error(f"Error in liquidation metrics: {str(e)}")
+            liquidation_metrics = {
+                'total_liquidations': 0,
+                'completed_liquidations': 0,
+                'pending_liquidations': 0,
+                'completion_rate': 0,
+                'avg_liquidation_time_days': 0
+            }
+
+        # 10. Top Schools by Speed (simplified)
+        try:
+            all_schools = School.objects.all()
+            for school in all_schools:
+                school_liquidations = LiquidationManagement.objects.filter(
+                    request__user__school=school,
+                    status='liquidated',
+                    date_liquidated__isnull=False,
+                    created_at__isnull=False
+                )
+
+                realistic_processing_times = []
+                for liq in school_liquidations:
+                    if liq.date_liquidated and liq.created_at:
+                        time_diff = liq.date_liquidated - liq.created_at
+                        if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                            realistic_processing_times.append(
+                                time_diff.total_seconds())
+
+                if realistic_processing_times:
+                    avg_seconds = sum(realistic_processing_times) / \
+                        len(realistic_processing_times)
+                    avg_days = avg_seconds / (24 * 60 * 60)
+
+                    top_schools_by_speed.append({
+                        'schoolId': school.schoolId,
+                        'schoolName': school.schoolName,
+                        'avgProcessingDays': float(avg_days)
+                    })
+
+            top_schools_by_speed.sort(key=lambda x: x['avgProcessingDays'])
+            top_schools_by_speed = top_schools_by_speed[:5]
+        except Exception as e:
+            logging.error(f"Error in top schools by speed: {str(e)}")
+            top_schools_by_speed = []
+
+        # 11. School Document Compliance (simplified)
+        try:
+            liquidation_school_ids = LiquidationManagement.objects.values_list(
+                'request__user__school_id', flat=True
+            ).distinct()
+            schools_with_liquidations = School.objects.filter(
+                schoolId__in=liquidation_school_ids)
+
+            for school in schools_with_liquidations:
+                school_liquidations = LiquidationManagement.objects.filter(
+                    request__user__school=school
+                )
+
+                if not school_liquidations.exists():
+                    continue
+
+                total_required_docs = 0
+                total_uploaded_docs = 0
+
+                for liquidation in school_liquidations:
+                    for rp in liquidation.request.requestpriority_set.all():
+                        required_docs = rp.priority.requirements.filter(
+                            is_required=True).count()
+                        uploaded_docs = LiquidationDocument.objects.filter(
+                            liquidation=liquidation,
+                            request_priority=rp
+                        ).count()
+
+                        total_required_docs += required_docs
+                        total_uploaded_docs += min(uploaded_docs, required_docs)
+
+                compliance_rate = (total_uploaded_docs / total_required_docs * 100) if total_required_docs > 0 else 0
+
+                school_document_compliance.append({
+                    'schoolId': school.schoolId,
+                    'schoolName': school.schoolName,
+                    'uploadedDocuments': total_uploaded_docs,
+                    'requiredDocuments': total_required_docs,
+                    'complianceRate': compliance_rate,
+                    'pendingDocuments': max(0, total_required_docs - total_uploaded_docs)
+                })
+
+            school_document_compliance.sort(
+                key=lambda x: x['complianceRate'], reverse=True)
+        except Exception as e:
+            logging.error(f"Error in school document compliance: {str(e)}")
+            school_document_compliance = []
+
+        response_data = {
+            'budgetUtilization': budget_utilization,
+            'categoryBreakdown': category_breakdown,
+            'requestStatusDistribution': request_status_distribution,
+            'liquidationTimeline': liquidation_timeline,
+            'schoolPerformance': school_performance,
+            'categorySpending': category_spending,
+            'documentCompliance': document_compliance,
+            'overallCompliance': float(overall_compliance_rate),
+            'complianceTrend': float(overall_trend),
+            'topPriorities': top_priorities,
+            'activeRequests': active_requests,
+            'liquidationMetrics': liquidation_metrics,
+            'topSchoolsBySpeed': top_schools_by_speed,
+            'schoolDocumentCompliance': school_document_compliance,
+        }
+
+        return Response(response_data)
+    
+    except Exception as e:
+        logging.error(f"Error in admin_dashboard: {str(e)}")
+        return Response(
+            {"error": "Internal server error. Please try again later.", "details": str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 # ------------------- Backup & Restore -------------------
 
 
@@ -3282,9 +3269,19 @@ def list_backups(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def update_e_signature(request):
+    print("🔍 DEBUG: update_e_signature view called")
+    print(f"- Request method: {request.method}")
+    print(f"- Request path: {request.path}")
+    print(f"- Request user: {request.user}")
+    print(f"- Request FILES: {request.FILES}")
+    print(f"- Request headers: {dict(request.headers)}")
+    
     user = request.user
     e_signature = request.FILES.get('e_signature')
+    print(f"- E-signature file: {e_signature}")
+    
     if not e_signature:
+        print("❌ No e-signature file provided")
         return Response({"error": "No e-signature file provided."}, status=400)
     user.e_signature = e_signature
     user.save(update_fields=['e_signature'])
@@ -3331,6 +3328,10 @@ def update_e_signature(request):
 
     # Add e-signature URL (now available)
     access_token['e_signature'] = user.e_signature.url
+
+    print("✅ E-signature updated successfully")
+    print(f"- User: {user.get_full_name()}")
+    print(f"- E-signature URL: {user.e_signature.url}")
 
     return Response({
         "message": "E-signature updated successfully.",

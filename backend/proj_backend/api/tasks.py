@@ -10,11 +10,12 @@ from celery import shared_task
 from django.utils import timezone
 from django.db import transaction
 from datetime import date, timedelta
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.core.cache import cache
 from .models import LiquidationManagement, RequestManagement, Notification, User
+from .pdf_utils import generate_demand_letter_pdf
 import logging
 import time
 from typing import Dict, List, Optional
@@ -148,10 +149,22 @@ def check_liquidation_reminders(self):
     batch_size = 100
     offset = 0
     
+    # Process reminders for liquidations that need user action
     while True:
-        # Get liquidations with pagination
+        # Get liquidations with pagination - only for reminder statuses
+        # Only send reminders for statuses where user action is needed
+        reminder_statuses = ['draft', 'resubmit']  # Only draft and resubmit need user action
+        
+        # Statuses excluded from reminders (under review by system):
+        # - 'submitted' - Submitted and waiting for district review
+        # - 'under_review_district' - Being reviewed by district admin
+        # - 'approved_district' - Approved by district, waiting for liquidator
+        # - 'under_review_liquidator' - Being reviewed by liquidator
+        # - 'approved_liquidator' - Approved by liquidator, waiting for accountant
+        # - 'under_review_division' - Being reviewed by division accountant
+        
         liquidations = LiquidationManagement.objects.filter(
-            status__in=['draft', 'submitted', 'resubmit'],
+            status__in=reminder_statuses,
             request__downloaded_at__isnull=False
         ).exclude(status='liquidated').select_related(
             'request__user', 'request__user__school'
@@ -188,14 +201,60 @@ def check_liquidation_reminders(self):
                         reminder_stats['reminders_sent'] += 1
                         logger.info(f"Reminder sent for liquidation {liquidation.LiquidationID}, {days_left} days left")
 
+            except Exception as e:
+                logger.error(f"Error processing liquidation {liquidation.LiquidationID}: {e}", exc_info=True)
+                reminder_stats['errors'] += 1
+        
+        offset += batch_size
+
+    # Process demand letters for ALL overdue liquidations (including review statuses)
+    offset = 0
+    while True:
+        # Get ALL liquidations that could be overdue (including review statuses)
+        all_statuses = ['draft', 'submitted', 'resubmit', 'under_review_district', 
+                       'approved_district', 'under_review_liquidator', 'approved_liquidator', 
+                       'under_review_division']
+        
+        overdue_liquidations = LiquidationManagement.objects.filter(
+            status__in=all_statuses,
+            request__downloaded_at__isnull=False
+        ).exclude(status='liquidated').select_related(
+            'request__user', 'request__user__school'
+        )[offset:offset + batch_size]
+        
+        if not overdue_liquidations:
+            break
+            
+        for liquidation in overdue_liquidations:
+            try:
+                reminder_stats['total_processed'] += 1
+                
+                # Skip if already liquidated
+                if liquidation.status == 'liquidated':
+                    continue
+
+                # Calculate deadline using standardized method
+                deadline = get_liquidation_deadline(liquidation, deadline_days)
+                if not deadline:
+                    logger.warning(f"No deadline for liquidation {liquidation.LiquidationID}")
+                    continue
+
+                days_left = (deadline - today).days
+                
+                # Check rate limiting
+                if is_user_rate_limited(liquidation.request.user.id):
+                    reminder_stats['rate_limited'] += 1
+                    logger.info(f"Rate limited user {liquidation.request.user.id} for liquidation {liquidation.LiquidationID}")
+                    continue
+
                 # Send demand letter if overdue and not already sent
-                elif days_left <= 0 and not liquidation.request.demand_letter_sent:
+                if days_left <= 0 and not liquidation.request.demand_letter_sent:
                     if send_demand_letter_with_race_condition_protection(liquidation, today):
                         reminder_stats['demand_letters_sent'] += 1
                         logger.info(f"Demand letter sent for overdue liquidation {liquidation.LiquidationID}")
 
             except Exception as e:
-                logger.error(f"Error processing liquidation {liquidation.LiquidationID}: {e}", exc_info=True)
+                logger.error(f"Error processing overdue liquidation {liquidation.LiquidationID}: {e}", exc_info=True)
                 reminder_stats['errors'] += 1
         
         offset += batch_size
@@ -289,6 +348,15 @@ def send_liquidation_demand_letter(self, liquidation_id):
         }]
         total_amount = sum(item['amount'] for item in items)
         
+        # Prepare unliquidated data for PDF generation
+        unliquidated_data = [{
+            'particulars': f"Liquidation for Request {liquidation.request.request_id}",
+            'balance': total_amount
+        }]
+        
+        # Calculate due date (30 days from now)
+        due_date = (timezone.now() + timedelta(days=30)).strftime("%B %d, %Y")
+        
         context = {
             'recipient_name': user.get_full_name(),
             'recipient_title': 'Mr./Ms.',
@@ -309,15 +377,49 @@ def send_liquidation_demand_letter(self, liquidation_id):
         
         html_message = render_to_string('emails/liquidation_demand_letter.html', context)
         
-        # Send email with detailed logging
-        result = send_mail(
-            subject=f"DEMAND LETTER: Unliquidated Liquidation {liquidation.LiquidationID}",
-            message="This is a formal demand letter for overdue liquidation.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,  # Don't fail silently to catch errors
-            html_message=html_message,
-        )
+        # Generate PDF demand letter
+        try:
+            pdf_content = generate_demand_letter_pdf(liquidation.request, unliquidated_data, due_date)
+            logger.info(f"PDF demand letter generated successfully for liquidation {liquidation.LiquidationID}")
+        except Exception as e:
+            logger.error(f"Failed to generate PDF demand letter for liquidation {liquidation.LiquidationID}: {e}")
+            pdf_content = None
+        
+        # Send email with PDF attachment
+        try:
+            email = EmailMultiAlternatives(
+                subject=f"DEMAND LETTER: Unliquidated Liquidation {liquidation.LiquidationID}",
+                body="This is a formal demand letter for overdue liquidation. Please see attached PDF for details.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email],
+            )
+            
+            # Attach HTML version
+            email.attach_alternative(html_message, "text/html")
+            
+            # Attach PDF if generated successfully
+            if pdf_content:
+                email.attach(
+                    f"Demand_Letter_Liquidation_{liquidation.LiquidationID}.pdf",
+                    pdf_content,
+                    "application/pdf"
+                )
+                logger.info(f"PDF demand letter attached to email for liquidation {liquidation.LiquidationID}")
+            
+            result = email.send(fail_silently=False)
+            logger.info(f"Demand letter email with PDF attachment sent successfully to {user.email}")
+            
+        except Exception as e:
+            logger.error(f"Failed to send demand letter email for liquidation {liquidation.LiquidationID}: {e}")
+            # Fallback to simple email without PDF
+            result = send_mail(
+                subject=f"DEMAND LETTER: Unliquidated Liquidation {liquidation.LiquidationID}",
+                message="This is a formal demand letter for overdue liquidation.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+                html_message=html_message,
+            )
         
         logger.warning(f"Demand letter sent to {user.email} for overdue liquidation {liquidation.LiquidationID}")
         

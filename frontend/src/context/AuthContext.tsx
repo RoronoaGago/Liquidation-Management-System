@@ -208,6 +208,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAutoLogoutModal({ visible: true, reason });
     setIsShowingLogoutModal(true); // Prevent checkAuth from running
     
+    // Persist modal state to localStorage
+    SecureStorage.setLogoutModalState(true, reason);
+    
     if (reason === 'inactivity') {
       setInactivityModalShown(true);
     }
@@ -215,6 +218,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const handleAutoLogoutModalClose = () => {
     setAutoLogoutModal({ visible: false, reason: 'inactivity' });
+    // Clear persisted modal state
+    SecureStorage.clearLogoutModalState();
   };
 
   const handleAutoLogoutLogin = () => {
@@ -236,6 +241,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Clear initialization flag
     localStorage.removeItem('app_initialized');
+    
+    // Clear persisted modal state
+    SecureStorage.clearLogoutModalState();
     
     // Close modal and navigate to login
     setAutoLogoutModal({ visible: false, reason: 'inactivity' });
@@ -296,6 +304,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const checkAuth = async () => {
       // Don't run checkAuth if logout modal is showing
       if (isShowingLogoutModal) {
+        return;
+      }
+      
+      // Check for persisted logout modal state first
+      const persistedModalState = SecureStorage.getLogoutModalState();
+      if (persistedModalState?.visible) {
+        console.log('🔄 Restoring persisted logout modal state:', persistedModalState);
+        setAutoLogoutModal({ visible: true, reason: persistedModalState.reason });
+        setIsShowingLogoutModal(true);
+        setIsLoading(false);
         return;
       }
       
@@ -395,6 +413,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setPasswordChangeRequired(userData.password_change_required || false);
       setInactivityModalShown(false); // Reset inactivity modal state on login
       setIsShowingLogoutModal(false); // Reset logout modal flag on login
+      
+      // Clear any persisted logout modal state on successful login
+      SecureStorage.clearLogoutModalState();
 
       // Check if setup flow should be activated
       if (userData.password_change_required) {
@@ -481,7 +502,6 @@ const logout = async () => {
       <AutoLogoutModal
         visible={autoLogoutModal.visible}
         reason={autoLogoutModal.reason}
-        onClose={handleAutoLogoutModalClose}
         onLogin={autoLogoutModal.reason === 'password_changed' || autoLogoutModal.reason === 'new_user' ? handleReLogin : handleAutoLogoutLogin}
         userName={user?.first_name || "User"}
         isNewUser={isNewUser}

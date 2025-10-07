@@ -11,7 +11,6 @@ import Button from "./ui/button/Button";
 interface AutoLogoutModalProps {
   visible: boolean;
   reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user';
-  onClose: () => void;
   onLogin: () => void;
   userName?: string;
   isNewUser?: boolean;
@@ -20,7 +19,6 @@ interface AutoLogoutModalProps {
 const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
   visible,
   reason,
-  onClose,
   onLogin,
   userName,
   isNewUser,
@@ -94,10 +92,11 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
   const IconComponent = config.icon;
 
   return (
-    <Dialog open={visible} onOpenChange={onClose}>
+    <Dialog open={visible} onOpenChange={() => {}}>
       <DialogContent 
         className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden [&>button]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Header with dynamic gradient background */}
         <div className={`bg-gradient-to-r ${config.headerBg} border-b ${config.borderColor}`}>

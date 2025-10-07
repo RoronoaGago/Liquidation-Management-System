@@ -4,8 +4,9 @@ import { useAuth } from "@/context/AuthContext";
 import { UploadIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import Label from "../form/Label";
 import { toast } from "react-toastify";
-import api from "@/api/axios";
+
 import { jwtDecode } from "jwt-decode";
+import api from "@/api/axios";
 
 interface ESignatureModalProps {
   isOpen: boolean;
@@ -94,6 +95,25 @@ const ESignatureModal = ({
       const formData = new FormData();
       formData.append("e_signature", signature);
 
+      // Debug logging
+      console.log("🔍 ESignatureModal Debug Info:");
+      console.log("- File name:", signature.name);
+      console.log("- File size:", signature.size);
+      console.log("- File type:", signature.type);
+      console.log("- API base URL:", api.defaults.baseURL);
+      console.log("- Full endpoint URL:", `${api.defaults.baseURL}users/update-e-signature/`);
+      console.log("- Authorization header:", api.defaults.headers.common.Authorization);
+      console.log("- FormData contents:", Array.from(formData.entries()));
+
+      // Test if server is reachable
+      try {
+        console.log("🔍 Testing server connectivity...");
+        const testResponse = await api.get("/test/");
+        console.log("✅ Test endpoint response:", testResponse.data);
+      } catch (testError) {
+        console.error("❌ Test endpoint failed:", testError);
+      }
+
       const response = await api.patch("/users/update-e-signature/", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -155,7 +175,14 @@ const ESignatureModal = ({
         onSuccess();
       }
     } catch (error: any) {
-      console.error("E-signature upload error:", error);
+      console.error("❌ E-signature upload error:", error);
+      console.error("- Error message:", error.message);
+      console.error("- Error response:", error.response);
+      console.error("- Error status:", error.response?.status);
+      console.error("- Error data:", error.response?.data);
+      console.error("- Error config:", error.config);
+      console.error("- Full error object:", error);
+      
       toast.error(
         error.response?.data?.error || "Failed to upload e-signature"
       );
