@@ -18,7 +18,7 @@ def send_otp_email(user, otp):
         'account_settings_url': '',  # Optionally pass URL if available
         'deped_logo_base64': get_deped_logo_base64(),  # Add base64 logo
     }
-    html_message = render_to_string('emails/login_notification.html', context)
+    html_message = render_to_string('emails/otp_notification.html', context)
     send_mail(
         subject="Your Login OTP Code",
         message=f"Your OTP code is: {otp}",
