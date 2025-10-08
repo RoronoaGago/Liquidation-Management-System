@@ -1968,25 +1968,6 @@ const LiquidationPage = () => {
                                     </>
                                   )}
                                   
-                                  {/* Only show Remove Original button for documents that are not approved and not rejected */}
-                                  {uploadedDoc?.is_approved !== true && uploadedDoc?.is_approved !== false && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => {
-                                        if (uploadedDoc) {
-                                          handleRemoveDocument(uploadedDoc);
-                                        }
-                                      }}
-                                      disabled={
-                                        request.status !== "draft" &&
-                                        request.status !== "resubmit"
-                                      }
-                                      title="Remove this document"
-                                    >
-                                      Remove Original
-                                    </Button>
-                                  )}
                                   
                                   
                                   
