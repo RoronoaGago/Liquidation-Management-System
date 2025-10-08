@@ -21,7 +21,6 @@ import random
 import geoip2.database
 import user_agents
 
-DEFAULT_PASSWORD = "password123"
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -411,28 +410,3 @@ def send_notification_websocket(sender, instance, created, **kwargs):
 #         html_message=html_message,  # Add HTML version
 #         fail_silently=True,
 #     )
-
-
-@receiver(post_save, sender=User)
-def send_new_user_welcome_email(sender, instance, created, **kwargs):
-    if created:
-        # Use the same password logic as the serializer
-
-        context = {
-            'user': instance,
-            'temp_password': DEFAULT_PASSWORD,
-            'login_url': settings.FRONTEND_LOGIN_URL,  # Use from settings
-            'now': timezone.now(),
-        }
-
-        html_message = render_to_string(
-            'emails/new_user_welcome.html', context)
-
-        send_mail(
-            subject="Welcome to Liquidation Management System",
-            message="Your account has been created. Please check the HTML version of this email for details.",
-            from_email=None,
-            recipient_list=[instance.email],
-            html_message=html_message,
-            fail_silently=True,
-        )
