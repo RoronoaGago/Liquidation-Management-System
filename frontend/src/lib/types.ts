@@ -217,6 +217,7 @@ export interface ListOfPriority {
 
 export type Submission = {
   request_id: string;
+  request_monthyear?: string; // Format: YYYY-MM
   user: {
     role: string;
     id: string;

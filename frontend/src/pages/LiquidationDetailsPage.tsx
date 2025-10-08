@@ -1506,7 +1506,14 @@ const LiquidationDetailsPage = () => {
           </div>
           {filteredExpenses.length === 0 ? (
             <div className="text-gray-500">
-              All documents have been approved.
+              {showRejectedOnly 
+                ? "No rejected documents found." 
+                : (user?.role === "liquidator" || user?.role === "accountant") && showOnlyWithVersions
+                ? "No documents with versions found."
+                : hideApproved
+                ? "No pending documents found."
+                : "All documents have been reviewed."
+              }
             </div>
           ) : (
             filteredExpenses.map((expense) => {

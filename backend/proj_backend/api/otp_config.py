@@ -28,7 +28,7 @@ OTP_CONFIG = {
     'LOG_SUCCESSFUL_ATTEMPTS': True,
     
     # Email Settings
-    'OTP_EMAIL_TEMPLATE': 'emails/login_notification.html',
+    'OTP_EMAIL_TEMPLATE': 'emails/otp_notification.html',
     'OTP_EMAIL_SUBJECT': 'Your Login OTP Code',
     
     # Security Headers

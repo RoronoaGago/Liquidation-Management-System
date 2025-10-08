@@ -52,7 +52,7 @@ import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import { statusColors, statusLabels } from "@/lib/constants";
 import Label from "@/components/form/Label";
-import { formatDateTime } from "@/lib/helpers";
+import { formatDateTime, formatRequestMonthYear } from "@/lib/helpers";
 
 const { RangePicker } = DatePicker;
 
@@ -1150,14 +1150,22 @@ const PriortySubmissionsPage = () => {
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1 col-span-2">
-                    <div className="flex items-start">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
-                        Request ID:
-                      </span>
-                      <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
-                        {viewedSubmission.request_id}
-                      </span>
-                    </div>
+                     <div className="flex items-start">
+                       <span className="font-medium text-gray-700 dark:text-gray-300 w-36 flex-shrink-0">
+                         Request ID:
+                       </span>
+                       <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
+                         {viewedSubmission.request_id}
+                       </span>
+                     </div>
+                     <div className="flex items-start">
+                       <span className="font-medium text-gray-700 dark:text-gray-300 w-36 flex-shrink-0">
+                         Requesting Month:
+                       </span>
+                       <span className="text-gray-900 dark:text-white break-all min-w-0">
+                         {formatRequestMonthYear(viewedSubmission.request_monthyear)}
+                       </span>
+                     </div>
                     <div className="flex items-center">
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
                         Submitted by:
