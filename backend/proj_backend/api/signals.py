@@ -148,11 +148,13 @@ def handle_status_change_notification(instance):
                 sender=getattr(instance, '_status_changed_by', None)
             )
             # Prepare context for the email template
+            from django.utils import timezone
             context = {
                 "user": instance.user,
                 "object": instance,
                 "object_type": "request",
                 "status": instance.status,
+                "now": timezone.now(),
             }
             # Send email to the request owner using the template
             send_notification_email(
