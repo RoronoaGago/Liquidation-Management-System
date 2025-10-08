@@ -134,149 +134,6 @@ const COLORS = [
   "#8884D8",
 ];
 
-// Toggle to use mock data for showcasing the dashboard without backend
-const USE_MOCK_DATA = false;
-
-const MOCK_DASHBOARD_DATA: SchoolHeadDashboardData = {
-  liquidationProgress: {
-    priorities: [
-      {
-        priorityId: "p1",
-        priorityName: "Utilities",
-        status: "completed",
-        documentsRequired: 5,
-        documentsUploaded: 5,
-        completionPercentage: 100,
-      },
-      {
-        priorityId: "p2",
-        priorityName: "Supplies",
-        status: "in_progress",
-        documentsRequired: 6,
-        documentsUploaded: 4,
-        completionPercentage: 67,
-      },
-      {
-        priorityId: "p3",
-        priorityName: "Repair & Maintenance",
-        status: "in_progress",
-        documentsRequired: 4,
-        documentsUploaded: 2,
-        completionPercentage: 50,
-      },
-      {
-        priorityId: "p4",
-        priorityName: "Training",
-        status: "not_started",
-        documentsRequired: 3,
-        documentsUploaded: 0,
-        completionPercentage: 0,
-      },
-    ],
-    totalPriorities: 4,
-    completedPriorities: 1,
-    completionPercentage: 54.3,
-  },
-  financialMetrics: {
-    totalDownloadedAmount: 250000,
-    totalLiquidatedAmount: 135800,
-    liquidationPercentage: 54.3,
-    remainingAmount: 114200,
-  },
-  recentLiquidations: [
-    {
-      id: "l1",
-      priorityName: "Utilities",
-      amount: 45000,
-      status: "approved",
-      date: new Date().toISOString(),
-    },
-    {
-      id: "l2",
-      priorityName: "Supplies",
-      amount: 35800,
-      status: "submitted",
-      date: new Date().toISOString(),
-    },
-  ],
-  priorityBreakdown: [
-    {
-      priority: "Utilities",
-      amount: 65000,
-      percentage: 26,
-      color: "#465FFF",
-      name: "Utilities",
-    },
-    {
-      priority: "Supplies",
-      amount: 80000,
-      percentage: 32,
-      color: "#9CB9FF",
-      name: "Supplies",
-    },
-    {
-      priority: "Repair & Maintenance",
-      amount: 70000,
-      percentage: 28,
-      color: "#FF8042",
-      name: "Repair & Maintenance",
-    },
-    {
-      priority: "Training",
-      amount: 35000,
-      percentage: 14,
-      color: "#00C49F",
-      name: "Training",
-    },
-  ],
-  requestStatus: {
-    hasPendingRequest: true,
-    hasActiveLiquidation: false,
-    pendingRequest: {
-      request_id: "REQ-2025-09",
-      status: "submitted",
-      request_monthyear: format(new Date(), "yyyy-MM"),
-      created_at: new Date().toISOString(),
-      school_name: "Sample High School",
-      school_id: "SCH-001",
-      division: "Division A",
-      total_amount: 250000,
-      priorities: [
-        { expenseTitle: "Utilities", amount: 65000 },
-        { expenseTitle: "Supplies", amount: 80000 },
-        { expenseTitle: "Repair & Maintenance", amount: 70000 },
-        { expenseTitle: "Training", amount: 35000 },
-      ],
-    },
-  },
-  frequentlyUsedPriorities: [
-    {
-      priority: "Supplies",
-      frequency: 8,
-      totalAmount: 560000,
-      lastUsed: new Date().toISOString(),
-    },
-    {
-      priority: "Utilities",
-      frequency: 7,
-      totalAmount: 420000,
-      lastUsed: new Date().toISOString(),
-    },
-  ],
-  recentRequests: [
-    {
-      request_id: "REQ-2025-08",
-      status: "approved",
-      request_monthyear: "2025-08",
-      created_at: new Date().toISOString(),
-      total_amount: 200000,
-      priorities: [
-        { expenseTitle: "Utilities", amount: 60000 },
-        { expenseTitle: "Supplies", amount: 70000 },
-      ],
-    },
-  ],
-};
 
 const SchoolHeadDashboard = () => {
   const [data, setData] = useState<SchoolHeadDashboardData | null>(null);
@@ -349,18 +206,33 @@ const SchoolHeadDashboard = () => {
   const fetchDashboardData = async (month?: string) => {
     setLoading(true);
     try {
-      if (USE_MOCK_DATA) {
-        // Simulate a short network delay for UX
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setData(MOCK_DASHBOARD_DATA);
-        setLoading(false);
-        return;
-      }
-      const url = month
-        ? `/school-head/dashboard/?month=${month}`
-        : "/school-head/dashboard/";
-      const response = await api.get(url);
-      const respData: SchoolHeadDashboardData = response.data;
+      // Use the same endpoint as MOOERequestPage to check for pending requests
+      const [dashboardResponse, pendingCheckResponse] = await Promise.all([
+        api.get(month ? `/school-head/dashboard/?month=${month}` : "/school-head/dashboard/"),
+        api.get("check-pending-requests/")
+      ]);
+      
+      const respData: SchoolHeadDashboardData = dashboardResponse.data;
+      const pendingCheckData = pendingCheckResponse.data;
+      
+      // Debug logging to see what the backend returns
+      console.log("Backend API response:", respData);
+      console.log("Pending check response:", pendingCheckData);
+      console.log("Request status from backend:", respData.requestStatus);
+      console.log("Recent requests from backend:", respData.recentRequests);
+      
+      // Update request status based on pending check (same logic as MOOERequestPage)
+      const hasPending = pendingCheckData.has_pending_request;
+      const activeLiquidation = pendingCheckData.active_liquidation;
+      const hasActive = !!activeLiquidation && activeLiquidation.status !== "liquidated";
+      
+      // Override the request status with the pending check data
+      respData.requestStatus = {
+        hasPendingRequest: hasPending,
+        hasActiveLiquidation: hasActive,
+        pendingRequest: pendingCheckData.pending_request,
+        activeLiquidation: activeLiquidation
+      };
 
       // Fallback: derive liquidationProgress from pending request priorities
       if (
@@ -697,29 +569,50 @@ const SchoolHeadDashboard = () => {
   };
 
   const handleViewRequestStatus = () => {
-    // Prefer navigating to the specific active request modal (pending/approved/unliquidated)
-    const req = data?.requestStatus?.pendingRequest;
-    const activeStatus = req?.status?.toLowerCase?.();
-    const isActive =
-      activeStatus === "pending" ||
-      activeStatus === "approved" ||
-      activeStatus === "unliquidated";
-
-    if (req && isActive) {
-      navigate("/requests-history", { state: { requestId: req.request_id } });
-      return;
-    }
-
-    // Fallbacks: active liquidation → open latest; else just go to history
-    if (data?.requestStatus?.hasPendingRequest) {
-      navigate("/requests-history", { state: { openLatest: true } });
+    // Use the same navigation logic as MOOERequestPage but pass specific request ID
+    const hasPending = data?.requestStatus?.hasPendingRequest;
+    const hasActive = data?.requestStatus?.hasActiveLiquidation;
+    const pendingRequest = data?.requestStatus?.pendingRequest;
+    const activeLiquidation = data?.requestStatus?.activeLiquidation;
+    
+    if (hasPending && pendingRequest?.request_id) {
+      // Navigate to requests history with specific request ID to open modal
+      navigate("/requests-history", { 
+        state: { requestId: pendingRequest.request_id } 
+      });
+    } else if (hasActive && activeLiquidation?.request?.request_id) {
+      // Navigate to requests history with specific request ID from active liquidation
+      navigate("/requests-history", { 
+        state: { requestId: activeLiquidation.request.request_id } 
+      });
     } else {
+      // Fallback to requests history without specific request
       navigate("/requests-history");
     }
   };
 
   const handleGoToLiquidation = () => {
     navigate("/liquidation");
+  };
+
+  const shouldShowViewRequestStatus = () => {
+    // Use the same logic as MOOERequestPage's action required dialog
+    const hasPending = data?.requestStatus?.hasPendingRequest;
+    const hasActive = data?.requestStatus?.hasActiveLiquidation;
+    
+    // Debug logging to help identify the issue
+    console.log("Dashboard data:", data);
+    console.log("Has pending request:", hasPending);
+    console.log("Has active liquidation:", hasActive);
+    console.log("Pending request:", data?.requestStatus?.pendingRequest);
+    console.log("Active liquidation:", data?.requestStatus?.activeLiquidation);
+    
+    // Show "View Request Status" if there's a pending request OR active liquidation
+    // This matches the logic from MOOERequestPage's action required dialog
+    const shouldShow = hasPending || hasActive;
+    console.log("Should show View Request Status:", shouldShow);
+    
+    return shouldShow;
   };
 
   if (loading) {
@@ -768,7 +661,7 @@ const SchoolHeadDashboard = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          {!data?.requestStatus?.hasPendingRequest &&
+          {!shouldShowViewRequestStatus() &&
             !data?.requestStatus?.hasActiveLiquidation && (
               <Button
                 onClick={handleCreateMOOERequest}
@@ -778,7 +671,7 @@ const SchoolHeadDashboard = () => {
                 New MOOE Request
               </Button>
             )}
-          {data?.requestStatus?.hasPendingRequest && (
+          {shouldShowViewRequestStatus() && (
             <Button
               onClick={handleViewRequestStatus}
               className="bg-blue-600 hover:bg-blue-700 text-white"
