@@ -236,7 +236,8 @@ const LiquidationPage = () => {
     fetchPendingLiquidation();
   }, []);
 
-  // Show completion modal when liquidation status becomes "liquidated"
+  // Show completion modal when liquidation status becomes "liquidated" - DISABLED FOR NOW
+  /*
   useEffect(() => {
     if (
       request?.status === "liquidated" && 
@@ -254,6 +255,7 @@ const LiquidationPage = () => {
       }
     }
   }, [request?.status, hasShownCompletionModal, loading, request?.id]);
+  */
 
   const toggleExpense = (expenseId: string) => {
     setExpandedExpense((prev) =>
@@ -2133,8 +2135,8 @@ const LiquidationPage = () => {
         </div>
       </div>
 
-      {/* Completion Modal */}
-      {request && (
+      {/* Completion Modal - DISABLED FOR NOW */}
+      {/* {request && (
         <LiquidationCompletionModal
           visible={showCompletionModal}
           onClose={() => setShowCompletionModal(false)}
@@ -2156,7 +2158,7 @@ const LiquidationPage = () => {
             setShowCompletionModal(false);
           }}
         />
-      )}
+      )} */}
 
       {/* PDF Preview Dialog */}
       <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
