@@ -167,7 +167,7 @@ const LiquidationPage = () => {
 
         if (!data) {
           setRequest(null);
-          setFetchError("No pending liquidation found.");
+          setFetchError("No Ongoing liquidation found.");
           return;
         }
         console.log(data);
@@ -795,32 +795,59 @@ const LiquidationPage = () => {
       <div className="container mx-auto px-4 py-8 sm:px-6">
         <PageBreadcrumb pageTitle="Liquidation Request" />
 
-        <div className="max-w-3xl mx-auto mt-12">
+        <div className="max-w-4xl mx-auto mt-12">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="p-8 text-center">
-              <div className="mx-auto w-20 h-20 bg-red-50 dark:bg-red-900/10 rounded-full flex items-center justify-center mb-6">
-                <DocumentTextIcon className="h-10 w-10 text-red-500" />
+              <div className="mx-auto w-20 h-20 bg-blue-50 dark:bg-blue-900/10 rounded-full flex items-center justify-center mb-6">
+                <DocumentTextIcon className="h-10 w-10 text-blue-500" />
               </div>
 
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                {fetchError ? "Error Loading Request" : "No Active Liquidation"}
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                {fetchError ? "Unable to Load Liquidation Report" : "No Ongoing Liquidation Report"}
               </h3>
 
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                {fetchError ||
-                  "You don't have any pending liquidation requests at this time."}
-              </p>
+              {fetchError ? (
+                <div className="space-y-4">
+                
+                  <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4 max-w-md mx-auto">
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      <strong>Error Details:</strong> {fetchError}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <p className="text-gray-600 dark:text-gray-400 text-lg">
+                    You currently don't have any ongoing liquidation reports to manage.
+                  </p>
+                  
+                  <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-6 max-w-2xl mx-auto">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-3">
+                      What does this mean?
+                    </h4>
+                    <div className="text-left space-y-2 text-sm text-blue-800 dark:text-blue-300">
+                      <p>• You may not have submitted any fund requests yet</p>
+                      <p>• Your fund requests might still be under review</p>
+                      <p>• All your liquidation reports may have been completed</p>
+                      <p>• You might need to wait for fund approval before liquidation</p>
+                    </div>
+                  </div>
 
-              <div className="flex flex-col sm:flex-row justify-center gap-3">
-                {fetchError && (
-                  <Button
-                    variant="outline"
-                    onClick={() => window.location.reload()}
-                    startIcon={<RefreshCw className="h-4 w-4" />}
-                  >
-                    Retry
-                  </Button>
-                )}
+                  <div className="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg p-6 max-w-2xl mx-auto">
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3">
+                      What you can do:
+                    </h4>
+                    <div className="text-left space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                      <p>• Check your request history to see past liquidations</p>
+                      <p>• Submit a new fund request if needed</p>
+                      <p>• Contact your district administrator for assistance</p>
+                      <p>• Wait for fund approval if you have pending requests</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row justify-center gap-3 mt-8">
                 <Button
                   variant="primary"
                   onClick={() => navigate("/requests-history")}
@@ -828,6 +855,15 @@ const LiquidationPage = () => {
                 >
                   View Request History
                 </Button>
+                {!fetchError && (
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/dashboard")}
+                    startIcon={<RefreshCw className="h-4 w-4" />}
+                  >
+                    Go to Dashboard
+                  </Button>
+                )}
               </div>
             </div>
           </div>
