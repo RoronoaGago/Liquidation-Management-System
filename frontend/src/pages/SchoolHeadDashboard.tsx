@@ -73,6 +73,12 @@ interface SchoolHeadDashboardData {
       LiquidationID: string;
       status: string;
       created_at: string;
+      request?: {
+        request_monthyear: string;
+        request_id: string;
+        status: string;
+        priorities?: any[];
+      };
     };
   };
   frequentlyUsedPriorities?: {
@@ -304,6 +310,36 @@ const SchoolHeadDashboard = () => {
     } catch {
       return "Month Expense Breakdown";
     }
+  };
+
+  const getCurrentRequestMonthYear = () => {
+    // Priority 1: Check for pending request (highest priority)
+    if (data?.requestStatus?.pendingRequest?.request_monthyear) {
+      return data.requestStatus.pendingRequest.request_monthyear;
+    }
+    
+    // Priority 2: Check for active liquidation (unliquidated) - second priority
+    if (data?.requestStatus?.hasActiveLiquidation && data?.requestStatus?.activeLiquidation) {
+      // For active liquidations, get the month/year from the associated request
+      if (data.requestStatus.activeLiquidation.request?.request_monthyear) {
+        return data.requestStatus.activeLiquidation.request.request_monthyear;
+      }
+      // Fallback to selectedMonth if request data is not available
+      return selectedMonth;
+    }
+    
+    // Priority 3: Check recent requests for any active/unliquidated status
+    if (data?.recentRequests && data.recentRequests.length > 0) {
+      const activeRequest = data.recentRequests.find(req => 
+        req.status === 'unliquidated' || req.status === 'approved'
+      );
+      if (activeRequest?.request_monthyear) {
+        return activeRequest.request_monthyear;
+      }
+    }
+    
+    // Default fallback: use current month/year when no active request or liquidation
+    return selectedMonth;
   };
 
   useEffect(() => {
@@ -591,6 +627,26 @@ const SchoolHeadDashboard = () => {
               totalDownloaded > 0 ? (totalActual / totalDownloaded) * 100 : 0,
             remainingAmount: remaining,
           };
+
+          // Update requestStatus.activeLiquidation with request information
+          if (respData.requestStatus) {
+            respData.requestStatus.hasActiveLiquidation = true;
+            respData.requestStatus.activeLiquidation = {
+              date_districtApproved: active.date_districtApproved,
+              date_liquidatorApproved: active.date_liquidatorApproved,
+              date_liquidated: active.date_liquidated,
+              date_submitted: active.date_submitted,
+              LiquidationID: active.LiquidationID,
+              status: active.status,
+              created_at: active.created_at,
+              request: {
+                request_monthyear: active.request?.request_monthyear,
+                request_id: active.request?.request_id,
+                status: active.request?.status,
+                priorities: active.request?.priorities,
+              },
+            };
+          }
         }
       } catch (e) {
         // If no active liquidation, keep previous derivations
@@ -826,10 +882,7 @@ const SchoolHeadDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle>
-              {formatMonthTitle(
-                data?.requestStatus?.pendingRequest?.request_monthyear ||
-                  selectedMonth
-              )}
+              {formatMonthTitle(getCurrentRequestMonthYear())}
             </CardTitle>
           </CardHeader>
           <CardContent>
