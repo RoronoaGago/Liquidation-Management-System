@@ -909,10 +909,10 @@ const ApprovedRequestPage = () => {
                   </span>
                   {/* Approved at under Submitted at */}
                   {viewedSubmission.status === "approved" &&
-                    viewedSubmission.date_approved && (
+                    viewedSubmission.reviewed_at && (
                       <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Approved at:{" "}
-                        {formatDateTime(viewedSubmission.date_approved)}
+                        {formatDateTime(viewedSubmission.reviewed_at)}
                       </span>
                     )}
                 </div>

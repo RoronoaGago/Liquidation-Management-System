@@ -129,7 +129,7 @@
                 <p><strong>Date Approved:</strong> {{ object.date_approved|date:"F j, Y" }}</p>
                 {% endif %}
                 {% if object.reviewed_at %}
-                <p><strong>Time Approved:</strong> {{ object.reviewed_at|date:"H:i" }}</p>
+                <p><strong>Time Approved:</strong> {{ object.reviewed_at|date:"g:i A" }}</p>
                 {% endif %}
             </div>
             {% elif status == 'rejected' and object.reviewed_by %}
@@ -140,7 +140,7 @@
                 <p><strong>Date Rejected:</strong> {{ object.rejection_date|date:"F j, Y" }}</p>
                 {% endif %}
                 {% if object.reviewed_at %}
-                <p><strong>Time Rejected:</strong> {{ object.reviewed_at|date:"H:i" }}</p>
+                <p><strong>Time Rejected:</strong> {{ object.reviewed_at|date:"g:i A" }}</p>
                 {% endif %}
             </div>
             {% endif %}

@@ -293,10 +293,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Don't clear tokens immediately - let user decide when to logout
     };
 
+    const handleTokenUpdate = () => {
+      console.log('Token update event received, re-checking authentication...');
+      // Trigger a re-check of authentication state
+      const checkAuth = async () => {
+        const accessToken = SecureStorage.getAccessToken();
+        const refreshToken = SecureStorage.getRefreshToken();
+        
+        console.log('🔍 AuthContext token update check:');
+        console.log('- Has access token:', !!accessToken);
+        console.log('- Has refresh token:', !!refreshToken);
+        console.log('- Access token expired:', SecureStorage.isAccessTokenExpired());
+
+        if (accessToken && !SecureStorage.isAccessTokenExpired()) {
+          try {
+            const userData = decodeToken(accessToken);
+            setUser(userData);
+            setIsAuthenticated(true);
+            setPasswordChangeRequired(userData.password_change_required || false);
+            setESignatureRequired(
+              (userData.role === "school_head" ||
+                userData.role === "superintendent" ||
+                userData.role === "accountant") &&
+                !userData.e_signature
+            );
+            console.log('✅ Authentication state updated successfully');
+          } catch (error) {
+            console.error('❌ Error updating authentication state:', error);
+            SecureStorage.clearTokens();
+            setIsAuthenticated(false);
+            setUser(null);
+          }
+        }
+      };
+      
+      checkAuth();
+    };
+
     window.addEventListener('auth:logout', handleLogout as EventListener);
+    window.addEventListener('auth:token-updated', handleTokenUpdate);
     
     return () => {
       window.removeEventListener('auth:logout', handleLogout as EventListener);
+      window.removeEventListener('auth:token-updated', handleTokenUpdate);
     };
   }, [navigate, isInitialized]);
 

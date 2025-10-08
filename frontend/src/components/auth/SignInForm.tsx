@@ -43,14 +43,9 @@ export default function SignInForm() {
     }
 
     try {
-      // DEVELOPMENT MODE: Bypass OTP verification for faster development
-      // TODO: Uncomment the lines below to re-enable OTP verification
-      // await requestOTP(credentials.email, credentials.password);
-      // setShowOTP(true);
-      
-      // Direct login without OTP (for development only)
-      await login(credentials.email, credentials.password);
-      navigate("/");
+      // OTP verification enabled - request OTP and show verification form
+      await requestOTP(credentials.email, credentials.password);
+      setShowOTP(true);
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
@@ -176,7 +171,7 @@ export default function SignInForm() {
             {isLoading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                Logging in...
+                Sending OTP...
               </>
             ) : (
               "Login"
