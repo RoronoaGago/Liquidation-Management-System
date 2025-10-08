@@ -291,7 +291,7 @@ const ManageSchools = () => {
         delete newErrors[name];
       }
       setErrors(newErrors);
-    }, 300);
+    }, 150); // Reduced from 300ms to 150ms for better responsiveness
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

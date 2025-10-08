@@ -556,14 +556,20 @@ export default function RequirementsTable({
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400 space-x-2">
                       <div className="flex justify-start space-x-2">
                         <button
-                          onClick={() => handleEdit(req)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(req);
+                          }}
                           className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
                           title="Edit"
                         >
                           Edit
                         </button>
                         <button
-                          onClick={() => handleArchive(req)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchive(req);
+                          }}
                           className={`px-4 py-2 rounded-md transition-colors ${
                             req.is_active
                               ? "bg-error-500 text-white hover:bg-error-600"

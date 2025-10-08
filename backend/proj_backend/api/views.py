@@ -201,7 +201,6 @@ def user_list(request):
                 Q(first_name__icontains=search_term) |
                 Q(last_name__icontains=search_term) |
                 Q(email__icontains=search_term) |
-                Q(phone_number__icontains=search_term) |
                 Q(sex__icontains=search_term) |
                 # <-- Fix: use related field
                 Q(school__schoolName__icontains=search_term) |

@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { EyeIcon, EyeClosedIcon, CheckIcon, XIcon } from "lucide-react";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
-import { toast } from "react-toastify";
+import SuccessModal from "./SuccessModal";
 
 interface PasswordChangeModalProps {
   isOpen: boolean;
@@ -33,6 +33,7 @@ const PasswordChangeModal = ({
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Password requirements state
   const [requirements, setRequirements] = useState<PasswordRequirement[]>([
@@ -151,6 +152,7 @@ const PasswordChangeModal = ({
     setShowCurrentPassword(false);
     setShowNewPassword(false);
     setShowConfirmPassword(false);
+    setShowSuccessModal(false);
     // Reset requirements
     setRequirements((prev) => prev.map((req) => ({ ...req, met: false })));
   };
@@ -163,9 +165,9 @@ const PasswordChangeModal = ({
     setIsLoading(true);
     try {
       await changePassword(currentPassword, newPassword);
-      toast.success("Password changed successfully!");
-      resetForm();
+      // Close the main modal and show success modal
       onSuccess();
+      setShowSuccessModal(true);
     } catch (err) {
       console.error("Password change error:", err);
       setErrors((prev) => ({
@@ -362,6 +364,23 @@ const PasswordChangeModal = ({
             {isLoading ? "Updating..." : "Change Password"}
           </button>
         </form>
+
+        {/* Success Modal - Only show when main modal is closed */}
+        {!isOpen && (
+          <SuccessModal
+            isOpen={showSuccessModal}
+            onClose={() => {
+              setShowSuccessModal(false);
+              resetForm();
+            }}
+            title="Password Changed Successfully!"
+            message="Your password has been updated successfully. You can now continue using the application with your new password."
+            autoClose={true}
+            autoCloseDelay={3}
+            showCountdown={true}
+            primaryButtonText="Continue"
+          />
+        )}
       </div>
     </div>
   );

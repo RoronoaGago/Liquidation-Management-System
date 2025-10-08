@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { resetPasswordWithToken } from '../../api/axios';
 import { CheckIcon, EyeClosedIcon, EyeIcon, XIcon } from 'lucide-react';
 import Input from '../form/input/InputField';
+import SuccessModal from '../common/SuccessModal';
 
 interface PasswordRequirement {
   label: string;
@@ -34,6 +35,7 @@ const NewPasswordModal: React.FC<NewPasswordModalProps> = ({
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Password requirements
   const [requirements, setRequirements] = useState<PasswordRequirement[]>([
@@ -119,8 +121,9 @@ const NewPasswordModal: React.FC<NewPasswordModalProps> = ({
 
     try {
       await resetPasswordWithToken(userId, resetToken, newPassword);
+      // Close the main modal and show success modal
       onSuccess();
-      handleClose();
+      setShowSuccessModal(true);
     } catch (err: any) {
       setError(err.message || 'Failed to reset password. Please try again.');
     } finally {
@@ -137,24 +140,24 @@ const NewPasswordModal: React.FC<NewPasswordModalProps> = ({
     setIsLoading(false);
     setShowNewPassword(false);
     setShowConfirmPassword(false);
+    setShowSuccessModal(false);
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+        <div className="flex items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white">
             Create New Password
           </h2>
-         
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div>
           <div className="mb-6">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               Almost done!
@@ -197,24 +200,34 @@ const NewPasswordModal: React.FC<NewPasswordModalProps> = ({
               </div>
             </div>
 
-            {/* Password Requirements */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password Requirements:
-              </p>
-              {requirements.map((req, index) => (
-                <div key={index} className="flex items-center text-sm">
-                  {req.met ? (
-                    <CheckIcon className="w-4 h-4 text-green-500 mr-2" />
-                  ) : (
-                    <XIcon className="w-4 h-4 text-red-500 mr-2" />
-                  )}
-                  <span className={req.met ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                    {req.label}
-                  </span>
+            {/* Real-time password requirements display */}
+            {newPassword && (
+              <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Password Requirements:
+                </p>
+                <div className="space-y-1">
+                  {requirements.map((req, index) => (
+                    <div key={index} className="flex items-center text-xs">
+                      {req.met ? (
+                        <CheckIcon className="w-4 h-4 text-green-500 mr-2" />
+                      ) : (
+                        <XIcon className="w-4 h-4 text-red-500 mr-2" />
+                      )}
+                      <span
+                        className={
+                          req.met
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }
+                      >
+                        {req.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
             {/* Confirm Password */}
             <div>
@@ -300,6 +313,23 @@ const NewPasswordModal: React.FC<NewPasswordModalProps> = ({
             </div>
           </form>
         </div>
+
+        {/* Success Modal - Only show when main modal is closed */}
+        {!isOpen && (
+          <SuccessModal
+            isOpen={showSuccessModal}
+            onClose={() => {
+              setShowSuccessModal(false);
+              handleClose();
+            }}
+            title="Password Reset Successful!"
+            message="Your password has been successfully reset. You can now log in with your new password."
+            autoClose={true}
+            autoCloseDelay={3}
+            showCountdown={true}
+            primaryButtonText="Continue to Login"
+          />
+        )}
       </div>
     </div>
   );

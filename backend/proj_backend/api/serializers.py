@@ -17,6 +17,7 @@ import string
 import logging
 import secrets
 from simple_history.utils import update_change_reason
+from .email_utils import get_deped_logo_base64
 logger = logging.getLogger(__name__)
 
 def generate_random_password(length=12):
@@ -437,6 +438,7 @@ class UserSerializer(serializers.ModelSerializer):
             'temp_password': temp_password,
             'login_url': login_url,
             'now': timezone.now(),
+            'deped_logo_base64': get_deped_logo_base64(),
         })
 
         send_mail(
@@ -538,6 +540,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'user': user,
             'ip': ip,
             'now': timezone.now(),
+            'deped_logo_base64': get_deped_logo_base64(),
         }
 
         # Send login notification email

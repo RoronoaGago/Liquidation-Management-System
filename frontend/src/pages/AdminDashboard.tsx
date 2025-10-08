@@ -41,6 +41,105 @@ import { MoreDotIcon } from "@/icons";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+// Custom Loading Components
+const MetricCardSkeleton = () => (
+  <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 animate-pulse">
+    <div className="flex items-center justify-center w-12 h-12 bg-gray-200 rounded-xl dark:bg-gray-700 mb-5 animate-pulse">
+      <div className="w-6 h-6 bg-gray-300 rounded dark:bg-gray-600 animate-pulse"></div>
+    </div>
+    <div className="space-y-3">
+      <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-3/4 animate-pulse"></div>
+      <div className="h-6 bg-gray-200 rounded dark:bg-gray-700 w-1/2 animate-pulse"></div>
+      <div className="h-3 bg-gray-200 rounded dark:bg-gray-700 w-full animate-pulse"></div>
+    </div>
+  </div>
+);
+
+const ChartSkeleton = ({ height = "300px" }: { height?: string }) => (
+  <div className="animate-pulse">
+    <div className="flex items-center justify-center" style={{ height }}>
+      <div className="relative">
+        {/* Circular loading animation */}
+        <div className="w-32 h-32 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin dark:border-gray-700 dark:border-t-blue-400"></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-16 h-16 border-2 border-gray-200 border-b-blue-500 rounded-full animate-spin dark:border-gray-700 dark:border-b-blue-400" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+        </div>
+      </div>
+    </div>
+    <div className="mt-4 space-y-2">
+      <div className="flex justify-center space-x-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+            <div className="h-3 bg-gray-200 rounded dark:bg-gray-700 w-16"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+const TableSkeleton = () => (
+  <div className="animate-pulse">
+    <div className="overflow-auto max-h-[400px] rounded-md border border-gray-200 dark:border-gray-800">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <th key={i} className="p-3">
+                <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-20"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[1, 2, 3, 4, 5].map((row) => (
+            <tr key={row} className={row % 2 === 0 ? "bg-muted/30" : ""}>
+              {[1, 2, 3, 4, 5].map((cell) => (
+                <td key={cell} className="p-3">
+                  <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-16"></div>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const ListSkeleton = () => (
+  <div className="space-y-3 animate-pulse">
+    {[1, 2, 3, 4, 5].map((i) => (
+      <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800">
+        <div className="flex items-center min-w-0">
+          <div className="w-8 h-8 bg-gray-200 rounded-full mr-3 dark:bg-gray-700"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-32"></div>
+            <div className="h-3 bg-gray-200 rounded dark:bg-gray-700 w-24"></div>
+          </div>
+        </div>
+        <div className="text-right space-y-2">
+          <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-16"></div>
+          <div className="h-3 bg-gray-200 rounded dark:bg-gray-700 w-12"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const WidgetSkeleton = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full overflow-hidden">
+    <div className="flex justify-between items-start mb-5">
+      <div className="min-w-0">
+        <div className="h-6 bg-gray-200 rounded dark:bg-gray-700 w-40 mb-2 animate-pulse"></div>
+        <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-60 animate-pulse"></div>
+      </div>
+    </div>
+    <div className="h-full">{children}</div>
+  </div>
+);
+
 // Types for our data
 interface DashboardData {
   budgetUtilization: BudgetUtilizationData[];
@@ -1330,22 +1429,43 @@ const AdminDashboard = () => {
             </p>
           </div>
         </div>
+        
+        
+        {/* Metrics Cards Loading */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
           {[1, 2, 3, 4].map((item) => (
-            <Skeleton key={item} active paragraph={{ rows: 3 }} />
+            <MetricCardSkeleton key={item} />
           ))}
         </div>
+        
+        {/* Widgets Loading */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((item) => (
-            <Skeleton key={item} active paragraph={{ rows: 6 }} />
-          ))}
+          {/* Status Widget */}
+          <WidgetSkeleton title="Request Status Distribution">
+            <ChartSkeleton height="300px" />
+          </WidgetSkeleton>
+          
+          {/* Active Requests Widget */}
+          <WidgetSkeleton title="Active Requests">
+            <ListSkeleton />
+          </WidgetSkeleton>
+          
+          {/* School Performance Widget */}
+          <WidgetSkeleton title="School Performance">
+            <TableSkeleton />
+          </WidgetSkeleton>
+          
+          {/* Categories Widget */}
+          <WidgetSkeleton title="Top Spending Categories">
+            <ChartSkeleton height="300px" />
+          </WidgetSkeleton>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`p-4 md:p-6 ${editMode ? "select-none" : ""}`}>
+    <div className={`p-4 md:p-6 ${editMode ? "select-none" : ""} animate-in fade-in duration-500`}>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">
@@ -1451,7 +1571,7 @@ const AdminDashboard = () => {
       )}
 
       <ResponsiveGridLayout
-        className="layout"
+        className="layout animate-in slide-in-from-bottom-4 duration-700"
         layouts={layouts}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 8, sm: 4, xs: 4, xxs: 4 }}

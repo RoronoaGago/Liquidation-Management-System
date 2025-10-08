@@ -237,8 +237,6 @@ const LiquidationPage = () => {
   }, []);
 
   // Show completion modal when liquidation status becomes "liquidated"
-  // COMMENTED OUT FOR NOW - Uncomment to re-enable the completion modal
-  /*
   useEffect(() => {
     if (
       request?.status === "liquidated" && 
@@ -256,7 +254,6 @@ const LiquidationPage = () => {
       }
     }
   }, [request?.status, hasShownCompletionModal, loading, request?.id]);
-  */
 
   const toggleExpense = (expenseId: string) => {
     setExpandedExpense((prev) =>
@@ -688,6 +685,7 @@ const LiquidationPage = () => {
     draft: "Draft",
     submitted: "Submitted",
     under_review_district: "Under Review (District)",
+    under_review_liquidator: "Under Review (Liquidator)",
     under_review_division: "Under Review (Division)",
     resubmit: "Needs Revision",
     approved_district: "Approved (District)",
@@ -702,6 +700,8 @@ const LiquidationPage = () => {
       "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     under_review_district:
       "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    under_review_liquidator:
+      "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
     under_review_division:
       "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     resubmit:
@@ -718,6 +718,7 @@ const LiquidationPage = () => {
     draft: <FileText className="h-4 w-4" />,
     submitted: <Clock className="h-4 w-4" />,
     under_review_district: <RefreshCw className="h-4 w-4 animate-spin" />,
+    under_review_liquidator: <RefreshCw className="h-4 w-4 animate-spin" />,
     under_review_division: <RefreshCw className="h-4 w-4 animate-spin" />,
     resubmit: <AlertCircle className="h-4 w-4" />,
     approved_district: <CheckCircle className="h-4 w-4" />,
@@ -1177,92 +1178,129 @@ const LiquidationPage = () => {
                   </div>
                 )}
 
-                <DialogContent className="max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-xl border border-gray-200 dark:border-gray-700">
-                  <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {request.status === "resubmit" ? "Confirm Liquidation Resubmission" : "Confirm Liquidation Submission"}
-                    </h3>
-                  </DialogHeader>
+                <DialogContent className="max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border-0">
+                  {/* Header Section */}
+                  <div className="relative bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 px-8 py-6 border-b border-gray-100 dark:border-gray-600">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                          {request.status === "resubmit" ? "Confirm Liquidation Resubmission" : "Confirm Liquidation Submission"}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Review the details before proceeding
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-                  <div className="p-6 space-y-4">
-                    <div
-                      className={`p-4 rounded-lg border ${
-                        (request.status === "draft"
-                          ? dynamicRefund
-                          : request.refund) > 0
+                  {/* Content Section */}
+                  <div className="px-8 py-6 space-y-6">
+                    {/* Financial Summary Card */}
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                          (request.status === "draft" ? dynamicRefund : request.refund) > 0
+                            ? "bg-green-100 dark:bg-green-900/30"
+                            : (request.status === "draft" ? dynamicRefund : request.refund) < 0
+                            ? "bg-red-100 dark:bg-red-900/30"
+                            : "bg-blue-100 dark:bg-blue-900/30"
+                        }`}>
+                          {(request.status === "draft" ? dynamicRefund : request.refund) > 0 ? (
+                            <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          ) : (request.status === "draft" ? dynamicRefund : request.refund) < 0 ? (
+                            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                          ) : (
+                            <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          )}
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          Financial Summary
+                        </h4>
+                      </div>
+                      
+                      <div className={`p-4 rounded-lg border-2 ${
+                        (request.status === "draft" ? dynamicRefund : request.refund) > 0
                           ? "border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800"
-                          : (request.status === "draft"
-                              ? dynamicRefund
-                              : request.refund) < 0
+                          : (request.status === "draft" ? dynamicRefund : request.refund) < 0
                           ? "border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800"
                           : "border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        {(request.status === "draft"
-                          ? dynamicRefund
-                          : request.refund) > 0 ? (
-                          <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                        ) : (request.status === "draft"
-                            ? dynamicRefund
-                            : request.refund) < 0 ? (
-                          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                        ) : (
-                          <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                        )}
-                        <div>
-                          <h4 className="font-semibold mb-1">
-                            {(request.status === "draft"
-                              ? dynamicRefund
-                              : request.refund) > 0
-                              ? "Refund Due to the Division Office"
-                              : (request.status === "draft"
-                                  ? dynamicRefund
-                                  : request.refund) < 0
+                      }`}>
+                        <div className="text-center">
+                          <div className={`text-2xl font-bold mb-2 ${
+                            (request.status === "draft" ? dynamicRefund : request.refund) > 0
+                              ? "text-green-700 dark:text-green-300"
+                              : (request.status === "draft" ? dynamicRefund : request.refund) < 0
+                              ? "text-red-700 dark:text-red-300"
+                              : "text-blue-700 dark:text-blue-300"
+                          }`}>
+                            {formatCurrency(
+                              request.status === "draft" ? dynamicRefund : request.refund
+                            )}
+                          </div>
+                          <h5 className={`font-semibold text-sm mb-2 ${
+                            (request.status === "draft" ? dynamicRefund : request.refund) > 0
+                              ? "text-green-800 dark:text-green-200"
+                              : (request.status === "draft" ? dynamicRefund : request.refund) < 0
+                              ? "text-red-800 dark:text-red-200"
+                              : "text-blue-800 dark:text-blue-200"
+                          }`}>
+                            {(request.status === "draft" ? dynamicRefund : request.refund) > 0
+                              ? "Refund Due to Division Office"
+                              : (request.status === "draft" ? dynamicRefund : request.refund) < 0
                               ? "Over-Expenditure (No Refund Due)"
                               : "Fully Liquidated (No Refund Due)"}
-                          </h4>
-                          <p className="text-gray-700 dark:text-gray-300">
-                            {(request.status === "draft"
-                              ? dynamicRefund
-                              : request.refund) > 0
-                              ? `You must return ${formatCurrency(
-                                  request.status === "draft"
-                                    ? dynamicRefund
-                                    : request.refund
-                                )} to the Division Office. This is the unspent portion of the requested funds.`
-                              : (request.status === "draft"
-                                  ? dynamicRefund
-                                  : request.refund) < 0
-                              ? `You have spent ${formatCurrency(
-                                  Math.abs(
-                                    request.status === "draft"
-                                      ? dynamicRefund
-                                      : request.refund
-                                  )
-                                )} more than the requested amount. No refund is due.`
+                          </h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                            {(request.status === "draft" ? dynamicRefund : request.refund) > 0
+                              ? "This is the unspent portion of the requested funds that must be returned."
+                              : (request.status === "draft" ? dynamicRefund : request.refund) < 0
+                              ? "You have spent more than the requested amount. No refund is due."
                               : "All funds have been fully liquidated. No refund is due."}
                           </p>
                         </div>
                       </div>
                     </div>
-                    {/* ...other confirmation details... */}
+
+                    {/* Action Notice */}
+                    <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h6 className="font-medium text-amber-800 dark:text-amber-200 text-sm mb-1">
+                            Important Notice
+                          </h6>
+                          <p className="text-sm text-amber-700 dark:text-amber-300">
+                            {request.status === "resubmit" 
+                              ? "Your liquidation will be resubmitted for review. Please ensure all required documents are properly uploaded."
+                              : "Once submitted, your liquidation request cannot be edited. Please verify all information is correct."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsConfirmDialogOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="primary"
-                      loading={isSubmitting}
-                      onClick={handleSubmit}
-                    >
-                      {request.status === "resubmit" ? "Confirm & Resubmit" : "Confirm & Submit"}
-                    </Button>
+                  {/* Footer Section */}
+                  <div className="bg-gray-50 dark:bg-gray-700/50 px-8 py-6 border-t border-gray-200 dark:border-gray-600">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsConfirmDialogOpen(false)}
+                        className="w-full sm:w-auto order-2 sm:order-1"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="primary"
+                        loading={isSubmitting}
+                        onClick={handleSubmit}
+                        className="w-full sm:w-auto order-1 sm:order-2"
+                      >
+                        {request.status === "resubmit" ? "Confirm & Resubmit" : "Confirm & Submit"}
+                      </Button>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -2095,9 +2133,7 @@ const LiquidationPage = () => {
         </div>
       </div>
 
-      {/* Completion Modal - COMMENTED OUT FOR NOW */}
-      {/* Uncomment the section below to re-enable the completion modal */}
-      {/*
+      {/* Completion Modal */}
       {request && (
         <LiquidationCompletionModal
           visible={showCompletionModal}
@@ -2121,7 +2157,6 @@ const LiquidationPage = () => {
           }}
         />
       )}
-      */}
 
       {/* PDF Preview Dialog */}
       <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>

@@ -7,6 +7,7 @@ from .models import RequestManagement, LiquidationManagement, Notification
 from django.contrib.auth import get_user_model
 from django.template.loader import render_to_string
 from datetime import timedelta
+from .email_utils import get_deped_logo_base64
 from .tasks import send_liquidation_reminder, send_liquidation_demand_letter
 from django.contrib.auth.signals import user_logged_in
 from django.urls import reverse
@@ -93,6 +94,11 @@ def send_notification_email(subject, message, recipient, template_name=None, con
     if recipient and recipient.is_active and getattr(recipient, 'email', None):
         html_message = None
         if template_name and context:
+            # Add base64 logo to context if not already present
+            if context is None:
+                context = {}
+            if 'deped_logo_base64' not in context:
+                context['deped_logo_base64'] = get_deped_logo_base64()
             # Render the email body from template
             html_message = render_to_string(template_name, context)
             # Optionally, also render a plain text version for fallback

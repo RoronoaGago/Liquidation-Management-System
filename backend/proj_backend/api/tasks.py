@@ -16,6 +16,7 @@ from django.conf import settings
 from django.core.cache import cache
 from .models import LiquidationManagement, RequestManagement, Notification, User
 from .pdf_utils import generate_demand_letter_pdf
+from .email_utils import get_deped_logo_base64
 import logging
 import time
 from typing import Dict, List, Optional
@@ -290,6 +291,7 @@ def send_liquidation_reminder(self, liquidation_id, days_left):
             'deadline': deadline,
             'now': timezone.now(),
             'contact_email': settings.DEFAULT_FROM_EMAIL,
+            'deped_logo_base64': get_deped_logo_base64(),
         }
         
         html_message = render_to_string('emails/liquidation_reminder.html', context)
@@ -373,6 +375,7 @@ def send_liquidation_demand_letter(self, liquidation_id):
             'deadline': deadline,
             'items': items,
             'total_amount': total_amount,
+            'deped_logo_base64': get_deped_logo_base64(),
         }
         
         html_message = render_to_string('emails/liquidation_demand_letter.html', context)
