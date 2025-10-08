@@ -997,17 +997,17 @@ const MOOERequestPage = () => {
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <div className="bg-gradient-to-r from-brand-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-6 border-b border-gray-100 dark:border-gray-700">
+          <div className="bg-gradient-to-r from-blue-50 to-gray-50 dark:from-gray-700 dark:to-gray-800 px-6 py-6 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-brand-100/80 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400">
-                <AlertCircle className="h-7 w-7" />
+              <div className="p-3 rounded-lg bg-blue-100/80 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <Info className="h-7 w-7" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Action Required
+                  Request Status Information
                 </h2>
                 <p className="text-base text-gray-600 dark:text-gray-300 mt-1">
-                  Please review these important notifications
+                  Current request status and next steps
                 </p>
               </div>
             </div>
@@ -1015,18 +1015,18 @@ const MOOERequestPage = () => {
 
           <div className="space-y-6 px-6 py-6">
             {hasPendingRequest && (
-              <div className="bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-900/20 shadow-sm overflow-hidden">
+              <div className="bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/20 shadow-sm overflow-hidden">
                 {/* Header Section */}
-                <div className="flex items-center gap-4 p-5 bg-red-100/50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-900/30">
-                  <div className="flex-shrink-0 p-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                    <AlertTriangle className="h-6 w-6" />
+                <div className="flex items-center gap-4 p-5 bg-blue-100/50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-900/30">
+                  <div className="flex-shrink-0 p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                    <Info className="h-6 w-6" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold text-gray-900 dark:text-white text-lg">
-                      Pending MOOE Request
+                      Active MOOE Request
                     </h3>
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-200 text-red-800 dark:bg-red-800/50 dark:text-red-200 mt-1">
-                      Attention needed
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-200 text-blue-800 dark:bg-blue-800/50 dark:text-blue-200 mt-1">
+                      Currently processing
                     </span>
                   </div>
                 </div>
@@ -1035,27 +1035,37 @@ const MOOERequestPage = () => {
                 <div className="p-5">
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500 mt-2"></div>
+                      <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
                       <p className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">
-                        You{" "}
-                        <span className="font-bold text-red-600 dark:text-red-400">
-                          cannot submit
+                        You currently have an active MOOE request that needs to be{" "}
+                        <span className="font-bold text-blue-600 dark:text-blue-400">
+                          liquidated first
                         </span>{" "}
-                        a new request at this time.
+                        before submitting a new request.
                       </p>
                     </div>
                     
                     <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-brand-500"></div>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Active Request Details:
+                          Current Request Details:
                         </span>
                       </div>
-                      <div className="ml-4">
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Request Period:{" "}
-                          <span className="font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 px-3 py-1 rounded-md">
+                      <div className="ml-4 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[80px]">
+                            Request ID:
+                          </span>
+                          <span className="font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded border text-sm">
+                            {pendingRequestData?.request_id || "N/A"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[80px]">
+                            Period:
+                          </span>
+                          <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-md text-sm">
                             {formatDateToMonthYear(
                               pendingRequestData?.request_month || 
                               pendingRequestData?.request_monthyear || 
@@ -1064,10 +1074,30 @@ const MOOERequestPage = () => {
                               "Unknown Period"
                             )}
                           </span>
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                          This request must be completed first before submitting new requests.
-                        </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[80px]">
+                            Status:
+                          </span>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 capitalize">
+                            {pendingRequestData?.status?.replace(/_/g, " ") || "Pending"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-amber-50 dark:bg-amber-900/10 rounded-lg p-4 border border-amber-200 dark:border-amber-900/20">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-amber-800 dark:text-amber-200 text-sm mb-1">
+                            Next Steps Required:
+                          </h4>
+                          <p className="text-amber-700 dark:text-amber-300 text-sm leading-relaxed">
+                            To submit a new MOOE request, you must first complete the liquidation process for your current request. 
+                  
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1075,18 +1105,18 @@ const MOOERequestPage = () => {
               </div>
             )}
             {hasPendingRequest && pendingRequestData?.status === "advanced" && (
-              <div className="flex gap-5 p-5 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/20 shadow-sm">
-                <div className="flex-shrink-0 p-3 rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+              <div className="flex gap-5 p-5 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-900/20 shadow-sm">
+                <div className="flex-shrink-0 p-3 rounded-lg bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400">
                   <Info className="h-6 w-6" />
                 </div>
                 <div className="space-y-3">
                   <h3 className="font-bold text-gray-900 dark:text-white text-lg">
-                    Advance Request Pending
+                    Advance Request Scheduled
                   </h3>
                   <div className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">
                     <p>
-                      You have an advance request for{" "}
-                      <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                      You have an advance request scheduled for{" "}
+                      <span className="font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">
                         {formatDateToMonthYear(pendingRequestData?.request_monthyear || "")}
                       </span>
                       . It will become active when the month arrives.
@@ -1102,18 +1132,14 @@ const MOOERequestPage = () => {
                 </div>
                 <div className="space-y-3">
                   <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-3 text-lg">
-                    Active Liquidation Process
+                    Liquidation in Progress
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-                      Attention needed
+                      Processing
                     </span>
                   </h3>
                   <div className="text-gray-700 dark:text-gray-300 text-base space-y-3 leading-relaxed">
                     <p>
-                      You{" "}
-                      <span className="font-bold text-amber-600 dark:text-amber-400">
-                        cannot submit
-                      </span>{" "}
-                      a new request because there's an ongoing liquidation process for Request ID:{" "}
+                      Your liquidation process is currently being reviewed. Request ID:{" "}
                       <span className="font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded border">
                         {activeLiquidationData?.request?.request_id}
                       </span>
@@ -1124,6 +1150,11 @@ const MOOERequestPage = () => {
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-brand-100 dark:bg-brand-900/30 text-brand-800 dark:text-brand-200 capitalize">
                           {activeLiquidationData?.status?.replace(/_/g, " ")}
                         </span>
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/10 rounded-lg p-3 border border-blue-200 dark:border-blue-900/20">
+                      <p className="text-blue-700 dark:text-blue-300 text-sm">
+                        Once the liquidation is finalized by the Division Accountant, you'll be able to submit new requests.
                       </p>
                     </div>
                   </div>
