@@ -294,7 +294,7 @@ const MOOERequestPage = () => {
         // Show warning if budget is 0
         if (monthlyBudget === 0) {
           toast.warning(
-            "No budget allocation found for your school. Please contact the Division Superintendent to set up your school's budget allocation.",
+            "No budget allocation found for your school. Please contact the Division Accountant to set up your school's budget allocation.",
             { autoClose: 8000 }
           );
         }

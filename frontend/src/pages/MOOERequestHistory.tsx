@@ -33,7 +33,7 @@ import { format } from "date-fns";
 import Button from "@/components/ui/button/Button";
 import MOOERequestTable from "@/components/tables/BasicTables/MOOEREquestTable";
 import { toast } from "react-toastify";
-import { formatDateTime } from "@/lib/helpers";
+import { formatDateTime, formatRequestMonthYear } from "@/lib/helpers";
 import Badge from "@/components/ui/badge/Badge";
 
 type SubmissionStatus =
@@ -211,16 +211,24 @@ const MOOERequestHistory = () => {
               {/* Sender Details Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-1 col-span-2">
-                    <div className="flex items-start">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
-                        Request ID:
-                      </span>
-                      <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
-                        {viewedSubmission.request_id}
-                      </span>
-                    </div>
-                  </div>
+                   <div className="space-y-1 col-span-2">
+                     <div className="flex items-start">
+                       <span className="font-medium text-gray-700 dark:text-gray-300 w-36 flex-shrink-0">
+                         Request ID:
+                       </span>
+                       <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
+                         {viewedSubmission.request_id}
+                       </span>
+                     </div>
+                     <div className="flex items-start">
+                       <span className="font-medium text-gray-700 dark:text-gray-300 w-36 flex-shrink-0">
+                         Requesting Month:
+                       </span>
+                       <span className="text-gray-900 dark:text-white break-all min-w-0">
+                         {formatRequestMonthYear(viewedSubmission.request_monthyear)}
+                       </span>
+                     </div>
+                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center">
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-28 flex-shrink-0">
