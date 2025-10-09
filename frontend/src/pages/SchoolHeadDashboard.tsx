@@ -611,29 +611,276 @@ const SchoolHeadDashboard = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              School Head Dashboard
-            </h1>
-            <p className="mt-1 text-gray-500">
-            </p>
+      <div className="min-h-screen bg-gray-50/30">
+        {/* Header Section Skeleton */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="px-6 py-8">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <Skeleton.Input 
+                  active 
+                  size="large" 
+                  style={{ width: 300, height: 36 }} 
+                />
+                <Skeleton.Input 
+                  active 
+                  style={{ width: 400, height: 24 }} 
+                />
+              </div>
+              <div className="flex gap-3">
+                <Skeleton.Button 
+                  active 
+                  size="large" 
+                  style={{ width: 160, height: 40 }} 
+                />
+                <Skeleton.Button 
+                  active 
+                  size="large" 
+                  style={{ width: 140, height: 40 }} 
+                />
+              </div>
+            </div>
           </div>
-          <Button variant="outline" disabled>
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            Loading...
-          </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {[1, 2, 3, 4].map((item) => (
-            <Skeleton key={item} active paragraph={{ rows: 3 }} />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2].map((item) => (
-            <Skeleton key={item} active paragraph={{ rows: 6 }} />
-          ))}
+
+        {/* Main Content Skeleton */}
+        <div className="px-6 py-8 space-y-8">
+          {/* Key Metrics Section Skeleton */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <Skeleton.Input 
+                active 
+                style={{ width: 150, height: 28 }} 
+              />
+              <Skeleton.Input 
+                active 
+                style={{ width: 200, height: 20 }} 
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((item) => (
+                <Card key={item} className="border-0 shadow-md">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 120, height: 16 }} 
+                    />
+                    <Skeleton.Avatar 
+                      active 
+                      size="default" 
+                      shape="square" 
+                      style={{ width: 40, height: 40 }} 
+                    />
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Skeleton.Input 
+                      active 
+                      size="large" 
+                      style={{ width: 100, height: 32 }} 
+                    />
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 140, height: 16 }} 
+                    />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Analytics Section Skeleton */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <Skeleton.Input 
+                active 
+                style={{ width: 200, height: 28 }} 
+              />
+              <Skeleton.Input 
+                active 
+                style={{ width: 250, height: 20 }} 
+              />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Expense Breakdown Card Skeleton */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader className="pb-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Skeleton.Input 
+                        active 
+                        style={{ width: 250, height: 24 }} 
+                      />
+                      <Skeleton.Input 
+                        active 
+                        style={{ width: 300, height: 16 }} 
+                      />
+                    </div>
+                    <div className="text-right bg-gray-50 px-4 py-3 rounded-lg">
+                      <Skeleton.Input 
+                        active 
+                        size="large" 
+                        style={{ width: 120, height: 32 }} 
+                      />
+                      <Skeleton.Input 
+                        active 
+                        style={{ width: 100, height: 12 }} 
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-6">
+                    {/* Summary Statistics Skeleton */}
+                    <div className="grid grid-cols-2 gap-6 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl">
+                      <div className="text-center space-y-2">
+                        <Skeleton.Input 
+                          active 
+                          size="large" 
+                          style={{ width: 40, height: 32 }} 
+                        />
+                        <Skeleton.Input 
+                          active 
+                          style={{ width: 80, height: 16 }} 
+                        />
+                      </div>
+                      <div className="text-center space-y-2">
+                        <Skeleton.Input 
+                          active 
+                          size="large" 
+                          style={{ width: 100, height: 32 }} 
+                        />
+                        <Skeleton.Input 
+                          active 
+                          style={{ width: 120, height: 16 }} 
+                        />
+                      </div>
+                    </div>
+
+                    {/* Pie Chart Skeleton */}
+                    <div className="h-80 bg-white rounded-xl p-4 border border-gray-100 flex items-center justify-center">
+                      <Skeleton.Avatar 
+                        active 
+                        size="large" 
+                        shape="circle" 
+                        style={{ width: 200, height: 200 }} 
+                      />
+                    </div>
+
+                    {/* Priority Details Skeleton */}
+                    <div className="space-y-4">
+                      <Skeleton.Input 
+                        active 
+                        style={{ width: 150, height: 24 }} 
+                      />
+                      <div className="space-y-3">
+                        {[1, 2, 3].map((item) => (
+                          <div
+                            key={item}
+                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl"
+                          >
+                            <div className="flex items-center space-x-4">
+                              <Skeleton.Avatar 
+                                active 
+                                size="small" 
+                                shape="circle" 
+                                style={{ width: 20, height: 20 }} 
+                              />
+                              <div className="space-y-1">
+                                <Skeleton.Input 
+                                  active 
+                                  style={{ width: 150, height: 16 }} 
+                                />
+                                <Skeleton.Input 
+                                  active 
+                                  style={{ width: 100, height: 12 }} 
+                                />
+                              </div>
+                            </div>
+                            <Skeleton.Input 
+                              active 
+                              style={{ width: 80, height: 16 }} 
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Priority Completion Card Skeleton */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader className="pb-6">
+                  <div className="space-y-1">
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 200, height: 24 }} 
+                    />
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 280, height: 16 }} 
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Radial Chart Skeleton */}
+                  <div className="h-80 bg-white rounded-xl p-4 border border-gray-100 flex items-center justify-center">
+                    <Skeleton.Avatar 
+                      active 
+                      size="large" 
+                      shape="circle" 
+                      style={{ width: 180, height: 180 }} 
+                    />
+                  </div>
+                  
+                  {/* Progress Overview Skeleton */}
+                  <div className="space-y-4">
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 180, height: 24 }} 
+                    />
+                    <div className="grid grid-cols-1 gap-3">
+                      {[1, 2, 3, 4].map((item) => (
+                        <div
+                          key={item}
+                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <Skeleton.Avatar 
+                              active 
+                              size="small" 
+                              shape="circle" 
+                              style={{ width: 20, height: 20 }} 
+                            />
+                            <div className="space-y-1">
+                              <Skeleton.Input 
+                                active 
+                                style={{ width: 120, height: 16 }} 
+                              />
+                              <Skeleton.Input 
+                                active 
+                                style={{ width: 100, height: 12 }} 
+                              />
+                            </div>
+                          </div>
+                          <div className="text-right space-y-1">
+                            <Skeleton.Input 
+                              active 
+                              style={{ width: 40, height: 16 }} 
+                            />
+                            <Skeleton.Input 
+                              active 
+                              style={{ width: 64, height: 8 }} 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
