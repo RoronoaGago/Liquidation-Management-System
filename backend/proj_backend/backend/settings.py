@@ -243,7 +243,7 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'tght ymcl oqus vjyw')
 DEFAULT_FROM_EMAIL = 'DepEd LUSDO <noreply@deped.gov.ph>'
 
 # Liquidation Reminder Configuration
-LIQUIDATION_REMINDER_DAYS = [15, 5]  # 15 days and 5 days before due date
+LIQUIDATION_REMINDER_DAYS = [15, 5, 1]  # 15 days, 5 days, and 1 day before due date
 LIQUIDATION_DEADLINE_DAYS = 30
 EMAIL_RATE_LIMIT_PER_USER_PER_DAY = 5  # Max emails per user per day
 # Celery Configuration
@@ -269,8 +269,8 @@ CELERY_BEAT_SCHEDULE = {
     },
     'check-liquidation-reminders-daily': {
         'task': 'api.tasks.check_liquidation_reminders',
-        # Daily at 8:00 AM
-        'schedule': crontab(hour=8, minute=0),
+        # Run every 2 minutes for testing
+        'schedule': crontab(minute='*/2'),
     },
     'update-remaining-days-daily': {
         'task': 'api.tasks.update_liquidation_remaining_days',

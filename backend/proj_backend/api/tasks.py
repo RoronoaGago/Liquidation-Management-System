@@ -134,7 +134,7 @@ def check_liquidation_reminders(self):
     logger.info(f"Starting comprehensive liquidation reminder check for {today}")
 
     # Get configuration from settings
-    reminder_days = get_config_value('LIQUIDATION_REMINDER_DAYS', [15, 5, 0])
+    reminder_days = get_config_value('LIQUIDATION_REMINDER_DAYS', [15, 5, 1])
     deadline_days = get_config_value('LIQUIDATION_DEADLINE_DAYS', 30)
     
     reminder_stats = {

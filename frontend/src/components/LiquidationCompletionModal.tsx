@@ -250,7 +250,7 @@ const LiquidationCompletionModal: React.FC<LiquidationCompletionModalProps> = ({
             </Button>
             {onViewHistory && (
               <Button
-                variant="outline"
+                variant="primary"
                 onClick={onViewHistory}
                 startIcon={<FileText className="h-4 w-4" />}
                 className="w-full sm:w-auto order-3 sm:order-2"
