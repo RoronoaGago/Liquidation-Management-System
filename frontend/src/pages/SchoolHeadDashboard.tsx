@@ -893,10 +893,10 @@ const SchoolHeadDashboard = () => {
         <div className="px-6 py-8">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">
                 School Head Dashboard
               </h1>
-              <p className="text-gray-600 text-lg">
+              <p className="text-gray-600 text-sm">
                 Monitor your MOOE requests and liquidation progress
               </p>
             </div>
@@ -941,15 +941,13 @@ const SchoolHeadDashboard = () => {
         {/* Enhanced Key Metrics Section */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Key Metrics</h2>
-            <div className="text-sm text-gray-500">
-              Real-time financial overview
-            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Key Metrics</h2>
+           
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-xs font-medium text-gray-600">
                   Liquidation Completion
                 </CardTitle>
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -957,7 +955,7 @@ const SchoolHeadDashboard = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-gray-900">
                   {data?.liquidationProgress?.completionPercentage !== undefined
                     ? `${data.liquidationProgress.completionPercentage.toFixed(1)}%`
                     : "0%"}
@@ -972,7 +970,7 @@ const SchoolHeadDashboard = () => {
             
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-xs font-medium text-gray-600">
                   Amount Liquidated
                 </CardTitle>
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -980,7 +978,7 @@ const SchoolHeadDashboard = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-gray-900">
                   {data?.financialMetrics?.totalLiquidatedAmount !== undefined
                     ? `₱${data.financialMetrics.totalLiquidatedAmount.toLocaleString()}`
                     : "₱0"}
@@ -995,7 +993,7 @@ const SchoolHeadDashboard = () => {
             
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-xs font-medium text-gray-600">
                   Remaining Amount
                 </CardTitle>
                 <div className="p-2 bg-orange-100 rounded-lg">
@@ -1003,7 +1001,7 @@ const SchoolHeadDashboard = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-gray-900">
                   {data?.financialMetrics?.remainingAmount !== undefined
                     ? `₱${data.financialMetrics.remainingAmount.toLocaleString()}`
                     : "₱0"}
@@ -1016,7 +1014,7 @@ const SchoolHeadDashboard = () => {
             
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-xs font-medium text-gray-600">
                   Total Downloaded
                 </CardTitle>
                 <div className="p-2 bg-purple-100 rounded-lg">
@@ -1024,7 +1022,7 @@ const SchoolHeadDashboard = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-gray-900">
                   {data?.financialMetrics?.totalDownloadedAmount !== undefined
                     ? `₱${data.financialMetrics.totalDownloadedAmount.toLocaleString()}`
                     : "₱0"}
@@ -1039,10 +1037,8 @@ const SchoolHeadDashboard = () => {
         {/* Charts and Analytics Section */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Analytics & Insights</h2>
-            <div className="text-sm text-gray-500">
-              Visual breakdown of your financial data
-            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Analytics & Insights</h2>
+           
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Enhanced Expense Breakdown */}
@@ -1050,7 +1046,7 @@ const SchoolHeadDashboard = () => {
               <CardHeader className="pb-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <CardTitle className="text-xl font-semibold text-gray-900">
+                    <CardTitle className="text-lg font-semibold text-gray-900">
                       {formatMonthTitle(getCurrentRequestMonthYear())}
                     </CardTitle>
                     <p className="text-sm text-gray-500">
@@ -1059,7 +1055,7 @@ const SchoolHeadDashboard = () => {
                   </div>
                   {data?.priorityBreakdown && data.priorityBreakdown.length > 0 && (
                     <div className="text-right bg-gray-50 px-4 py-3 rounded-lg">
-                      <div className="text-2xl font-bold text-gray-900">
+                      <div className="text-xl font-bold text-gray-900">
                         ₱{data.priorityBreakdown.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
                       </div>
                       <div className="text-xs text-gray-500 font-medium">Total Allocated</div>
@@ -1073,13 +1069,13 @@ const SchoolHeadDashboard = () => {
                     {/* Summary Statistics */}
                     <div className="grid grid-cols-2 gap-6 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl">
                       <div className="text-center space-y-2">
-                        <div className="text-2xl font-bold text-gray-900">
+                        <div className="text-xl font-bold text-gray-900">
                           {data.priorityBreakdown.length}
                         </div>
                         <div className="text-sm text-gray-600 font-medium">Priorities</div>
                       </div>
                       <div className="text-center space-y-2">
-                        <div className="text-2xl font-bold text-gray-900">
+                        <div className="text-xl font-bold text-gray-900">
                           ₱{Math.round(data.priorityBreakdown.reduce((sum, item) => sum + item.amount, 0) / data.priorityBreakdown.length).toLocaleString()}
                         </div>
                         <div className="text-sm text-gray-600 font-medium">Avg. per Priority</div>
@@ -1137,7 +1133,7 @@ const SchoolHeadDashboard = () => {
 
                     {/* Enhanced Legend with Details */}
                     <div className="space-y-4">
-                      <h4 className="text-lg font-semibold text-gray-800 mb-4">Priority Details</h4>
+                      <h4 className="text-base font-semibold text-gray-800 mb-4">Priority Details</h4>
                       <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
                         {data.priorityBreakdown
                           .sort((a, b) => b.amount - a.amount)
@@ -1178,7 +1174,7 @@ const SchoolHeadDashboard = () => {
                       <DollarSign className="w-10 h-10 text-gray-400" />
                     </div>
                     <div className="space-y-2">
-                      <h3 className="text-xl font-semibold text-gray-900">
+                      <h3 className="text-lg font-semibold text-gray-900">
                         No Expense Data Available
                       </h3>
                       <p className="text-gray-500 max-w-sm leading-relaxed">
@@ -1201,7 +1197,7 @@ const SchoolHeadDashboard = () => {
             <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-200">
               <CardHeader className="pb-6">
                 <div className="space-y-1">
-                  <CardTitle className="text-xl font-semibold text-gray-900">
+                  <CardTitle className="text-lg font-semibold text-gray-900">
                     Priority Completion Status
                   </CardTitle>
                   <p className="text-sm text-gray-500">
@@ -1258,7 +1254,7 @@ const SchoolHeadDashboard = () => {
                         <CheckCircle className="w-8 h-8 text-gray-400" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        <h3 className="text-base font-medium text-gray-900 mb-2">
                           No Completion Data
                         </h3>
                         <p className="text-sm text-gray-500">
@@ -1271,7 +1267,7 @@ const SchoolHeadDashboard = () => {
                 
                 {/* Enhanced Legend */}
                 <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800">Progress Overview</h4>
+                  <h4 className="text-base font-semibold text-gray-800">Progress Overview</h4>
                   <div className="grid grid-cols-1 gap-3">
                     {data?.liquidationProgress?.priorities &&
                     data.liquidationProgress.priorities.length > 0 ? (
