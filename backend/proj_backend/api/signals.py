@@ -78,13 +78,19 @@ def create_new_request_notification(instance):
             sender=instance.user
         )
         
-        # Send email notification to superintendent
+        # Send email notification to superintendent using the new template
+        context = {
+            "user": superintendent,
+            "object": instance,
+            "now": timezone.now(),
+            "login_url": f"{settings.FRONTEND_URL}/login" if hasattr(settings, 'FRONTEND_URL') else "http://localhost:3000/login"
+        }
         send_notification_email(
             subject=f"New Request from {instance.user.get_full_name()}",
             message=f"New request {instance.request_id} has been submitted for {instance.request_monthyear}",
             recipient=superintendent,
-            template_name=None,
-            context=None
+            template_name="emails/sds_request_review.html",
+            context=context
         )
 
 
@@ -176,13 +182,19 @@ def handle_status_change_notification(instance):
                         receiver=accountant,
                         sender=getattr(instance, '_status_changed_by', None)
                     )
-                    # Send email to the accountant (simple message, no template)
+                    # Send email to the accountant using the new template
+                    context = {
+                        "user": accountant,
+                        "object": instance,
+                        "now": timezone.now(),
+                        "login_url": f"{settings.FRONTEND_URL}/login" if hasattr(settings, 'FRONTEND_URL') else "http://localhost:3000/login"
+                    }
                     send_notification_email(
                         subject=f"Request {instance.request_id} approved",
                         message=f"Request {instance.request_id} has been approved and is ready for accounting.",
                         recipient=accountant,
-                        template_name=None,
-                        context=None
+                        template_name="emails/accountant_download.html",
+                        context=context
                     )
 
 # New liquidation management signals
@@ -241,13 +253,19 @@ def create_new_liquidation_notification(instance):
             sender=instance.request.user
         )
         
-        # Send email notification to district admin
+        # Send email notification to district admin using the new template
+        context = {
+            "user": admin,
+            "object": instance,
+            "now": timezone.now(),
+            "login_url": f"{settings.FRONTEND_URL}/login" if hasattr(settings, 'FRONTEND_URL') else "http://localhost:3000/login"
+        }
         send_notification_email(
             subject="New Liquidation Submitted",
             message=f"New liquidation {instance.LiquidationID} has been submitted for request {instance.request.request_id}",
             recipient=admin,
-            template_name=None,
-            context=None
+            template_name="emails/liquidation_review.html",
+            context=context
         )
 
 
@@ -348,6 +366,20 @@ def handle_liquidation_status_change(instance):
                     details=notification_info['details'],
                     receiver=receiver,
                     sender=changed_by
+                )
+                # Send email to additional receivers using the liquidation_review template
+                context = {
+                    "user": receiver,
+                    "object": instance,
+                    "now": timezone.now(),
+                    "login_url": f"{settings.FRONTEND_URL}/login" if hasattr(settings, 'FRONTEND_URL') else "http://localhost:3000/login"
+                }
+                send_notification_email(
+                    subject=notification_info['title'],
+                    message=notification_info['details'],
+                    recipient=receiver,
+                    template_name="emails/liquidation_review.html",
+                    context=context
                 )
 
 
