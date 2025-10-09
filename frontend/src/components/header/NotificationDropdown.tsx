@@ -256,6 +256,10 @@ export default function NotificationDropdown() {
       notification.notification_title === "Liquidation Submitted"
     ) {
       navigate("/liquidation");
+    } else if (
+      notification.notification_title === "Liquidation Completed"
+    ) {
+      navigate("/requests-history");
     }
 
     closeDropdown();

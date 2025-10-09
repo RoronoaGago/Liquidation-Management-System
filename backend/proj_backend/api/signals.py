@@ -271,10 +271,12 @@ def create_new_liquidation_notification(instance):
 
 def handle_liquidation_status_change(instance):
     if not hasattr(instance, '_old_status') or instance._old_status == instance.status:
+        logger.info(f"No status change detected for liquidation {getattr(instance, 'LiquidationID', 'unknown')}. Old status: {getattr(instance, '_old_status', 'None')}, New status: {instance.status}")
         return
 
     # Get the user who changed the status
     changed_by = getattr(instance, '_status_changed_by', None)
+    logger.info(f"Liquidation status change detected for {getattr(instance, 'LiquidationID', 'unknown')}: {getattr(instance, '_old_status', 'None')} -> {instance.status}")
 
     # Notification mapping based on status changes
     status_notifications = {
@@ -292,7 +294,7 @@ def handle_liquidation_status_change(instance):
         },
         'under_review_division': {
             'title': "Liquidation Under Division Review",
-            'details': f"Your liquidation {instance.LiquidationID} is now under review by the liquidator",
+            'details': f"Your liquidation {instance.LiquidationID} is now under review by the division accountant",
             'receivers': [instance.request.user],
             'additional_receivers': []
         },
@@ -330,16 +332,18 @@ def handle_liquidation_status_change(instance):
 
     if instance.status in status_notifications:
         notification_info = status_notifications[instance.status]
+        logger.info(f"Creating notification for status '{instance.status}': {notification_info['title']}")
 
         # Notify primary receivers
         for receiver in notification_info['receivers']:
             if receiver.is_active:
-                Notification.objects.create(
+                notification = Notification.objects.create(
                     notification_title=notification_info['title'],
                     details=notification_info['details'],
                     receiver=receiver,
                     sender=changed_by
                 )
+                logger.info(f"Created notification {notification.id} for receiver {receiver.get_full_name()}")
                 # Prepare context for the email template
                 context = {
                     "user": receiver,
@@ -387,6 +391,7 @@ def handle_liquidation_status_change(instance):
 def send_notification_websocket(sender, instance, created, **kwargs):
     """Send WebSocket notification when a new notification is created"""
     if created:
+        logger.info(f"Sending WebSocket notification for notification {instance.id}: {instance.notification_title}")
         send_websocket_notification(instance)
 
 
