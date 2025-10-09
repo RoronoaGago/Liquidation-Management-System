@@ -121,12 +121,25 @@ const ResourceAllocation = () => {
   const [undoStack, setUndoStack] = useState<Record<string, number>[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [editingLiquidationDates, setEditingLiquidationDates] = useState<Record<string, { month: number | null; year: number | null }>>({});
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>(null);
 
   const canRequestNextMonth = useCallback((school: any) => {
     if (!school.is_active) return false;
     if (school.hasUnliquidated) return false;
     return true;
   }, []);
+
+  // Sorting logic
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key) {
+      direction = sortConfig.direction === "asc" ? "desc" : "asc";
+    }
+    setSortConfig({ key, direction });
+  };
 
   const fetchBacklogData = async (schoolIds: string[]) => {
     try {
@@ -311,12 +324,60 @@ const ResourceAllocation = () => {
 
 
   const sortedSchools = useMemo(() => {
-    return [...schools].sort((a, b) => {
+    let sorted = [...schools];
+    
+    // First sort by selection status (selected schools first)
+    sorted.sort((a, b) => {
       const aSelected = selectedSchools.includes(a.schoolId);
       const bSelected = selectedSchools.includes(b.schoolId);
       return aSelected === bSelected ? 0 : aSelected ? -1 : 1;
     });
-  }, [schools, selectedSchools]);
+
+    // Then apply column sorting if configured
+    if (sortConfig) {
+      sorted.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortConfig.key) {
+          case "schoolName":
+            aValue = a.schoolName.toLowerCase();
+            bValue = b.schoolName.toLowerCase();
+            break;
+          case "status":
+            // Sort by allocation status: allocated > unallocated > inactive
+            const getStatusPriority = (school: any) => {
+              if (!school.is_active) return 0;
+              if (school.hasAllocation) return 2;
+              return 1;
+            };
+            aValue = getStatusPriority(a);
+            bValue = getStatusPriority(b);
+            break;
+          case "yearlyBudget":
+            aValue = editingBudgets[a.schoolId] || 0;
+            bValue = editingBudgets[b.schoolId] || 0;
+            break;
+          case "monthlyBudget":
+            aValue = (editingBudgets[a.schoolId] || 0) / 12;
+            bValue = (editingBudgets[b.schoolId] || 0) / 12;
+            break;
+          case "liquidationStatus":
+            aValue = canRequestNextMonth(a) ? 1 : 0;
+            bValue = canRequestNextMonth(b) ? 1 : 0;
+            break;
+          default:
+            return 0;
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return sorted;
+  }, [schools, selectedSchools, sortConfig, editingBudgets, canRequestNextMonth]);
 
 
   const totalPages = Math.ceil(totalSchools / itemsPerPage);
@@ -1147,7 +1208,6 @@ const ResourceAllocation = () => {
             editingBudgets={editingBudgets}
             editingLiquidationDates={editingLiquidationDates}
             showLiquidationDetails={showLiquidationDetails}
-            onToggleSchoolSelection={toggleSchoolSelection}
             onLiquidationDateChange={handleLiquidationDateChange}
             onSaveLiquidationDates={saveLiquidationDates}
             onSaveIndividualBudget={saveIndividualBudget}
@@ -1158,6 +1218,8 @@ const ResourceAllocation = () => {
             loading={loading}
             error={null}
             isSaving={isSaving}
+            sortConfig={sortConfig}
+            requestSort={requestSort}
           />
         </div>
         {/* Pagination */}
