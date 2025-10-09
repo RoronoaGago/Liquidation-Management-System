@@ -1,194 +1,546 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Welcome to MOOE Liquidation Management System</title>
     <style>
-      body {
-        font-family: "Segoe UI", Arial, sans-serif;
-        background: #f5f8fa;
-        margin: 0;
-        padding: 0;
-        line-height: 1.6;
-        color: #333;
-      }
-      .container {
-        max-width: 600px;
-        margin: 30px auto;
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        overflow: hidden;
-      }
-      .header {
-        background: linear-gradient(
-          135deg,
-          #094684 0%,
-          #dd1f2f 50%,
-          #fbaf3d 100%
-        );
-        color: #fff;
-        text-align: center;
-        padding: 30px 0 20px 0;
-        position: relative;
-      }
-      .header:after {
-        content: "";
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: rgba(0, 0, 0, 0.1);
-      }
-      .header img {
-        max-height: 70px;
-        margin-bottom: 15px;
-        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-      }
-      .company-name {
-        font-size: 1.5em;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        margin-bottom: 5px;
-      }
-      .company-subtitle {
-        font-size: 0.9em;
-        opacity: 0.9;
-        font-weight: 300;
-      }
-      .content {
-        padding: 35px 40px 25px 40px;
-      }
-      .greeting {
-        font-size: 1.2em;
-        margin-bottom: 25px;
-        color: #003366;
-        font-weight: 600;
-      }
-      .credentials {
-        background: #f8fafc;
-        border-radius: 6px;
-        padding: 20px;
-        margin: 25px 0;
-        border-left: 4px solid #dd1f2f;
-      }
-      .credentials strong {
-        color: #094684;
-      }
-      .button-container {
-        text-align: center;
-        margin: 30px 0;
-      }
-      .button {
-        display: inline-block;
-        padding: 12px 30px;
-        background: linear-gradient(to right, #094684, #003366);
-        color: #fff !important;
-        border-radius: 30px;
-        text-decoration: none;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 10px rgba(9, 70, 132, 0.2);
-        transition: all 0.3s ease;
-      }
-      .button:hover {
-        background: linear-gradient(to right, #003366, #094684);
-        box-shadow: 0 4px 12px rgba(9, 70, 132, 0.3);
-        transform: translateY(-1px);
-      }
-      .security-note {
-        font-size: 0.85em;
-        color: #666;
-        margin-top: 30px;
-        padding-top: 15px;
-        border-top: 1px solid #eee;
-      }
-      .signature {
-        margin-top: 25px;
-        color: #444;
-      }
-      .signature strong {
-        color: #003366;
-      }
-      .footer {
-        background: #f0f3f7;
-        color: #666;
-        text-align: center;
-        padding: 20px;
-        font-size: 0.85em;
-        border-top: 1px solid #e0e4e8;
-      }
-      .footer a {
-        color: #094684;
-        text-decoration: none;
-      }
-      .social-links {
-        margin: 15px 0;
-      }
-      .social-links a {
-        display: inline-block;
-        margin: 0 8px;
-      }
+        /* Base Styles */
+        body {
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #334155;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        /* Header Section */
+        .header {
+            background: linear-gradient(
+                135deg,
+                #094684 0%,
+                #dd1f2f 50%,
+                #fbaf3d 100%
+            );
+            color: #fff;
+            text-align: center;
+            padding: 50px 0 40px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .header:before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        .header:after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, 
+                rgba(255,255,255,0.3) 0%, 
+                rgba(255,255,255,0.6) 50%, 
+                rgba(255,255,255,0.3) 100%);
+        }
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 2;
+        }
+        .header img {
+            max-height: 80px;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+            transition: transform 0.3s ease;
+        }
+        .header img:hover {
+            transform: scale(1.05);
+        }
+        .company-name {
+            font-size: 2em;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 2;
+        }
+        .company-subtitle {
+            font-size: 1.1em;
+            opacity: 0.95;
+            font-weight: 400;
+            margin-top: 5px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Welcome Banner */
+        .welcome-banner {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 30px 40px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .welcome-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            display: block;
+        }
+        .welcome-title {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #094684;
+            margin-bottom: 10px;
+        }
+        .welcome-subtitle {
+            font-size: 1.1em;
+            color: #475569;
+            opacity: 0.9;
+        }
+
+        /* Content Section */
+        .content {
+            padding: 40px;
+        }
+        .greeting {
+            font-size: 1.4em;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+        }
+        .greeting:before {
+            content: "👋";
+            margin-right: 12px;
+            font-size: 1.3em;
+        }
+
+        /* Credentials Card */
+        .credentials-card {
+            background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+            border: 2px solid #fbaf3d;
+            border-radius: 16px;
+            padding: 30px;
+            margin: 30px 0;
+            position: relative;
+            box-shadow: 0 8px 25px rgba(251, 175, 61, 0.15);
+        }
+        .credentials-card:before {
+            content: "🔐";
+            position: absolute;
+            top: -15px;
+            left: 30px;
+            background: #fff;
+            padding: 8px;
+            border-radius: 50%;
+            font-size: 1.2em;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .credential-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(251, 175, 61, 0.3);
+        }
+        .credential-item:last-child {
+            border-bottom: none;
+        }
+        .credential-label {
+            font-weight: 600;
+            color: #b45309;
+            font-size: 1em;
+        }
+        .credential-value {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 1.1em;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(251, 175, 61, 0.3);
+        }
+
+        /* Action Section */
+        .action-section {
+            background: linear-gradient(135deg, #f0fff4 0%, #dcfce7 100%);
+            padding: 30px;
+            border-radius: 16px;
+            margin: 35px 0;
+            border-left: 5px solid #16a34a;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(22, 163, 74, 0.1);
+        }
+        .action-title {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #166534;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-title:before {
+            content: "🚀";
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        .action-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #094684 0%, #1e60a5 100%);
+            color: white;
+            padding: 16px 40px;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1.1em;
+            margin: 20px 0 10px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(9, 70, 132, 0.3);
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .action-button:before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255,255,255,0.3), 
+                transparent);
+            transition: left 0.5s ease;
+        }
+        .action-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(9, 70, 132, 0.4);
+        }
+        .action-button:hover:before {
+            left: 100%;
+        }
+
+        /* Security Section */
+        .security-section {
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 30px 0;
+            border-left: 5px solid #dc2626;
+        }
+        .security-title {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #991b1b;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        .security-title:before {
+            content: "🛡️";
+            margin-right: 10px;
+            font-size: 1.1em;
+        }
+        .security-tips {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .security-tips li {
+            padding: 8px 0;
+            display: flex;
+            align-items: flex-start;
+        }
+        .security-tips li:before {
+            content: "✓";
+            color: #dc2626;
+            font-weight: bold;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        /* Next Steps */
+        .steps-section {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+        }
+        .steps-title {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #094684;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .step-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .step-number {
+            width: 30px;
+            height: 30px;
+            background: #094684;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .step-text {
+            font-size: 0.9em;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        /* Signature */
+        .signature {
+            margin-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 30px;
+            text-align: center;
+        }
+        .signature p {
+            margin: 8px 0;
+            color: #475569;
+        }
+        .signature-name {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 1.1em;
+        }
+
+        /* Footer */
+        .footer {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: #64748b;
+            text-align: center;
+            padding: 35px 25px;
+            font-size: 0.85em;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin: 20px 0;
+        }
+        .footer-links a {
+            color: #094684;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        .footer-links a:hover {
+            color: #dd1f2f;
+        }
+        .footer p {
+            margin: 8px 0;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 10px;
+            }
+            .content {
+                padding: 25px;
+            }
+            .company-name {
+                font-size: 1.6em;
+            }
+            .welcome-title {
+                font-size: 1.5em;
+            }
+            .greeting {
+                font-size: 1.2em;
+            }
+            .credential-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .steps-grid {
+                grid-template-columns: 1fr;
+            }
+            .footer-links {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div class="container">
-      <div class="header">
-        <img src="{{ deped_logo_base64 }}" alt="DepEd Logo" />
-        <div class="company-name">MOOE Liquidation Management System</div>
-        <div class="company-subtitle">
-          Department of Education, La Union Schools Division
-        </div>
-      </div>
-      <div class="content">
-        <div class="greeting">
-          Hello {{ user.first_name|default:user.username }},
-        </div>
-        <p>
-          Welcome to the <strong>Liquidation Management System</strong>. Your
-          account has been successfully created.
-        </p>
-
-        <div class="credentials">
-          <strong>Email:</strong> {{ user.email }}<br />
-          <strong>Temporary Password:</strong> {{ temp_password }}
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-container">
+                <img src="{{ deped_logo_base64 }}" alt="DepEd Logo" />
+            </div>
+            <div class="company-name">MOOE Liquidation Management System</div>
+            <div class="company-subtitle">
+                Department of Education, La Union Schools Division
+            </div>
         </div>
 
-        <p>
-          For security purposes, please change your password immediately after
-          your first login.
-        </p>
-
-        <div class="button-container">
-          <a href="{{ login_url }}" class="button">Login to Your Account</a>
+        <!-- Welcome Banner -->
+        <div class="welcome-banner">
+            <span class="welcome-icon">🎉</span>
+            <div class="welcome-title">Welcome Aboard!</div>
+            <div class="welcome-subtitle">Your account has been successfully created</div>
         </div>
 
-        <div class="security-note">
-          <strong>Security Tip:</strong> Never share your login credentials with
-          anyone. Our support team will never ask for your password.
+        <div class="content">
+            <!-- Greeting -->
+            <div class="greeting">
+                Hello {{ user.first_name|default:user.username }},
+            </div>
+
+            <p style="font-size: 1.1em; color: #475569; margin-bottom: 25px;">
+                Welcome to the <strong style="color: #094684;">MOOE Liquidation Management System</strong>. 
+                We're excited to have you on board! Your account has been set up with the following credentials:
+            </p>
+
+            <!-- Credentials Card -->
+            <div class="credentials-card">
+                <div class="credential-item">
+                    <span class="credential-label">Email Address:</span>
+                    <span class="credential-value">{{ user.email }}</span>
+                </div>
+                <div class="credential-item">
+                    <span class="credential-label">Temporary Password:</span>
+                    <span class="credential-value pulse">{{ temp_password }}</span>
+                </div>
+            </div>
+
+            <!-- Action Section -->
+            <div class="action-section">
+                <div class="action-title">Get Started Now</div>
+                <p style="color: #166534; margin-bottom: 20px; font-size: 1.05em;">
+                    Click the button below to access your account and start using the system.
+                </p>
+                <a href="{{ login_url }}" class="action-button">
+                    Access Your Account
+                </a>
+                <p style="font-size: 0.9em; color: #475569; margin-top: 15px;">
+                    First-time login? You'll be prompted to change your password.
+                </p>
+            </div>
+
+            <!-- Security Section -->
+            <div class="security-section">
+                <div class="security-title">Security First</div>
+                <ul class="security-tips">
+                    <li>Change your password immediately after first login</li>
+                    <li>Never share your login credentials with anyone</li>
+                    <li>Our support team will never ask for your password</li>
+                    <li>Log out after each session, especially on shared devices</li>
+                </ul>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="steps-section">
+                <div class="steps-title">What's Next?</div>
+                <div class="steps-grid">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div class="step-text">Login with your credentials</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div class="step-text">Set your new password</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div class="step-text">Explore the system features</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">4</div>
+                        <div class="step-text">Start managing your requests</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signature -->
+            <div class="signature">
+                <p>Welcome to the team!</p>
+                <p class="signature-name">System Administration Team</p>
+                <p>
+                    MOOE Liquidation Management System<br />
+                    Department of Education - La Union Schools Division
+                </p>
+            </div>
         </div>
 
-        <div class="signature">
-          <p>
-            Best regards,<br />
-            <strong>Liquidation Management System Team</strong><br />
-            Department of Education
-          </p>
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-links">
+                <a href="#">System Guide</a>
+                <a href="#">Help Center</a>
+                <a href="#">Contact Support</a>
+                <a href="#">User Manual</a>
+            </div>
+            <p>
+                &copy; {{ now|date:"Y" }} La Union Schools Division Office. All rights reserved.
+            </p>
+            <p style="margin-top: 15px; font-size: 0.8em;">
+                This is an automated system message. Please do not reply to this email.<br />
+                If you need assistance, contact your system administrator.
+            </p>
         </div>
-      </div>
-      <div class="footer">
-        <div class="social-links">
-          <a href="#">Website</a> • <a href="#">Help Center</a> •
-          <a href="#">Contact Us</a>
-        </div>
-        &copy; {{ now|date:"Y" }} Department of Education. All rights
-        reserved.<br />
-        <small
-          >This is an automated message. Please do not reply to this
-          email.</small
-        >
-      </div>
     </div>
-  </body>
+</body>
 </html>

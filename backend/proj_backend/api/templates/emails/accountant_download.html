@@ -255,6 +255,10 @@
                         <span class="detail-value">{{ object.user.get_full_name }}</span>
                     </div>
                     <div class="detail-row">
+                        <span class="detail-label">School:</span>
+                        <span class="detail-value">{{ object.request.user.school.name }}</span>
+                    </div>
+                    <div class="detail-row">
                         <span class="detail-label">Month/Year:</span>
                         <span class="detail-value">{{ object.request_monthyear }}</span>
                     </div>
