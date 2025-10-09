@@ -431,7 +431,7 @@ export default function NotificationDropdown() {
                       <span className="font-medium text-gray-800 dark:text-white/90">
                         {notification.sender
                           ? `${notification.sender.first_name} ${notification.sender.last_name}`
-                          : "Unknown Sender"}
+                          : "System"}
                       </span>
                       <span> {notification.notification_title}</span>
                     </span>
@@ -524,7 +524,7 @@ export default function NotificationDropdown() {
                 <p className="font-medium text-gray-800 dark:text-white">
                   {selectedNotification.sender
                     ? `${selectedNotification.sender.first_name} ${selectedNotification.sender.last_name}`
-                    : "Unknown Sender"}
+                    : "System"}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {formatDate(selectedNotification.notification_date)}

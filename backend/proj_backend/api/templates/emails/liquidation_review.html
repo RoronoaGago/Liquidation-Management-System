@@ -1,3 +1,4 @@
+{% load status_filters %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -355,7 +356,7 @@
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Current Status:</span>
-                        <span class="detail-value" style="text-transform: capitalize;">{{ object.status|title }}</span>
+                        <span class="detail-value">{{ object.status|format_status }}</span>
                     </div>
                 </div>
             </div>

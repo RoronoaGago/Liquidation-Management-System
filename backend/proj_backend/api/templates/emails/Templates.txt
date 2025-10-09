@@ -1,8 +1,9 @@
+{% load status_filters %}
 Status change:
 
 Hello {{ user.first_name }},
 
-Your {{ object_type }} (ID: {{ object.request_id|default:object.LiquidationID }}) status has changed to: {{ status|title }}.
+Your {{ object_type }} (ID: {{ object.request_id|default:object.LiquidationID }}) status has changed to: {{ status|format_status }}.
 
 {% if object.rejection_comment %}
 Reason: {{ object.rejection_comment }}
