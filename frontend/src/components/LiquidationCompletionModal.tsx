@@ -81,8 +81,8 @@ const LiquidationCompletionModal: React.FC<LiquidationCompletionModalProps> = ({
               <Trophy className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-                🎉 Liquidation Complete!
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">
+                Liquidation Complete!
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Your liquidation request has been successfully finalized

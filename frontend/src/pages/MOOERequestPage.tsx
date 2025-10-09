@@ -539,13 +539,8 @@ const MOOERequestPage = () => {
         });
         requestId = res.data?.request_id;
       }
-      // Show appropriate message based on whether it's an advance request
-      if (is_advance_request) {
-        toast.success(
-          `Advance request submitted for ${formatDateToMonthYear(next_available_month)}. It will become pending when the month arrives.`,
-          { autoClose: 6000 }
-        );
-      } else {
+      // Only show toast for regular (non-advance) requests
+      if (!is_advance_request) {
         console.log("request submitted successfully");
       }
 
@@ -854,11 +849,18 @@ const MOOERequestPage = () => {
             {/* Header Section with Better Typography */}
             <div className="space-y-4 mb-8">
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">
-                MOOE Request Submitted Successfully
+                {isAdvanceRequest ? "Advance Request Scheduled" : "MOOE Request Submitted Successfully"}
               </h2>
               <div className="w-20 h-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mx-auto"></div>
               <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed max-w-md">
-                Your MOOE request was submitted successfully and is now being processed.
+                {isAdvanceRequest ? (
+                  <>
+                    Your advance request for <strong>{formatDateToMonthYear(targetMonth)}</strong> has been scheduled successfully. 
+                    It will become active and pending when the month arrives.
+                  </>
+                ) : (
+                  "Your MOOE request was submitted successfully and is now being processed."
+                )}
               </p>
             </div>
 
@@ -880,7 +882,15 @@ const MOOERequestPage = () => {
             <div className="flex items-center justify-center space-x-3 px-6 py-3 bg-green-50 dark:bg-green-900/20 rounded-full border border-green-200 dark:border-green-800">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-base font-medium text-green-700 dark:text-green-300">
-                Redirecting to dashboard in {successCountdown} second{successCountdown !== 1 ? 's' : ''}...
+                {isAdvanceRequest ? (
+                  <>
+                    Request scheduled for {formatDateToMonthYear(targetMonth)} • Redirecting in {successCountdown} second{successCountdown !== 1 ? 's' : ''}...
+                  </>
+                ) : (
+                  <>
+                    Redirecting to dashboard in {successCountdown} second{successCountdown !== 1 ? 's' : ''}...
+                  </>
+                )}
               </span>
             </div>
           </div>
