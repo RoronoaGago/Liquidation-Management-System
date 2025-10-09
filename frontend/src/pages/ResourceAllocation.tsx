@@ -85,6 +85,8 @@ const ResourceAllocation = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showIndividualSuccessDialog, setShowIndividualSuccessDialog] = useState(false);
   const [individualSaveMessage, setIndividualSaveMessage] = useState("");
+  const [successCountdown, setSuccessCountdown] = useState(3);
+  const [individualSuccessCountdown, setIndividualSuccessCountdown] = useState(3);
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
     useState<string>("");
@@ -536,7 +538,6 @@ const ResourceAllocation = () => {
       const school = schools.find(s => s.schoolId === schoolId);
       setIndividualSaveMessage(`Budget allocation updated successfully for ${school?.schoolName || schoolId}`);
       setShowIndividualSuccessDialog(true);
-      setTimeout(() => setShowIndividualSuccessDialog(false), 3000);
 
       // Refresh data to get updated allocation status
       await fetchData();
@@ -576,7 +577,6 @@ const ResourceAllocation = () => {
         allocations 
       });
       setShowSuccessDialog(true);
-      setTimeout(() => setShowSuccessDialog(false), 3000);
 
       // Refresh data
       await fetchData();
@@ -733,6 +733,40 @@ const ResourceAllocation = () => {
     fetchData();
     // eslint-disable-next-line
   }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
+
+  // Success dialog countdown timer
+  useEffect(() => {
+    if (showSuccessDialog) {
+      setSuccessCountdown(3);
+      const timer = setInterval(() => {
+        setSuccessCountdown((prev) => {
+          if (prev <= 1) {
+            setShowSuccessDialog(false);
+            return 3;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [showSuccessDialog]);
+
+  // Individual success dialog countdown timer
+  useEffect(() => {
+    if (showIndividualSuccessDialog) {
+      setIndividualSuccessCountdown(3);
+      const timer = setInterval(() => {
+        setIndividualSuccessCountdown((prev) => {
+          if (prev <= 1) {
+            setShowIndividualSuccessDialog(false);
+            return 3;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [showIndividualSuccessDialog]);
   // Modify the filters panel to include the new toggle and filter
   const renderFiltersPanel = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
@@ -853,74 +887,105 @@ const ResourceAllocation = () => {
 
       {/* Individual Success Dialog */}
       <Dialog open={showIndividualSuccessDialog} onOpenChange={setShowIndividualSuccessDialog}>
-        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+        <DialogContent showCloseButton={false} className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-transparent to-emerald-50/30 dark:from-green-900/10 dark:via-transparent dark:to-emerald-900/5"></div>
+          
           {/* Main Content Container */}
-          <div className="flex flex-col items-center text-center space-y-4">
-            {/* Animated Checkmark Icon */}
-            <div className="relative mb-2">
-              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
-              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
+          <div className="relative flex flex-col items-center text-center px-8 py-10">
+            {/* Success Icon with Enhanced Animation */}
+            <div className="relative mb-6">
+              {/* Outer Ring Animation */}
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/30 rounded-full scale-125 animate-ping opacity-20"></div>
+              <div className="absolute inset-0 bg-green-200 dark:bg-green-800/40 rounded-full scale-110 animate-pulse"></div>
+              
+              {/* Main Icon Container */}
+              <div className="relative flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full shadow-lg">
+                <CheckCircle className="h-10 w-10 text-white animate-scale-in" />
+              </div>
+              
+              {/* Sparkle Effects */}
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-bounce"></div>
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-400 rounded-full animate-bounce delay-300"></div>
             </div>
 
-            {/* Header Section */}
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+            {/* Header Section with Better Typography */}
+            <div className="space-y-3 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
                 Budget Updated Successfully
               </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              <div className="w-16 h-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mx-auto"></div>
+              <p className="text-base text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm">
                 {individualSaveMessage}
               </p>
             </div>
 
-            {/* Action Indicator */}
-            <div className="pt-2">
-              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
-                <span className="animate-pulse">•</span>
-                <span>Closing automatically</span>
-              </div>
+            {/* Status Indicator with Enhanced Design */}
+            <div className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 rounded-full border border-green-200 dark:border-green-800">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                Auto-closing in {individualSuccessCountdown} second{individualSuccessCountdown !== 1 ? 's' : ''}
+              </span>
             </div>
           </div>
 
-          {/* Animated Progress Bar */}
-          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+          {/* Enhanced Progress Bar */}
+          <div className="relative h-2 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-full rounded-full transform -translate-x-full animate-progress-smooth"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-full animate-shimmer"></div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+        <DialogContent showCloseButton={false} className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-transparent to-emerald-50/30 dark:from-green-900/10 dark:via-transparent dark:to-emerald-900/5"></div>
+          
           {/* Main Content Container */}
-          <div className="flex flex-col items-center text-center space-y-4">
-            {/* Animated Checkmark Icon */}
-            <div className="relative mb-2">
-              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
-              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
+          <div className="relative flex flex-col items-center text-center px-10 py-12">
+            {/* Success Icon with Enhanced Animation */}
+            <div className="relative mb-8">
+              {/* Outer Ring Animation */}
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/30 rounded-full scale-125 animate-ping opacity-20"></div>
+              <div className="absolute inset-0 bg-green-200 dark:bg-green-800/40 rounded-full scale-110 animate-pulse"></div>
+              
+              {/* Main Icon Container */}
+              <div className="relative flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full shadow-xl">
+                <CheckCircle className="h-12 w-12 text-white animate-scale-in" />
+              </div>
+              
+              {/* Sparkle Effects */}
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full animate-bounce"></div>
+              <div className="absolute -bottom-2 -left-2 w-3 h-3 bg-blue-400 rounded-full animate-bounce delay-300"></div>
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-150"></div>
             </div>
 
-            {/* Header Section */}
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+            {/* Header Section with Better Typography */}
+            <div className="space-y-4 mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">
                 Yearly Budgets Updated Successfully
               </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              <div className="w-20 h-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mx-auto"></div>
+              <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed max-w-md">
                 School yearly budgets have been updated and saved to the system.
               </p>
             </div>
 
-            {/* Action Indicator */}
-            <div className="pt-2">
-              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
-                <span className="animate-pulse">•</span>
-                <span>Closing automatically</span>
-              </div>
+            {/* Status Indicator with Enhanced Design */}
+            <div className="flex items-center justify-center space-x-3 px-6 py-3 bg-green-50 dark:bg-green-900/20 rounded-full border border-green-200 dark:border-green-800">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-base font-medium text-green-700 dark:text-green-300">
+                Auto-closing in {successCountdown} second{successCountdown !== 1 ? 's' : ''}
+              </span>
             </div>
           </div>
 
-          {/* Animated Progress Bar */}
-          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+          {/* Enhanced Progress Bar */}
+          <div className="relative h-3 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-full rounded-full transform -translate-x-full animate-progress-smooth"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-full animate-shimmer"></div>
           </div>
         </DialogContent>
       </Dialog>

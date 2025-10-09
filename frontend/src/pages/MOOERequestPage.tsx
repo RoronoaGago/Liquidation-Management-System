@@ -135,6 +135,7 @@ const MOOERequestPage = () => {
   const [activeLiquidationData, setActiveLiquidationData] = useState<any>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successCountdown, setSuccessCountdown] = useState(4);
   const [showRequirementsDialog, setShowRequirementsDialog] = useState(false);
   const [currentPriorityRequirements, setCurrentPriorityRequirements] =
     useState<{requirementTitle: string; is_required: boolean}[]>([]);
@@ -325,6 +326,25 @@ const MOOERequestPage = () => {
       fetchNextMonth();
     }
   }, [isFormDisabled]);
+
+  // Success dialog countdown timer
+  useEffect(() => {
+    if (showSuccessDialog) {
+      setSuccessCountdown(4);
+      const timer = setInterval(() => {
+        setSuccessCountdown((prev) => {
+          if (prev <= 1) {
+            setShowSuccessDialog(false);
+            navigate("/"); // Redirect to dashboard
+            return 4;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [showSuccessDialog, navigate]);
+
   // Update handleCheck to track selection order
   const handleCheck = (expense: string) => {
     setSelected((prev) => {
@@ -533,11 +553,6 @@ const MOOERequestPage = () => {
       setSelectedOrder([]);
       setLastRequestId(requestId || null);
       setShowSuccessDialog(true);
-
-      setTimeout(() => {
-        setShowSuccessDialog(false);
-        navigate("/"); // Redirect to dashboard instead of history
-      }, 4000);
     } catch (error: any) {
       console.error("Error:", error);
       const errorMessage =
@@ -812,74 +827,71 @@ const MOOERequestPage = () => {
       </Dialog>
 
       {/* Success Dialog */}
-
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-  <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
-    {/* Main Content Container */}
-    <div className="flex flex-col items-center text-center space-y-4">
-      
-      {/* Animated Checkmark Icon */}
-      <div className="relative mb-2">
-        <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
-        <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400" />
-      </div>
+        <DialogContent showCloseButton={false} className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-transparent to-emerald-50/30 dark:from-green-900/10 dark:via-transparent dark:to-emerald-900/5"></div>
+          
+          {/* Main Content Container */}
+          <div className="relative flex flex-col items-center text-center px-10 py-12">
+            {/* Success Icon with Enhanced Animation */}
+            <div className="relative mb-8">
+              {/* Outer Ring Animation */}
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/30 rounded-full scale-125 animate-ping opacity-20"></div>
+              <div className="absolute inset-0 bg-green-200 dark:bg-green-800/40 rounded-full scale-110 animate-pulse"></div>
+              
+              {/* Main Icon Container */}
+              <div className="relative flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full shadow-xl">
+                <CheckCircle className="h-12 w-12 text-white animate-scale-in" />
+              </div>
+              
+              {/* Sparkle Effects */}
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full animate-bounce"></div>
+              <div className="absolute -bottom-2 -left-2 w-3 h-3 bg-blue-400 rounded-full animate-bounce delay-300"></div>
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-150"></div>
+            </div>
 
-      {/* Header Section */}
-      <div className="space-y-2">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
-          Request Submitted!
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-          Your MOOE request was submitted successfully.
-        </p>
-      </div>
+            {/* Header Section with Better Typography */}
+            <div className="space-y-4 mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">
+                MOOE Request Submitted Successfully
+              </h2>
+              <div className="w-20 h-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mx-auto"></div>
+              <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed max-w-md">
+                Your MOOE request was submitted successfully and is now being processed.
+              </p>
+            </div>
 
-      {/* Request ID Section */}
-      {lastRequestId && (
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3 border border-gray-200 dark:border-gray-600">
-          <span className="text-gray-700 dark:text-gray-200 text-sm">
-            Request ID:&nbsp;
-            <span className="font-mono font-semibold text-brand-600 dark:text-brand-400">
-              {lastRequestId}
-            </span>
-          </span>
-        </div>
-      )}
+            {/* Request ID Section with Enhanced Design */}
+            {lastRequestId && (
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl px-6 py-4 border border-green-200 dark:border-green-800 mb-6 w-full max-w-sm">
+                <div className="flex items-center justify-center space-x-2">
+                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                    Request ID:
+                  </span>
+                  <span className="font-mono font-bold text-green-800 dark:text-green-200 bg-green-100 dark:bg-green-800/50 px-3 py-1 rounded-lg text-sm">
+                    {lastRequestId}
+                  </span>
+                </div>
+              </div>
+            )}
 
-      {/* Action Indicator */}
-      <div className="pt-2">
-        <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
-          <span className="animate-pulse">•</span>
-          <span>Redirecting to dashboard...</span>
-        </div>
-      </div>
-    </div>
+            {/* Status Indicator with Enhanced Design */}
+            <div className="flex items-center justify-center space-x-3 px-6 py-3 bg-green-50 dark:bg-green-900/20 rounded-full border border-green-200 dark:border-green-800">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-base font-medium text-green-700 dark:text-green-300">
+                Redirecting to dashboard in {successCountdown} second{successCountdown !== 1 ? 's' : ''}...
+              </span>
+            </div>
+          </div>
 
-    {/* Animated Progress Bar */}
-    <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-      <div 
-        className="bg-green-500 h-1.5 rounded-full transition-all duration-[3000ms] ease-linear"
-        style={{
-          width: '100%',
-          animation: 'progressShrink 3s linear forwards'
-        }}
-      ></div>
-    </div>
-    
-    <style dangerouslySetInnerHTML={{
-      __html: `
-        @keyframes progressFill {
-          0% {
-            width: 0%;
-          }
-          100% {
-            width: 100%;
-          }
-        }
-      `
-    }} />
-  </DialogContent>
-</Dialog>
+          {/* Enhanced Progress Bar */}
+          <div className="relative h-3 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-full rounded-full transform -translate-x-full animate-progress-smooth"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-full animate-shimmer"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Requirements Dialog */}
       <Dialog

@@ -997,12 +997,38 @@ body.dragging-widget {
   }
 }
 
+@keyframes progressSmooth {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .animate-scale-in {
   animation: scaleIn 0.3s ease-out;
 }
 
 .animate-progress {
   animation: progress 3s linear forwards;
+}
+
+.animate-progress-smooth {
+  animation: progressSmooth 3s ease-out forwards;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
 }
 
 @keyframes progressShrink {

@@ -33,7 +33,7 @@ import api from "@/api/axios";
 import { DocumentTextIcon } from "@heroicons/react/outline";
 import { Skeleton } from "antd";
 import { useNavigate } from "react-router";
-import { formatCurrency } from "@/lib/helpers";
+import { formatCurrency, formatRequestMonthYear } from "@/lib/helpers";
 import LiquidationCompletionModal from "@/components/LiquidationCompletionModal";
 
 interface Requirement {
@@ -139,8 +139,6 @@ const LiquidationPage = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [hasShownCompletionModal, setHasShownCompletionModal] = useState(false);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   
   // PDF Preview states
@@ -155,6 +153,24 @@ const LiquidationPage = () => {
   const [validationMessage, setValidationMessage] = useState("");
   const [validationType, setValidationType] = useState<"missing" | "zero">("missing");
   const [showApprovedDocuments, setShowApprovedDocuments] = useState(false);
+  const [recentLiquidations, setRecentLiquidations] = useState<any[]>([]);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [hasShownCompletionModal, setHasShownCompletionModal] = useState(false);
+  
+  // Check if we should show completion modal on initial load
+  useEffect(() => {
+    if (request?.status === "liquidated" && request?.id) {
+      const modalShownKey = `liquidation-modal-shown-${request.id}`;
+      const hasShownInSession = sessionStorage.getItem(modalShownKey);
+      
+      if (!hasShownInSession) {
+        console.log('Initial load: Showing completion modal for liquidated liquidation:', request.id);
+        setShowCompletionModal(true);
+        setHasShownCompletionModal(true);
+        sessionStorage.setItem(modalShownKey, 'true');
+      }
+    }
+  }, [request?.status, request?.id]);
 
   // Fetch pending liquidation for the current user
   useEffect(() => {
@@ -162,15 +178,16 @@ const LiquidationPage = () => {
       setLoading(true);
       setFetchError(null);
       try {
-        const res = await api.get("/liquidation/");
-        const data = Array.isArray(res.data) ? res.data[0] : null;
+        const res = await api.get("/check-pending-requests/");
+        const data = res.data.active_liquidation;
 
         if (!data) {
           setRequest(null);
-          setFetchError("No Ongoing liquidation found.");
+          setFetchError(null); // No error - just no active liquidation
           return;
         }
-        console.log(data);
+        console.log('Fetched liquidation data:', data);
+        console.log('Liquidation status:', data.status);
         
         // Get saved actual amounts from localStorage
         const savedAmounts = localStorage.getItem(`liquidation_${data.LiquidationID}_amounts`);
@@ -223,7 +240,11 @@ const LiquidationPage = () => {
           date_liquidated: data.date_liquidated || null,
           rejection_comment: data.rejection_comment || null,
         });
-        console.log(request);
+        console.log('Final request object set:', {
+          id: data.LiquidationID || "N/A",
+          status: data.status || "N/A",
+          date_liquidated: data.date_liquidated || null
+        });
       } catch (err) {
         setFetchError(
           "Failed to fetch pending liquidation. Please try again later."
@@ -233,29 +254,58 @@ const LiquidationPage = () => {
       }
     };
 
+    const fetchRecentLiquidations = async () => {
+      try {
+        const res = await api.get("/user-requests/");
+        const data = Array.isArray(res.data) ? res.data : [];
+        
+        // Get recent liquidated requests (last 3)
+        const liquidatedRequests = data
+          .filter((req: any) => req.status === 'liquidated')
+          .slice(0, 3);
+        
+        setRecentLiquidations(liquidatedRequests);
+      } catch (err) {
+        console.error("Failed to fetch recent liquidations:", err);
+      }
+    };
+
     fetchPendingLiquidation();
+    fetchRecentLiquidations();
   }, []);
 
-  // Show completion modal when liquidation status becomes "liquidated" - DISABLED FOR NOW
-  /*
+  // Show completion modal when liquidation status becomes "liquidated"
   useEffect(() => {
+    console.log('Completion modal effect triggered:', {
+      status: request?.status,
+      hasShownCompletionModal,
+      loading,
+      requestId: request?.id,
+      dateLiquidated: request?.date_liquidated
+    });
+    
     if (
       request?.status === "liquidated" && 
       !hasShownCompletionModal && 
-      !loading
+      !loading &&
+      request?.id
     ) {
       // Check if we've already shown the modal for this liquidation in this session
       const modalShownKey = `liquidation-modal-shown-${request.id}`;
       const hasShownInSession = sessionStorage.getItem(modalShownKey);
       
+      console.log('Checking modal session:', { modalShownKey, hasShownInSession });
+      
       if (!hasShownInSession) {
+        console.log('Showing completion modal for liquidation:', request.id);
         setShowCompletionModal(true);
         setHasShownCompletionModal(true);
         sessionStorage.setItem(modalShownKey, 'true');
+      } else {
+        console.log('Modal already shown in this session for liquidation:', request.id);
       }
     }
-  }, [request?.status, hasShownCompletionModal, loading, request?.id]);
-  */
+  }, [request?.status, hasShownCompletionModal, loading, request?.id, request?.date_liquidated]);
 
   const toggleExpense = (expenseId: string) => {
     setExpandedExpense((prev) =>
@@ -366,8 +416,8 @@ const LiquidationPage = () => {
       );
 
       // Refresh data
-      const res = await api.get("/liquidation/");
-      const data = Array.isArray(res.data) ? res.data[0] : null;
+      const res = await api.get("/check-pending-requests/");
+      const data = res.data.active_liquidation;
 
       if (data) {
         setRequest((prev) =>
@@ -552,8 +602,8 @@ const LiquidationPage = () => {
       );
 
       // Refresh data
-      const res = await api.get("/liquidation/");
-      const data = Array.isArray(res.data) ? res.data[0] : null;
+      const res = await api.get("/check-pending-requests/");
+      const data = res.data.active_liquidation;
       if (data) {
         setRequest((prev) =>
           prev ? { ...prev, uploadedDocuments: data.documents || [] } : prev
@@ -792,80 +842,187 @@ const LiquidationPage = () => {
 
   if (fetchError || !request) {
     return (
-      <div className="container mx-auto px-4 py-8 sm:px-6">
+      <div className="container mx-auto px-4 py-6 sm:px-6">
         <PageBreadcrumb pageTitle="Liquidation Request" />
 
-        <div className="max-w-4xl mx-auto mt-12">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-8 text-center">
-              <div className="mx-auto w-20 h-20 bg-blue-50 dark:bg-blue-900/10 rounded-full flex items-center justify-center mb-6">
-                <DocumentTextIcon className="h-10 w-10 text-blue-500" />
-              </div>
+        <div className="max-w-4xl mx-auto mt-6">
+          {/* Header Section */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <DocumentTextIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              {fetchError ? "Unable to Load Liquidation Report" : "No Active Liquidation"}
+            </h1>
+            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              {fetchError 
+                ? "We encountered an issue while loading your liquidation data. Please try again or contact support if the problem persists."
+                : "You don't have any ongoing liquidation reports at the moment. This could mean your requests are still being processed or you haven't submitted any fund requests yet."
+              }
+            </p>
+          </div>
 
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                {fetchError ? "Unable to Load Liquidation Report" : "No Ongoing Liquidation Report"}
-              </h3>
-
-              {fetchError ? (
-                <div className="space-y-4">
-                
-                  <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4 max-w-md mx-auto">
-                    <p className="text-sm text-red-700 dark:text-red-300">
-                      <strong>Error Details:</strong> {fetchError}
+          {fetchError ? (
+            /* Error State */
+            <div className="max-w-2xl mx-auto mb-8">
+              <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
+                      Error Details
+                    </h3>
+                    <p className="text-red-700 dark:text-red-300">
+                      {fetchError}
                     </p>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  <p className="text-gray-600 dark:text-gray-400 text-lg">
-                    You currently don't have any ongoing liquidation reports to manage.
-                  </p>
-                  
-                  <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-6 max-w-2xl mx-auto">
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-3">
-                      What does this mean?
-                    </h4>
-                    <div className="text-left space-y-2 text-sm text-blue-800 dark:text-blue-300">
-                      <p>• You may not have submitted any fund requests yet</p>
-                      <p>• Your fund requests might still be under review</p>
-                      <p>• All your liquidation reports may have been completed</p>
-                      <p>• You might need to wait for fund approval before liquidation</p>
+              </div>
+            </div>
+          ) : (
+            /* No Active Liquidation State */
+            <div className="space-y-6">
+              {/* Information Cards Grid */}
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* What This Means Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                      <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      What This Means
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      "You may not have submitted any fund requests yet",
+                      "Your fund requests might still be under review",
+                      "All your liquidation reports may have been completed",
+                      "You might need to wait for fund approval before liquidation"
+                    ].map((item, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
+                        <p className="text-gray-700 dark:text-gray-300 text-sm">
+                          {item}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* What You Can Do Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                      <CheckCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      What You Can Do
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { title: "View Request History", desc: "Check all your past and completed liquidations", icon: FileText },
+                      { title: "Submit New Request", desc: "Create a new fund request if needed", icon: UploadIcon },
+                      { title: "Contact Support", desc: "Reach out to your district administrator", icon: MessageCircleIcon },
+                      { title: "Wait for Approval", desc: "Your pending requests are being processed", icon: Clock }
+                    ].map((item, index) => (
+                      <div key={index} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <item.icon className="h-4 w-4 text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white text-sm">
+                            {item.title}
+                          </p>
+                          <p className="text-gray-600 dark:text-gray-300 text-xs">
+                            {item.desc}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Liquidations */}
+              {recentLiquidations.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Recent Completed Liquidations
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm">
+                        Your successfully completed liquidation reports
+                      </p>
                     </div>
                   </div>
-
-                  <div className="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg p-6 max-w-2xl mx-auto">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3">
-                      What you can do:
-                    </h4>
-                    <div className="text-left space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                      <p>• Check your request history to see past liquidations</p>
-                      <p>• Submit a new fund request if needed</p>
-                      <p>• Contact your district administrator for assistance</p>
-                      <p>• Wait for fund approval if you have pending requests</p>
-                    </div>
+                  
+                  <div className="space-y-3">
+                    {recentLiquidations.map((liquidation, index) => (
+                      <div key={index} className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                                Request #{liquidation.request_id}
+                              </h4>
+                              <p className="text-gray-600 dark:text-gray-300 text-xs">
+                                {formatRequestMonthYear(liquidation.request_monthyear)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {formatCurrency(liquidation.priorities?.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0) || 0)}
+                            </p>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                              Completed
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 text-center">
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">
+                      View all your liquidations in the Request History
+                    </p>
                   </div>
                 </div>
               )}
-
-              <div className="flex flex-col sm:flex-row justify-center gap-3 mt-8">
-                <Button
-                  variant="primary"
-                  onClick={() => navigate("/requests-history")}
-                  startIcon={<FileText className="h-4 w-4" />}
-                >
-                  View Request History
-                </Button>
-                {!fetchError && (
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate("/dashboard")}
-                    startIcon={<RefreshCw className="h-4 w-4" />}
-                  >
-                    Go to Dashboard
-                  </Button>
-                )}
-              </div>
             </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => navigate("/requests-history")}
+              startIcon={<FileText className="h-5 w-5" />}
+            >
+              View Request History
+            </Button>
+            {!fetchError && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => navigate("/dashboard")}
+                startIcon={<RefreshCw className="h-5 w-5" />}
+              >
+                Go to Dashboard
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -1570,13 +1727,14 @@ const LiquidationPage = () => {
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
                       request.status === "liquidated" 
                         ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
                         : request.status === "resubmit"
                         ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                         : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
                     }`}>
+                      {statusIcons[request.status]}
                       {statusLabels[request.status] || request.status}
                     </span>
                   </div>
@@ -2152,11 +2310,17 @@ const LiquidationPage = () => {
         </div>
       </div>
 
-      {/* Completion Modal - DISABLED FOR NOW */}
-      {/* {request && (
+      {/* Completion Modal */}
+      {request && (
         <LiquidationCompletionModal
           visible={showCompletionModal}
-          onClose={() => setShowCompletionModal(false)}
+          onClose={() => {
+            setShowCompletionModal(false);
+            // After closing the modal, refresh the data to show the "No Ongoing Liquidation Report" page
+            setTimeout(() => {
+              window.location.reload();
+            }, 100);
+          }}
           liquidationData={{
             id: request.id,
             month: request.month,
@@ -2175,7 +2339,7 @@ const LiquidationPage = () => {
             setShowCompletionModal(false);
           }}
         />
-      )} */}
+      )}
 
       {/* PDF Preview Dialog */}
       <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>

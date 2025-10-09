@@ -73,7 +73,7 @@ const LiquidationCompletionModal: React.FC<LiquidationCompletionModalProps> = ({
 
   return (
     <Dialog open={visible} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl rounded-2xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border-0 lg:max-w-6xl">
+      <DialogContent className="max-w-4xl rounded-2xl bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border-0 lg:max-w-6xl [&>button]:hidden">
         {/* Header Section */}
         <div className="relative bg-gradient-to-r from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-700 px-8 py-6 border-b border-gray-100 dark:border-gray-600">
           <div className="flex items-center gap-3">
@@ -95,9 +95,9 @@ const LiquidationCompletionModal: React.FC<LiquidationCompletionModalProps> = ({
         <div className="px-8 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Summary */}
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
               {/* Summary Card */}
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 border border-gray-200 dark:border-gray-600 flex flex-col" style={{minHeight: '300px'}}>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                     <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -107,35 +107,37 @@ const LiquidationCompletionModal: React.FC<LiquidationCompletionModalProps> = ({
                   </h4>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Request ID</span>
-                    <span className="font-medium text-gray-900 dark:text-white">#{liquidationData.id}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Period</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{liquidationData.month}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Total Amount</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(liquidationData.totalAmount)}</span>
-                  </div>
-                  
-                  {liquidationData.reviewed_by_division && (
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Finalized by</span>
-                      <span className="font-medium text-gray-900 dark:text-white text-right">
-                        {liquidationData.reviewed_by_division.first_name} {liquidationData.reviewed_by_division.last_name}
-                      </span>
+                <div className="flex-1 flex flex-col">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Request ID</span>
+                      <span className="font-medium text-gray-900 dark:text-white">#{liquidationData.id}</span>
                     </div>
-                  )}
+                    
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Period</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{liquidationData.month}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Total Amount</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(liquidationData.totalAmount)}</span>
+                    </div>
+                    
+                    {liquidationData.reviewed_by_division && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Finalized by</span>
+                        <span className="font-medium text-gray-900 dark:text-white text-right">
+                          {liquidationData.reviewed_by_division.first_name} {liquidationData.reviewed_by_division.last_name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Next Steps Notice */}
-              <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4" style={{minHeight: '120px'}}>
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                   <div>
@@ -149,15 +151,21 @@ const LiquidationCompletionModal: React.FC<LiquidationCompletionModalProps> = ({
                         <li>• Return the refund amount to the Division Office</li>
                       )}
                     </ul>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                        Action items completed
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Right Column - Financial Summary */}
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
               {/* Financial Summary Card */}
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 border border-gray-200 dark:border-gray-600 flex flex-col" style={{minHeight: '300px'}}>
                 <div className="flex items-center gap-3 mb-4">
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                     liquidationData.refund > 0
@@ -179,7 +187,7 @@ const LiquidationCompletionModal: React.FC<LiquidationCompletionModalProps> = ({
                   </h4>
                 </div>
                 
-                <div className={`p-6 rounded-lg border-2 ${refundInfo.borderColor} ${refundInfo.bgColor}`}>
+                <div className={`p-6 rounded-lg border-2 ${refundInfo.borderColor} ${refundInfo.bgColor} flex-1 flex flex-col`}>
                   <div className="text-center">
                     <div className={`text-3xl font-bold mb-3 ${refundInfo.color}`}>
                       {liquidationData.refund > 0 
@@ -207,7 +215,7 @@ const LiquidationCompletionModal: React.FC<LiquidationCompletionModalProps> = ({
               </div>
 
               {/* Completion Status Card */}
-              <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg p-4" style={{minHeight: '120px'}}>
                 <div className="flex items-start gap-3">
                   <Trophy className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                   <div>
