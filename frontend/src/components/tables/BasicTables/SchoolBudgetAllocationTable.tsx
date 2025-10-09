@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -16,6 +16,7 @@ import {
   AlertCircle,
   ChevronUp,
   ChevronDown,
+  Info,
 } from "lucide-react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
@@ -72,6 +73,8 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
   const [dialogBudget, setDialogBudget] = useState<number>(0);
   const [dialogBudgetDisplay, setDialogBudgetDisplay] = useState<string>("0");
   const [showSaveConfirm, setShowSaveConfirm] = useState<boolean>(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
+  const [originalBudget, setOriginalBudget] = useState<number>(0);
 
   // Status badge constants matching PrioritySubmissionsTable
   const statusLabels: Record<string, string> = {
@@ -106,6 +109,35 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
   // Helper function to parse comma-formatted string to number
   const parseCommaFormattedNumber = (str: string): number => {
     return parseFloat(str.replace(/,/g, '')) || 0;
+  };
+
+  // Check if there are any changes
+  const hasChanges = useMemo(() => {
+    return dialogBudget !== originalBudget;
+  }, [dialogBudget, originalBudget]);
+
+  // Handle opening the dialog
+  const handleViewSchool = (school: School) => {
+    setSelectedSchool(school);
+    const currentBudget = editingBudgets[school.schoolId] || 0;
+    setDialogBudget(currentBudget);
+    setDialogBudgetDisplay(formatNumberWithCommas(currentBudget));
+    setOriginalBudget(currentBudget);
+  };
+
+  // Handle cancel with confirmation
+  const handleCancel = () => {
+    if (hasChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      setSelectedSchool(null);
+    }
+  };
+
+  // Handle confirm cancel
+  const handleConfirmCancel = () => {
+    setSelectedSchool(null);
+    setShowCancelConfirm(false);
   };
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -358,12 +390,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                       <Button
                         variant="primary"
                         size="sm"
-                        onClick={() => {
-                          const budget = editingBudgets[school.schoolId] || 0;
-                          setSelectedSchool(school);
-                          setDialogBudget(budget);
-                          setDialogBudgetDisplay(formatNumberWithCommas(budget));
-                        }}
+                        onClick={() => handleViewSchool(school)}
                         disabled={!school.is_active}
                         className="px-3 py-1 text-xs"
                         startIcon={<Eye className="h-3 w-3" />}
@@ -380,7 +407,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
       </div>
 
       {/* Budget Allocation Dialog */}
-      <Dialog open={!!selectedSchool} onOpenChange={() => setSelectedSchool(null)}>
+      <Dialog open={!!selectedSchool} onOpenChange={handleCancel}>
         <DialogContent className="w-full max-w-4xl sm:max-w-4xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
           <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-700/50 rounded-t-xl">
             <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
@@ -587,7 +614,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <Button
                   variant="outline"
-                  onClick={() => setSelectedSchool(null)}
+                  onClick={handleCancel}
                   className="order-2 sm:order-1"
                 >
                   Cancel
@@ -730,6 +757,52 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <DialogContent className="w-full max-w-2xl sm:max-w-2xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-red-50 to-gray-50 dark:from-red-900/20 dark:to-gray-800 rounded-t-xl">
+            <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-lg flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              Discard Changes?
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400 mt-2">
+              You have unsaved changes that will be lost
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-6 space-y-6">
+            <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <Info className="h-4 w-4 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-700 dark:text-amber-300">
+                <p className="font-medium mb-1">Warning:</p>
+                <p className="text-xs">All changes made to the budget allocation will be lost and cannot be recovered.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700 px-6 pb-6">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelConfirm(false)}
+              disabled={isSaving}
+              className="order-2 sm:order-1"
+            >
+              Keep Editing
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirmCancel}
+              disabled={isSaving}
+              className="order-1 sm:order-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white shadow-sm"
+            >
+              Discard Changes
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
