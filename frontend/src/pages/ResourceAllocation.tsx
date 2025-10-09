@@ -3,7 +3,6 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
-  useRef,
 } from "react";
 import api from "@/api/axios";
 import { toast } from "react-toastify";
@@ -27,7 +26,6 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { municipalityDistricts } from "@/lib/constants";
 import Label from "@/components/form/Label";
-import Toggle from "@/components/form/Toggle";
 import { Disclosure, DisclosureButton, Transition } from "@headlessui/react";
 import SchoolBudgetAllocationTable from "@/components/tables/BasicTables/SchoolBudgetAllocationTable";
 
@@ -35,20 +33,6 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const MIN_SEARCH_LENGTH = 3;
 const SEARCH_DEBOUNCE_MS = 500;
 
-const monthNames = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
 
 type School = {
   schoolId: string;
@@ -79,26 +63,18 @@ const ResourceAllocation = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalSchools, setTotalSchools] = useState(0);
-  const [bulkAmount, setBulkAmount] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showIndividualSuccessDialog, setShowIndividualSuccessDialog] = useState(false);
   const [individualSaveMessage, setIndividualSaveMessage] = useState("");
+  const [successCountdown, setSuccessCountdown] = useState(3);
+  const [individualSuccessCountdown, setIndividualSuccessCountdown] = useState(3);
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [filterLegislativeDistrict, setFilterLegislativeDistrict] =
     useState<string>("");
   const [filterMunicipality, setFilterMunicipality] = useState<string>("");
   const [filterDistrict, setFilterDistrict] = useState<string>("");
-  const [showLiquidationDetails, setShowLiquidationDetails] = useState<boolean>(
-    () => {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("showLiquidationDetails");
-        return saved === "true";
-      }
-      return false;
-    }
-  );
   const [filterCanRequest, setFilterCanRequest] = useState<boolean | null>(
     null
   );
@@ -114,19 +90,25 @@ const ResourceAllocation = () => {
   const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
     []
   );
-  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
-  const [bulkActionType] = useState<
-    "set" | "increase" | "decrease" | null
-  >(null);
-  const [undoStack, setUndoStack] = useState<Record<string, number>[]>([]);
-  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [editingLiquidationDates, setEditingLiquidationDates] = useState<Record<string, { month: number | null; year: number | null }>>({});
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>(null);
 
   const canRequestNextMonth = useCallback((school: any) => {
     if (!school.is_active) return false;
     if (school.hasUnliquidated) return false;
     return true;
   }, []);
+
+  // Sorting logic
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key) {
+      direction = sortConfig.direction === "asc" ? "desc" : "asc";
+    }
+    setSortConfig({ key, direction });
+  };
 
   const fetchBacklogData = async (schoolIds: string[]) => {
     try {
@@ -151,67 +133,6 @@ const ResourceAllocation = () => {
     }
   };
 
-  // Bulk handlers (commented out as they're not currently used)
-  // const handleBulkSet = (amount: number) => {
-  //   setEditingBudgets((prev) => {
-  //     const updated = { ...prev };
-  //     selectedSchools.forEach((id) => {
-  //       updated[id] = Math.max(0, amount);
-  //     });
-  //     return updated;
-  //   });
-  // };
-
-  // const handleBulkAdjust = (amount: number) => {
-  //   setEditingBudgets((prev) => {
-  //     const updated = { ...prev };
-  //     selectedSchools.forEach((id) => {
-  //       updated[id] = Math.max(0, (prev[id] || 0) + amount);
-  //     });
-  //     return updated;
-  //   });
-  // };
-
-  // Bulk confirmation and undo
-  // Replace the existing handleBulkConfirm with this version
-  const handleBulkConfirm = (type: "set" | "increase" | "decrease") => {
-    if (bulkAmount <= 0) {
-      toast.error("Please enter a valid amount greater than 0.");
-      return;
-    }
-
-    setUndoStack((prev) => [{ ...editingBudgets }, ...prev]);
-
-    const updated = { ...editingBudgets };
-    selectedSchools.forEach((id) => {
-      const current = Number(
-        updated[id] || schools.find((s) => s.schoolId === id)?.current_yearly_budget || 0
-      );
-      if (type === "set") {
-        updated[id] = Math.max(0, bulkAmount);
-      } else if (type === "increase") {
-        updated[id] = Math.max(0, current + bulkAmount);
-      } else if (type === "decrease") {
-        updated[id] = Math.max(0, current - bulkAmount);
-      }
-    });
-
-    setEditingBudgets(updated);
-    toast.success(
-      `Bulk ${type} applied locally. Review changes before saving.`
-    );
-
-    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
-    undoTimeoutRef.current = setTimeout(() => setUndoStack([]), 10000);
-  };
-
-  const handleUndo = () => {
-    if (undoStack.length > 0) {
-      setEditingBudgets(undoStack[0]);
-      setUndoStack((prev) => prev.slice(1));
-      toast.info("Bulk action undone.");
-    }
-  };
 
   // Fetch schools with backlog info
   const fetchData = async () => {
@@ -301,22 +222,63 @@ const ResourceAllocation = () => {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  const toggleSchoolSelection = (schoolId: string) => {
-    setSelectedSchools((prev) =>
-      prev.includes(schoolId)
-        ? prev.filter((id) => id !== schoolId)
-        : [...prev, schoolId]
-    );
-  };
 
 
   const sortedSchools = useMemo(() => {
-    return [...schools].sort((a, b) => {
+    let sorted = [...schools];
+    
+    // First sort by selection status (selected schools first)
+    sorted.sort((a, b) => {
       const aSelected = selectedSchools.includes(a.schoolId);
       const bSelected = selectedSchools.includes(b.schoolId);
       return aSelected === bSelected ? 0 : aSelected ? -1 : 1;
     });
-  }, [schools, selectedSchools]);
+
+    // Then apply column sorting if configured
+    if (sortConfig) {
+      sorted.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortConfig.key) {
+          case "schoolName":
+            aValue = a.schoolName.toLowerCase();
+            bValue = b.schoolName.toLowerCase();
+            break;
+          case "status":
+            // Sort by allocation status: allocated > unallocated > inactive
+            const getStatusPriority = (school: any) => {
+              if (!school.is_active) return 0;
+              if (school.hasAllocation) return 2;
+              return 1;
+            };
+            aValue = getStatusPriority(a);
+            bValue = getStatusPriority(b);
+            break;
+          case "yearlyBudget":
+            aValue = editingBudgets[a.schoolId] || 0;
+            bValue = editingBudgets[b.schoolId] || 0;
+            break;
+          case "monthlyBudget":
+            aValue = (editingBudgets[a.schoolId] || 0) / 12;
+            bValue = (editingBudgets[b.schoolId] || 0) / 12;
+            break;
+          case "liquidationStatus":
+            aValue = canRequestNextMonth(a) ? 1 : 0;
+            bValue = canRequestNextMonth(b) ? 1 : 0;
+            break;
+          default:
+            return 0;
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return sorted;
+  }, [schools, selectedSchools, sortConfig, editingBudgets, canRequestNextMonth]);
 
 
   const totalPages = Math.ceil(totalSchools / itemsPerPage);
@@ -374,42 +336,6 @@ const ResourceAllocation = () => {
     setSearchTerm(e.target.value);
   };
 
-  const handleLiquidationToggle = (checked: boolean) => {
-    setShowLiquidationDetails(checked);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("showLiquidationDetails", String(checked));
-    }
-  };
-  // 3. Add recommendation logic
-  const getBulkRecommendation = () => {
-    if (selectedSchools.length === 0)
-      return "Select schools to get recommendations";
-
-    const eligibleCount = selectedSchools.filter((id) => {
-      const school = schools.find((s) => s.schoolId === id);
-      return school && canRequestNextMonth(school);
-    }).length;
-
-    const avgBudget =
-      selectedSchools.reduce((sum, id) => {
-        const school = schools.find((s) => s.schoolId === id);
-        return sum + (school?.current_yearly_budget || 0);
-      }, 0) / selectedSchools.length;
-
-    if (eligibleCount / selectedSchools.length > 0.7) {
-      return `Consider increasing by ${formatCurrency(
-        1000
-      )} as most schools are eligible for next month`;
-    } else if (eligibleCount / selectedSchools.length < 0.3) {
-      return `Consider decreasing by ${formatCurrency(
-        500
-      )} as few schools are eligible`;
-    } else {
-      return `Average budget is ${formatCurrency(
-        avgBudget
-      )}. Adjust proportionally based on needs`;
-    }
-  };
   const resetAllChanges = () => {
     const initialBudgets = schools.reduce(
       (acc, school) => ({
@@ -426,91 +352,6 @@ const ResourceAllocation = () => {
     setSelectedSchools([]);
   };
 
-  const validateLiquidationDate = (month: number | null, year: number | null): string | null => {
-    if (!month || !year) return null;
-    
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
-    
-    // Check if the date is in the future
-    if (year > currentYear || (year === currentYear && month > currentMonth)) {
-      return "Cannot set liquidation date in the future";
-    }
-    
-    return null;
-  };
-
-  const isFutureMonth = (monthIndex: number, selectedYear: number | null): boolean => {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-    
-    return selectedYear === currentYear && (monthIndex + 1) > currentMonth;
-  };
-
-  const handleLiquidationDateChange = (schoolId: string, field: 'month' | 'year', value: number | null) => {
-    const currentDates = editingLiquidationDates[schoolId] || {};
-    const newDates = {
-      ...currentDates,
-      [field]: value
-    };
-    
-    // Validate the new date combination
-    const validationError = validateLiquidationDate(newDates.month, newDates.year);
-    
-    if (validationError) {
-      toast.error(validationError);
-      return; // Don't update if validation fails
-    }
-    
-    setEditingLiquidationDates(prev => ({
-      ...prev,
-      [schoolId]: newDates
-    }));
-  };
-
-  const saveLiquidationDates = async (schoolId: string) => {
-    const dates = editingLiquidationDates[schoolId];
-    if (!dates) return;
-
-    // Final validation before saving
-    const validationError = validateLiquidationDate(dates.month, dates.year);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-
-    try {
-      await api.patch(`schools/${schoolId}/liquidation-dates/`, {
-        last_liquidated_month: dates.month,
-        last_liquidated_year: dates.year
-      });
-
-      // Update the school in the local state
-      setSchools(prev => prev.map(school => 
-        school.schoolId === schoolId 
-          ? { 
-              ...school, 
-              last_liquidated_month: dates.month, 
-              last_liquidated_year: dates.year 
-            }
-          : school
-      ));
-
-      // Clear the editing state
-      setEditingLiquidationDates(prev => {
-        const newState = { ...prev };
-        delete newState[schoolId];
-        return newState;
-      });
-
-      toast.success("Liquidation dates updated successfully");
-    } catch (error: any) {
-      console.error("Error updating liquidation dates:", error);
-      toast.error(`Failed to update liquidation dates: ${error.response?.data?.error || error.message}`);
-    }
-  };
   // Individual budget save function
   const saveIndividualBudget = async (schoolId: string, yearlyBudget: number) => {
     setIsSaving(true);
@@ -536,7 +377,6 @@ const ResourceAllocation = () => {
       const school = schools.find(s => s.schoolId === schoolId);
       setIndividualSaveMessage(`Budget allocation updated successfully for ${school?.schoolName || schoolId}`);
       setShowIndividualSuccessDialog(true);
-      setTimeout(() => setShowIndividualSuccessDialog(false), 3000);
 
       // Refresh data to get updated allocation status
       await fetchData();
@@ -576,12 +416,10 @@ const ResourceAllocation = () => {
         allocations 
       });
       setShowSuccessDialog(true);
-      setTimeout(() => setShowSuccessDialog(false), 3000);
 
       // Refresh data
       await fetchData();
       setSelectedSchools([]);
-      setUndoStack([]);
     } catch (error: any) {
       console.error("Error updating budgets:", error);
       toast.error(
@@ -595,68 +433,6 @@ const ResourceAllocation = () => {
     }
   };
 
-  // 2. Modify the BulkConfirmationDialog to just show the action preview
-  const BulkConfirmationDialog = () => (
-    <Dialog open={showBulkConfirm} onOpenChange={setShowBulkConfirm}>
-      <DialogContent className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-0 overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col items-center py-8">
-          <Info className="h-16 w-16 text-blue-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Bulk Action Preview
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300 text-center mb-2">
-            This will {bulkActionType} the budget of {selectedSchools.length}{" "}
-            school(s)
-            {bulkActionType !== "set" && (
-              <> by {formatCurrency(bulkAmount)} each</>
-            )}
-            {bulkActionType === "set" && (
-              <> to {formatCurrency(bulkAmount)} each</>
-            )}
-            .
-          </p>
-          <div className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700">
-            <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-              <strong>Recommendation:</strong> {getBulkRecommendation()}
-            </div>
-          </div>
-          <div className="flex gap-4 mt-4">
-            <Button variant="outline" onClick={() => setShowBulkConfirm(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                handleBulkConfirm(bulkActionType!);
-                setShowBulkConfirm(false);
-              }}
-              className="px-4 py-2"
-            >
-              Apply Locally
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
-  // Undo bar
-  const UndoBar = () =>
-    undoStack.length > 0 ? (
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-blue-100 dark:bg-blue-900/80 border border-blue-300 dark:border-blue-700 rounded-lg px-6 py-3 flex items-center gap-4 shadow-lg">
-        <span className="text-blue-900 dark:text-blue-100 font-medium">
-          Bulk action applied.
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleUndo}
-          startIcon={<Undo2 className="h-4 w-4" />}
-        >
-          Undo
-        </Button>
-      </div>
-    ) : null;
 
   // Save confirmation dialog
   const SaveConfirmationDialog = () => (
@@ -733,6 +509,40 @@ const ResourceAllocation = () => {
     fetchData();
     // eslint-disable-next-line
   }, [filterLegislativeDistrict, filterMunicipality, filterDistrict]);
+
+  // Success dialog countdown timer
+  useEffect(() => {
+    if (showSuccessDialog) {
+      setSuccessCountdown(3);
+      const timer = setInterval(() => {
+        setSuccessCountdown((prev) => {
+          if (prev <= 1) {
+            setShowSuccessDialog(false);
+            return 3;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [showSuccessDialog]);
+
+  // Individual success dialog countdown timer
+  useEffect(() => {
+    if (showIndividualSuccessDialog) {
+      setIndividualSuccessCountdown(3);
+      const timer = setInterval(() => {
+        setIndividualSuccessCountdown((prev) => {
+          if (prev <= 1) {
+            setShowIndividualSuccessDialog(false);
+            return 3;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [showIndividualSuccessDialog]);
   // Modify the filters panel to include the new toggle and filter
   const renderFiltersPanel = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
@@ -820,16 +630,6 @@ const ResourceAllocation = () => {
           </select>
         </div>
       </div> */}
-      {/* Liquidation details toggle */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Show Liquidation Details</Label>
-        <div className="flex gap-2 items-center">
-          <Toggle
-            checked={showLiquidationDetails}
-            onChange={handleLiquidationToggle}
-          />
-        </div>
-      </div>
       <div className="md:col-span-3 flex justify-end gap-2">
         <Button
           variant="outline"
@@ -853,81 +653,110 @@ const ResourceAllocation = () => {
 
       {/* Individual Success Dialog */}
       <Dialog open={showIndividualSuccessDialog} onOpenChange={setShowIndividualSuccessDialog}>
-        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+        <DialogContent showCloseButton={false} className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-transparent to-emerald-50/30 dark:from-green-900/10 dark:via-transparent dark:to-emerald-900/5"></div>
+          
           {/* Main Content Container */}
-          <div className="flex flex-col items-center text-center space-y-4">
-            {/* Animated Checkmark Icon */}
-            <div className="relative mb-2">
-              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
-              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
+          <div className="relative flex flex-col items-center text-center px-8 py-10">
+            {/* Success Icon with Enhanced Animation */}
+            <div className="relative mb-6">
+              {/* Outer Ring Animation */}
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/30 rounded-full scale-125 animate-ping opacity-20"></div>
+              <div className="absolute inset-0 bg-green-200 dark:bg-green-800/40 rounded-full scale-110 animate-pulse"></div>
+              
+              {/* Main Icon Container */}
+              <div className="relative flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full shadow-lg">
+                <CheckCircle className="h-10 w-10 text-white animate-scale-in" />
+              </div>
+              
+              {/* Sparkle Effects */}
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-bounce"></div>
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-400 rounded-full animate-bounce delay-300"></div>
             </div>
 
-            {/* Header Section */}
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+            {/* Header Section with Better Typography */}
+            <div className="space-y-3 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
                 Budget Updated Successfully
               </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              <div className="w-16 h-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mx-auto"></div>
+              <p className="text-base text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm">
                 {individualSaveMessage}
               </p>
             </div>
 
-            {/* Action Indicator */}
-            <div className="pt-2">
-              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
-                <span className="animate-pulse">•</span>
-                <span>Closing automatically</span>
-              </div>
+            {/* Status Indicator with Enhanced Design */}
+            <div className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 rounded-full border border-green-200 dark:border-green-800">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                Auto-closing in {individualSuccessCountdown} second{individualSuccessCountdown !== 1 ? 's' : ''}
+              </span>
             </div>
           </div>
 
-          {/* Animated Progress Bar */}
-          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+          {/* Enhanced Progress Bar */}
+          <div className="relative h-2 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-full rounded-full transform -translate-x-full animate-progress-smooth"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-full animate-shimmer"></div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
+        <DialogContent showCloseButton={false} className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-transparent to-emerald-50/30 dark:from-green-900/10 dark:via-transparent dark:to-emerald-900/5"></div>
+          
           {/* Main Content Container */}
-          <div className="flex flex-col items-center text-center space-y-4">
-            {/* Animated Checkmark Icon */}
-            <div className="relative mb-2">
-              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
-              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
+          <div className="relative flex flex-col items-center text-center px-10 py-12">
+            {/* Success Icon with Enhanced Animation */}
+            <div className="relative mb-8">
+              {/* Outer Ring Animation */}
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/30 rounded-full scale-125 animate-ping opacity-20"></div>
+              <div className="absolute inset-0 bg-green-200 dark:bg-green-800/40 rounded-full scale-110 animate-pulse"></div>
+              
+              {/* Main Icon Container */}
+              <div className="relative flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full shadow-xl">
+                <CheckCircle className="h-12 w-12 text-white animate-scale-in" />
+              </div>
+              
+              {/* Sparkle Effects */}
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full animate-bounce"></div>
+              <div className="absolute -bottom-2 -left-2 w-3 h-3 bg-blue-400 rounded-full animate-bounce delay-300"></div>
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-150"></div>
             </div>
 
-            {/* Header Section */}
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
+            {/* Header Section with Better Typography */}
+            <div className="space-y-4 mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">
                 Yearly Budgets Updated Successfully
               </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              <div className="w-20 h-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mx-auto"></div>
+              <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed max-w-md">
                 School yearly budgets have been updated and saved to the system.
               </p>
             </div>
 
-            {/* Action Indicator */}
-            <div className="pt-2">
-              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
-                <span className="animate-pulse">•</span>
-                <span>Closing automatically</span>
-              </div>
+            {/* Status Indicator with Enhanced Design */}
+            <div className="flex items-center justify-center space-x-3 px-6 py-3 bg-green-50 dark:bg-green-900/20 rounded-full border border-green-200 dark:border-green-800">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-base font-medium text-green-700 dark:text-green-300">
+                Auto-closing in {successCountdown} second{successCountdown !== 1 ? 's' : ''}
+              </span>
             </div>
           </div>
 
-          {/* Animated Progress Bar */}
-          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+          {/* Enhanced Progress Bar */}
+          <div className="relative h-3 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-full rounded-full transform -translate-x-full animate-progress-smooth"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-full animate-shimmer"></div>
           </div>
         </DialogContent>
       </Dialog>
 
       <SaveConfirmationDialog />
-      <BulkConfirmationDialog />
-      <UndoBar />
 
       <div className="mt-8">
         <div className="mb-6 bg-brand-50 dark:bg-brand-900/10 p-4 rounded-lg border border-brand-100 dark:border-brand-900/20">
@@ -959,16 +788,21 @@ const ResourceAllocation = () => {
                   leaveTo="transform opacity-0 -translate-y-2"
                 >
                   <Disclosure.Panel className="px-4 pb-3 pt-1 text-sm text-brand-700 dark:text-brand-300 border-t border-brand-100 dark:border-brand-900/20">
-                    <ol className="list-decimal list-inside space-y-1 text-brand-700 dark:text-brand-300">
-                      <li>Click on school cards to select them</li>
-                      <li>Select an adjustment amount from the top controls</li>
+                    <ol className="list-decimal list-inside space-y-2 text-brand-700 dark:text-brand-300">
                       <li>
-                        Use the + and - buttons in each selected school to
-                        adjust the yearly budget
+                        <strong>Individual Allocation:</strong> Click the "View" button on any school row to open the budget allocation dialog
                       </li>
-                      <li>Click "Save Selected" when ready</li>
                       <li>
-                        Monthly budget is automatically calculated (yearly ÷ 12)
+                        <strong>Budget Entry:</strong> Enter the yearly budget amount in the dialog or use quick adjustment buttons (+₱10K, +₱50K, etc.)
+                      </li>
+                      <li>
+                        <strong>Review Changes:</strong> The system shows current vs. new budget amounts and calculates monthly budgets automatically
+                      </li>
+                      <li>
+                        <strong>Save Changes:</strong> Click "Add Budget Allocation" for new schools or "Update Budget Allocation" for existing ones
+                      </li>
+                      <li>
+                        <strong>Filters & Search:</strong> Use the search bar and filters to find specific schools by name, district, or municipality
                       </li>
                     </ol>
                   </Disclosure.Panel>
@@ -984,7 +818,7 @@ const ResourceAllocation = () => {
           {/* Top controls row */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             {/* Search */}
-            <div className="relative w-full md:w-1/2">
+            <div className="relative w-full md:flex-1">
               <Input
                 type="text"
                 placeholder={`Search schools (min ${MIN_SEARCH_LENGTH} chars)...`}
@@ -1040,55 +874,6 @@ const ResourceAllocation = () => {
           {showFilters && renderFiltersPanel()}
         </div>
 
-        {selectedSchools.length > 0 && (
-          <div className="flex flex-col md:flex-row gap-4 items-center mb-4 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20">
-            <span className="font-medium text-blue-800 dark:text-blue-200">
-              Bulk Adjust Yearly Budget for {selectedSchools.length} selected school(s):
-            </span>
-            <input
-              type="number"
-              min={0}
-              placeholder="Enter amount"
-              value={bulkAmount === 0 ? "" : bulkAmount}
-              onChange={(e) => setBulkAmount(Number(e.target.value))}
-              className="w-64 pl-8 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:focus:ring-blue-500"
-            />
-            <Button
-              onClick={() => handleBulkConfirm("set")}
-              variant="outline"
-              size="sm"
-              disabled={bulkAmount <= 0}
-            >
-              Set All
-            </Button>
-            <Button
-              onClick={() => handleBulkConfirm("increase")}
-              variant="outline"
-              size="sm"
-              disabled={bulkAmount <= 0}
-            >
-              Increase All
-            </Button>
-            <Button
-              onClick={() => handleBulkConfirm("decrease")}
-              variant="outline"
-              size="sm"
-              disabled={bulkAmount <= 0}
-            >
-              Decrease All
-            </Button>
-            {undoStack.length > 0 && (
-              <Button
-                onClick={handleUndo}
-                variant="outline"
-                size="sm"
-                startIcon={<Undo2 className="h-4 w-4" />}
-              >
-                Undo
-              </Button>
-            )}
-          </div>
-        )}
         {/* Summary Bar */}
         {selectedSchools.length > 0 && (
           <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 mb-6 py-3 px-4 shadow-sm">
@@ -1145,19 +930,13 @@ const ResourceAllocation = () => {
             schools={sortedSchools}
             selectedSchools={selectedSchools}
             editingBudgets={editingBudgets}
-            editingLiquidationDates={editingLiquidationDates}
-            showLiquidationDetails={showLiquidationDetails}
-            onToggleSchoolSelection={toggleSchoolSelection}
-            onLiquidationDateChange={handleLiquidationDateChange}
-            onSaveLiquidationDates={saveLiquidationDates}
             onSaveIndividualBudget={saveIndividualBudget}
-            canRequestNextMonth={canRequestNextMonth}
             formatCurrency={formatCurrency}
-            monthNames={monthNames}
-            isFutureMonth={isFutureMonth}
             loading={loading}
             error={null}
             isSaving={isSaving}
+            sortConfig={sortConfig}
+            requestSort={requestSort}
           />
         </div>
         {/* Pagination */}

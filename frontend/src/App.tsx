@@ -24,6 +24,7 @@ import LiquidationReportPage from "./pages/LiquidationReportPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
 import LastLiquidationDatesPage from "./pages/LastLiquidationDatesPage";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
+import SchoolHeadLiquidationDetailsPage from "./pages/SchoolHeadLiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
 import SetupModal from "./components/common/SetupModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard";
@@ -182,6 +183,16 @@ const App = () => {
               <Route
                 path="/liquidations/:liquidationId"
                 element={<LiquidationDetailsPage />}
+              />
+            </Route>
+
+            {/* School head liquidation details - read-only view */}
+            <Route
+              element={<RequireAuth allowedRoles={["school_head"]} />}
+            >
+              <Route
+                path="/my-liquidations/:liquidationId"
+                element={<SchoolHeadLiquidationDetailsPage />}
               />
             </Route>
 

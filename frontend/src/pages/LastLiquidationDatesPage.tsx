@@ -19,7 +19,7 @@ import {
   Filter,
   ChevronDownIcon,
 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import SchoolLiquidationDatesTable from "@/components/tables/BasicTables/SchoolLiquidationDatesTable";
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
@@ -65,7 +65,6 @@ const LastLiquidationDatesPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalSchools, setTotalSchools] = useState(0);
-  const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [editingLiquidationDates, setEditingLiquidationDates] = useState<{
     [schoolId: string]: { month: number | null; year: number | null };
   }>({});
@@ -212,21 +211,9 @@ const LastLiquidationDatesPage: React.FC = () => {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  const toggleSchoolSelection = (schoolId: string) => {
-    setSelectedSchools((prev) =>
-      prev.includes(schoolId)
-        ? prev.filter((id) => id !== schoolId)
-        : [...prev, schoolId]
-    );
-  };
-
   const sortedSchools = useMemo(() => {
-    return [...schools].sort((a, b) => {
-      const aSelected = selectedSchools.includes(a.schoolId);
-      const bSelected = selectedSchools.includes(b.schoolId);
-      return aSelected === bSelected ? 0 : aSelected ? -1 : 1;
-    });
-  }, [schools, selectedSchools]);
+    return [...schools];
+  }, [schools]);
 
   const totalPages = Math.ceil(totalSchools / itemsPerPage);
   const goToPage = (page: number) => {
@@ -234,9 +221,6 @@ const LastLiquidationDatesPage: React.FC = () => {
   };
 
 
-  const clearSelection = () => {
-    setSelectedSchools([]);
-  };
 
   const validateLiquidationDate = (month: number | null, year: number | null): string | null => {
     if (!month || !year) return null;
@@ -428,66 +412,74 @@ const LastLiquidationDatesPage: React.FC = () => {
 
       {/* Individual Success Dialog */}
       <Dialog open={showIndividualSuccessDialog} onOpenChange={setShowIndividualSuccessDialog}>
-        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
-          {/* Main Content Container */}
-          <div className="flex flex-col items-center text-center space-y-4">
-            {/* Animated Checkmark Icon */}
-            <div className="relative mb-2">
-              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
-              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
-            </div>
+        <DialogContent className="w-full max-w-md sm:max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-green-50 to-gray-50 dark:from-green-900/20 dark:to-gray-800 rounded-t-xl">
+            <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              Success
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400 mt-2">
+              Liquidation date has been updated successfully
+            </DialogDescription>
+          </DialogHeader>
 
-            {/* Header Section */}
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
-                Liquidation Date Updated Successfully
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+          <div className="px-6 py-6 space-y-4">
+            {/* Success Message */}
+            <div className="text-center">
+              <p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed">
                 {individualSaveMessage}
               </p>
             </div>
 
-            {/* Action Indicator */}
-            <div className="pt-2">
-              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
-                <span className="animate-pulse">•</span>
-                <span>Closing automatically</span>
-              </div>
+            {/* Auto-close Indicator */}
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Closing automatically in 3 seconds</span>
             </div>
-          </div>
 
-          {/* Animated Progress Bar */}
-          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 p-6 shadow-xl border-0">
-          <div className="flex flex-col items-center text-center space-y-4">
-            <div className="relative mb-2">
-              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/20 rounded-full scale-110 animate-pulse"></div>
-              <CheckCircle className="relative h-12 w-12 text-green-500 dark:text-green-400 animate-scale-in" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-tight">
-                Liquidation Dates Updated Successfully
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+        <DialogContent className="w-full max-w-md sm:max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-green-50 to-gray-50 dark:from-green-900/20 dark:to-gray-800 rounded-t-xl">
+            <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              Success
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400 mt-2">
+              Liquidation dates have been updated successfully
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-6 space-y-4">
+            {/* Success Message */}
+            <div className="text-center">
+              <p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed">
                 School liquidation dates have been updated and saved to the system.
               </p>
             </div>
-            <div className="pt-2">
-              <div className="flex items-center justify-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
-                <span className="animate-pulse">•</span>
-                <span>Closing automatically</span>
-              </div>
+
+            {/* Auto-close Indicator */}
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Closing automatically in 3 seconds</span>
             </div>
-          </div>
-          <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-green-500 h-1.5 rounded-full animate-progress"></div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -539,7 +531,7 @@ const LastLiquidationDatesPage: React.FC = () => {
         {/* Search and Controls */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="relative w-full md:w-1/2">
+            <div className="relative w-full md:flex-1">
               <Input
                 type="text"
                 placeholder={`Search schools (min ${MIN_SEARCH_LENGTH} chars)...`}
@@ -591,43 +583,16 @@ const LastLiquidationDatesPage: React.FC = () => {
           {showFilters && renderFiltersPanel()}
         </div>
 
-        {/* Summary Bar */}
-        {selectedSchools.length > 0 && (
-          <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 mb-6 py-3 px-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {selectedSchools.length} school(s) selected
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  onClick={clearSelection}
-                  variant="outline"
-                  size="sm"
-                  startIcon={<X className="size-4" />}
-                >
-                  Clear Selection
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* School Liquidation Dates Table */}
         <div className="mb-6 mt-8">
           <SchoolLiquidationDatesTable
             schools={sortedSchools}
-            selectedSchools={selectedSchools}
+            selectedSchools={[]}
             editingLiquidationDates={editingLiquidationDates}
             onSaveIndividualLiquidationDate={saveIndividualLiquidationDate}
-            onSchoolSelection={toggleSchoolSelection}
-            onSelectAll={(selected: boolean) => {
-              if (selected) {
-                setSelectedSchools(sortedSchools.map(school => school.schoolId));
-              } else {
-                setSelectedSchools([]);
-              }
-            }}
+            onSchoolSelection={() => {}}
+            onSelectAll={() => {}}
             isFutureMonth={isFutureMonth}
             monthNames={monthNames}
             loading={loading}

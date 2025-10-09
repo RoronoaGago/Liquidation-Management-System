@@ -969,16 +969,32 @@ def check_pending_requests(request):
         status__in=['pending', 'approved']  # Include rejected
     ).order_by('-created_at')
 
-    # Check for liquidations that aren't completed
+    # Check for liquidations that aren't completed (but include recently liquidated ones for completion modal)
     active_liquidations = LiquidationManagement.objects.filter(
         request__user=request.user
-    ).exclude(status='completed').order_by('-created_at')
+    ).exclude(status='liquidated').order_by('-created_at')
+    
+    # Also check for recently liquidated liquidations (within last 24 hours) to show completion modal
+    from datetime import timedelta
+    from django.utils import timezone
+    recent_liquidated = LiquidationManagement.objects.filter(
+        request__user=request.user,
+        status='liquidated',
+        date_liquidated__gte=timezone.now() - timedelta(hours=24)
+    ).order_by('-created_at').first()
+
+    # Determine which liquidation to return (prioritize active, then recent liquidated)
+    liquidation_to_return = None
+    if active_liquidations.exists():
+        liquidation_to_return = active_liquidations.first()
+    elif recent_liquidated:
+        liquidation_to_return = recent_liquidated
 
     response_data = {
         'has_pending_request': user_requests.exists(),
         'has_active_liquidation': active_liquidations.exists(),
         'pending_request': RequestManagementSerializer(user_requests.first()).data if user_requests.exists() else None,
-        'active_liquidation': LiquidationManagementSerializer(active_liquidations.first(), context={'request': request}).data if active_liquidations.exists() else None
+        'active_liquidation': LiquidationManagementSerializer(liquidation_to_return, context={'request': request}).data if liquidation_to_return else None
     }
 
     return Response(response_data)
