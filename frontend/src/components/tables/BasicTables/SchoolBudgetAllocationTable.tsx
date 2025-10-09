@@ -9,7 +9,6 @@ import {
 import {
   Plus,
   CalendarCheck,
-  CalendarX,
   Eye,
   CheckCircle,
   XCircle,
@@ -48,15 +47,8 @@ interface SchoolBudgetAllocationTableProps {
   schools: any[];
   selectedSchools: string[];
   editingBudgets: Record<string, number>;
-  editingLiquidationDates: Record<string, { month: number | null; year: number | null }>;
-  showLiquidationDetails: boolean;
-  onLiquidationDateChange: (schoolId: string, field: 'month' | 'year', value: number | null) => void;
-  onSaveLiquidationDates: (schoolId: string) => void;
   onSaveIndividualBudget: (schoolId: string, yearlyBudget: number) => Promise<void>;
-  canRequestNextMonth: (school: any) => boolean;
   formatCurrency: (value: number) => string;
-  monthNames: string[];
-  isFutureMonth: (monthIndex: number, selectedYear: number | null) => boolean;
   loading?: boolean;
   error?: string | null;
   isSaving?: boolean;
@@ -68,15 +60,8 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
   schools,
   selectedSchools,
   editingBudgets,
-  editingLiquidationDates,
-  showLiquidationDetails,
-  onLiquidationDateChange,
-  onSaveLiquidationDates,
   onSaveIndividualBudget,
-  canRequestNextMonth,
   formatCurrency,
-  monthNames,
-  isFutureMonth,
   loading = false,
   error = null,
   isSaving = false,
@@ -244,45 +229,6 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                   </span>
                 </div>
               </TableCell>
-              {showLiquidationDetails && (
-                <TableCell
-                  isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-                >
-                  <div
-                    className="flex items-center gap-1 cursor-pointer"
-                    onClick={() => requestSort && requestSort("liquidationStatus")}
-                  >
-                    Liquidation Status
-                    <span className="inline-flex flex-col ml-1">
-                      <ChevronUp
-                        className={`h-3 w-3 transition-colors ${
-                          sortConfig?.key === "liquidationStatus" &&
-                          sortConfig.direction === "asc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      />
-                      <ChevronDown
-                        className={`h-3 w-3 -mt-1 transition-colors ${
-                          sortConfig?.key === "liquidationStatus" &&
-                          sortConfig.direction === "desc"
-                            ? "text-primary-500 dark:text-primary-400"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      />
-                    </span>
-                  </div>
-                </TableCell>
-              )}
-              {showLiquidationDetails && (
-                <TableCell
-                  isHeader
-                  className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
-                >
-                  Liquidation Dates
-                </TableCell>
-              )}
               <TableCell
                 isHeader
                 className="px-6 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 uppercase"
@@ -295,7 +241,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={showLiquidationDetails ? 7 : 5}
+                  colSpan={5}
                   className="py-8 text-center text-gray-500"
                 >
                   Loading schools...
@@ -304,7 +250,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={showLiquidationDetails ? 7 : 5}
+                  colSpan={5}
                   className="py-8 text-center text-red-500"
                 >
                   {error}
@@ -313,7 +259,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
             ) : schools.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={showLiquidationDetails ? 7 : 5}
+                  colSpan={5}
                   className="py-8 text-center text-gray-500"
                 >
                   No schools found.
@@ -325,7 +271,6 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                 const prevBudget = Number(school.current_yearly_budget || 0);
                 const currentBudget = editingBudgets[school.schoolId] ?? 0;
                 const difference = currentBudget - prevBudget;
-                const canRequest = canRequestNextMonth(school);
 
                 // Determine status for badge
                 let statusKey = "unallocated";
@@ -408,100 +353,6 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                       </span>
                     </TableCell>
 
-                    {/* Liquidation Status */}
-                    {showLiquidationDetails && (
-                      <TableCell className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium w-fit min-w-[90px] justify-center ${
-                            canRequest
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                              : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                          }`}
-                          style={{
-                            maxWidth: "140px",
-                            whiteSpace: "nowrap",
-                            textOverflow: "ellipsis",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {canRequest ? (
-                            <>
-                              <CheckCircle className="h-4 w-4" />
-                              Eligible
-                            </>
-                          ) : (
-                            <>
-                              <AlertCircle className="h-4 w-4" />
-                              Cannot Request Yet
-                            </>
-                          )}
-                        </span>
-                      </TableCell>
-                    )}
-
-
-                    {/* Liquidation Dates */}
-                    {showLiquidationDetails && (
-                      <TableCell className="px-6 py-4">
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <select
-                                value={editingLiquidationDates[school.schoolId]?.month ?? school.last_liquidated_month ?? ""}
-                                onChange={(e) => onLiquidationDateChange(school.schoolId, 'month', e.target.value ? parseInt(e.target.value) : null)}
-                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
-                                disabled={!school.is_active}
-                              >
-                                <option value="">Month</option>
-                                {monthNames.map((month, index) => {
-                                  const selectedYear = editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? null;
-                                  const futureMonth = isFutureMonth(index, selectedYear);
-                                  
-                                  return (
-                                    <option 
-                                      key={index} 
-                                      value={index + 1}
-                                      disabled={futureMonth}
-                                      style={futureMonth ? { color: '#9CA3AF', fontStyle: 'italic' } : {}}
-                                    >
-                                      {futureMonth ? `${month} (Future)` : month}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            </div>
-                            <div>
-                              <input
-                                type="number"
-                                min="2020"
-                                max={new Date().getFullYear()}
-                                value={editingLiquidationDates[school.schoolId]?.year ?? school.last_liquidated_year ?? ""}
-                                onChange={(e) => {
-                                  const yearValue = e.target.value ? parseInt(e.target.value) : null;
-                                  onLiquidationDateChange(school.schoolId, 'year', yearValue);
-                                }}
-                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
-                                disabled={!school.is_active}
-                                placeholder="Year"
-                              />
-                            </div>
-                          </div>
-                          {(editingLiquidationDates[school.schoolId]?.month !== school.last_liquidated_month || 
-                            editingLiquidationDates[school.schoolId]?.year !== school.last_liquidated_year) && (
-                            <Button
-                              type="button"
-                              onClick={() => onSaveLiquidationDates(school.schoolId)}
-                              variant="primary"
-                              size="sm"
-                              disabled={!school.is_active}
-                              className="px-2 py-1 text-xs h-6"
-                            >
-                              Save
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    )}
                     {/* Actions */}
                     <TableCell className="px-6 py-4">
                       <Button
@@ -530,7 +381,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
 
       {/* Budget Allocation Dialog */}
       <Dialog open={!!selectedSchool} onOpenChange={() => setSelectedSchool(null)}>
-        <DialogContent className="w-full max-w-lg rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+        <DialogContent className="w-full max-w-4xl sm:max-w-4xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
           <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-700/50 rounded-t-xl">
             <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
@@ -567,7 +418,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                     </div>
                     <div className="flex items-start">
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
-                        Location:
+                        District:
                       </span>
                       <span className="text-gray-900 dark:text-white break-all min-w-0">
                         {selectedSchool.municipality}
@@ -744,10 +595,14 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                 <Button
                   variant="primary"
                   onClick={() => setShowSaveConfirm(true)}
-                  disabled={!selectedSchool.is_active || dialogBudget <= 0}
+                  disabled={
+                    !selectedSchool.is_active || 
+                    dialogBudget <= 0 || 
+                    (selectedSchool.hasAllocation && dialogBudget === (editingBudgets[selectedSchool.schoolId] || 0))
+                  }
                   className="order-1 sm:order-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-sm"
                 >
-                  {selectedSchool.hasAllocation ? "Update Allocation" : "Add Allocation"}
+                  {selectedSchool.hasAllocation ? "Update Budget Allocation" : "Add Budget Allocation"}
                 </Button>
               </div>
             </div>
@@ -757,7 +612,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
 
       {/* Save Confirmation Dialog */}
       <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
-        <DialogContent className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+        <DialogContent className="w-full max-w-2xl sm:max-w-2xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
           <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-700/50 rounded-t-xl">
             <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
@@ -793,7 +648,7 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
                   </div>
                   <div className="flex items-start">
                     <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
-                      Location:
+                      District:
                     </span>
                     <span className="text-gray-900 dark:text-white break-all min-w-0">
                       {selectedSchool.municipality}
