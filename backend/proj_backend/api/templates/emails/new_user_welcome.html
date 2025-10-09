@@ -439,7 +439,7 @@
         <!-- Welcome Banner -->
         <div class="welcome-banner">
             <span class="welcome-icon">🎉</span>
-            <div class="welcome-title">Welcome Aboard!</div>
+            <div class="welcome-title">Welcome {{ user.first_name|default:user.username }}!</div>
             <div class="welcome-subtitle">Your account has been successfully created</div>
         </div>
 
