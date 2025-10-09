@@ -156,6 +156,9 @@ const LiquidationPage = () => {
   const [recentLiquidations, setRecentLiquidations] = useState<any[]>([]);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [hasShownCompletionModal, setHasShownCompletionModal] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successCountdown, setSuccessCountdown] = useState(4);
+  const [lastLiquidationId, setLastLiquidationId] = useState<string | null>(null);
   
   // Check if we should show completion modal on initial load
   useEffect(() => {
@@ -306,6 +309,25 @@ const LiquidationPage = () => {
       }
     }
   }, [request?.status, hasShownCompletionModal, loading, request?.id, request?.date_liquidated]);
+
+  // Success dialog countdown timer
+  useEffect(() => {
+    if (showSuccessDialog) {
+      setSuccessCountdown(4);
+      const timer = setInterval(() => {
+        setSuccessCountdown((prev) => {
+          if (prev <= 1) {
+            setShowSuccessDialog(false);
+            navigate("/dashboard");
+            return 4;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [showSuccessDialog, navigate]);
 
   const toggleExpense = (expenseId: string) => {
     setExpandedExpense((prev) =>
@@ -723,7 +745,9 @@ const LiquidationPage = () => {
         localStorage.removeItem(`liquidation_${request.liquidationID}_amounts`);
       }
 
-      toast.success("Liquidation submitted successfully!");
+      // Show success modal instead of toast
+      setLastLiquidationId(request.liquidationID);
+      setShowSuccessDialog(true);
     } catch (error) {
       console.error(error);
       toast.error("Failed to submit liquidation. Please try again.");
@@ -2340,6 +2364,73 @@ const LiquidationPage = () => {
           }}
         />
       )}
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent showCloseButton={false} className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-transparent to-emerald-50/30 dark:from-green-900/10 dark:via-transparent dark:to-emerald-900/5"></div>
+          
+          {/* Main Content Container */}
+          <div className="relative flex flex-col items-center text-center px-10 py-12">
+            {/* Success Icon with Enhanced Animation */}
+            <div className="relative mb-8">
+              {/* Outer Ring Animation */}
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/30 rounded-full scale-125 animate-ping opacity-20"></div>
+              <div className="absolute inset-0 bg-green-200 dark:bg-green-800/40 rounded-full scale-110 animate-pulse"></div>
+              
+              {/* Main Icon Container */}
+              <div className="relative flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full shadow-xl">
+                <CheckCircle className="h-12 w-12 text-white animate-scale-in" />
+              </div>
+              
+              {/* Sparkle Effects */}
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full animate-bounce"></div>
+              <div className="absolute -bottom-2 -left-2 w-3 h-3 bg-blue-400 rounded-full animate-bounce delay-300"></div>
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-150"></div>
+            </div>
+
+            {/* Header Section with Better Typography */}
+            <div className="space-y-4 mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">
+                Liquidation Submitted Successfully
+              </h2>
+              <div className="w-20 h-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mx-auto"></div>
+              <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed max-w-md">
+                Your liquidation request was submitted successfully and is now being processed for review.
+              </p>
+            </div>
+
+            {/* Liquidation ID Section with Enhanced Design */}
+            {lastLiquidationId && (
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl px-6 py-4 border border-green-200 dark:border-green-800 mb-6 w-full max-w-sm">
+                <div className="flex items-center justify-center space-x-2">
+                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                    Liquidation ID:
+                  </span>
+                  <span className="font-mono font-bold text-green-800 dark:text-green-200 bg-green-100 dark:bg-green-800/50 px-3 py-1 rounded-lg text-sm">
+                    {lastLiquidationId}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Status Indicator with Enhanced Design */}
+            <div className="flex items-center justify-center space-x-3 px-6 py-3 bg-green-50 dark:bg-green-900/20 rounded-full border border-green-200 dark:border-green-800">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-base font-medium text-green-700 dark:text-green-300">
+                Redirecting to dashboard in {successCountdown} second{successCountdown !== 1 ? 's' : ''}...
+              </span>
+            </div>
+          </div>
+
+          {/* Enhanced Progress Bar */}
+          <div className="relative h-3 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-full rounded-full transform -translate-x-full animate-progress-smooth"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-full animate-shimmer"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* PDF Preview Dialog */}
       <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
