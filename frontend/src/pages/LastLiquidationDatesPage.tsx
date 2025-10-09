@@ -65,7 +65,6 @@ const LastLiquidationDatesPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalSchools, setTotalSchools] = useState(0);
-  const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [editingLiquidationDates, setEditingLiquidationDates] = useState<{
     [schoolId: string]: { month: number | null; year: number | null };
   }>({});
@@ -212,21 +211,9 @@ const LastLiquidationDatesPage: React.FC = () => {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  const toggleSchoolSelection = (schoolId: string) => {
-    setSelectedSchools((prev) =>
-      prev.includes(schoolId)
-        ? prev.filter((id) => id !== schoolId)
-        : [...prev, schoolId]
-    );
-  };
-
   const sortedSchools = useMemo(() => {
-    return [...schools].sort((a, b) => {
-      const aSelected = selectedSchools.includes(a.schoolId);
-      const bSelected = selectedSchools.includes(b.schoolId);
-      return aSelected === bSelected ? 0 : aSelected ? -1 : 1;
-    });
-  }, [schools, selectedSchools]);
+    return [...schools];
+  }, [schools]);
 
   const totalPages = Math.ceil(totalSchools / itemsPerPage);
   const goToPage = (page: number) => {
@@ -234,9 +221,6 @@ const LastLiquidationDatesPage: React.FC = () => {
   };
 
 
-  const clearSelection = () => {
-    setSelectedSchools([]);
-  };
 
   const validateLiquidationDate = (month: number | null, year: number | null): string | null => {
     if (!month || !year) return null;
@@ -539,7 +523,7 @@ const LastLiquidationDatesPage: React.FC = () => {
         {/* Search and Controls */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="relative w-full md:w-1/2">
+            <div className="relative w-full md:flex-1">
               <Input
                 type="text"
                 placeholder={`Search schools (min ${MIN_SEARCH_LENGTH} chars)...`}
@@ -591,43 +575,16 @@ const LastLiquidationDatesPage: React.FC = () => {
           {showFilters && renderFiltersPanel()}
         </div>
 
-        {/* Summary Bar */}
-        {selectedSchools.length > 0 && (
-          <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 mb-6 py-3 px-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {selectedSchools.length} school(s) selected
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  onClick={clearSelection}
-                  variant="outline"
-                  size="sm"
-                  startIcon={<X className="size-4" />}
-                >
-                  Clear Selection
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* School Liquidation Dates Table */}
         <div className="mb-6 mt-8">
           <SchoolLiquidationDatesTable
             schools={sortedSchools}
-            selectedSchools={selectedSchools}
+            selectedSchools={[]}
             editingLiquidationDates={editingLiquidationDates}
             onSaveIndividualLiquidationDate={saveIndividualLiquidationDate}
-            onSchoolSelection={toggleSchoolSelection}
-            onSelectAll={(selected: boolean) => {
-              if (selected) {
-                setSelectedSchools(sortedSchools.map(school => school.schoolId));
-              } else {
-                setSelectedSchools([]);
-              }
-            }}
+            onSchoolSelection={() => {}}
+            onSelectAll={() => {}}
             isFutureMonth={isFutureMonth}
             monthNames={monthNames}
             loading={loading}
