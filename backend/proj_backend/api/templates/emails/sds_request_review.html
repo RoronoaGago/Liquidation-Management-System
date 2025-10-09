@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Request Notification - MOOE Liquidation Management System</title>
+    <style>
+        /* Base Styles - Same as OTP template */
+        body {
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #334155;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Header Section */
+        .header {
+            background: linear-gradient(
+                135deg,
+                #094684 0%,
+                #dd1f2f 50%,
+                #fbaf3d 100%
+            );
+            color: #fff;
+            text-align: center;
+            padding: 40px 0 30px 0;
+            position: relative;
+        }
+        .header:after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .header img {
+            max-height: 70px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        }
+        .company-name {
+            font-size: 1.75em;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        .company-subtitle {
+            font-size: 1em;
+            opacity: 0.9;
+            font-weight: 400;
+            margin-top: 5px;
+        }
+
+        /* Content Section */
+        .content {
+            padding: 40px;
+        }
+        .greeting {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #1e293b;
+        }
+        .intro-text {
+            margin-bottom: 30px;
+            color: #475569;
+            font-size: 1.05em;
+        }
+
+        /* Request Section */
+        .request-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+            border-left: 5px solid #094684;
+            box-shadow: 0 4px 12px rgba(9, 70, 132, 0.1);
+        }
+        .request-title {
+            font-size: 1.25em;
+            font-weight: 700;
+            color: #094684;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .request-title:before {
+            content: "📥";
+            margin-right: 10px;
+            font-size: 1.3em;
+        }
+        .request-details {
+            background: #fff;
+            border: 2px solid #094684;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #475569;
+        }
+        .detail-value {
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        /* Action Section */
+        .action-section {
+            background: linear-gradient(135deg, #f0fff4 0%, #dcfce7 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 30px 0;
+            border-left: 5px solid #16a34a;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.1);
+        }
+        .action-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: #166534;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .action-title:before {
+            content: "📋";
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        .action-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #094684 0%, #1e60a5 100%);
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        /* Signature */
+        .signature {
+            margin-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 25px;
+        }
+        .signature p {
+            margin: 8px 0;
+        }
+        .signature-name {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 1.1em;
+        }
+
+        /* Footer */
+        .footer {
+            background: #f1f5f9;
+            color: #64748b;
+            text-align: center;
+            padding: 30px 25px;
+            font-size: 0.85em;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer p {
+            margin: 8px 0;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 10px;
+            }
+            .content {
+                padding: 25px;
+            }
+            .greeting {
+                font-size: 1.3em;
+            }
+            .request-details {
+                padding: 15px;
+            }
+            .detail-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-container">
+                <img src="{{ deped_logo_base64 }}" alt="DepEd Logo" />
+            </div>
+            <div class="company-name">MOOE Liquidation Management System</div>
+            <div class="company-subtitle">
+                Department of Education, La Union Schools Division
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="greeting">
+                Dear {{ user.first_name|default:user.username }},
+            </div>
+
+            <p class="intro-text">
+                A new request has been submitted and requires your attention. Please review the details below:
+            </p>
+
+            <!-- Request Section -->
+            <div class="request-section">
+                <div class="request-title">New Request Submitted</div>
+                <div class="request-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Request ID:</span>
+                        <span class="detail-value">{{ object.request_id }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Requestor:</span>
+                        <span class="detail-value">{{ object.user.get_full_name }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Month/Year:</span>
+                        <span class="detail-value">{{ object.request_monthyear }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Submission Date:</span>
+                        <span class="detail-value">{{ object.created_at|date:"F d, Y" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Section -->
+            <div class="action-section">
+                <div class="action-title">Required Action</div>
+                <p style="color: #166534; margin-bottom: 15px;">
+                    ✅ Please log in to the system to review this request and take appropriate action.
+                </p>
+                <div style="text-align: center;">
+                    <a href="{{ login_url }}" class="action-button">
+                        Review Request
+                    </a>
+                </div>
+            </div>
+
+            <div class="signature">
+                <p>Best regards,</p>
+                <p class="signature-name">System Administration Team</p>
+                <p>
+                    Liquidation Management System<br />
+                    Department of Education - La Union Schools Division
+                </p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>
+                &copy; {{ now|date:"Y" }} La Union Schools Division Office. All rights
+                reserved.
+            </p>
+            <p>This is an automated system message. Please do not reply to this email.</p>
+            <p>If you need assistance, contact your system administrator immediately.</p>
+        </div>
+    </div>
+</body>
+</html>
