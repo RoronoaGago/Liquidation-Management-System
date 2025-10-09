@@ -319,7 +319,7 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
 
       {/* Edit Liquidation Date Dialog */}
       <Dialog open={!!selectedSchool} onOpenChange={handleCancel}>
-        <DialogContent className="w-full max-w-4xl sm:max-w-4xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+        <DialogContent className="w-full max-w-2xl sm:max-w-2xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
           <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-700/50 rounded-t-xl">
             <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
@@ -341,60 +341,47 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
           </DialogHeader>
 
           {selectedSchool && (
-            <div className="px-6 py-6 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+            <div className="px-6 py-6 space-y-6">
               {/* School Info Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <div className="flex items-start">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
-                        School:
-                      </span>
-                      <span className="text-gray-900 dark:text-white break-all min-w-0">
-                        {selectedSchool.schoolName}
-                      </span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
-                        District:
-                      </span>
-                      <span className="text-gray-900 dark:text-white break-all min-w-0">
-                        {selectedSchool.district?.districtName || 'No district'}
-                      </span>
-                    </div>
+                <div className="space-y-3">
+                  <div className="flex items-start">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
+                      School:
+                    </span>
+                    <span className="text-gray-900 dark:text-white break-all min-w-0">
+                      {selectedSchool.schoolName}
+                    </span>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
-                        Status:
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium w-fit min-w-[90px] justify-center bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                        <CheckCircle className="h-4 w-4" />
-                        Active
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
-                        Current:
-                      </span>
-                      <span className="text-sm font-mono text-gray-900 dark:text-white">
-                        {formatLiquidationDate(selectedSchool.last_liquidated_month, selectedSchool.last_liquidated_year)}
-                      </span>
-                    </div>
+                  <div className="flex items-start">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
+                      District:
+                    </span>
+                    <span className="text-gray-900 dark:text-white break-all min-w-0">
+                      {selectedSchool.district?.districtName || 'No district'}
+                    </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Current Liquidation Date */}
+              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Current Date:</span>
+                <span className="text-sm font-mono text-gray-900 dark:text-white">
+                  {formatLiquidationDate(selectedSchool.last_liquidated_month, selectedSchool.last_liquidated_year)}
+                </span>
               </div>
 
               {/* Liquidation Date Input Section */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Last Liquidation Month
                   </label>
                   <select
                     value={dialogMonth ?? ""}
                     onChange={(e) => setDialogMonth(e.target.value ? parseInt(e.target.value) : null)}
-                    className={`h-14 w-full appearance-none rounded-lg border-2 bg-transparent px-4 py-3 pr-11 text-lg font-medium shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
+                    className={`h-12 w-full appearance-none rounded-lg border-2 bg-transparent px-4 py-3 pr-11 text-base font-medium shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
                       validationError && dialogMonth 
                         ? 'border-red-300 focus:border-red-500 dark:border-red-600' 
                         : 'border-gray-300 focus:border-brand-300 dark:border-gray-700 dark:focus:border-brand-800'
@@ -419,7 +406,7 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Last Liquidation Year
                   </label>
                   <input
@@ -431,7 +418,7 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
                       const yearValue = e.target.value ? parseInt(e.target.value) : null;
                       setDialogYear(yearValue);
                     }}
-                    className={`h-14 w-full appearance-none rounded-lg border-2 bg-transparent px-4 py-3 text-lg font-medium shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
+                    className={`h-12 w-full appearance-none rounded-lg border-2 bg-transparent px-4 py-3 text-base font-medium shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
                       validationError && dialogYear 
                         ? 'border-red-300 focus:border-red-500 dark:border-red-600' 
                         : 'border-gray-300 focus:border-brand-300 dark:border-gray-700 dark:focus:border-brand-800'
@@ -443,28 +430,15 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
 
                 {/* Validation Error Message */}
                 {validationError && (
-                  <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0" />
-                    <span className="text-base text-red-700 dark:text-red-300">{validationError}</span>
+                  <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-400 flex-shrink-0" />
+                    <span className="text-sm text-red-700 dark:text-red-300">{validationError}</span>
                   </div>
                 )}
-
-                {/* Help Text */}
-                <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <Info className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div className="text-base text-blue-700 dark:text-blue-300">
-                    <p className="font-semibold mb-2">Important Guidelines:</p>
-                    <ul className="list-disc list-inside space-y-1 text-sm">
-                      <li>Only past liquidation dates can be set</li>
-                      <li>Future dates are automatically disabled</li>
-                      <li>This date will be used to calculate liquidation status</li>
-                    </ul>
-                  </div>
-                </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button
                   variant="outline"
                   onClick={handleCancel}
@@ -473,24 +447,13 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
                 >
                   Cancel
                 </Button>
-                {hasChanges && (
-                  <Button
-                    variant="outline"
-                    onClick={handleResetChanges}
-                    disabled={isSaving}
-                    startIcon={<RotateCcw className="h-4 w-4" />}
-                    className="order-3 sm:order-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-                  >
-                    Reset
-                  </Button>
-                )}
                 <Button
                   variant="primary"
                   onClick={() => setShowSaveConfirm(true)}
                   disabled={!selectedSchool.is_active || isSaving || !hasChanges || !!validationError}
-                  className="order-1 sm:order-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-sm"
+                  className="order-1 sm:order-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-sm"
                 >
-                  {isSaving ? "Saving..." : "Save Changes"}
+                  {isSaving ? "Saving..." : "Update Liquidation Date"}
                 </Button>
               </div>
             </div>
@@ -500,60 +463,64 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
 
       {/* Save Confirmation Dialog */}
       <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
-        <DialogContent className="w-full max-w-md sm:max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+        <DialogContent className="w-full max-w-2xl sm:max-w-2xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
           <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-gray-50 dark:from-blue-900/20 dark:to-gray-800 rounded-t-xl">
             <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
                 <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
-              Confirm Changes
+              Confirm Liquidation Date Update
             </DialogTitle>
             <DialogDescription className="text-gray-600 dark:text-gray-400 mt-2">
-              Please review the changes before saving
+              {selectedSchool && `Are you sure you want to update the liquidation date for ${selectedSchool.schoolName}?`}
             </DialogDescription>
           </DialogHeader>
 
           {selectedSchool && (
-            <div className="px-6 py-6 space-y-4">
-              {/* School Info */}
+            <div className="px-6 py-6 space-y-6">
+              {/* School Info Card */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/50 dark:bg-gray-900/30 shadow-sm">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">School:</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{selectedSchool.schoolName}</span>
+                <div className="space-y-3">
+                  <div className="flex items-start">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
+                      School:
+                    </span>
+                    <span className="text-gray-900 dark:text-white break-all min-w-0">
+                      {selectedSchool.schoolName}
+                    </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">District:</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{selectedSchool.district?.districtName || 'No district'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Date Comparison */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Date Changes</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Current</div>
-                    <div className="text-sm font-mono text-gray-900 dark:text-white">
-                      {formatLiquidationDate(originalMonth, originalYear)}
-                    </div>
-                  </div>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">New</div>
-                    <div className="text-sm font-mono font-semibold text-blue-900 dark:text-blue-100">
-                      {formatLiquidationDate(dialogMonth, dialogYear)}
-                    </div>
+                  <div className="flex items-start">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 w-24 flex-shrink-0">
+                      District:
+                    </span>
+                    <span className="text-gray-900 dark:text-white break-all min-w-0">
+                      {selectedSchool.district?.districtName || 'No district'}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Impact Notice */}
-              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <Info className="h-4 w-4 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-700 dark:text-amber-300">
-                  <p className="font-medium mb-1">Impact:</p>
-                  <p className="text-xs">This will update the school's liquidation status.</p>
+              {/* Date Details */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Current Date:</span>
+                  <span className="text-sm font-mono text-gray-900 dark:text-white">
+                    {formatLiquidationDate(originalMonth, originalYear)}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800/30">
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">New Date:</span>
+                  <span className="text-sm font-mono font-semibold text-blue-900 dark:text-blue-100">
+                    {formatLiquidationDate(dialogMonth, dialogYear)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800/30">
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Impact:</span>
+                  <span className="text-sm font-mono font-semibold text-amber-900 dark:text-amber-100">
+                    Liquidation status will be updated
+                  </span>
                 </div>
               </div>
             </div>
@@ -574,7 +541,7 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
               disabled={isSaving}
               className="order-1 sm:order-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-sm"
             >
-              {isSaving ? "Saving..." : "Confirm Save"}
+              {isSaving ? "Saving..." : "Confirm Update"}
             </Button>
           </div>
         </DialogContent>
@@ -582,7 +549,7 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
 
       {/* Cancel Confirmation Dialog */}
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <DialogContent className="w-full max-w-md sm:max-w-md rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
+        <DialogContent className="w-full max-w-2xl sm:max-w-2xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden">
           <DialogHeader className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-red-50 to-gray-50 dark:from-red-900/20 dark:to-gray-800 rounded-t-xl">
             <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-lg flex items-center justify-center">
@@ -595,7 +562,7 @@ const SchoolLiquidationDatesTable: React.FC<SchoolLiquidationDatesTableProps> = 
             </DialogDescription>
           </DialogHeader>
 
-          <div className="px-6 py-6 space-y-4">
+          <div className="px-6 py-6 space-y-6">
             <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
               <Info className="h-4 w-4 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-amber-700 dark:text-amber-300">
