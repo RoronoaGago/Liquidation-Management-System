@@ -2,7 +2,7 @@ from django.urls import path
 from django.http import JsonResponse
 from . import views
 from .views import ProtectedView, CustomTokenObtainPairView, batch_update_school_budgets, CustomTokenRefreshView, SchoolDistrictListCreateAPIView, SchoolDistrictRetrieveUpdateDestroyAPIView, archive_school_district, schools_with_unliquidated_requests, admin_dashboard, update_e_signature, generate_approved_request_pdf, generate_demand_letter, initiate_backup, initiate_restore, list_backups, school_head_dashboard, BudgetAllocationListCreateAPIView, BudgetAllocationRetrieveUpdateDestroyAPIView, check_yearly_budget_status, batch_create_budget_allocations, get_first_monday_january_info, update_school_liquidation_dates
-from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure
+from .improved_otp_views import request_otp_secure, verify_otp_secure, resend_otp_secure, get_otp_config, get_otp_security_report
 from .password_reset_views import request_password_reset_otp, verify_password_reset_otp, reset_password_with_token
 
 # Debug wrapper for update_e_signature
@@ -73,6 +73,8 @@ urlpatterns = [
     path('request-otp-secure/', request_otp_secure, name='request-otp-secure'),
     path('verify-otp-secure/', verify_otp_secure, name='verify-otp-secure'),
     path('resend-otp-secure/', resend_otp_secure, name='resend-otp-secure'),
+    path('otp-config/', get_otp_config, name='get-otp-config'),
+    path('otp-security-report/', get_otp_security_report, name='get-otp-security-report'),
     
     # Password Reset Endpoints
     path('forgot-password/', request_password_reset_otp, name='request-password-reset-otp'),

@@ -174,7 +174,7 @@ export default function SignInForm() {
                 Sending OTP...
               </>
             ) : (
-              "Send OTP"
+              "Login"
             )}
           </button>
 
