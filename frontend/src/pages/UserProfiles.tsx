@@ -13,10 +13,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { EyeIcon, Loader2 } from "lucide-react";
+import { EyeIcon, Loader2, UploadIcon } from "lucide-react";
 import { User } from "@/lib/types";
 import Label from "@/components/form/Label";
 import axios from "axios";
+import { updateESignature } from "@/api/user";
 
 interface FormErrors {
   first_name?: string;
@@ -50,12 +51,20 @@ export default function UserProfiles() {
   const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
 
   // Required fields for editing
   const requiredFields = ["first_name", "last_name", "username", "email"];
 
   // Get auth context
   const { user, updateUser } = useAuth();
+
+  // Check if user role requires signature
+  const requiresSignature = (userRole: string) => {
+    return ["school_head", "superintendent", "accountant"].includes(userRole);
+  };
 
   // Check if form is valid
   const isFormValid = useMemo(() => {
@@ -123,6 +132,71 @@ export default function UserProfiles() {
       setIsDialogOpen(true);
     }
   };
+
+  // Handle signature file selection
+  const handleSignatureFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type and size
+      const validTypes = ["image/jpeg", "image/jpg", "image/png"];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (!validTypes.includes(file.type)) {
+        toast.error("Please upload a JPG, JPEG, or PNG file");
+        return;
+      }
+
+      if (file.size > maxSize) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+
+      setSignatureFile(file);
+      setSignaturePreview(URL.createObjectURL(file));
+    }
+  };
+
+  // Handle signature upload
+  const handleSignatureUpload = async () => {
+    if (!signatureFile) {
+      toast.error("Please select a signature file");
+      return;
+    }
+
+    setIsUploadingSignature(true);
+    try {
+      await updateESignature(signatureFile);
+      
+      // Refresh user data to get updated signature
+      const response = await api.get(`users/${user?.user_id}/`);
+      setDisplayUser(response.data);
+      setEditUser({ ...response.data, password: "" });
+      
+      // Update auth context if this is the current user
+      if (user?.user_id === response.data.id) {
+        updateUser({
+          user_id: response.data.id,
+          first_name: response.data.first_name,
+          last_name: response.data.last_name,
+          email: response.data.email,
+          phone_number: response.data.phone_number,
+          role: response.data.role,
+          profile_picture: response.data.profile_picture,
+          e_signature: response.data.e_signature,
+        });
+      }
+
+      toast.success("Signature uploaded successfully!");
+      setSignatureFile(null);
+      setSignaturePreview(null);
+    } catch (error) {
+      console.error("Signature upload error:", error);
+      toast.error("Failed to upload signature. Please try again.");
+    } finally {
+      setIsUploadingSignature(false);
+    }
+  };
+
 
 
   // Handle form field changes with validation
@@ -411,6 +485,95 @@ export default function UserProfiles() {
               </>
             )}
           </div>
+
+          {/* E-Signature Section - Only show for roles that require signatures */}
+          {displayUser && requiresSignature(displayUser.role) && (
+            <>
+              <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
+              <div className="px-2">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                    E-Signature
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('signature-upload')?.click()}
+                  >
+                    <UploadIcon className="w-4 h-4 mr-1" />
+                    {displayUser.e_signature ? "Change" : "Upload"}
+                  </Button>
+                </div>
+                
+                <input
+                  type="file"
+                  id="signature-upload"
+                  accept="image/jpeg,image/jpg,image/png"
+                  onChange={handleSignatureFileChange}
+                  className="hidden"
+                />
+
+                {signaturePreview ? (
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                      <img
+                        src={signaturePreview}
+                        alt="Signature preview"
+                        className="max-w-full max-h-32 object-contain mx-auto"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={handleSignatureUpload}
+                        disabled={isUploadingSignature}
+                      >
+                        {isUploadingSignature ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          "Upload Signature"
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSignatureFile(null);
+                          setSignaturePreview(null);
+                          const fileInput = document.getElementById('signature-upload') as HTMLInputElement;
+                          if (fileInput) fileInput.value = "";
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : displayUser.e_signature ? (
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                    <img
+                      src={`http://127.0.0.1:8000${displayUser.e_signature}`}
+                      alt="Current signature"
+                      className="max-w-full max-h-32 object-contain mx-auto"
+                    />
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                    <UploadIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      No signature uploaded. Click "Upload" to add your e-signature.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Edit User Dialog */}
@@ -677,6 +840,7 @@ export default function UserProfiles() {
             </div>
           </DialogContent>
         </Dialog>
+
       </div>
     </>
   );

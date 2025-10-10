@@ -51,6 +51,7 @@ export type User = {
   school_district_id?: string;
   school: School | null;
   profile_picture_base64?: string;
+  e_signature?: string;
 };
 export type SortDirection = "asc" | "desc" | null;
 export type SortableField = keyof Pick<

@@ -23,6 +23,8 @@ import Badge  from "@/components/ui/badge/Badge";
 import { Skeleton } from "antd";
 import api from "@/api/axios";
 import { useNavigate } from "react-router-dom";
+import YearlyBudgetModal from "@/components/modals/YearlyBudgetModal";
+import { useYearlyBudgetModal } from "@/hooks/useYearlyBudgetModal";
 
 // Types for our data
 interface DivisionAccountantDashboardData {
@@ -80,6 +82,15 @@ const DivisionAccountantDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
+  
+  // Yearly Budget Modal hook
+  const {
+    isModalOpen,
+    budgetStatus,
+    handleProceed,
+    handleDoLater,
+    handleClose,
+  } = useYearlyBudgetModal();
 
   useEffect(() => {
     fetchDashboardData();
@@ -927,6 +938,19 @@ const DivisionAccountantDashboard = () => {
       </div>
 
       </div>
+      
+      {/* Yearly Budget Modal */}
+      {budgetStatus && (
+        <YearlyBudgetModal
+          isOpen={isModalOpen}
+          onClose={handleClose}
+          onProceed={handleProceed}
+          onDoLater={handleDoLater}
+          currentYear={budgetStatus.current_year}
+          schoolsWithoutBudget={budgetStatus.schools_without_budget}
+          totalSchools={budgetStatus.total_schools}
+        />
+      )}
     </div>
   );
 };
