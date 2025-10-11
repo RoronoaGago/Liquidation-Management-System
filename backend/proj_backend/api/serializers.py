@@ -187,6 +187,24 @@ class SchoolSerializer(serializers.ModelSerializer):
     def get_current_yearly_budget(self, obj):
         return obj.get_yearly_budget()
 
+    def to_representation(self, instance):
+        """Override to include district information in the response"""
+        data = super().to_representation(instance)
+        
+        # If district exists, include district details
+        if instance.district:
+            data['district'] = {
+                'districtId': instance.district.districtId,
+                'districtName': instance.district.districtName,
+                'municipality': instance.district.municipality,
+                'legislativeDistrict': instance.district.legislativeDistrict,
+                'is_active': instance.district.is_active
+            }
+        else:
+            data['district'] = None
+            
+        return data
+
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture_base64 = serializers.CharField(
