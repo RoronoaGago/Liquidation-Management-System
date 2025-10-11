@@ -4,6 +4,7 @@ import { ArrowLeftIcon, MailIcon, Clock, RefreshCw, AlertTriangle } from 'lucide
 import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import { validateEmail } from '../../lib/helpers';
+import { fetchOTPConfig, validateOTPConfig, getOTPLifetimeSeconds, type OTPConfig } from '../../api/otpConfig';
 
 interface PasswordResetModalProps {
   isOpen: boolean;
@@ -29,11 +30,34 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [errorType, setErrorType] = useState<'error' | 'warning' | 'info'>('error');
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(300); // Default 5 minutes in seconds
   const [resendCooldown, setResendCooldown] = useState(0);
   const [emailError, setEmailError] = useState('');
+  const [otpConfig, setOtpConfig] = useState<OTPConfig | null>(null);
   const inputRefs = useRef<HTMLInputElement[]>([]);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch OTP configuration from backend
+  useEffect(() => {
+    const loadOTPConfig = async () => {
+      try {
+        const config = await fetchOTPConfig();
+        if (validateOTPConfig(config)) {
+          setOtpConfig(config);
+          setTimeLeft(getOTPLifetimeSeconds(config));
+          console.log('✅ Password Reset OTP Configuration loaded:', config);
+        } else {
+          console.error('❌ Password Reset OTP Configuration validation failed');
+          // Keep default 5-minute configuration
+        }
+      } catch (error) {
+        console.error('Failed to load OTP configuration for password reset:', error);
+        // Keep default 5-minute configuration
+      }
+    };
+
+    loadOTPConfig();
+  }, []);
 
   // Countdown timer
   useEffect(() => {
@@ -111,7 +135,9 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
       
       console.log('🔄 PasswordResetModal: OTP request successful, moving to OTP step');
       setCurrentStep('otp');
-      setTimeLeft(300); // Reset timer
+      // Reset timer using dynamic configuration
+      const expiryTime = otpConfig ? getOTPLifetimeSeconds(otpConfig) : 300;
+      setTimeLeft(expiryTime);
     } catch (err: any) {
       console.error('🔄 PasswordResetModal: OTP request failed', {
         error: err.message,
@@ -255,7 +281,9 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     setResendCooldown(60); // 60 seconds cooldown
     setError('');
     setErrorType('error');
-    setTimeLeft(300); // Reset OTP expiry timer
+    // Reset OTP expiry timer using dynamic configuration
+    const expiryTime = otpConfig ? getOTPLifetimeSeconds(otpConfig) : 300;
+    setTimeLeft(expiryTime);
 
     try {
       await requestPasswordResetOTP(email);
@@ -303,7 +331,9 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     setErrorType('error');
     setEmailError('');
     setIsLoading(false);
-    setTimeLeft(300);
+    // Reset timer using dynamic configuration
+    const expiryTime = otpConfig ? getOTPLifetimeSeconds(otpConfig) : 300;
+    setTimeLeft(expiryTime);
     setResendCooldown(0);
     // Clear any pending debounce timeout
     if (debounceTimeout.current) {
@@ -319,7 +349,9 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     setError('');
     setErrorType('error');
     setEmailError('');
-    setTimeLeft(300);
+    // Reset timer using dynamic configuration
+    const expiryTime = otpConfig ? getOTPLifetimeSeconds(otpConfig) : 300;
+    setTimeLeft(expiryTime);
     setResendCooldown(0);
     // Clear any pending debounce timeout
     if (debounceTimeout.current) {

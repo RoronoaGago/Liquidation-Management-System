@@ -4,6 +4,7 @@ import { ArrowLeft, Mail, RefreshCw, AlertTriangle, Clock } from "lucide-react";
 import Button from "./ui/button/Button";
 import { toast } from "react-toastify";
 import { verifyOTP, resendOTP } from "@/api/axios";
+import { fetchOTPConfig, validateOTPConfig, getOTPLifetimeSeconds, type OTPConfig } from "@/api/otpConfig";
 
 interface OTPVerificationProps {
   email: string;
@@ -28,8 +29,31 @@ export default function OTPVerification({
   const [errorType, setErrorType] = useState<'error' | 'warning' | 'info'>('error');
   const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [lockoutTime, setLockoutTime] = useState(0);
-  const [otpExpiry, setOtpExpiry] = useState(5 * 60); // 5 minutes in seconds
+  const [otpExpiry, setOtpExpiry] = useState(5 * 60); // Default 5 minutes in seconds
+  const [otpConfig, setOtpConfig] = useState<OTPConfig | null>(null);
   const inputRefs = useRef<HTMLInputElement[]>([]);
+
+  // Fetch OTP configuration from backend
+  useEffect(() => {
+    const loadOTPConfig = async () => {
+      try {
+        const config = await fetchOTPConfig();
+        if (validateOTPConfig(config)) {
+          setOtpConfig(config);
+          setOtpExpiry(getOTPLifetimeSeconds(config));
+          console.log('✅ OTP Configuration loaded:', config);
+        } else {
+          console.error('❌ OTP Configuration validation failed');
+          // Keep default 5-minute configuration
+        }
+      } catch (error) {
+        console.error('Failed to load OTP configuration:', error);
+        // Keep default 5-minute configuration
+      }
+    };
+
+    loadOTPConfig();
+  }, []);
 
   // Set up resend cooldown timer
   useEffect(() => {
@@ -212,7 +236,9 @@ export default function OTPVerification({
     setResendCooldown(60); // 60 seconds cooldown
     setError(""); // Clear any previous errors
     setErrorType('error');
-    setOtpExpiry(5 * 60); // Reset OTP expiry timer
+    // Reset OTP expiry timer using dynamic configuration
+    const expiryTime = otpConfig ? getOTPLifetimeSeconds(otpConfig) : 5 * 60;
+    setOtpExpiry(expiryTime);
 
     try {
       await resendOTP(email);

@@ -1,5 +1,5 @@
 """
-Enhanced OTP Security Implementation
+Enhanced OTP Security Implementation - Strict 5-Minute Policy
 """
 import secrets
 import hashlib
@@ -10,19 +10,20 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.conf import settings
 import logging
+from .otp_config import OTP_CONFIG, get_otp_lifetime_minutes
 
 logger = logging.getLogger(__name__)
 
 class OTPSecurityManager:
     """Enhanced OTP security manager with rate limiting and attempt tracking"""
     
-    # Configuration constants
-    OTP_LENGTH = 6
-    OTP_LIFETIME_MINUTES = 5
-    MAX_ATTEMPTS_PER_IP = 100  # Per hour
-    MAX_ATTEMPTS_PER_USER = 100  # Per hour
-    MAX_FAILED_VERIFICATIONS = 5  # Per OTP
-    ACCOUNT_LOCKOUT_MINUTES = 15
+    # Configuration constants - Now using centralized config
+    OTP_LENGTH = OTP_CONFIG['OTP_LENGTH']
+    OTP_LIFETIME_MINUTES = OTP_CONFIG['OTP_LIFETIME_MINUTES']  # Always 5 minutes
+    MAX_ATTEMPTS_PER_IP = OTP_CONFIG['MAX_ATTEMPTS_PER_IP_PER_HOUR']
+    MAX_ATTEMPTS_PER_USER = OTP_CONFIG['MAX_ATTEMPTS_PER_USER_PER_HOUR']
+    MAX_FAILED_VERIFICATIONS = OTP_CONFIG['MAX_FAILED_VERIFICATIONS_PER_OTP']
+    ACCOUNT_LOCKOUT_MINUTES = OTP_CONFIG['ACCOUNT_LOCKOUT_MINUTES']
     
     @staticmethod
     def generate_secure_otp():
@@ -139,12 +140,28 @@ class OTPSecurityManager:
     
     @staticmethod
     def is_otp_expired(generated_at):
-        """Check if OTP has expired"""
+        """Check if OTP has expired with strict 5-minute validation"""
         if not generated_at:
             return True
         
-        expiry_time = generated_at + timedelta(minutes=OTPSecurityManager.OTP_LIFETIME_MINUTES)
+        # Use centralized config with runtime validation
+        lifetime_minutes = get_otp_lifetime_minutes()
+        expiry_time = generated_at + timedelta(minutes=lifetime_minutes)
         return timezone.now() > expiry_time
+    
+    @staticmethod
+    def get_otp_lifetime_seconds():
+        """Get OTP lifetime in seconds with validation"""
+        return get_otp_lifetime_minutes() * 60
+    
+    @staticmethod
+    def validate_otp_lifetime():
+        """Runtime validation of OTP lifetime"""
+        lifetime = get_otp_lifetime_minutes()
+        if lifetime != 5:
+            logger.error(f"SECURITY ALERT: OTP lifetime validation failed - expected 5 minutes, got {lifetime}")
+            return False
+        return True
 
 
 def get_client_ip(request):
