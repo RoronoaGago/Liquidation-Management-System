@@ -137,9 +137,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         );
         setESignatureRequired(requiresESignature);
 
-        // For new users, show re-login modal instead of continuing setup flow
+        // For new users, redirect to login page and show re-login modal there
         if (isNewUser) {
-          showReLoginModal(true);
+          // Store user data for modal display before clearing state
+          const userDataForModal = newUserData;
+          
+          // Clear authentication state and redirect to login
+          SecureStorage.clearTokens();
+          api.defaults.headers.common["Authorization"] = "";
+          setIsAuthenticated(false);
+          setUser(null);
+          setPasswordChangeRequired(false);
+          setESignatureRequired(false);
+          setSetupFlowActive(false);
+          setIsNewUser(false);
+          setInactivityModalShown(false);
+          setIsShowingLogoutModal(false);
+          setIsInitialized(false);
+          localStorage.removeItem('app_initialized');
+          
+          // Navigate to login page first
+          navigate('/login');
+          
+          // Show re-login modal after navigation with preserved user data
+          setTimeout(() => {
+            // Temporarily set user data for modal display
+            setUser(userDataForModal);
+            showReLoginModal(true);
+          }, 300);
         } else if (requiresESignature) {
           setSetupFlowActive(true);
         } else {
@@ -195,8 +220,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Clear initialization flag
     localStorage.removeItem('app_initialized');
     
-    // Navigate to login
-    navigate('/login');
+    // Navigate to login (if not already there)
+    if (window.location.pathname !== '/login') {
+      navigate('/login');
+    }
   };
 
   const showAutoLogoutModal = (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user') => {
