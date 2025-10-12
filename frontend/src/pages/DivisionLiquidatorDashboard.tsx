@@ -56,6 +56,10 @@ interface DivisionCompletionData {
   pendingLiquidations: number;
   rejectedLiquidations: number;
   completionRate: number;
+  // School-based counts for pie chart
+  schoolsWithLiquidatedLiquidations: number;
+  schoolsWithPendingLiquidations: number;
+  schoolsWithRejectedLiquidations: number;
 }
 
 interface LiquidationTimelineData {
@@ -92,56 +96,71 @@ const DivisionLiquidatorDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Fetch all liquidations for district ADA - use same approach as LiquidationReportPage
+      // Fetch all liquidations - handle pagination to get all liquidations
       // For dashboard, we need ALL liquidations regardless of status to calculate completion rates
-      const liquidationsRes = await api.get("liquidations/", {
-        params: { 
-          page_size: 1000,
-          ordering: "-created_at",
-          // Explicitly request all statuses to bypass role-based filtering
-          status: "draft,submitted,under_review_district,under_review_liquidator,under_review_division,resubmit,approved_district,approved_liquidator,liquidated"
-        }
-      });
-      const liquidations = liquidationsRes.data || [];
+      let allLiquidations: any[] = [];
+      let liqPage = 1;
+      let hasMoreLiqPages = true;
       
-      // Debug: Log the liquidation data structure
-      console.log("Liquidations API response:", liquidationsRes);
-      console.log("Liquidations data:", liquidations);
-      console.log("Sample liquidation structure:", liquidations[0]);
-
-      // Fetch all schools - handle pagination to get all schools
-      let allSchools: any[] = [];
-      let totalSchoolsFromAPI = 0;
-      let currentPage = 1;
-      const pageSize = 100; // API max_page_size is 100
-      
-      while (true) {
-        const schoolsRes = await api.get("schools/", {
+      while (hasMoreLiqPages) {
+        const liquidationsRes = await api.get("liquidations/", {
           params: { 
-            page: currentPage,
-            page_size: pageSize
+            page_size: 100, // Use max allowed page size
+            page: liqPage,
+            ordering: "-created_at",
+            // Explicitly request all statuses to bypass role-based filtering
+            status: "draft,submitted,under_review_district,under_review_liquidator,under_review_division,resubmit,approved_district,approved_liquidator,liquidated"
           }
         });
         
-        const schoolsData = schoolsRes.data?.results || schoolsRes.data || [];
-        allSchools = [...allSchools, ...schoolsData];
+        const liquidations = liquidationsRes.data?.results || liquidationsRes.data || [];
+        allLiquidations = allLiquidations.concat(liquidations);
         
-        // Get total count from first response
-        if (currentPage === 1) {
-          totalSchoolsFromAPI = schoolsRes.data?.count || 0;
-        }
+        // Check if there are more pages
+        hasMoreLiqPages = liquidations.length === 100; // If we got exactly 100, there might be more
+        liqPage++;
         
-        // Break if we've got all schools or no more data
-        if (schoolsData.length < pageSize || allSchools.length >= totalSchoolsFromAPI) {
-          break;
-        }
-        
-        currentPage++;
+        // Safety check to prevent infinite loops
+        if (liqPage > 20) break; // Max 20 pages = 2000 liquidations max
       }
       
+      const liquidations = allLiquidations;
+      
+      // Debug: Log the liquidation data structure
+      console.log("Total liquidations fetched:", liquidations.length);
+      console.log("Liquidation pages fetched:", liqPage - 1);
+      console.log("Sample liquidation structure:", liquidations[0]);
+
+      // Fetch all schools - handle pagination to get all schools
+      // The API has max_page_size = 100, so we need to make multiple requests
+      let allSchools: any[] = [];
+      let page = 1;
+      let hasMorePages = true;
+      
+      while (hasMorePages) {
+        const schoolsRes = await api.get("schools/", {
+          params: { 
+            page_size: 100, // Use max allowed page size
+            page: page
+          }
+        });
+        
+        const schools = schoolsRes.data?.results || schoolsRes.data || [];
+        allSchools = allSchools.concat(schools);
+        
+        // Check if there are more pages
+        hasMorePages = schools.length === 100; // If we got exactly 100, there might be more
+        page++;
+        
+        // Safety check to prevent infinite loops
+        if (page > 10) break; // Max 10 pages = 1000 schools max
+      }
+      
+      const totalSchools = allSchools.length;
+      
       // Debug: Log schools data
-      console.log("Total schools from API:", totalSchoolsFromAPI);
-      console.log("All schools fetched:", allSchools.length);
+      console.log("Total schools fetched:", totalSchools);
+      console.log("Pages fetched:", page - 1);
       console.log("Sample school:", allSchools[0]);
 
       // Fetch all requests for timeline and performance data
@@ -180,16 +199,7 @@ const DivisionLiquidatorDashboard = () => {
           };
         });
 
-      // Calculate division completion data - use ALL schools from API (not just district schools)
-      // Use the total count from API response, not just the array length (handles pagination)
-      const totalSchools = totalSchoolsFromAPI;
-
-      // For completion rate: count schools with at least one liquidation with status 'approved_liquidator' or 'liquidated'
-      const schoolIdsFromFinalizedLiquidations = liquidations
-        .filter((l: any) => ['approved_liquidator', 'liquidated'].includes(l.status))
-        .map((l: any) => l.request?.user?.school?.schoolId)
-        .filter(Boolean);
-      const schoolsWithFinalizedLiquidations = new Set(schoolIdsFromFinalizedLiquidations).size;
+      // Calculate division completion data - use ALL schools from API
 
       // For "No Submission": count schools with NO liquidation with status in ['approved_district','approved_liquidator', 'resubmit', 'liquidated']
       // Note: 'submitted' status is not counted as a submission for liquidator dashboard
@@ -204,16 +214,44 @@ const DivisionLiquidatorDashboard = () => {
       // Count all schools that have NO liquidations at all (use total schools from API)
       // const noSubmissionCount = totalSchools - schoolIdsWithSubmission.size;
 
-      // For approved liquidations: count 'approved_liquidator' and 'liquidated' (finalized liquidations)
+      // For pie chart: count schools, not liquidation reports
+      // Count schools with liquidated liquidations (for "Approved" in pie chart)
+      const schoolsWithLiquidatedLiquidations = new Set(
+        liquidations
+          .filter((l: any) => l.status === 'liquidated')
+          .map((l: any) => l.request?.user?.school?.schoolId)
+          .filter(Boolean)
+      ).size;
+      
+      // Count schools with pending liquidations (for "Pending Review" in pie chart)
+      const schoolsWithPendingLiquidations = new Set(
+        liquidations
+          .filter((l: any) => ['approved_district', 'under_review_liquidator'].includes(l.status))
+          .map((l: any) => l.request?.user?.school?.schoolId)
+          .filter(Boolean)
+      ).size;
+      
+      // Count schools with rejected liquidations (for "Returned" in pie chart)
+      const schoolsWithRejectedLiquidations = new Set(
+        liquidations
+          .filter((l: any) => l.status === 'resubmit' && l.previous_status === 'approved_district')
+          .map((l: any) => l.request?.user?.school?.schoolId)
+          .filter(Boolean)
+      ).size;
+      
+      // For backward compatibility, keep the old variables for other calculations
       const approvedLiquidations = liquidations.filter((l: any) => 
         ['approved_liquidator', 'liquidated'].includes(l.status)
       ).length;
       const pendingLiquidationsCount = pendingLiquidations.length;
-      // Count liquidations that were approved by district but then rejected by liquidator
       const rejectedLiquidations = liquidations.filter((l: any) => 
         l.status === 'resubmit' && l.previous_status === 'approved_district'
       ).length;
-      const completionRate = totalSchools > 0 ? Math.round((schoolsWithFinalizedLiquidations / totalSchools) * 100) : 0;
+      
+      // Calculate completion rate based on schools with liquidated liquidations vs total schools (same as DivisionAccountantDashboard)
+      const completionRate = totalSchools > 0
+        ? (schoolsWithLiquidatedLiquidations / totalSchools) * 100
+        : 0;
       
       // Debug: Log completion calculation
       const statusBreakdown = liquidations.reduce((acc: any, l: any) => {
@@ -221,15 +259,29 @@ const DivisionLiquidatorDashboard = () => {
         return acc;
       }, {});
       
-      console.log("Completion calculation:", {
+      console.log("Division Liquidator - Completion calculation:", {
         totalSchools,
-        schoolsWithFinalizedLiquidations,
-        completionRate,
+        schoolsWithLiquidatedLiquidations,
+        completionRate: completionRate.toFixed(1),
         liquidationsCount: liquidations.length,
+        liquidatedLiquidations: liquidations.filter((l: any) => l.status === "liquidated").length,
         approvedLiquidations,
         pendingLiquidationsCount,
         rejectedLiquidations,
-        statusBreakdown
+        statusBreakdown,
+        // School-based counts for pie chart
+        pieChartSchoolsWithLiquidated: schoolsWithLiquidatedLiquidations,
+        pieChartSchoolsWithPending: schoolsWithPendingLiquidations,
+        pieChartSchoolsWithRejected: schoolsWithRejectedLiquidations,
+        schoolsPagination: {
+          totalSchoolsFetched: allSchools.length,
+          pagesFetched: page - 1,
+          expectedTotalSchools: 387
+        },
+        liquidationsPagination: {
+          totalLiquidationsFetched: liquidations.length,
+          pagesFetched: liqPage - 1
+        }
       });
 
       // Generate liquidation timeline for current quarter (showing months within the quarter)
@@ -288,11 +340,15 @@ const DivisionLiquidatorDashboard = () => {
         pendingLiquidations,
         divisionCompletion: {
           totalSchools,
-          schoolsWithLiquidation: schoolsWithFinalizedLiquidations,
+          schoolsWithLiquidation: schoolsWithLiquidatedLiquidations,
           approvedLiquidations,
           pendingLiquidations: pendingLiquidationsCount,
           rejectedLiquidations,
           completionRate,
+          // Add school-based counts for pie chart
+          schoolsWithLiquidatedLiquidations,
+          schoolsWithPendingLiquidations,
+          schoolsWithRejectedLiquidations,
         },
         liquidationTimeline,
         schoolPerformance: [],
@@ -311,6 +367,9 @@ const DivisionLiquidatorDashboard = () => {
           pendingLiquidations: 0,
           rejectedLiquidations: 0,
           completionRate: 0,
+          schoolsWithLiquidatedLiquidations: 0,
+          schoolsWithPendingLiquidations: 0,
+          schoolsWithRejectedLiquidations: 0,
         },
         liquidationTimeline: [],
         schoolPerformance: [],
@@ -586,10 +645,10 @@ const DivisionLiquidatorDashboard = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="text-2xl font-bold text-gray-900">
-                  {data?.divisionCompletion.completionRate || 0}%
+                  {(data?.divisionCompletion.completionRate || 0).toFixed(1)}%
                 </div>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Schools with finalized liquidations
+                  Schools with liquidated accounts
                 </p>
               </CardContent>
             </Card>
@@ -633,10 +692,10 @@ const DivisionLiquidatorDashboard = () => {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "Approved", value: data?.divisionCompletion.approvedLiquidations || 0 },
-                          { name: "Pending Review", value: data?.divisionCompletion.pendingLiquidations || 0 },
-                          { name: "Returned", value: data?.divisionCompletion.rejectedLiquidations || 0 },
-                          { name: "Not Submitted", value: data?.divisionCompletion ? data.divisionCompletion.totalSchools - (data.divisionCompletion.schoolsWithLiquidation + data.divisionCompletion.pendingLiquidations + data.divisionCompletion.rejectedLiquidations) : 0 },
+                          { name: "Approved", value: data?.divisionCompletion.schoolsWithLiquidatedLiquidations || 0 },
+                          { name: "Pending Review", value: data?.divisionCompletion.schoolsWithPendingLiquidations || 0 },
+                          { name: "Returned", value: data?.divisionCompletion.schoolsWithRejectedLiquidations || 0 },
+                          { name: "Not Submitted", value: data?.divisionCompletion ? data.divisionCompletion.totalSchools - (data.divisionCompletion.schoolsWithLiquidatedLiquidations + data.divisionCompletion.schoolsWithPendingLiquidations + data.divisionCompletion.schoolsWithRejectedLiquidations) : 0 },
                         ]}
                         cx="50%"
                         cy="50%"
@@ -692,10 +751,10 @@ const DivisionLiquidatorDashboard = () => {
                   <h4 className="text-base font-semibold text-gray-800 mb-4">Status Breakdown</h4>
                   <div className="grid grid-cols-2 gap-4">
                     {[
-                      { name: "Approved", value: data?.divisionCompletion.approvedLiquidations || 0, color: COLORS[0] },
-                      { name: "Pending Review", value: data?.divisionCompletion.pendingLiquidations || 0, color: COLORS[1] },
-                      { name: "Returned", value: data?.divisionCompletion.rejectedLiquidations || 0, color: COLORS[2] },
-                      { name: "Not Submitted", value: data?.divisionCompletion ? data.divisionCompletion.totalSchools - (data.divisionCompletion.schoolsWithLiquidation + data.divisionCompletion.pendingLiquidations + data.divisionCompletion.rejectedLiquidations) : 0, color: COLORS[3] },
+                      { name: "Approved", value: data?.divisionCompletion.schoolsWithLiquidatedLiquidations || 0, color: COLORS[0] },
+                      { name: "Pending Review", value: data?.divisionCompletion.schoolsWithPendingLiquidations || 0, color: COLORS[1] },
+                      { name: "Returned", value: data?.divisionCompletion.schoolsWithRejectedLiquidations || 0, color: COLORS[2] },
+                      { name: "Not Submitted", value: data?.divisionCompletion ? data.divisionCompletion.totalSchools - (data.divisionCompletion.schoolsWithLiquidatedLiquidations + data.divisionCompletion.schoolsWithPendingLiquidations + data.divisionCompletion.schoolsWithRejectedLiquidations) : 0, color: COLORS[3] },
                     ].map((item) => (
                       <div
                         key={item.name}
