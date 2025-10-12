@@ -10,7 +10,7 @@ import Button from "./ui/button/Button";
 
 interface AutoLogoutModalProps {
   visible: boolean;
-  reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user';
+  reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted';
   onLogin: () => void;
   userName?: string;
   isNewUser?: boolean;
@@ -72,6 +72,18 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
           borderColor: 'border-green-200 dark:border-green-800',
           message: 'Welcome to the MOOE Liquidation Management System!',
           description: 'Your account setup is almost complete. You must log in again to continue.'
+        };
+      case 'user_deleted':
+        return {
+          title: 'Account Removed',
+          subtitle: 'Your account has been deactivated',
+          icon: AlertTriangle,
+          iconColor: 'text-red-600 dark:text-red-400',
+          iconBg: 'bg-red-100 dark:bg-red-900/30',
+          headerBg: 'from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20',
+          borderColor: 'border-red-200 dark:border-red-800',
+          message: 'Your account has been removed from the system',
+          description: 'Your account is no longer active. Please contact your administrator for assistance.'
         };
       default:
         return {
@@ -168,10 +180,14 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
           <div className="flex justify-center pt-2">
             <Button
               onClick={onLogin}
-              className="px-10 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
+              className={`px-10 py-3 font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2 ${
+                reason === 'user_deleted' 
+                  ? 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white' 
+                  : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
+              }`}
             >
               <LogOut className="h-4 w-4" />
-              Login Again
+              {reason === 'user_deleted' ? 'Go to Login Page' : 'Login Again'}
             </Button>
           </div>
 

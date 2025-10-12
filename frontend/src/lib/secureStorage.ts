@@ -119,7 +119,7 @@ class SecureStorage {
   /**
    * Store logout modal state in localStorage
    */
-  static setLogoutModalState(visible: boolean, reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user'): void {
+  static setLogoutModalState(visible: boolean, reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted'): void {
     try {
       const modalState = { visible, reason, timestamp: Date.now() };
       localStorage.setItem(this.LOGOUT_MODAL_KEY, JSON.stringify(modalState));
@@ -132,7 +132,7 @@ class SecureStorage {
   /**
    * Get logout modal state from localStorage
    */
-  static getLogoutModalState(): { visible: boolean; reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' } | null {
+  static getLogoutModalState(): { visible: boolean; reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted' } | null {
     try {
       const stored = localStorage.getItem(this.LOGOUT_MODAL_KEY);
       if (!stored) return null;
