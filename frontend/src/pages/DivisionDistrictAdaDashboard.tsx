@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -20,9 +18,7 @@ import {
   CheckCircle, 
   TrendingUp, 
   School, 
-  AlertCircle,
   Clock,
-  Users,
   BarChart3,
   Eye
 } from "lucide-react";
@@ -163,25 +159,17 @@ const DivisionDistrictAdaDashboard = () => {
       // Calculate division completion data
       const totalSchools = schools.length;
 
-      // For completion rate: count schools with at least one liquidation with status 'approved_district'
-      const schoolIdsFromApprovedDistrict = liquidations
-        .filter((l: any) => l.status === 'approved_district')
+      // For completion rate: count schools with at least one liquidation with any status except 'draft'
+      const schoolIdsWithSubmission = liquidations
+        .filter((l: any) => l.status !== 'draft')
         .map((l: any) => l.request?.user?.school?.schoolId)
         .filter(Boolean);
-      const schoolsWithLiquidations = new Set(schoolIdsFromApprovedDistrict).size;
+      const schoolsWithLiquidations = new Set(schoolIdsWithSubmission).size;
 
-      // For "No Submission": count schools with NO liquidation with status in ['submitted', 'approved_district', 'resubmit', 'liquidated']
-      const submittedStatuses = ['submitted', 'approved_district', 'resubmit', 'liquidated'];
-      const schoolIdsWithSubmission = new Set(
-        liquidations
-          .filter((l: any) => submittedStatuses.includes(l.status))
-          .map((l: any) => l.request?.user?.school?.schoolId)
-          .filter(Boolean)
-      );
-      const noSubmissionCount = totalSchools - schoolIdsWithSubmission.size;
+      // For "No Submission": count schools with NO liquidation with any status except 'draft'
 
-      // For approved liquidations: only count 'approved_district'
-      const approvedLiquidations = liquidations.filter((l: any) => l.status === 'approved_district').length;
+      // For liquidated liquidations: only count 'liquidated' status
+      const liquidatedLiquidations = liquidations.filter((l: any) => l.status === 'liquidated').length;
       const pendingLiquidationsCount = pendingLiquidations.length;
       const rejectedLiquidations = liquidations.filter((l: any) => l.status === 'resubmit').length;
       const completionRate = totalSchools > 0 ? Math.round((schoolsWithLiquidations / totalSchools) * 100) : 0;
@@ -197,7 +185,7 @@ const DivisionDistrictAdaDashboard = () => {
         schoolsWithLiquidations,
         completionRate,
         liquidationsCount: liquidations.length,
-        approvedLiquidations,
+        liquidatedLiquidations,
         pendingLiquidationsCount,
         rejectedLiquidations,
         statusBreakdown
@@ -227,13 +215,9 @@ const DivisionDistrictAdaDashboard = () => {
           return liquidationDate.getFullYear() === currentQuarter.year && liquidationDate.getMonth() === monthIndex;
         });
 
-        // For submitted: count liquidations with status 'submitted' and 'approved_district'
-        const submitted = monthLiquidations.filter((l: any) =>
-          ['submitted', 'approved_district', 'under_review_district'].includes(l.status)
-        ).length;
-        const approved = monthLiquidations.filter((l: any) =>
-          ['approved_district', 'approved_liquidator', 'liquidated'].includes(l.status)
-        ).length;
+        // For submitted: count liquidations with any status except 'draft'
+        const submitted = monthLiquidations.filter((l: any) => l.status !== 'draft').length;
+        const liquidated = monthLiquidations.filter((l: any) => l.status === 'liquidated').length;
         const rejected = monthLiquidations.filter((l: any) => l.status === 'resubmit').length;
         const avgProcessingTime = monthLiquidations.length > 0 ? Math.round(monthLiquidations.reduce((sum: number, l: any) => {
           const created = new Date(l.date_submitted || l.submitted_at || l.created_at);
@@ -244,7 +228,7 @@ const DivisionDistrictAdaDashboard = () => {
         liquidationTimeline.push({
           month: monthName,
           submitted,
-          approved,
+          approved: liquidated,
           rejected,
           avgProcessingTime,
         });
@@ -257,7 +241,7 @@ const DivisionDistrictAdaDashboard = () => {
         divisionCompletion: {
           totalSchools,
           schoolsWithLiquidation: schoolsWithLiquidations,
-          approvedLiquidations,
+          approvedLiquidations: liquidatedLiquidations,
           pendingLiquidations: pendingLiquidationsCount,
           rejectedLiquidations,
           completionRate,
@@ -471,10 +455,7 @@ const DivisionDistrictAdaDashboard = () => {
 
   // Calculate noSubmissionCount for PieChart
   const noSubmissionCount = data?.divisionCompletion
-    ? data.divisionCompletion.totalSchools -
-      (data.divisionCompletion.schoolsWithLiquidation +
-        data.divisionCompletion.pendingLiquidations +
-        data.divisionCompletion.rejectedLiquidations)
+    ? data.divisionCompletion.totalSchools - data.divisionCompletion.schoolsWithLiquidation
     : 0;
 
   return (
@@ -545,7 +526,7 @@ const DivisionDistrictAdaDashboard = () => {
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-xs font-medium text-gray-600">
-                  Approved Liquidations
+                  Liquidated Liquidations
                 </CardTitle>
                 <div className="p-2 bg-green-100 rounded-lg">
                   <CheckCircle className="h-5 w-5 text-green-600" />
@@ -556,7 +537,7 @@ const DivisionDistrictAdaDashboard = () => {
                   {data?.divisionCompletion.approvedLiquidations || 0}
                 </div>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Successfully completed
+                  Successfully liquidated
                 </p>
               </CardContent>
             </Card>
@@ -575,7 +556,7 @@ const DivisionDistrictAdaDashboard = () => {
                   {data?.divisionCompletion.completionRate || 0}%
                 </div>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Schools with liquidations
+                  Schools with submissions
                 </p>
               </CardContent>
             </Card>
@@ -619,7 +600,7 @@ const DivisionDistrictAdaDashboard = () => {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "Approved", value: data?.divisionCompletion.approvedLiquidations || 0 },
+                          { name: "Liquidated", value: data?.divisionCompletion.approvedLiquidations || 0 },
                           { name: "Pending", value: data?.divisionCompletion.pendingLiquidations || 0 },
                           { name: "Rejected", value: data?.divisionCompletion.rejectedLiquidations || 0 },
                           { name: "No Submission", value: noSubmissionCount },
@@ -678,11 +659,11 @@ const DivisionDistrictAdaDashboard = () => {
                   <h4 className="text-base font-semibold text-gray-800 mb-4">Status Breakdown</h4>
                   <div className="grid grid-cols-2 gap-4">
                     {[
-                      { name: "Approved", value: data?.divisionCompletion.approvedLiquidations || 0, color: COLORS[0] },
+                      { name: "Liquidated", value: data?.divisionCompletion.approvedLiquidations || 0, color: COLORS[0] },
                       { name: "Pending", value: data?.divisionCompletion.pendingLiquidations || 0, color: COLORS[1] },
                       { name: "Rejected", value: data?.divisionCompletion.rejectedLiquidations || 0, color: COLORS[2] },
                       { name: "No Submission", value: noSubmissionCount, color: COLORS[3] },
-                    ].map((item, index) => (
+                    ].map((item) => (
                       <div
                         key={item.name}
                         className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
@@ -768,7 +749,7 @@ const DivisionDistrictAdaDashboard = () => {
                         dataKey="approved"
                         stroke="#00C49F"
                         strokeWidth={3}
-                        name="Approved"
+                        name="Liquidated"
                         dot={{ fill: "#00C49F", strokeWidth: 2, r: 4 }}
                         activeDot={{ r: 6, stroke: "#00C49F", strokeWidth: 2 }}
                       />
@@ -800,7 +781,7 @@ const DivisionDistrictAdaDashboard = () => {
                         <div className="text-lg font-bold text-green-600">
                           {data.liquidationTimeline.reduce((sum, item) => sum + item.approved, 0)}
                         </div>
-                        <div className="text-xs text-green-600 font-medium">Total Approved</div>
+                        <div className="text-xs text-green-600 font-medium">Total Liquidated</div>
                       </div>
                       <div className="text-center p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-xl">
                         <div className="text-lg font-bold text-red-600">
