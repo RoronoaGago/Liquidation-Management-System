@@ -233,6 +233,50 @@ const SchoolHeadDashboard = () => {
       const activeLiquidation = pendingCheckData.active_liquidation;
       const hasActive = !!activeLiquidation && activeLiquidation.status !== "liquidated";
       
+      // Check if both latest request and liquidation are liquidated
+      const latestRequest = pendingCheckData.pending_request;
+      const isLatestRequestLiquidated = latestRequest?.status === "liquidated";
+      const isActiveLiquidationLiquidated = activeLiquidation?.status === "liquidated";
+      
+      // Also check recent requests to see if the latest one is liquidated
+      let isLatestRecentRequestLiquidated = false;
+      if (respData.recentRequests && respData.recentRequests.length > 0) {
+        const latestRecentRequest = respData.recentRequests[0];
+        isLatestRecentRequestLiquidated = latestRecentRequest.status === "liquidated";
+      }
+      
+      // If both are liquidated (or no pending request and liquidation is liquidated), return to default state
+      const shouldReturnToDefault = (isLatestRequestLiquidated && isActiveLiquidationLiquidated) ||
+                                   (!hasPending && isActiveLiquidationLiquidated) ||
+                                   (!hasActive && isLatestRecentRequestLiquidated);
+      
+      if (shouldReturnToDefault) {
+        console.log("Latest request and liquidation are liquidated, returning to default state");
+        setData({
+          liquidationProgress: {
+            priorities: [],
+            totalPriorities: 0,
+            completedPriorities: 0,
+            completionPercentage: 0,
+          },
+          financialMetrics: {
+            totalDownloadedAmount: 0,
+            totalLiquidatedAmount: 0,
+            liquidationPercentage: 0,
+            remainingAmount: 0,
+          },
+          recentLiquidations: [],
+          priorityBreakdown: [],
+          requestStatus: {
+            hasPendingRequest: false,
+            hasActiveLiquidation: false,
+          },
+          recentRequests: [],
+        });
+        setLoading(false);
+        return;
+      }
+      
       // Override the request status with the pending check data
       respData.requestStatus = {
         hasPendingRequest: hasPending,
@@ -1039,7 +1083,7 @@ const SchoolHeadDashboard = () => {
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-xs font-medium text-gray-600">
-                  Amount Spent
+                  Amount Liquidated
                 </CardTitle>
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <DollarSign className="h-5 w-5 text-blue-600" />
