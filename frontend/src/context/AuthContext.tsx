@@ -157,6 +157,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const showInactivityLogoutModal = () => {
+    setAutoLogoutModal({
+      visible: true,
+      reason: 'session_expired'
+    });
+  };
+
   const handleReLogin = () => {
     // Close the modal first
     setAutoLogoutModal({
@@ -239,13 +246,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate('/login');
   };
 
-  // Handle inactivity detection (1 hour = 3600000 ms)
+  // Handle inactivity detection (5 minutes = 300000 ms)
   const handleInactivity = () => {
     console.log('🚨 Inactivity detected! isAuthenticated:', isAuthenticated);
     if (isAuthenticated && !isShowingLogoutModal) {
-      console.log('🚨 Showing inactivity logout modal');
-      showAutoLogoutModal('inactivity');
-      // Don't clear tokens immediately - let user decide when to logout
+      console.log('🚨 Logging out due to inactivity and showing modal on login page');
+      
+      // Clear authentication state immediately for security
+      setIsAuthenticated(false);
+      setUser(null);
+      setPasswordChangeRequired(false);
+      setESignatureRequired(false);
+      setSetupFlowActive(false);
+      setIsNewUser(false);
+      setInactivityModalShown(false);
+      setIsShowingLogoutModal(false);
+      setIsInitialized(false);
+      
+      // Clear tokens from storage
+      SecureStorage.clearTokens();
+      
+      // Clear axios authorization header
+      api.defaults.headers.common["Authorization"] = "";
+      
+      // Clear initialization flag
+      localStorage.removeItem('app_initialized');
+      
+      // Navigate to login page first
+      navigate('/login');
+      
+      // Then show the modal on the login page
+      showInactivityLogoutModal();
     }
   };
 
@@ -615,7 +646,7 @@ const logout = async () => {
       <AutoLogoutModal
         visible={autoLogoutModal.visible}
         reason={autoLogoutModal.reason}
-        onLogin={autoLogoutModal.reason === 'password_changed' || autoLogoutModal.reason === 'new_user' ? handleReLogin : handleAutoLogoutLogin}
+        onLogin={autoLogoutModal.reason === 'password_changed' || autoLogoutModal.reason === 'new_user' || autoLogoutModal.reason === 'session_expired' ? handleReLogin : handleAutoLogoutLogin}
         userName={user?.first_name || "User"}
         isNewUser={isNewUser}
       />

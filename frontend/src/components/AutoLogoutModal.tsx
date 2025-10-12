@@ -49,6 +49,18 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
           message: 'Your session has expired',
           description: 'Your authentication token has expired. Please log in again to continue.'
         };
+      case 'session_expired':
+        return {
+          title: 'Session Expired',
+          subtitle: 'Due to inactivity',
+          icon: Clock,
+          iconColor: 'text-amber-600 dark:text-amber-400',
+          iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+          headerBg: 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20',
+          borderColor: 'border-amber-200 dark:border-amber-800',
+          message: 'Your session has expired due to inactivity',
+          description: 'You\'ve been automatically logged out after 5 minutes of inactivity. Please log in again to continue.'
+        };
       case 'password_changed':
         return {
           title: 'Password Changed Successfully!',
@@ -144,16 +156,22 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
             </p>
           </div>
 
-          {/* User greeting for password change scenarios */}
-          {(reason === 'password_changed' || reason === 'new_user') && userName && (
-            <div className="text-center py-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+          {/* User greeting for password change scenarios and session expired */}
+          {(reason === 'password_changed' || reason === 'new_user' || reason === 'session_expired') && userName && (
+            <div className={`text-center py-4 rounded-xl border ${
+              reason === 'session_expired' 
+                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+            }`}>
               <p className="text-lg font-medium text-gray-900 dark:text-white">
-                Thank you, {userName}!
+                {reason === 'session_expired' ? `Hello, ${userName}!` : `Thank you, ${userName}!`}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {isNewUser 
-                  ? "Welcome to the system! Your account setup is almost complete."
-                  : "Your password has been successfully updated."
+                {reason === 'session_expired' 
+                  ? "Your session has expired due to inactivity. Please log in again to continue."
+                  : isNewUser 
+                    ? "Welcome to the system! Your account setup is almost complete."
+                    : "Your password has been successfully updated."
                 }
               </p>
             </div>
