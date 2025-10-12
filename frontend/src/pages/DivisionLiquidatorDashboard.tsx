@@ -535,7 +535,7 @@ const DivisionLiquidatorDashboard = () => {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Division Overview</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-xs font-medium text-gray-600">
@@ -574,24 +574,6 @@ const DivisionLiquidatorDashboard = () => {
               </CardContent>
             </Card>
             
-            <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-xs font-medium text-gray-600">
-                  Finalized Liquidations
-                </CardTitle>
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="text-2xl font-bold text-gray-900">
-                  {data?.divisionCompletion.approvedLiquidations || 0}
-                </div>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                  Successfully finalized
-                </p>
-              </CardContent>
-            </Card>
             
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -651,7 +633,7 @@ const DivisionLiquidatorDashboard = () => {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "Finalized", value: data?.divisionCompletion.approvedLiquidations || 0 },
+                          { name: "Approved", value: data?.divisionCompletion.approvedLiquidations || 0 },
                           { name: "Pending Review", value: data?.divisionCompletion.pendingLiquidations || 0 },
                           { name: "Returned", value: data?.divisionCompletion.rejectedLiquidations || 0 },
                           { name: "Not Submitted", value: data?.divisionCompletion ? data.divisionCompletion.totalSchools - (data.divisionCompletion.schoolsWithLiquidation + data.divisionCompletion.pendingLiquidations + data.divisionCompletion.rejectedLiquidations) : 0 },
@@ -710,7 +692,7 @@ const DivisionLiquidatorDashboard = () => {
                   <h4 className="text-base font-semibold text-gray-800 mb-4">Status Breakdown</h4>
                   <div className="grid grid-cols-2 gap-4">
                     {[
-                      { name: "Finalized", value: data?.divisionCompletion.approvedLiquidations || 0, color: COLORS[0] },
+                      { name: "Approved", value: data?.divisionCompletion.approvedLiquidations || 0, color: COLORS[0] },
                       { name: "Pending Review", value: data?.divisionCompletion.pendingLiquidations || 0, color: COLORS[1] },
                       { name: "Returned", value: data?.divisionCompletion.rejectedLiquidations || 0, color: COLORS[2] },
                       { name: "Not Submitted", value: data?.divisionCompletion ? data.divisionCompletion.totalSchools - (data.divisionCompletion.schoolsWithLiquidation + data.divisionCompletion.pendingLiquidations + data.divisionCompletion.rejectedLiquidations) : 0, color: COLORS[3] },
