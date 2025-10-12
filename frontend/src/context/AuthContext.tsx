@@ -366,6 +366,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               userData.role === "accountant") &&
               !userData.e_signature
           );
+          
+          // Check if setup flow should be activated (same logic as in login)
+          if (userData.password_change_required) {
+            setSetupFlowActive(true);
+          } else {
+            // Check if e-signature is required
+            const requiresESignature =
+              userData.role &&
+              ["school_head", "superintendent", "accountant"].includes(
+                userData.role
+              ) &&
+              !userData.e_signature;
+            if (requiresESignature) {
+              setESignatureRequired(true);
+              setSetupFlowActive(true);
+            }
+          }
         } catch {
           SecureStorage.clearTokens();
           setIsAuthenticated(false);
@@ -403,6 +420,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 userData.role === "accountant") &&
                 !userData.e_signature
             );
+            
+            // Check if setup flow should be activated (same logic as in login)
+            if (userData.password_change_required) {
+              setSetupFlowActive(true);
+            } else {
+              // Check if e-signature is required
+              const requiresESignature =
+                userData.role &&
+                ["school_head", "superintendent", "accountant"].includes(
+                  userData.role
+                ) &&
+                !userData.e_signature;
+              if (requiresESignature) {
+                setESignatureRequired(true);
+                setSetupFlowActive(true);
+              }
+            }
+            
             setIsLoading(false);
             return;
           }
