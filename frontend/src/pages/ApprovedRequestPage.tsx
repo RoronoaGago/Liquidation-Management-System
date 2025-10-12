@@ -1056,14 +1056,6 @@ const ApprovedRequestPage = () => {
             <DialogTitle>Select Download Date</DialogTitle>
             <DialogDescription>
               Please select the date when the funds were downloaded.
-              <br />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Valid dates: From 1 year before approval date up to tomorrow (accounts for timezone differences)
-              </span>
-              <br />
-              <span className="text-xs text-blue-600 dark:text-blue-400">
-                System date: {dayjs().format('YYYY-MM-DD')} | Selected: {selectedDownloadDate?.format('YYYY-MM-DD') || 'None'}
-              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 mb-6">

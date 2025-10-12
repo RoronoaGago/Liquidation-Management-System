@@ -594,16 +594,26 @@ const SchoolHeadDashboard = () => {
     const hasPending = data?.requestStatus?.hasPendingRequest;
     const hasActive = data?.requestStatus?.hasActiveLiquidation;
     
+    // Check for rejected requests in recent requests
+    const hasRejectedRequest = data?.recentRequests?.some(req => 
+      req.status === 'rejected'
+    );
+    
+    // Check for rejected status in pending request
+    const hasRejectedPendingRequest = data?.requestStatus?.pendingRequest?.status === 'rejected';
+    
     // Debug logging to help identify the issue
     console.log("Dashboard data:", data);
     console.log("Has pending request:", hasPending);
     console.log("Has active liquidation:", hasActive);
+    console.log("Has rejected request:", hasRejectedRequest);
+    console.log("Has rejected pending request:", hasRejectedPendingRequest);
     console.log("Pending request:", data?.requestStatus?.pendingRequest);
     console.log("Active liquidation:", data?.requestStatus?.activeLiquidation);
     
-    // Show "View Request Status" if there's a pending request OR active liquidation
+    // Show "View Request Status" if there's a pending request, active liquidation, or rejected request
     // This matches the logic from MOOERequestPage's action required dialog
-    const shouldShow = hasPending || hasActive;
+    const shouldShow = hasPending || hasActive || hasRejectedRequest || hasRejectedPendingRequest;
     console.log("Should show View Request Status:", shouldShow);
     
     return shouldShow;
@@ -901,17 +911,16 @@ const SchoolHeadDashboard = () => {
               </p>
             </div>
             <div className="flex gap-3">
-              {!shouldShowViewRequestStatus() &&
-                !data?.requestStatus?.hasActiveLiquidation && (
-                  <Button
-                    onClick={handleCreateMOOERequest}
-                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
-                    size="lg"
-                  >
-                    <Plus className="h-5 w-5 mr-2" />
-                    New MOOE Request
-                  </Button>
-                )}
+              {!shouldShowViewRequestStatus() && (
+                <Button
+                  onClick={handleCreateMOOERequest}
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  New MOOE Request
+                </Button>
+              )}
               {shouldShowViewRequestStatus() && (
                 <Button
                   onClick={handleViewRequestStatus}

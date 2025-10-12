@@ -303,12 +303,35 @@ def school_head_dashboard(request):
             'remainingAmount': 0
         }
         
+        # Get recent requests (last 5 requests)
+        recent_requests = RequestManagement.objects.filter(
+            user=request.user
+        ).order_by('-created_at')[:5]
+        
+        recent_requests_data = []
+        for req in recent_requests:
+            priorities = RequestPriority.objects.filter(request=req)
+            total_amount = priorities.aggregate(total=Sum('amount'))['total'] or 0
+            
+            recent_requests_data.append({
+                'request_id': req.request_id,
+                'status': req.status,
+                'request_monthyear': req.request_monthyear,
+                'created_at': req.created_at.isoformat(),
+                'total_amount': float(total_amount),
+                'priorities': [{
+                    'expenseTitle': p.priority.expenseTitle,
+                    'amount': float(p.amount)
+                } for p in priorities]
+            })
+        
         # Build response
         response_data = {
             'liquidationProgress': liquidation_progress,
             'financialMetrics': financial_metrics,
             'recentLiquidations': [],
             'priorityBreakdown': priority_breakdown,
+            'recentRequests': recent_requests_data,
             'requestStatus': {
                 'hasPendingRequest': pending_request is not None,
                 'hasActiveLiquidation': active_liquidation is not None,
@@ -966,7 +989,7 @@ def check_pending_requests(request):
     # Check for pending/rejected requests
     user_requests = RequestManagement.objects.filter(
         user=request.user,
-        status__in=['pending', 'approved']  # Include rejected
+        status__in=['pending', 'approved', 'rejected']  # Include rejected
     ).order_by('-created_at')
 
     # Check for liquidations that aren't completed (but include recently liquidated ones for completion modal)
