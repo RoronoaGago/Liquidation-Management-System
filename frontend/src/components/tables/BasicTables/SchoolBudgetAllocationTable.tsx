@@ -339,36 +339,21 @@ const SchoolBudgetAllocationTable: React.FC<SchoolBudgetAllocationTableProps> = 
 
                     {/* Status */}
                     <TableCell className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        <span
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium w-fit min-w-[90px] justify-center ${
-                            statusColors[statusKey] ||
-                            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                          }`}
-                          style={{
-                            maxWidth: "140px",
-                            whiteSpace: "nowrap",
-                            textOverflow: "ellipsis",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {statusIcons[statusKey]}
-                          {statusLabels[statusKey]}
-                        </span>
-                        {/* Only show edit difference if school doesn't have allocation yet */}
-                        {difference !== 0 && !school.hasAllocation && (
-                          <div
-                            className={`text-xs px-2 py-1 rounded-full w-fit ${
-                              difference > 0
-                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                            }`}
-                          >
-                            {difference > 0 ? "+" : ""}
-                            {formatCurrency(difference)}
-                          </div>
-                        )}
-                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium w-fit min-w-[90px] justify-center ${
+                          statusColors[statusKey] ||
+                          "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                        }`}
+                        style={{
+                          maxWidth: "140px",
+                          whiteSpace: "nowrap",
+                          textOverflow: "ellipsis",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {statusIcons[statusKey]}
+                        {statusLabels[statusKey]}
+                      </span>
                     </TableCell>
 
                     {/* Current Yearly Budget */}
