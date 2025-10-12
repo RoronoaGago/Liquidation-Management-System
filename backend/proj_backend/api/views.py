@@ -303,12 +303,35 @@ def school_head_dashboard(request):
             'remainingAmount': 0
         }
         
+        # Get recent requests (last 5 requests)
+        recent_requests = RequestManagement.objects.filter(
+            user=request.user
+        ).order_by('-created_at')[:5]
+        
+        recent_requests_data = []
+        for req in recent_requests:
+            priorities = RequestPriority.objects.filter(request=req)
+            total_amount = priorities.aggregate(total=Sum('amount'))['total'] or 0
+            
+            recent_requests_data.append({
+                'request_id': req.request_id,
+                'status': req.status,
+                'request_monthyear': req.request_monthyear,
+                'created_at': req.created_at.isoformat(),
+                'total_amount': float(total_amount),
+                'priorities': [{
+                    'expenseTitle': p.priority.expenseTitle,
+                    'amount': float(p.amount)
+                } for p in priorities]
+            })
+        
         # Build response
         response_data = {
             'liquidationProgress': liquidation_progress,
             'financialMetrics': financial_metrics,
             'recentLiquidations': [],
             'priorityBreakdown': priority_breakdown,
+            'recentRequests': recent_requests_data,
             'requestStatus': {
                 'hasPendingRequest': pending_request is not None,
                 'hasActiveLiquidation': active_liquidation is not None,
@@ -966,7 +989,7 @@ def check_pending_requests(request):
     # Check for pending/rejected requests
     user_requests = RequestManagement.objects.filter(
         user=request.user,
-        status__in=['pending', 'approved']  # Include rejected
+        status__in=['pending', 'approved', 'rejected']  # Include rejected
     ).order_by('-created_at')
 
     # Check for liquidations that aren't completed (but include recently liquidated ones for completion modal)
@@ -1225,6 +1248,27 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
                 instance.request._skip_auto_status = True
                 instance.request.status = 'liquidated'
                 instance.request.save(update_fields=['status'])
+                
+                # Update school's last liquidated month and year
+                if instance.request.request_monthyear:
+                    try:
+                        # Extract year and month from request_monthyear (format: YYYY-MM)
+                        year_str, month_str = instance.request.request_monthyear.split('-')
+                        liquidated_year = int(year_str)
+                        liquidated_month = int(month_str)
+                        
+                        # Get the school from the request user
+                        school = instance.request.user.school
+                        if school:
+                            # Update the school's last liquidated month and year
+                            school.last_liquidated_month = liquidated_month
+                            school.last_liquidated_year = liquidated_year
+                            school.save(update_fields=['last_liquidated_month', 'last_liquidated_year'])
+                    except (ValueError, AttributeError) as e:
+                        # Log error but don't fail the liquidation process
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Failed to update school liquidation dates: {e}")
 
         # If rejecting (resubmit), capture rejection_comment
         if new_status == "resubmit":

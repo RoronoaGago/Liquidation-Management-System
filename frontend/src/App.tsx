@@ -4,6 +4,7 @@ import { useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import AppLayout from "./layout/AppLayout";
 import SignIn from "./pages/AuthPages/SignIn";
+import "./utils/authUtils"; // Import auth utilities for debugging
 
 import Home from "./pages/Dashboard/Home";
 import ManageUsers from "./pages/ManageUsers";

@@ -215,23 +215,80 @@ const DivisionAccountantDashboard = () => {
       }
 
 
-      // Calculate completion rate based on liquidated vs total liquidation reports
+      // Calculate completion rate based on schools with liquidated liquidations vs total schools
       let completionRate = 0;
       try {
+        // Get total number of schools - need to get all schools, not just paginated results
+        // The API has max_page_size = 100, so we need to make multiple requests
+        let allSchools: any[] = [];
+        let page = 1;
+        let hasMorePages = true;
+        
+        while (hasMorePages) {
+          const schoolsRes = await api.get("schools/", {
+            params: { 
+              page_size: 100, // Use max allowed page size
+              page: page
+            }
+          });
+          
+          const schools = schoolsRes.data?.results || schoolsRes.data || [];
+          allSchools = allSchools.concat(schools);
+          
+          // Check if there are more pages
+          hasMorePages = schools.length === 100; // If we got exactly 100, there might be more
+          page++;
+          
+          // Safety check to prevent infinite loops
+          if (page > 10) break; // Max 10 pages = 1000 schools max
+        }
+        
+        const totalSchools = allSchools.length;
+        
+        // For completion rate calculation, we need ALL liquidations, not just role-filtered ones
+        // Use a status parameter to get all liquidations regardless of role filtering
         const allLiqRes = await api.get("liquidations/", {
-          params: { ordering: "-created_at" },
+          params: { 
+            ordering: "-created_at",
+            status: "draft,submitted,under_review_district,under_review_liquidator,under_review_division,resubmit,approved_district,approved_liquidator,liquidated"
+          },
         });
         const allLiquidations = allLiqRes.data?.results || allLiqRes.data || [];
-        const completedLiquidations = allLiquidations.filter((l: any) => l.status === "liquidated");
-        const totalLiquidations = allLiquidations.length;
-        const completedCount = completedLiquidations.length;
         
-        // Calculate completion rate based on liquidated vs total liquidation reports
-        completionRate = totalLiquidations > 0
-          ? (completedCount / totalLiquidations) * 100
+        // Count unique schools that have liquidated liquidations
+        const schoolsWithLiquidatedLiquidations = new Set(
+          allLiquidations
+            .filter((l: any) => l.status === "liquidated")
+            .map((l: any) => l.request?.user?.school?.schoolId)
+            .filter(Boolean)
+        ).size;
+        
+        // Calculate completion rate based on schools with liquidated liquidations vs total schools
+        completionRate = totalSchools > 0
+          ? (schoolsWithLiquidatedLiquidations / totalSchools) * 100
           : 0;
+        
+        // Debug: Log completion calculation
+        const statusBreakdown = allLiquidations.reduce((acc: any, l: any) => {
+          acc[l.status] = (acc[l.status] || 0) + 1;
+          return acc;
+        }, {});
+        
+        console.log("Division Accountant - Completion calculation:", {
+          totalSchools,
+          schoolsWithLiquidatedLiquidations,
+          completionRate: completionRate.toFixed(1),
+          totalLiquidations: allLiquidations.length,
+          liquidatedLiquidations: allLiquidations.filter((l: any) => l.status === "liquidated").length,
+          statusBreakdown,
+          schoolsPagination: {
+            totalSchoolsFetched: allSchools.length,
+            pagesFetched: page - 1,
+            expectedTotalSchools: 387
+          }
+        });
       } catch (e) {
-        console.warn("Failed to fetch liquidations for completion rate", e);
+        console.warn("Failed to fetch data for completion rate", e);
       }
 
 
@@ -616,7 +673,7 @@ const DivisionAccountantDashboard = () => {
                   {(data?.dashboardMetrics.completionRate || 0).toFixed(1)}%
                 </div>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Liquidated accounts
+                  Schools with liquidated accounts
                 </p>
           </CardContent>
         </Card>

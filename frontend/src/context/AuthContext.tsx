@@ -46,7 +46,7 @@ interface AuthContextType {
   eSignatureRequired: boolean;
   setupFlowActive: boolean;
   completeSetupFlow: () => void;
-  showAutoLogoutModal: (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user') => void;
+  showAutoLogoutModal: (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted') => void;
   isNewUser: boolean;
   showReLoginModal: (isNewUser: boolean) => void;
   handleReLogin: () => void;
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isNewUser, setIsNewUser] = useState(false);
   const [autoLogoutModal, setAutoLogoutModal] = useState<{
     visible: boolean;
-    reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user';
+    reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted';
   }>({
     visible: false,
     reason: 'inactivity'
@@ -188,7 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate('/login');
   };
 
-  const showAutoLogoutModal = (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user') => {
+  const showAutoLogoutModal = (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted') => {
     // Prevent showing inactivity modal multiple times
     if (reason === 'inactivity' && inactivityModalShown) {
       return;
@@ -327,6 +327,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       window.removeEventListener('auth:token-updated', handleTokenUpdate);
     };
   }, [navigate, isInitialized]);
+
+  // Listen for logout events from axios interceptor
+  useEffect(() => {
+    const handleAuthLogout = (event: CustomEvent) => {
+      const { reason, message } = event.detail;
+      console.log('🚨 Received auth logout event:', reason, message);
+      
+      // Clear authentication state immediately
+      SecureStorage.clearTokens();
+      api.defaults.headers.common["Authorization"] = "";
+      setIsAuthenticated(false);
+      setUser(null);
+      setPasswordChangeRequired(false);
+      setESignatureRequired(false);
+      setSetupFlowActive(false);
+      setIsNewUser(false);
+      setInactivityModalShown(false);
+      setIsShowingLogoutModal(false);
+      setIsInitialized(false);
+      localStorage.removeItem('app_initialized');
+      
+      // Show appropriate modal based on reason
+      if (reason === 'user_deleted') {
+        showAutoLogoutModal('user_deleted');
+      } else {
+        showAutoLogoutModal('token_expired');
+      }
+    };
+
+    window.addEventListener('auth:logout', handleAuthLogout as EventListener);
+    
+    return () => {
+      window.removeEventListener('auth:logout', handleAuthLogout as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -513,23 +548,38 @@ const logout = async () => {
   try {
     // Call the backend logout endpoint
     await api.post('/logout/');
-
-    // Clear authentication state
+  } catch (error) {
+    // Even if backend logout fails, we should still clear local state
+    console.error('Backend logout failed:', error);
+  } finally {
+    // Always clear authentication state regardless of backend response
+    console.log('🧹 Clearing authentication state...');
+    
+    // Clear tokens and auth state
+    SecureStorage.clearTokens();
     authLogout();
+    
+    // Clear axios authorization header
+    api.defaults.headers.common["Authorization"] = "";
+    
+    // Reset all auth state
     setIsAuthenticated(false);
     setUser(null);
-    setIsInitialized(false); // Reset initialization flag
-    localStorage.removeItem('app_initialized'); // Clear initialization flag
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error('Logout failed:', error.response?.data || error.message);
-    } else {
-      if (error instanceof Error) {
-        console.error('Logout failed:', error.message);
-      } else {
-        console.error('Logout failed:', error);
-      }
-    }
+    setPasswordChangeRequired(false);
+    setESignatureRequired(false);
+    setSetupFlowActive(false);
+    setIsNewUser(false);
+    setInactivityModalShown(false);
+    setIsShowingLogoutModal(false);
+    setIsInitialized(false);
+    
+    // Clear initialization flag
+    localStorage.removeItem('app_initialized');
+    
+    // Clear any persisted modal state
+    SecureStorage.clearLogoutModalState();
+    
+    console.log('✅ Authentication state cleared successfully');
   }
 };
 

@@ -94,8 +94,21 @@ api.interceptors.response.use(
         }
 
         return api(originalRequest);
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         console.log('❌ Token refresh failed:', refreshError);
+        
+        // Handle specific error cases from token refresh
+        const isUserDeleted = refreshError.response?.status === 403 || 
+                             refreshError.response?.data?.error?.includes('no longer exists') ||
+                             refreshError.response?.data?.error?.includes('User account no longer exists');
+        
+        if (isUserDeleted) {
+          console.log('🚨 User account no longer exists, clearing all tokens');
+          // Clear tokens immediately for deleted users
+          SecureStorage.clearTokens();
+          // Clear authorization header
+          api.defaults.headers.common["Authorization"] = "";
+        }
         
         // Only dispatch logout event if this is not during initial app load
         // Check if the app has been initialized by looking for a flag in localStorage
@@ -104,11 +117,13 @@ api.interceptors.response.use(
         
         if (isAppInitialized) {
           console.log('🚨 Dispatching logout event due to refresh failure');
-          // Dispatch custom event for auth context to handle - don't clear tokens yet
+          // Dispatch custom event for auth context to handle
           window.dispatchEvent(new CustomEvent('auth:logout', { 
             detail: { 
-              reason: 'token_refresh_failed',
-              message: 'Your session has expired. Please log in again to continue.'
+              reason: isUserDeleted ? 'user_deleted' : 'token_refresh_failed',
+              message: isUserDeleted ? 
+                'Your account has been removed. Please contact support.' : 
+                'Your session has expired. Please log in again to continue.'
             } 
           }));
         }
@@ -119,6 +134,30 @@ api.interceptors.response.use(
 
     // Handle other HTTP errors
     if (error.response?.status === HTTP_STATUS.FORBIDDEN) {
+      // Check if this is a user deletion scenario
+      const isUserDeleted = error.response?.data?.error?.includes('no longer exists') ||
+                           error.response?.data?.error?.includes('User account no longer exists') ||
+                           error.response?.data?.detail?.includes('no longer exists');
+      
+      if (isUserDeleted) {
+        console.log('🚨 User account no longer exists (403 error), clearing all tokens');
+        // Clear tokens immediately for deleted users
+        SecureStorage.clearTokens();
+        // Clear authorization header
+        api.defaults.headers.common["Authorization"] = "";
+        
+        // Dispatch logout event
+        const isAppInitialized = localStorage.getItem('app_initialized') === 'true';
+        if (isAppInitialized) {
+          window.dispatchEvent(new CustomEvent('auth:logout', { 
+            detail: { 
+              reason: 'user_deleted',
+              message: 'Your account has been removed. Please contact support.'
+            } 
+          }));
+        }
+      }
+      
       return Promise.reject(new Error(ERROR_MESSAGES.FORBIDDEN));
     }
     

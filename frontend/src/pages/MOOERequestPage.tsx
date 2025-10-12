@@ -137,6 +137,8 @@ const MOOERequestPage = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [successCountdown, setSuccessCountdown] = useState(4);
   const [showRequirementsDialog, setShowRequirementsDialog] = useState(false);
+  const [showRejectedRequestDialog, setShowRejectedRequestDialog] = useState(false);
+  const [originalRejectedData, setOriginalRejectedData] = useState<{ [key: string]: string }>({});
   const [currentPriorityRequirements, setCurrentPriorityRequirements] =
     useState<{requirementTitle: string; is_required: boolean}[]>([]);
   const [currentPriorityTitle, setCurrentPriorityTitle] = useState("");
@@ -194,27 +196,17 @@ const MOOERequestPage = () => {
     if (location.state?.rejectedRequestId) {
       const initialSelected = location.state.priorities.reduce(
         (acc: any, priority: any) => {
-          acc[priority.priority.expenseTitle] = priority.amount;
+          acc[priority.priority.expenseTitle] = formatNumberWithCommas(priority.amount);
           return acc;
         },
         {}
       );
       setSelected(initialSelected);
+      setOriginalRejectedData(initialSelected); // Store original data for comparison
       setSelectedOrder(
         location.state.priorities.map((p: any) => p.priority.expenseTitle)
       );
-      toast.info(
-        <div>
-          <p>You're editing a rejected request.</p>
-          <p className="font-medium">
-            Reason: {location.state.rejectionComment}
-          </p>
-        </div>,
-        {
-          autoClose: 8000,
-          closeButton: false,
-        }
-      );
+      setShowRejectedRequestDialog(true);
     }
   }, [location.state]);
 
@@ -251,7 +243,8 @@ const MOOERequestPage = () => {
         }
 
         if (hasPending || hasActive) {
-          setShowStatusDialog(true);
+          // Don't show dialog if user is editing a rejected request
+          setShowStatusDialog(!isEditingRejectedRequest);
         } else {
           setShowStatusDialog(false);
         }
@@ -310,7 +303,35 @@ const MOOERequestPage = () => {
     fetchSchoolBudget();
   }, []);
 
-  const isFormDisabled = hasPendingRequest || hasActiveLiquidation || (budgetLoading ? false : allocatedBudget === 0);
+  // Check if user is editing a rejected request (allow form interaction)
+  const isEditingRejectedRequest = location.state?.rejectedRequestId;
+  
+  // Check if changes have been made to rejected request data
+  const hasChangesBeenMade = () => {
+    if (!isEditingRejectedRequest || Object.keys(originalRejectedData).length === 0) {
+      return true; // Allow submission if not editing rejected request
+    }
+    
+    // Compare current selected data with original data
+    const currentKeys = Object.keys(selected).sort();
+    const originalKeys = Object.keys(originalRejectedData).sort();
+    
+    // Check if keys are different (items added/removed)
+    if (JSON.stringify(currentKeys) !== JSON.stringify(originalKeys)) {
+      return true;
+    }
+    
+    // Check if any amounts have changed
+    for (const key of currentKeys) {
+      if (selected[key] !== originalRejectedData[key]) {
+        return true;
+      }
+    }
+    
+    return false; // No changes detected
+  };
+  
+  const isFormDisabled = (hasPendingRequest && !isEditingRejectedRequest) || hasActiveLiquidation || (budgetLoading ? false : allocatedBudget === 0);
   useEffect(() => {
     const fetchNextMonth = async () => {
       try {
@@ -369,13 +390,16 @@ const MOOERequestPage = () => {
     // Handle decimal values properly
     const number = Number(num);
     
-    // If it's a valid number, format it with commas but preserve decimals
+    // If it's a valid number, format it with commas but remove .00
     if (number >= 0) {
-      // Use toLocaleString to add commas, preserving decimal places
-      return number.toLocaleString('en-US', {
+      // Use toLocaleString to add commas, but remove .00 if present
+      const formatted = number.toLocaleString('en-US', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       });
+      
+      // Remove .00 if it exists
+      return formatted.replace(/\.00$/, '');
     }
     
     return num;
@@ -473,7 +497,7 @@ const MOOERequestPage = () => {
         const initialSelected = {} as { [key: string]: string };
         res.data.priorities.forEach(
           (p: { expenseTitle: string; amount: string }) => {
-            initialSelected[p.expenseTitle] = p.amount;
+            initialSelected[p.expenseTitle] = formatNumberWithCommas(p.amount);
           }
         );
         setSelected(initialSelected);
@@ -1059,11 +1083,23 @@ const MOOERequestPage = () => {
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
                       <p className="text-gray-700 dark:text-gray-300 text-base leading-relaxed">
-                        You currently have an active MOOE request that needs to be{" "}
-                        <span className="font-bold text-blue-600 dark:text-blue-400">
-                          liquidated first
-                        </span>{" "}
-                        before submitting a new request.
+                        {pendingRequestData?.status === "rejected" ? (
+                          <>
+                            Your MOOE request has been{" "}
+                            <span className="font-bold text-red-600 dark:text-red-400">
+                              rejected
+                            </span>{" "}
+                            and requires your attention before you can submit a new request.
+                          </>
+                        ) : (
+                          <>
+                            You currently have an active MOOE request that needs to be{" "}
+                            <span className="font-bold text-blue-600 dark:text-blue-400">
+                              liquidated first
+                            </span>{" "}
+                            before submitting a new request.
+                          </>
+                        )}
                       </p>
                     </div>
                     
@@ -1101,7 +1137,11 @@ const MOOERequestPage = () => {
                           <span className="text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[80px]">
                             Status:
                           </span>
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 capitalize">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold capitalize ${
+                            pendingRequestData?.status === "rejected"
+                              ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"
+                              : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
+                          }`}>
                             {pendingRequestData?.status?.replace(/_/g, " ") || "Pending"}
                           </span>
                         </div>
@@ -1116,8 +1156,11 @@ const MOOERequestPage = () => {
                             Next Steps Required:
                           </h4>
                           <p className="text-amber-700 dark:text-amber-300 text-sm leading-relaxed">
-                            To submit a new MOOE request, you must first complete the liquidation process for your current request. 
-                  
+                            {pendingRequestData?.status === "rejected" ? (
+                              "Please review the rejection reason and edit your request to address the issues before resubmitting."
+                            ) : (
+                              "To submit a new MOOE request, you must first complete the liquidation process for your current request."
+                            )}
                           </p>
                         </div>
                       </div>
@@ -1649,6 +1692,67 @@ const MOOERequestPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Rejected Request Dialog */}
+      <Dialog open={showRejectedRequestDialog} onOpenChange={setShowRejectedRequestDialog}>
+        <DialogContent className="w-full max-w-lg rounded-xl bg-white dark:bg-gray-800 p-0 shadow-lg border border-gray-200 dark:border-gray-700">
+          <DialogHeader className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              Editing Rejected Request
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="px-6 py-4 space-y-4">
+            <p className="text-gray-700 dark:text-gray-300 text-sm">
+              You are currently editing a rejected MOOE request. Please review the rejection reason and make the necessary changes before resubmitting.
+            </p>
+
+            {location.state?.rejectionComment && (
+              <div className="bg-amber-50 dark:bg-amber-900/10 rounded-lg p-3 border border-amber-200 dark:border-amber-900/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Rejection Reason
+                  </span>
+                </div>
+                <p className="text-amber-900 dark:text-amber-100 text-sm">
+                  {location.state.rejectionComment}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+            <Button
+              onClick={() => setShowRejectedRequestDialog(false)}
+              variant="primary"
+              className="px-4 py-2"
+            >
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection Comment Banner */}
+      {isEditingRejectedRequest && location.state?.rejectionComment && (
+        <div className="mt-6 mb-4 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-900/20">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-900/40 rounded-lg flex items-center justify-center">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                Rejection Reason
+              </h3>
+              <p className="text-amber-900 dark:text-amber-100 text-sm leading-relaxed">
+                {location.state.rejectionComment}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-8">
         {!isFormDisabled && (
@@ -2198,7 +2302,7 @@ const MOOERequestPage = () => {
                         <Button
                           type="submit"
                           variant="primary"
-                          disabled={submitting || isFormDisabled}
+                          disabled={submitting || isFormDisabled || !hasChangesBeenMade()}
                           className="min-w-[180px]"
                         >
                           {isFormDisabled ? (
@@ -2211,6 +2315,8 @@ const MOOERequestPage = () => {
                             ) : (
                               "Form Disabled"
                             )
+                          ) : !hasChangesBeenMade() ? (
+                            "Make Changes to Submit"
                           ) : submitting ? (
                             "Submitting..."
                           ) : (

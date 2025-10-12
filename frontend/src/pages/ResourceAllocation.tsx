@@ -367,18 +367,27 @@ const ResourceAllocation = () => {
         allocations: [allocation]
       });
 
-      // Update local state
+      // Update local state immediately
       setEditingBudgets(prev => ({
         ...prev,
         [schoolId]: yearlyBudget
       }));
+
+      // Update the school's hasAllocation status immediately
+      setSchools(prevSchools => 
+        prevSchools.map(school => 
+          school.schoolId === schoolId 
+            ? { ...school, hasAllocation: true, current_yearly_budget: yearlyBudget }
+            : school
+        )
+      );
 
       // Show success message
       const school = schools.find(s => s.schoolId === schoolId);
       setIndividualSaveMessage(`Budget allocation updated successfully for ${school?.schoolName || schoolId}`);
       setShowIndividualSuccessDialog(true);
 
-      // Refresh data to get updated allocation status
+      // Refresh data to get updated allocation status (optional, for consistency)
       await fetchData();
     } catch (error: any) {
       console.error("Error updating individual budget:", error);
@@ -415,6 +424,20 @@ const ResourceAllocation = () => {
         year: currentYear,
         allocations 
       });
+
+      // Update the schools' hasAllocation status immediately
+      setSchools(prevSchools => 
+        prevSchools.map(school => 
+          selectedSchools.includes(school.schoolId)
+            ? { 
+                ...school, 
+                hasAllocation: true, 
+                current_yearly_budget: editingBudgets[school.schoolId] || school.current_yearly_budget 
+              }
+            : school
+        )
+      );
+
       setShowSuccessDialog(true);
 
       // Refresh data

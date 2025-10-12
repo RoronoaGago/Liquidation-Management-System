@@ -197,6 +197,19 @@ const SchoolHeadDashboard = () => {
     fetchDashboardData(selectedMonth);
   }, [selectedMonth]);
 
+  // Function to get actual amounts from localStorage for active liquidation
+  const getActualAmountsFromLocalStorage = (liquidationID: string) => {
+    try {
+      const savedAmounts = localStorage.getItem(`liquidation_${liquidationID}_amounts`);
+      if (savedAmounts) {
+        return JSON.parse(savedAmounts);
+      }
+    } catch (error) {
+      console.warn("Error parsing saved amounts from localStorage:", error);
+    }
+    return {};
+  };
+
   const fetchDashboardData = async (month?: string) => {
     setLoading(true);
     try {
@@ -219,6 +232,50 @@ const SchoolHeadDashboard = () => {
       const hasPending = pendingCheckData.has_pending_request;
       const activeLiquidation = pendingCheckData.active_liquidation;
       const hasActive = !!activeLiquidation && activeLiquidation.status !== "liquidated";
+      
+      // Check if both latest request and liquidation are liquidated
+      const latestRequest = pendingCheckData.pending_request;
+      const isLatestRequestLiquidated = latestRequest?.status === "liquidated";
+      const isActiveLiquidationLiquidated = activeLiquidation?.status === "liquidated";
+      
+      // Also check recent requests to see if the latest one is liquidated
+      let isLatestRecentRequestLiquidated = false;
+      if (respData.recentRequests && respData.recentRequests.length > 0) {
+        const latestRecentRequest = respData.recentRequests[0];
+        isLatestRecentRequestLiquidated = latestRecentRequest.status === "liquidated";
+      }
+      
+      // If both are liquidated (or no pending request and liquidation is liquidated), return to default state
+      const shouldReturnToDefault = (isLatestRequestLiquidated && isActiveLiquidationLiquidated) ||
+                                   (!hasPending && isActiveLiquidationLiquidated) ||
+                                   (!hasActive && isLatestRecentRequestLiquidated);
+      
+      if (shouldReturnToDefault) {
+        console.log("Latest request and liquidation are liquidated, returning to default state");
+        setData({
+          liquidationProgress: {
+            priorities: [],
+            totalPriorities: 0,
+            completedPriorities: 0,
+            completionPercentage: 0,
+          },
+          financialMetrics: {
+            totalDownloadedAmount: 0,
+            totalLiquidatedAmount: 0,
+            liquidationPercentage: 0,
+            remainingAmount: 0,
+          },
+          recentLiquidations: [],
+          priorityBreakdown: [],
+          requestStatus: {
+            hasPendingRequest: false,
+            hasActiveLiquidation: false,
+          },
+          recentRequests: [],
+        });
+        setLoading(false);
+        return;
+      }
       
       // Override the request status with the pending check data
       respData.requestStatus = {
@@ -459,11 +516,27 @@ const SchoolHeadDashboard = () => {
             })
           );
 
-          // Compute financial metrics
-          const totalActual = liquidationPriorities.reduce(
-            (sum: number, lp: any) => sum + Number(lp.amount || 0),
-            0
-          );
+          // Get actual amounts from localStorage for this liquidation
+          const actualAmountsFromStorage = getActualAmountsFromLocalStorage(active.LiquidationID);
+          console.log("Actual amounts from localStorage:", actualAmountsFromStorage);
+          
+          // Compute financial metrics using actual amounts from localStorage if available
+          let totalActual = 0;
+          if (Object.keys(actualAmountsFromStorage).length > 0) {
+            // Use actual amounts from localStorage
+            totalActual = Object.values(actualAmountsFromStorage).reduce(
+              (sum: number, amount: any) => sum + Number(amount || 0),
+              0
+            );
+            console.log("Using actual amounts from localStorage, total:", totalActual);
+          } else {
+            // Fallback to liquidation priorities from server
+            totalActual = liquidationPriorities.reduce(
+              (sum: number, lp: any) => sum + Number(lp.amount || 0),
+              0
+            );
+            console.log("Using liquidation priorities from server, total:", totalActual);
+          }
           // Determine total downloaded: if latest request is unliquidated and we have school monthly budget, use it
           let totalDownloaded = totalRequested;
           try {
@@ -515,7 +588,37 @@ const SchoolHeadDashboard = () => {
           }
         }
       } catch (e) {
-        // If no active liquidation, keep previous derivations
+        // If no active liquidation, try to get actual amounts from any liquidation in localStorage
+        try {
+          // Look for any liquidation amounts in localStorage
+          const allKeys = Object.keys(localStorage);
+          const liquidationKeys = allKeys.filter(key => key.startsWith('liquidation_') && key.endsWith('_amounts'));
+          
+          if (liquidationKeys.length > 0) {
+            // Use the most recent liquidation (last key)
+            const latestKey = liquidationKeys[liquidationKeys.length - 1];
+            const actualAmountsFromStorage = getActualAmountsFromLocalStorage(latestKey.replace('liquidation_', '').replace('_amounts', ''));
+            
+            if (Object.keys(actualAmountsFromStorage).length > 0) {
+              const totalActual = Object.values(actualAmountsFromStorage).reduce(
+                (sum: number, amount: any) => sum + Number(amount || 0),
+                0
+              );
+              
+              // Update financial metrics with actual amounts from localStorage
+              if (respData.financialMetrics) {
+                respData.financialMetrics.totalLiquidatedAmount = totalActual;
+                respData.financialMetrics.liquidationPercentage = respData.financialMetrics.totalDownloadedAmount > 0 
+                  ? (totalActual / respData.financialMetrics.totalDownloadedAmount) * 100 
+                  : 0;
+                respData.financialMetrics.remainingAmount = Math.max(respData.financialMetrics.totalDownloadedAmount - totalActual, 0);
+              }
+              console.log("Using actual amounts from localStorage (no active liquidation), total:", totalActual);
+            }
+          }
+        } catch (fallbackError) {
+          console.warn("Error in fallback localStorage check:", fallbackError);
+        }
       }
 
       setData(respData);
@@ -594,16 +697,26 @@ const SchoolHeadDashboard = () => {
     const hasPending = data?.requestStatus?.hasPendingRequest;
     const hasActive = data?.requestStatus?.hasActiveLiquidation;
     
+    // Check for rejected requests in recent requests
+    const hasRejectedRequest = data?.recentRequests?.some(req => 
+      req.status === 'rejected'
+    );
+    
+    // Check for rejected status in pending request
+    const hasRejectedPendingRequest = data?.requestStatus?.pendingRequest?.status === 'rejected';
+    
     // Debug logging to help identify the issue
     console.log("Dashboard data:", data);
     console.log("Has pending request:", hasPending);
     console.log("Has active liquidation:", hasActive);
+    console.log("Has rejected request:", hasRejectedRequest);
+    console.log("Has rejected pending request:", hasRejectedPendingRequest);
     console.log("Pending request:", data?.requestStatus?.pendingRequest);
     console.log("Active liquidation:", data?.requestStatus?.activeLiquidation);
     
-    // Show "View Request Status" if there's a pending request OR active liquidation
+    // Show "View Request Status" if there's a pending request, active liquidation, or rejected request
     // This matches the logic from MOOERequestPage's action required dialog
-    const shouldShow = hasPending || hasActive;
+    const shouldShow = hasPending || hasActive || hasRejectedRequest || hasRejectedPendingRequest;
     console.log("Should show View Request Status:", shouldShow);
     
     return shouldShow;
@@ -901,17 +1014,16 @@ const SchoolHeadDashboard = () => {
               </p>
             </div>
             <div className="flex gap-3">
-              {!shouldShowViewRequestStatus() &&
-                !data?.requestStatus?.hasActiveLiquidation && (
-                  <Button
-                    onClick={handleCreateMOOERequest}
-                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
-                    size="lg"
-                  >
-                    <Plus className="h-5 w-5 mr-2" />
-                    New MOOE Request
-                  </Button>
-                )}
+              {!shouldShowViewRequestStatus() && (
+                <Button
+                  onClick={handleCreateMOOERequest}
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  New MOOE Request
+                </Button>
+              )}
               {shouldShowViewRequestStatus() && (
                 <Button
                   onClick={handleViewRequestStatus}
@@ -985,7 +1097,7 @@ const SchoolHeadDashboard = () => {
                 </div>
                 <p className="text-sm text-gray-500 leading-relaxed">
                   {data?.financialMetrics?.liquidationPercentage !== undefined
-                    ? `${data.financialMetrics.liquidationPercentage.toFixed(1)}% of total budget`
+                    ? `Actual amount spent (${data.financialMetrics.liquidationPercentage.toFixed(1)}% of budget)`
                     : "No liquidation data"}
                 </p>
               </CardContent>

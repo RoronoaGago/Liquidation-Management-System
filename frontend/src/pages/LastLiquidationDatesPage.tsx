@@ -125,7 +125,7 @@ const LastLiquidationDatesPage: React.FC = () => {
       // Fetch schools and districts in parallel (like ManageSchools.tsx)
       const [schoolsRes, districtsRes] = await Promise.all([
         api.get("schools/", { params }),
-        api.get("school-districts?show_all=true"),
+        api.get("school-districts/?show_all=true"),
       ]);
 
       let schoolsData = schoolsRes.data.results || schoolsRes.data;
