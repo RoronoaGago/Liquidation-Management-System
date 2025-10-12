@@ -1248,6 +1248,27 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
                 instance.request._skip_auto_status = True
                 instance.request.status = 'liquidated'
                 instance.request.save(update_fields=['status'])
+                
+                # Update school's last liquidated month and year
+                if instance.request.request_monthyear:
+                    try:
+                        # Extract year and month from request_monthyear (format: YYYY-MM)
+                        year_str, month_str = instance.request.request_monthyear.split('-')
+                        liquidated_year = int(year_str)
+                        liquidated_month = int(month_str)
+                        
+                        # Get the school from the request user
+                        school = instance.request.user.school
+                        if school:
+                            # Update the school's last liquidated month and year
+                            school.last_liquidated_month = liquidated_month
+                            school.last_liquidated_year = liquidated_year
+                            school.save(update_fields=['last_liquidated_month', 'last_liquidated_year'])
+                    except (ValueError, AttributeError) as e:
+                        # Log error but don't fail the liquidation process
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Failed to update school liquidation dates: {e}")
 
         # If rejecting (resubmit), capture rejection_comment
         if new_status == "resubmit":
