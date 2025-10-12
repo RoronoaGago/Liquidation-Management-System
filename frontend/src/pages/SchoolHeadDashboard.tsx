@@ -197,6 +197,19 @@ const SchoolHeadDashboard = () => {
     fetchDashboardData(selectedMonth);
   }, [selectedMonth]);
 
+  // Function to get actual amounts from localStorage for active liquidation
+  const getActualAmountsFromLocalStorage = (liquidationID: string) => {
+    try {
+      const savedAmounts = localStorage.getItem(`liquidation_${liquidationID}_amounts`);
+      if (savedAmounts) {
+        return JSON.parse(savedAmounts);
+      }
+    } catch (error) {
+      console.warn("Error parsing saved amounts from localStorage:", error);
+    }
+    return {};
+  };
+
   const fetchDashboardData = async (month?: string) => {
     setLoading(true);
     try {
@@ -459,11 +472,27 @@ const SchoolHeadDashboard = () => {
             })
           );
 
-          // Compute financial metrics
-          const totalActual = liquidationPriorities.reduce(
-            (sum: number, lp: any) => sum + Number(lp.amount || 0),
-            0
-          );
+          // Get actual amounts from localStorage for this liquidation
+          const actualAmountsFromStorage = getActualAmountsFromLocalStorage(active.LiquidationID);
+          console.log("Actual amounts from localStorage:", actualAmountsFromStorage);
+          
+          // Compute financial metrics using actual amounts from localStorage if available
+          let totalActual = 0;
+          if (Object.keys(actualAmountsFromStorage).length > 0) {
+            // Use actual amounts from localStorage
+            totalActual = Object.values(actualAmountsFromStorage).reduce(
+              (sum: number, amount: any) => sum + Number(amount || 0),
+              0
+            );
+            console.log("Using actual amounts from localStorage, total:", totalActual);
+          } else {
+            // Fallback to liquidation priorities from server
+            totalActual = liquidationPriorities.reduce(
+              (sum: number, lp: any) => sum + Number(lp.amount || 0),
+              0
+            );
+            console.log("Using liquidation priorities from server, total:", totalActual);
+          }
           // Determine total downloaded: if latest request is unliquidated and we have school monthly budget, use it
           let totalDownloaded = totalRequested;
           try {
@@ -515,7 +544,37 @@ const SchoolHeadDashboard = () => {
           }
         }
       } catch (e) {
-        // If no active liquidation, keep previous derivations
+        // If no active liquidation, try to get actual amounts from any liquidation in localStorage
+        try {
+          // Look for any liquidation amounts in localStorage
+          const allKeys = Object.keys(localStorage);
+          const liquidationKeys = allKeys.filter(key => key.startsWith('liquidation_') && key.endsWith('_amounts'));
+          
+          if (liquidationKeys.length > 0) {
+            // Use the most recent liquidation (last key)
+            const latestKey = liquidationKeys[liquidationKeys.length - 1];
+            const actualAmountsFromStorage = getActualAmountsFromLocalStorage(latestKey.replace('liquidation_', '').replace('_amounts', ''));
+            
+            if (Object.keys(actualAmountsFromStorage).length > 0) {
+              const totalActual = Object.values(actualAmountsFromStorage).reduce(
+                (sum: number, amount: any) => sum + Number(amount || 0),
+                0
+              );
+              
+              // Update financial metrics with actual amounts from localStorage
+              if (respData.financialMetrics) {
+                respData.financialMetrics.totalLiquidatedAmount = totalActual;
+                respData.financialMetrics.liquidationPercentage = respData.financialMetrics.totalDownloadedAmount > 0 
+                  ? (totalActual / respData.financialMetrics.totalDownloadedAmount) * 100 
+                  : 0;
+                respData.financialMetrics.remainingAmount = Math.max(respData.financialMetrics.totalDownloadedAmount - totalActual, 0);
+              }
+              console.log("Using actual amounts from localStorage (no active liquidation), total:", totalActual);
+            }
+          }
+        } catch (fallbackError) {
+          console.warn("Error in fallback localStorage check:", fallbackError);
+        }
       }
 
       setData(respData);
@@ -980,7 +1039,7 @@ const SchoolHeadDashboard = () => {
             <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-xs font-medium text-gray-600">
-                  Amount Liquidated
+                  Amount Spent
                 </CardTitle>
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <DollarSign className="h-5 w-5 text-blue-600" />
@@ -994,7 +1053,7 @@ const SchoolHeadDashboard = () => {
                 </div>
                 <p className="text-sm text-gray-500 leading-relaxed">
                   {data?.financialMetrics?.liquidationPercentage !== undefined
-                    ? `${data.financialMetrics.liquidationPercentage.toFixed(1)}% of total budget`
+                    ? `Actual amount spent (${data.financialMetrics.liquidationPercentage.toFixed(1)}% of budget)`
                     : "No liquidation data"}
                 </p>
               </CardContent>
