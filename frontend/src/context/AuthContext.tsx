@@ -118,33 +118,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Check if this is a new user before updating tokens
         const isNewUser = response.data.is_new_user || false;
         
-        SecureStorage.setTokens(
-          response.data.access,
-          response.data.refresh || "",
-          15 * 60 // 15 minutes (access token lifetime)
-        );
+        // Clear authentication state immediately for security
+        setIsAuthenticated(false);
+        setUser(null);
         setPasswordChangeRequired(false);
-
-        // Check if e-signature is required after password change
-        const newUserData = decodeToken(response.data.access);
-        setUser(newUserData);
-        const requiresESignature = Boolean(
-          newUserData.role &&
-          ["school_head", "superintendent", "accountant"].includes(
-            newUserData.role
-          ) &&
-          !newUserData.e_signature
-        );
-        setESignatureRequired(requiresESignature);
-
-        // For new users, show re-login modal instead of continuing setup flow
-        if (isNewUser) {
-          showReLoginModal(true);
-        } else if (requiresESignature) {
-          setSetupFlowActive(true);
-        } else {
-          completeSetupFlow();
-        }
+        setESignatureRequired(false);
+        setSetupFlowActive(false);
+        
+        // Clear tokens from storage
+        SecureStorage.clearTokens();
+        
+        // Clear axios authorization header
+        api.defaults.headers.common["Authorization"] = "";
+        
+        // For security reasons, always show re-login modal after password change
+        // This ensures the user must re-authenticate with their new password
+        showReLoginModal(isNewUser);
       }
 
       return response.data;
