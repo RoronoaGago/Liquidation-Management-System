@@ -10,10 +10,9 @@ import Button from "./ui/button/Button";
 
 interface AutoLogoutModalProps {
   visible: boolean;
-  reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted';
+  reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'user_deleted';
   onLogin: () => void;
   userName?: string;
-  isNewUser?: boolean;
 }
 
 const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
@@ -21,7 +20,6 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
   reason,
   onLogin,
   userName,
-  isNewUser,
 }) => {
   const getReasonConfig = () => {
     switch (reason) {
@@ -63,27 +61,15 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
         };
       case 'password_changed':
         return {
-          title: 'Password Changed Successfully!',
-          subtitle: 'Your password has been updated',
+          title: 'Password Updated Successfully',
+          subtitle: 'Your password has been changed',
           icon: Shield,
           iconColor: 'text-green-600 dark:text-green-400',
           iconBg: 'bg-green-100 dark:bg-green-900/30',
           headerBg: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
           borderColor: 'border-green-200 dark:border-green-800',
           message: 'Password Updated Successfully',
-          description: 'Your new password has been saved and is now active. You must log in again to continue.'
-        };
-      case 'new_user':
-        return {
-          title: 'Password Changed Successfully!',
-          subtitle: 'Your password has been updated',
-          icon: Shield,
-          iconColor: 'text-green-600 dark:text-green-400',
-          iconBg: 'bg-green-100 dark:bg-green-900/30',
-          headerBg: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
-          borderColor: 'border-green-200 dark:border-green-800',
-          message: 'Welcome to the MOOE Liquidation Management System!',
-          description: 'Your account setup is almost complete. You must log in again to continue.'
+          description: 'Your password has been updated. You must log in again to continue.'
         };
       case 'user_deleted':
         return {
@@ -157,7 +143,7 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
           </div>
 
           {/* User greeting for password change scenarios and session expired */}
-          {(reason === 'password_changed' || reason === 'new_user' || reason === 'session_expired') && userName && (
+          {(reason === 'password_changed' || reason === 'session_expired') && userName && (
             <div className={`text-center py-4 rounded-xl border ${
               reason === 'session_expired' 
                 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
@@ -169,9 +155,7 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 {reason === 'session_expired' 
                   ? "Your session has expired due to inactivity. Please log in again to continue."
-                  : isNewUser 
-                    ? "Welcome to the system! Your account setup is almost complete."
-                    : "Your password has been successfully updated."
+                  : "Your password has been successfully updated."
                 }
               </p>
             </div>

@@ -46,7 +46,7 @@ interface AuthContextType {
   eSignatureRequired: boolean;
   setupFlowActive: boolean;
   completeSetupFlow: () => void;
-  showAutoLogoutModal: (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted') => void;
+  showAutoLogoutModal: (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'user_deleted') => void;
   isNewUser: boolean;
   showReLoginModal: (isNewUser: boolean) => void;
   handleReLogin: () => void;
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isNewUser, setIsNewUser] = useState(false);
   const [autoLogoutModal, setAutoLogoutModal] = useState<{
     visible: boolean;
-    reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted';
+    reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'user_deleted';
   }>({
     visible: false,
     reason: 'inactivity'
@@ -153,7 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsNewUser(isNewUser);
     setAutoLogoutModal({
       visible: true,
-      reason: isNewUser ? 'new_user' : 'password_changed'
+      reason: 'password_changed'
     });
   };
 
@@ -195,7 +195,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate('/login');
   };
 
-  const showAutoLogoutModal = (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user' | 'user_deleted') => {
+  const showAutoLogoutModal = (reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'user_deleted') => {
     // Prevent showing inactivity modal multiple times
     if (reason === 'inactivity' && inactivityModalShown) {
       return;
@@ -646,9 +646,8 @@ const logout = async () => {
       <AutoLogoutModal
         visible={autoLogoutModal.visible}
         reason={autoLogoutModal.reason}
-        onLogin={autoLogoutModal.reason === 'password_changed' || autoLogoutModal.reason === 'new_user' || autoLogoutModal.reason === 'session_expired' ? handleReLogin : handleAutoLogoutLogin}
+        onLogin={autoLogoutModal.reason === 'password_changed' || autoLogoutModal.reason === 'session_expired' ? handleReLogin : handleAutoLogoutLogin}
         userName={user?.first_name || "User"}
-        isNewUser={isNewUser}
       />
     </AuthContext.Provider>
   );

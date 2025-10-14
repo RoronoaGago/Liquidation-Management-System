@@ -84,7 +84,6 @@ const ManageUsers = () => {
   const [error, setError] = useState<Error | null>(null);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     role: "",
-    dateRange: { start: "", end: "" },
     searchTerm: "",
   });
   const [sortConfig, setSortConfig] = useState<{
@@ -127,10 +126,6 @@ const ManageUsers = () => {
       };
       if (filterOptions.role) params.role = filterOptions.role;
       if (filterOptions.searchTerm) params.search = filterOptions.searchTerm;
-      if (filterOptions.dateRange?.start)
-        params.date_joined_after = filterOptions.dateRange.start;
-      if (filterOptions.dateRange?.end)
-        params.date_joined_before = filterOptions.dateRange.end;
       if (sortConfig) {
         params.ordering =
           sortConfig.direction === "asc"
@@ -241,6 +236,7 @@ const ManageUsers = () => {
       });
     }, 500);
   };
+
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -649,6 +645,7 @@ const ManageUsers = () => {
             </Dialog>
           )}
         </div>
+
 
         <UsersTable
           users={allUsers}
