@@ -1751,7 +1751,7 @@ def request_history(request, request_id):
                 "last_name": h.user.last_name if h.user else "",
                 "school": {
                     "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
-                    "schoolName": h.user.school.schoolName if h_user and h.user.school else "", # type: ignore
+                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "", # type: ignore
                 } if h.user and h.user.school else None,
             } if h.user else None,
             "request_id": h.request_id,
@@ -3733,46 +3733,41 @@ def generate_approved_request_pdf(request, request_id):
                 status=403
             )
 
-        # Check if request is approved
-        # if req.status != 'approved':
-        #     return HttpResponse(
-        #         '{"error": "Request must be approved first to generate PDF"}',
-        #         content_type='application/json',
-        #         status=400
-        #     )
+        # Allow PDF generation for all request statuses
+        # Note: The PDF will show different signature states based on request status
 
         # Generate PDF with actual signatures
         pdf_content = generate_request_pdf_with_signatures(req)
 
-        # Store PDF for audit trail (optional - can be enabled for compliance)
-        from .models import GeneratedPDF
-        from django.core.files.base import ContentFile
+        # Store PDF for audit trail (temporarily disabled to debug 500 error)
+        # from .models import GeneratedPDF
+        # from django.core.files.base import ContentFile
 
-        try:
-            # Create a record of PDF generation
-            pdf_record = GeneratedPDF.objects.create(
-                request=req,
-                generated_by=user,
-                generation_method='server_side',
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT', '')[
-                    :500]  # Limit length
-            )
+        # try:
+        #     # Create a record of PDF generation
+        #     pdf_record = GeneratedPDF.objects.create(
+        #         request=req,
+        #         generated_by=user,
+        #         generation_method='server_side',
+        #         ip_address=request.META.get('REMOTE_ADDR'),
+        #         user_agent=request.META.get('HTTP_USER_AGENT', '')[
+        #             :500]  # Limit length
+        #     )
 
-            # Optionally store the PDF file (uncomment if you want to store PDFs)
-            # pdf_filename = f"approved_request_{request_id}_{pdf_record.id}.pdf"
-            # pdf_record.pdf_file.save(
-            #     pdf_filename,
-            #     ContentFile(pdf_content),
-            #     save=True
-            # )
+        #     # Optionally store the PDF file (uncomment if you want to store PDFs)
+        #     # pdf_filename = f"approved_request_{request_id}_{pdf_record.id}.pdf"
+        #     # pdf_record.pdf_file.save(
+        #     #     pdf_filename,
+        #     #     ContentFile(pdf_content),
+        #     #     save=True
+        #     # )
 
-            logger.info(
-                f"PDF generated for approved request {request_id} by user {user.id} (PDF record ID: {pdf_record.id})")
+        #     logger.info(
+        #         f"PDF generated for approved request {request_id} by user {user.id} (PDF record ID: {pdf_record.id})")
 
-        except Exception as e:
-            logger.error(f"Error creating PDF record: {e}")
-            # Continue with PDF generation even if record creation fails
+        # except Exception as e:
+        #     logger.error(f"Error creating PDF record: {e}")
+        #     # Continue with PDF generation even if record creation fails
 
         # Create HTTP response
         response = HttpResponse(pdf_content, content_type='application/pdf')

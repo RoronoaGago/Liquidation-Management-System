@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import PrioritySubmissionsTable from "@/components/tables/BasicTables/PrioritySubmissionsTable";
-import { handleExport, handleServerSideExport } from "@/lib/pdfHelpers";
+import { handleServerSideExport } from "@/lib/pdfHelpers";
 import {
   CheckCircle,
   XCircle,
@@ -1420,7 +1420,7 @@ const PriortySubmissionsPage = () => {
                   type="button"
                   variant="outline"
                   onClick={async () => {
-                    // Use server-side PDF generation for approved requests
+                    // Use server-side PDF generation for all requests
                     const result = await handleServerSideExport(
                       viewedSubmission
                     );
