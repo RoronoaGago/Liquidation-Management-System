@@ -468,6 +468,31 @@ class UserSerializer(serializers.ModelSerializer):
             fail_silently=True,
         )
 
+    def send_password_reset_email(self, user, temp_password):
+        """Send password reset email with temporary password"""
+        subject = "Password Reset - MOOE Liquidation Management System"
+        
+        # Get the frontend login URL from settings
+        login_url = getattr(settings, 'FRONTEND_LOGIN_URL', 'http://localhost:3000/login')
+        
+        # Render the password reset email template
+        html_message = render_to_string('emails/password_reset.html', {
+            'user': user,
+            'temporary_password': temp_password,
+            'login_url': login_url,
+            'now': timezone.now(),
+            'deped_logo_base64': get_deped_logo_base64(),
+        })
+
+        send_mail(
+            subject=subject,
+            message="",  # Empty message since we're using html_message
+            from_email=None,  # Uses DEFAULT_FROM_EMAIL
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=True,
+        )
+
     def update(self, instance, validated_data):
         profile_picture_base64 = validated_data.pop(
             'profile_picture_base64', None)

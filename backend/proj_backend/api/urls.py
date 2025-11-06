@@ -67,6 +67,7 @@ urlpatterns = [
          name='token_refresh'),  # Updated
     path('logout/', views.logout, name='logout'),
     path('change-password/', views.change_password, name='change-password'),
+    path('admin-reset-user-password/', views.admin_reset_user_password, name='admin-reset-user-password'),
     path('protected/', ProtectedView.as_view(), name='protected'),
     
     # Enhanced Secure OTP Endpoints

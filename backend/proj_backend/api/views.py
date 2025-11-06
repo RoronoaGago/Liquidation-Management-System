@@ -65,6 +65,8 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
 import json
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
+from django.db.models.functions import Concat
+from django.db.models import Value
 from .unliquidated_requests_report_utils import (
     AgingReportPagination,
     generate_aging_report_data,
@@ -157,6 +159,65 @@ def change_password(request):
     })
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def admin_reset_user_password(request):
+    """
+    Admin endpoint to reset a user's password and send them a temporary password via email
+    """
+    # Check if the current user is an admin
+    if request.user.role != 'admin':
+        return Response({
+            'error': 'Only administrators can reset user passwords'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    user_id = request.data.get('user_id')
+    if not user_id:
+        return Response({
+            'error': 'User ID is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Get the target user
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({
+            'error': 'User not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Generate a new temporary password
+    from .serializers import generate_random_password
+    temp_password = generate_random_password()
+    
+    # Set the new password and mark as requiring change
+    target_user.set_password(temp_password)
+    target_user.password_change_required = True
+    target_user.save(update_fields=['password', 'password_change_required'])
+    
+    # Send password reset email with the new temporary password
+    from .serializers import UserSerializer
+    serializer = UserSerializer()
+    serializer.send_password_reset_email(target_user, temp_password)
+    
+    # Log the admin action
+    from .audit_utils import log_audit_event
+    log_audit_event(
+        request=request,
+        action='admin_password_reset',
+        module='user_management',
+        description=f"Admin {request.user.get_full_name()} reset password for user {target_user.get_full_name()}",
+        object_id=target_user.pk,
+        object_type='User',
+        object_name=target_user.get_full_name()
+    )
+    
+    return Response({
+        'message': f'Password reset successfully. A new temporary password has been sent to {target_user.email}',
+        'user_name': target_user.get_full_name(),
+        'user_email': target_user.email
+    }, status=status.HTTP_200_OK)
+
+
 @api_view(['GET', 'POST'])
 def user_list(request):
     """
@@ -177,12 +238,27 @@ def user_list(request):
             'archived', 'false').lower() == 'true'
 
         queryset = User.objects.exclude(id=request.user.id)
+        
+        # Debug: Show all users before any filtering
+        print(f"DEBUG: All users before filtering:")
+        for user in queryset[:10]:
+            print(f"  - {user.first_name} {user.last_name}: {user.date_joined} (date: {user.date_joined.date()})")
+        
         # Archive filter
+        print(f"DEBUG: Archive filter - show_all: {show_all}, archived: {archived}")
         if not show_all:
             if not archived:
+                print("DEBUG: Filtering for active users only")
                 queryset = queryset.filter(is_active=True)
             else:
+                print("DEBUG: Filtering for archived users only")
                 queryset = queryset.filter(is_active=False)
+        else:
+            print("DEBUG: Showing all users (active and archived)")
+        
+        print(f"DEBUG: Users after archive filter:")
+        for user in queryset[:10]:
+            print(f"  - {user.first_name} {user.last_name}: {user.date_joined} (active: {user.is_active})")
 
         # Role filter
         if role_filter:
@@ -197,25 +273,44 @@ def user_list(request):
 
         # Search filter
         if search_term:
-            queryset = queryset.filter(
+            print(f"DEBUG: Searching for term: '{search_term}'")
+            queryset = queryset.annotate(
+                full_name=Concat('first_name', Value(' '), 'last_name')
+            ).filter(
                 Q(first_name__icontains=search_term) |
                 Q(last_name__icontains=search_term) |
+                Q(full_name__icontains=search_term) |
                 Q(email__icontains=search_term) |
                 Q(sex__icontains=search_term) |
+                Q(role__icontains=search_term) |
                 # <-- Fix: use related field
                 Q(school__schoolName__icontains=search_term) |
                 # <-- Optionally add this too
-                Q(school__schoolId__icontains=search_term)
+                Q(school__schoolId__icontains=search_term) |
+                # Search in school district name
+                Q(school_district__districtName__icontains=search_term)
             )
+            print(f"DEBUG: Users found after search: {queryset.count()}")
 
         # Date range filters
         date_joined_after = request.query_params.get('date_joined_after', None)
         date_joined_before = request.query_params.get('date_joined_before', None)
         
+        print(f"DEBUG: Date filter params - after: {date_joined_after}, before: {date_joined_before}")
+        
         if date_joined_after:
+            print(f"DEBUG: Filtering users with date_joined >= {date_joined_after}")
             queryset = queryset.filter(date_joined__date__gte=date_joined_after)
         if date_joined_before:
+            print(f"DEBUG: Filtering users with date_joined <= {date_joined_before}")
             queryset = queryset.filter(date_joined__date__lte=date_joined_before)
+        
+        # Debug: Show all users and their date_joined values after filtering
+        print(f"DEBUG: Users after date filtering:")
+        for user in queryset[:10]:
+            print(f"  - {user.first_name} {user.last_name}: {user.date_joined} (date: {user.date_joined.date()})")
+        
+        print(f"DEBUG: Queryset count after date filters: {queryset.count()}")
 
         # Add ordering support
         if ordering:

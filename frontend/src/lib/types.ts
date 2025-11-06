@@ -84,7 +84,6 @@ export interface Assignment {
 }
 export interface FilterOptions {
   role: string;
-  dateRange: { start: string; end: string };
   searchTerm: string;
 }
 
