@@ -36,7 +36,6 @@ import {
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
-import { CalenderIcon } from "@/icons";
 import {
   District,
   FilterOptions,
@@ -135,6 +134,8 @@ export default function UsersTable({
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToView, setUserToView] = useState<User | null>(null);
   const [userToArchive, setUserToArchive] = useState<User | null>(null);
+  const [userToResetPassword, setUserToResetPassword] = useState<User | null>(null);
+  const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -398,6 +399,11 @@ export default function UsersTable({
     setIsArchiveDialogOpen(true);
   };
 
+  const handlePasswordResetClick = (user: User) => {
+    setUserToResetPassword(user);
+    setIsPasswordResetDialogOpen(true);
+  };
+
   const handleSchoolChange = (schoolId: number | null) => {
     if (!selectedUser) return;
     setSelectedUser((prev) => ({
@@ -558,10 +564,61 @@ export default function UsersTable({
     }
   };
 
+  const handlePasswordResetConfirm = async () => {
+    if (!userToResetPassword) return;
+    setIsSubmitting(true);
+
+    try {
+      await api.post('admin-reset-user-password/', {
+        user_id: userToResetPassword.id
+      });
+      
+      toast.success(
+        `Password reset successfully! A new temporary password has been sent to ${userToResetPassword.email}`,
+        {
+          position: "top-center",
+          autoClose: 5000,
+          style: { fontFamily: "Outfit, sans-serif" },
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+        }
+      );
+      
+      await fetchUsers();
+    } catch (error) {
+      let errorMessage = "Failed to reset user password";
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        }
+      }
+      toast.error(errorMessage, {
+        position: "top-center",
+        autoClose: 3000,
+        style: { fontFamily: "Outfit, sans-serif" },
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+      });
+    } finally {
+      setIsSubmitting(false);
+      setIsPasswordResetDialogOpen(false);
+      setUserToResetPassword(null);
+    }
+  };
+
   const resetFilters = () => {
     setFilterOptions({
       role: "",
-      dateRange: { start: "", end: "" },
       searchTerm: "",
     });
     setSearchTerm("");
@@ -643,7 +700,7 @@ export default function UsersTable({
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
             <div className="space-y-2">
               <Label htmlFor="role-filter" className="text-sm font-medium">
                 Role
@@ -668,45 +725,8 @@ export default function UsersTable({
               </select>
             </div>
 
-            {/* <div className="space-y-2">
-              <Label htmlFor="date-range-start" className="text-sm font-medium">
-                Date Joined Range
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="relative">
-                  <Input
-                    type="date"
-                    id="date-range-start"
-                    value={filterOptions.dateRange.start}
-                    onChange={(e) =>
-                      setFilterOptions((prev) => ({
-                        ...prev,
-                        dateRange: { ...prev.dateRange, start: e.target.value },
-                      }))
-                    }
-                    className="w-full p-2 pr-8"
-                  />
-                  <CalenderIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
-                <div className="relative">
-                  <Input
-                    type="date"
-                    id="date-range-end"
-                    value={filterOptions.dateRange.end}
-                    onChange={(e) =>
-                      setFilterOptions((prev) => ({
-                        ...prev,
-                        dateRange: { ...prev.dateRange, end: e.target.value },
-                      }))
-                    }
-                    className="w-full p-2 pr-8"
-                  />
-                  <CalenderIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
-              </div>
-            </div> */}
 
-            <div className="md:col-span-3 flex justify-end gap-2">
+            <div className="md:col-span-2 flex justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -943,28 +963,44 @@ export default function UsersTable({
                       </Badge>
                     </TableCell>
                     <TableCell className="px-6 whitespace-nowrap py-4 text-gray-800 text-start text-theme-sm dark:text-gray-400 space-x-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditUser(user);
-                        }}
-                        className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleArchiveClick(user);
-                        }}
-                        className={`px-4 py-2 rounded-md transition-colors ${
-                          user.is_active
-                            ? "bg-error-500 text-white hover:bg-error-600"
-                            : "bg-success-500 text-white hover:bg-success-600"
-                        }`}
-                      >
-                        {user.is_active ? "Archive" : "Restore"}
-                      </button>
+                      <div className="flex justify-start space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditUser(user);
+                          }}
+                          className="px-4 py-2 bg-blue-light-500 text-white dark:text-white rounded-md hover:bg-blue-light-600 transition-colors"
+                          title="Edit User"
+                        >
+                          Edit
+                        </button>
+                        {currentUser?.role === 'admin' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePasswordResetClick(user);
+                            }}
+                            className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
+                            title="Reset Password"
+                          >
+                            Reset
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchiveClick(user);
+                          }}
+                          className={`px-4 py-2 rounded-md transition-colors ${
+                            user.is_active
+                              ? "bg-error-500 text-white hover:bg-error-600"
+                              : "bg-success-500 text-white hover:bg-success-600"
+                          }`}
+                          title={user.is_active ? "Archive User" : "Restore User"}
+                        >
+                          {user.is_active ? "Archive" : "Restore"}
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -1153,12 +1189,9 @@ export default function UsersTable({
                     placeholder="John"
                     value={selectedUser.first_name}
                     onChange={handleChange}
+                    error={!!formErrors.first_name}
+                    hint={formErrors.first_name || undefined}
                   />
-                  {formErrors.first_name && (
-                    <p className="text-red-500 text-sm">
-                      {formErrors.first_name}
-                    </p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="last_name" className="text-base">
@@ -1172,12 +1205,9 @@ export default function UsersTable({
                     placeholder="Doe"
                     value={selectedUser.last_name}
                     onChange={handleChange}
+                    error={!!formErrors.last_name}
+                    hint={formErrors.last_name || undefined}
                   />
-                  {formErrors.last_name && (
-                    <p className="text-red-500 text-sm">
-                      {formErrors.last_name}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -1193,10 +1223,9 @@ export default function UsersTable({
                   placeholder="john@example.com"
                   value={selectedUser.email}
                   onChange={handleChange}
+                  error={!!formErrors.email}
+                  hint={formErrors.email || undefined}
                 />
-                {formErrors.email && (
-                  <p className="text-red-500 text-sm">{formErrors.email}</p>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -1654,6 +1683,166 @@ export default function UsersTable({
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPasswordResetDialogOpen} onOpenChange={setIsPasswordResetDialogOpen}>
+        <DialogContent className="w-full max-w-2xl rounded-xl bg-white dark:bg-gray-800 p-0 shadow-2xl border-0 overflow-hidden lg:max-w-3xl">
+          {/* Header with clean background */}
+          <div className="bg-gray-50 dark:bg-gray-700 px-8 py-6 border-b border-gray-200 dark:border-gray-600">
+            <DialogHeader className="mb-0">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
+                  <RefreshCw className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                    Reset User Password
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-600 dark:text-gray-300 text-sm">
+                    Generate a new temporary password for this user
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          {userToResetPassword && (
+            <div className="p-8 space-y-6">
+              {/* User Information Card */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 overflow-hidden rounded-full">
+                    {userToResetPassword.profile_picture ? (
+                      <img
+                        src={`http://127.0.0.1:8000${userToResetPassword.profile_picture}`}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="bg-gray-200 dark:bg-gray-600 w-full h-full flex items-center justify-center">
+                        <UserIcon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {userToResetPassword.first_name} {userToResetPassword.last_name}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">
+                      {userToResetPassword.email}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge color={userToResetPassword.is_active ? "success" : "error"}>
+                        {userToResetPassword.is_active ? "Active" : "Archived"}
+                      </Badge>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {roleMap[userToResetPassword.role]}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Warning Section */}
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-6 border border-amber-200 dark:border-amber-800">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                      Important Notice
+                    </h4>
+                    <p className="text-amber-700 dark:text-amber-300 text-sm leading-relaxed">
+                      This action will immediately invalidate the user's current password and generate a new temporary password. 
+                      The user will receive an email with the new credentials and must change their password on next login.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Process Steps */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
+                <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-4">
+                  What happens next:
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 dark:text-blue-300 text-xs font-bold">1</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Generate Password</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">Create secure temporary password</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 dark:text-blue-300 text-xs font-bold">2</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Send Email</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">Deliver credentials to user</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 dark:text-blue-300 text-xs font-bold">3</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Force Change</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">Require password change on login</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 dark:text-blue-300 text-xs font-bold">4</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Invalidate Session</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">Log out current sessions</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsPasswordResetDialogOpen(false);
+                    setUserToResetPassword(null);
+                  }}
+                  disabled={isSubmitting}
+                  className="px-6"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  color="warning"
+                  onClick={handlePasswordResetConfirm}
+                  disabled={isSubmitting}
+                  className="px-6"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="animate-spin size-4" />
+                      Resetting Password...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="size-4" />
+                      Reset Password
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

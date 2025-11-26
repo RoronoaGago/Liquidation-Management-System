@@ -29,6 +29,7 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('role', 'admin')  # Set role to admin for superusers
         return self.create_user(email, password, **extra_fields)
 
 
@@ -729,8 +730,14 @@ class LiquidationManagement(models.Model):
 
     @property
     def liquidation_deadline(self):
+        """
+        Standardized liquidation deadline calculation.
+        Uses the same logic as the reminder system for consistency.
+        """
+        from django.conf import settings
+        deadline_days = getattr(settings, 'LIQUIDATION_DEADLINE_DAYS', 30)
         if self.request.downloaded_at:
-            return (self.request.downloaded_at + timezone.timedelta(days=30)).date()
+            return (self.request.downloaded_at + timezone.timedelta(days=deadline_days)).date()
         return None
 
     def calculate_refund(self):
@@ -753,10 +760,12 @@ class LiquidationManagement(models.Model):
             return
 
         from django.utils import timezone
+        from django.conf import settings
         today = timezone.now().date()
         days_left = (self.liquidation_deadline - today).days
 
-        reminder_days = [15, 10, 5, 3, 1]
+        # Use settings configuration for reminder days
+        reminder_days = getattr(settings, 'LIQUIDATION_REMINDER_DAYS', [15, 5, 0])
 
         if days_left in reminder_days:
             if self.request.last_reminder_sent != today:

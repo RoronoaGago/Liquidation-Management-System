@@ -4,7 +4,6 @@ import { Link, useLocation } from "react-router";
 import desktopLogo from "../images/company-logo.png";
 // Assume these icons are imported from an icon library
 import {
-  BoxCubeIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -31,13 +30,10 @@ import {
   ClipboardCheckIcon,
   DatabaseBackupIcon,
   CalendarIcon,
-  FileIcon,
   LogsIcon,
   HelpCircleIcon,
-  PieChartIcon, // <-- Add this
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import AuditLogPage from "../pages/AuditLogPage";
 
 // Define all possible navigation items with role permissions
 const allNavItems: NavItem[] = [
@@ -77,6 +73,12 @@ const allNavItems: NavItem[] = [
     name: "Resource Allocation",
     path: "/resource-allocation",
     roles: ["accountant"], // Only admin and accountant
+  },
+  {
+    icon: <CalendarIcon />,
+    name: "School Liquidation Dates",
+    path: "/school-liquidation-dates",
+    roles: ["accountant"], // Admin and accountant
   },
   {
     icon: <BanknoteIcon />,
@@ -198,20 +200,7 @@ const allNavItems: NavItem[] = [
     path: "/audit-logs",
     roles: ["admin"], // Only admins should access audit logs
   },
-  {
-    icon: <UserRoundPenIcon />,
-    name: "User Profile",
-    path: "/profile",
-    roles: [
-      "school_admin",
-      "school_head",
-      "district_admin",
-      "superintendent",
-      "admin",
-      "liquidator",
-      "accountant",
-    ], // All roles
-  },
+  
 ];
 
 const othersItems = [
@@ -239,6 +228,20 @@ const othersItems = [
   //   ],
   // },
   {
+    icon: <UserRoundPenIcon />,
+    name: "User Profile",
+    path: "/profile",
+    roles: [
+      "school_admin",
+      "school_head",
+      "district_admin",
+      "superintendent",
+      "admin",
+      "liquidator",
+      "accountant",
+    ], // All roles
+  },
+  {
     icon: <HelpCircleIcon />,
     name: "Help Center",
     path: "/help",
@@ -252,6 +255,7 @@ const othersItems = [
       "accountant",
     ],
   },
+
 ];
 
 const AppSidebar: React.FC = () => {

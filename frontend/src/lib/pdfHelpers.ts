@@ -16,14 +16,6 @@ import { generateApprovedRequestPDF, canGeneratePDF } from "@/services/pdfServic
  * This function generates PDFs on the server with real signatures and timestamps
  */
 export const handleServerSideExport = async (submission: Submission): Promise<{ success: boolean; message?: string; error?: string }> => {
-    // Check if request is approved
-    // if (!canGeneratePDF(submission)) {
-    //     return {
-    //         success: false,
-    //         error: 'Request must be approved first to generate PDF'
-    //     };
-    // }
-
     try {
         const result = await generateApprovedRequestPDF(submission.request_id);
         return result;
@@ -50,7 +42,13 @@ export const handleExport = async (submission: Submission, first_name: string, l
     const logoFilename = getDistrictLogoFilename(submission.user.school?.district.districtName ?? ""); // e.g. "agoo-east-district.png"
 
     const logoPath = `/src/images/district-logos/${logoFilename}`;
-    const districtLogoBase64 = await getLogoBase64(logoPath);
+    let districtLogoBase64;
+    try {
+        districtLogoBase64 = await getLogoBase64(logoPath);
+    } catch (error) {
+        console.warn("Failed to load district logo, using DepEd logo as fallback:", error);
+        districtLogoBase64 = depedLogoBase64; // Use DepEd logo as fallback
+    }
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -76,14 +74,19 @@ export const handleExport = async (submission: Submission, first_name: string, l
     );
     // Right logo
     const rightLogoX = pageWidth / 2 + logoMarginFromCenter;
-    doc.addImage(
-        districtLogoBase64,
-        "PNG",
-        rightLogoX,
-        logoY,
-        logoWidth,
-        logoHeight
-    );
+    try {
+        doc.addImage(
+            districtLogoBase64,
+            "PNG",
+            rightLogoX,
+            logoY,
+            logoWidth,
+            logoHeight
+        );
+    } catch (error) {
+        console.warn("Failed to add district logo to PDF, skipping:", error);
+        // Continue without the district logo
+    }
 
     // Header text (use headerBaseY)
     const centerText = (
@@ -409,12 +412,32 @@ export const handleExport = async (submission: Submission, first_name: string, l
 };
 
 async function getLogoBase64(logoPath: string): Promise<string> {
-    const response = await fetch(logoPath);
-    const blob = await response.blob();
-    return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
+    try {
+        const response = await fetch(logoPath);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch logo: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        
+        // Check if the blob is actually a valid image
+        if (!blob.type.startsWith('image/')) {
+            throw new Error(`Invalid image type: ${blob.type}`);
+        }
+        
+        return new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (reader.result) {
+                    resolve(reader.result as string);
+                } else {
+                    reject(new Error('Failed to read logo file'));
+                }
+            };
+            reader.onerror = () => reject(new Error('Failed to read logo file'));
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error(`Error loading logo from ${logoPath}:`, error);
+        throw error;
+    }
 }

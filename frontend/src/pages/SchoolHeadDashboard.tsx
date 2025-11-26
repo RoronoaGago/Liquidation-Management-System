@@ -73,6 +73,12 @@ interface SchoolHeadDashboardData {
       LiquidationID: string;
       status: string;
       created_at: string;
+      request?: {
+        request_monthyear: string;
+        request_id: string;
+        status: string;
+        priorities?: any[];
+      };
     };
   };
   frequentlyUsedPriorities?: {
@@ -128,149 +134,6 @@ const COLORS = [
   "#8884D8",
 ];
 
-// Toggle to use mock data for showcasing the dashboard without backend
-const USE_MOCK_DATA = false;
-
-const MOCK_DASHBOARD_DATA: SchoolHeadDashboardData = {
-  liquidationProgress: {
-    priorities: [
-      {
-        priorityId: "p1",
-        priorityName: "Utilities",
-        status: "completed",
-        documentsRequired: 5,
-        documentsUploaded: 5,
-        completionPercentage: 100,
-      },
-      {
-        priorityId: "p2",
-        priorityName: "Supplies",
-        status: "in_progress",
-        documentsRequired: 6,
-        documentsUploaded: 4,
-        completionPercentage: 67,
-      },
-      {
-        priorityId: "p3",
-        priorityName: "Repair & Maintenance",
-        status: "in_progress",
-        documentsRequired: 4,
-        documentsUploaded: 2,
-        completionPercentage: 50,
-      },
-      {
-        priorityId: "p4",
-        priorityName: "Training",
-        status: "not_started",
-        documentsRequired: 3,
-        documentsUploaded: 0,
-        completionPercentage: 0,
-      },
-    ],
-    totalPriorities: 4,
-    completedPriorities: 1,
-    completionPercentage: 54.3,
-  },
-  financialMetrics: {
-    totalDownloadedAmount: 250000,
-    totalLiquidatedAmount: 135800,
-    liquidationPercentage: 54.3,
-    remainingAmount: 114200,
-  },
-  recentLiquidations: [
-    {
-      id: "l1",
-      priorityName: "Utilities",
-      amount: 45000,
-      status: "approved",
-      date: new Date().toISOString(),
-    },
-    {
-      id: "l2",
-      priorityName: "Supplies",
-      amount: 35800,
-      status: "submitted",
-      date: new Date().toISOString(),
-    },
-  ],
-  priorityBreakdown: [
-    {
-      priority: "Utilities",
-      amount: 65000,
-      percentage: 26,
-      color: "#465FFF",
-      name: "Utilities",
-    },
-    {
-      priority: "Supplies",
-      amount: 80000,
-      percentage: 32,
-      color: "#9CB9FF",
-      name: "Supplies",
-    },
-    {
-      priority: "Repair & Maintenance",
-      amount: 70000,
-      percentage: 28,
-      color: "#FF8042",
-      name: "Repair & Maintenance",
-    },
-    {
-      priority: "Training",
-      amount: 35000,
-      percentage: 14,
-      color: "#00C49F",
-      name: "Training",
-    },
-  ],
-  requestStatus: {
-    hasPendingRequest: true,
-    hasActiveLiquidation: false,
-    pendingRequest: {
-      request_id: "REQ-2025-09",
-      status: "submitted",
-      request_monthyear: format(new Date(), "yyyy-MM"),
-      created_at: new Date().toISOString(),
-      school_name: "Sample High School",
-      school_id: "SCH-001",
-      division: "Division A",
-      total_amount: 250000,
-      priorities: [
-        { expenseTitle: "Utilities", amount: 65000 },
-        { expenseTitle: "Supplies", amount: 80000 },
-        { expenseTitle: "Repair & Maintenance", amount: 70000 },
-        { expenseTitle: "Training", amount: 35000 },
-      ],
-    },
-  },
-  frequentlyUsedPriorities: [
-    {
-      priority: "Supplies",
-      frequency: 8,
-      totalAmount: 560000,
-      lastUsed: new Date().toISOString(),
-    },
-    {
-      priority: "Utilities",
-      frequency: 7,
-      totalAmount: 420000,
-      lastUsed: new Date().toISOString(),
-    },
-  ],
-  recentRequests: [
-    {
-      request_id: "REQ-2025-08",
-      status: "approved",
-      request_monthyear: "2025-08",
-      created_at: new Date().toISOString(),
-      total_amount: 200000,
-      priorities: [
-        { expenseTitle: "Utilities", amount: 60000 },
-        { expenseTitle: "Supplies", amount: 70000 },
-      ],
-    },
-  ],
-};
 
 const SchoolHeadDashboard = () => {
   const [data, setData] = useState<SchoolHeadDashboardData | null>(null);
@@ -287,12 +150,6 @@ const SchoolHeadDashboard = () => {
     return COLORS[colorIndex % COLORS.length];
   };
 
-  const truncateLabel = (value: string, maxLength = 16) => {
-    if (!value) return "";
-    return value.length > maxLength
-      ? value.slice(0, maxLength - 1) + "…"
-      : value;
-  };
 
   const formatMonthTitle = (ym: string | undefined) => {
     if (!ym) return "Month Expense Breakdown";
@@ -306,25 +163,127 @@ const SchoolHeadDashboard = () => {
     }
   };
 
+  const getCurrentRequestMonthYear = () => {
+    // Priority 1: Check for pending request (highest priority)
+    if (data?.requestStatus?.pendingRequest?.request_monthyear) {
+      return data.requestStatus.pendingRequest.request_monthyear;
+    }
+    
+    // Priority 2: Check for active liquidation (unliquidated) - second priority
+    if (data?.requestStatus?.hasActiveLiquidation && data?.requestStatus?.activeLiquidation) {
+      // For active liquidations, get the month/year from the associated request
+      if (data.requestStatus.activeLiquidation.request?.request_monthyear) {
+        return data.requestStatus.activeLiquidation.request.request_monthyear;
+      }
+      // Fallback to selectedMonth if request data is not available
+      return selectedMonth;
+    }
+    
+    // Priority 3: Check recent requests for any active/unliquidated status
+    if (data?.recentRequests && data.recentRequests.length > 0) {
+      const activeRequest = data.recentRequests.find(req => 
+        req.status === 'unliquidated' || req.status === 'approved'
+      );
+      if (activeRequest?.request_monthyear) {
+        return activeRequest.request_monthyear;
+      }
+    }
+    
+    // Default fallback: use current month/year when no active request or liquidation
+    return selectedMonth;
+  };
+
   useEffect(() => {
     fetchDashboardData(selectedMonth);
   }, [selectedMonth]);
 
+  // Function to get actual amounts from localStorage for active liquidation
+  const getActualAmountsFromLocalStorage = (liquidationID: string) => {
+    try {
+      const savedAmounts = localStorage.getItem(`liquidation_${liquidationID}_amounts`);
+      if (savedAmounts) {
+        return JSON.parse(savedAmounts);
+      }
+    } catch (error) {
+      console.warn("Error parsing saved amounts from localStorage:", error);
+    }
+    return {};
+  };
+
   const fetchDashboardData = async (month?: string) => {
     setLoading(true);
     try {
-      if (USE_MOCK_DATA) {
-        // Simulate a short network delay for UX
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setData(MOCK_DASHBOARD_DATA);
+      // Use the same endpoint as MOOERequestPage to check for pending requests
+      const [dashboardResponse, pendingCheckResponse] = await Promise.all([
+        api.get(month ? `/school-head/dashboard/?month=${month}` : "/school-head/dashboard/"),
+        api.get("check-pending-requests/")
+      ]);
+      
+      const respData: SchoolHeadDashboardData = dashboardResponse.data;
+      const pendingCheckData = pendingCheckResponse.data;
+      
+      // Debug logging to see what the backend returns
+      console.log("Backend API response:", respData);
+      console.log("Pending check response:", pendingCheckData);
+      console.log("Request status from backend:", respData.requestStatus);
+      console.log("Recent requests from backend:", respData.recentRequests);
+      
+      // Update request status based on pending check (same logic as MOOERequestPage)
+      const hasPending = pendingCheckData.has_pending_request;
+      const activeLiquidation = pendingCheckData.active_liquidation;
+      const hasActive = !!activeLiquidation && activeLiquidation.status !== "liquidated";
+      
+      // Check if both latest request and liquidation are liquidated
+      const latestRequest = pendingCheckData.pending_request;
+      const isLatestRequestLiquidated = latestRequest?.status === "liquidated";
+      const isActiveLiquidationLiquidated = activeLiquidation?.status === "liquidated";
+      
+      // Also check recent requests to see if the latest one is liquidated
+      let isLatestRecentRequestLiquidated = false;
+      if (respData.recentRequests && respData.recentRequests.length > 0) {
+        const latestRecentRequest = respData.recentRequests[0];
+        isLatestRecentRequestLiquidated = latestRecentRequest.status === "liquidated";
+      }
+      
+      // If both are liquidated (or no pending request and liquidation is liquidated), return to default state
+      const shouldReturnToDefault = (isLatestRequestLiquidated && isActiveLiquidationLiquidated) ||
+                                   (!hasPending && isActiveLiquidationLiquidated) ||
+                                   (!hasActive && isLatestRecentRequestLiquidated);
+      
+      if (shouldReturnToDefault) {
+        console.log("Latest request and liquidation are liquidated, returning to default state");
+        setData({
+          liquidationProgress: {
+            priorities: [],
+            totalPriorities: 0,
+            completedPriorities: 0,
+            completionPercentage: 0,
+          },
+          financialMetrics: {
+            totalDownloadedAmount: 0,
+            totalLiquidatedAmount: 0,
+            liquidationPercentage: 0,
+            remainingAmount: 0,
+          },
+          recentLiquidations: [],
+          priorityBreakdown: [],
+          requestStatus: {
+            hasPendingRequest: false,
+            hasActiveLiquidation: false,
+          },
+          recentRequests: [],
+        });
         setLoading(false);
         return;
       }
-      const url = month
-        ? `/school-head/dashboard/?month=${month}`
-        : "/school-head/dashboard/";
-      const response = await api.get(url);
-      const respData: SchoolHeadDashboardData = response.data;
+      
+      // Override the request status with the pending check data
+      respData.requestStatus = {
+        hasPendingRequest: hasPending,
+        hasActiveLiquidation: hasActive,
+        pendingRequest: pendingCheckData.pending_request,
+        activeLiquidation: activeLiquidation
+      };
 
       // Fallback: derive liquidationProgress from pending request priorities
       if (
@@ -557,11 +516,27 @@ const SchoolHeadDashboard = () => {
             })
           );
 
-          // Compute financial metrics
-          const totalActual = liquidationPriorities.reduce(
-            (sum: number, lp: any) => sum + Number(lp.amount || 0),
-            0
-          );
+          // Get actual amounts from localStorage for this liquidation
+          const actualAmountsFromStorage = getActualAmountsFromLocalStorage(active.LiquidationID);
+          console.log("Actual amounts from localStorage:", actualAmountsFromStorage);
+          
+          // Compute financial metrics using actual amounts from localStorage if available
+          let totalActual = 0;
+          if (Object.keys(actualAmountsFromStorage).length > 0) {
+            // Use actual amounts from localStorage
+            totalActual = Object.values(actualAmountsFromStorage).reduce(
+              (sum: number, amount: any) => sum + Number(amount || 0),
+              0
+            );
+            console.log("Using actual amounts from localStorage, total:", totalActual);
+          } else {
+            // Fallback to liquidation priorities from server
+            totalActual = liquidationPriorities.reduce(
+              (sum: number, lp: any) => sum + Number(lp.amount || 0),
+              0
+            );
+            console.log("Using liquidation priorities from server, total:", totalActual);
+          }
           // Determine total downloaded: if latest request is unliquidated and we have school monthly budget, use it
           let totalDownloaded = totalRequested;
           try {
@@ -591,9 +566,59 @@ const SchoolHeadDashboard = () => {
               totalDownloaded > 0 ? (totalActual / totalDownloaded) * 100 : 0,
             remainingAmount: remaining,
           };
+
+          // Update requestStatus.activeLiquidation with request information
+          if (respData.requestStatus) {
+            respData.requestStatus.hasActiveLiquidation = true;
+            respData.requestStatus.activeLiquidation = {
+              date_districtApproved: active.date_districtApproved,
+              date_liquidatorApproved: active.date_liquidatorApproved,
+              date_liquidated: active.date_liquidated,
+              date_submitted: active.date_submitted,
+              LiquidationID: active.LiquidationID,
+              status: active.status,
+              created_at: active.created_at,
+              request: {
+                request_monthyear: active.request?.request_monthyear,
+                request_id: active.request?.request_id,
+                status: active.request?.status,
+                priorities: active.request?.priorities,
+              },
+            };
+          }
         }
       } catch (e) {
-        // If no active liquidation, keep previous derivations
+        // If no active liquidation, try to get actual amounts from any liquidation in localStorage
+        try {
+          // Look for any liquidation amounts in localStorage
+          const allKeys = Object.keys(localStorage);
+          const liquidationKeys = allKeys.filter(key => key.startsWith('liquidation_') && key.endsWith('_amounts'));
+          
+          if (liquidationKeys.length > 0) {
+            // Use the most recent liquidation (last key)
+            const latestKey = liquidationKeys[liquidationKeys.length - 1];
+            const actualAmountsFromStorage = getActualAmountsFromLocalStorage(latestKey.replace('liquidation_', '').replace('_amounts', ''));
+            
+            if (Object.keys(actualAmountsFromStorage).length > 0) {
+              const totalActual = Object.values(actualAmountsFromStorage).reduce(
+                (sum: number, amount: any) => sum + Number(amount || 0),
+                0
+              );
+              
+              // Update financial metrics with actual amounts from localStorage
+              if (respData.financialMetrics) {
+                respData.financialMetrics.totalLiquidatedAmount = totalActual;
+                respData.financialMetrics.liquidationPercentage = respData.financialMetrics.totalDownloadedAmount > 0 
+                  ? (totalActual / respData.financialMetrics.totalDownloadedAmount) * 100 
+                  : 0;
+                respData.financialMetrics.remainingAmount = Math.max(respData.financialMetrics.totalDownloadedAmount - totalActual, 0);
+              }
+              console.log("Using actual amounts from localStorage (no active liquidation), total:", totalActual);
+            }
+          }
+        } catch (fallbackError) {
+          console.warn("Error in fallback localStorage check:", fallbackError);
+        }
       }
 
       setData(respData);
@@ -641,23 +666,24 @@ const SchoolHeadDashboard = () => {
   };
 
   const handleViewRequestStatus = () => {
-    // Prefer navigating to the specific active request modal (pending/approved/unliquidated)
-    const req = data?.requestStatus?.pendingRequest;
-    const activeStatus = req?.status?.toLowerCase?.();
-    const isActive =
-      activeStatus === "pending" ||
-      activeStatus === "approved" ||
-      activeStatus === "unliquidated";
-
-    if (req && isActive) {
-      navigate("/requests-history", { state: { requestId: req.request_id } });
-      return;
-    }
-
-    // Fallbacks: active liquidation → open latest; else just go to history
-    if (data?.requestStatus?.hasPendingRequest) {
-      navigate("/requests-history", { state: { openLatest: true } });
+    // Use the same navigation logic as MOOERequestPage but pass specific request ID
+    const hasPending = data?.requestStatus?.hasPendingRequest;
+    const hasActive = data?.requestStatus?.hasActiveLiquidation;
+    const pendingRequest = data?.requestStatus?.pendingRequest;
+    const activeLiquidation = data?.requestStatus?.activeLiquidation;
+    
+    if (hasPending && pendingRequest?.request_id) {
+      // Navigate to requests history with specific request ID to open modal
+      navigate("/requests-history", { 
+        state: { requestId: pendingRequest.request_id } 
+      });
+    } else if (hasActive && activeLiquidation?.request?.request_id) {
+      // Navigate to requests history with specific request ID from active liquidation
+      navigate("/requests-history", { 
+        state: { requestId: activeLiquidation.request.request_id } 
+      });
     } else {
+      // Fallback to requests history without specific request
       navigate("/requests-history");
     }
   };
@@ -666,349 +692,746 @@ const SchoolHeadDashboard = () => {
     navigate("/liquidation");
   };
 
+  const shouldShowViewRequestStatus = () => {
+    // Use the same logic as MOOERequestPage's action required dialog
+    const hasPending = data?.requestStatus?.hasPendingRequest;
+    const hasActive = data?.requestStatus?.hasActiveLiquidation;
+    
+    // Check for rejected requests in recent requests
+    const hasRejectedRequest = data?.recentRequests?.some(req => 
+      req.status === 'rejected'
+    );
+    
+    // Check for rejected status in pending request
+    const hasRejectedPendingRequest = data?.requestStatus?.pendingRequest?.status === 'rejected';
+    
+    // Debug logging to help identify the issue
+    console.log("Dashboard data:", data);
+    console.log("Has pending request:", hasPending);
+    console.log("Has active liquidation:", hasActive);
+    console.log("Has rejected request:", hasRejectedRequest);
+    console.log("Has rejected pending request:", hasRejectedPendingRequest);
+    console.log("Pending request:", data?.requestStatus?.pendingRequest);
+    console.log("Active liquidation:", data?.requestStatus?.activeLiquidation);
+    
+    // Show "View Request Status" if there's a pending request, active liquidation, or rejected request
+    // This matches the logic from MOOERequestPage's action required dialog
+    const shouldShow = hasPending || hasActive || hasRejectedRequest || hasRejectedPendingRequest;
+    console.log("Should show View Request Status:", shouldShow);
+    
+    return shouldShow;
+  };
+
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              School Head Dashboard
-            </h1>
-            <p className="mt-1 text-gray-500">
-            </p>
+      <div className="min-h-screen bg-gray-50/30">
+        {/* Header Section Skeleton */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="px-6 py-8">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <Skeleton.Input 
+                  active 
+                  size="large" 
+                  style={{ width: 300, height: 36 }} 
+                />
+                <Skeleton.Input 
+                  active 
+                  style={{ width: 400, height: 24 }} 
+                />
+              </div>
+              <div className="flex gap-3">
+                <Skeleton.Button 
+                  active 
+                  size="large" 
+                  style={{ width: 160, height: 40 }} 
+                />
+                <Skeleton.Button 
+                  active 
+                  size="large" 
+                  style={{ width: 140, height: 40 }} 
+                />
+              </div>
+            </div>
           </div>
-          <Button variant="outline" disabled>
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            Loading...
-          </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {[1, 2, 3, 4].map((item) => (
-            <Skeleton key={item} active paragraph={{ rows: 3 }} />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2].map((item) => (
-            <Skeleton key={item} active paragraph={{ rows: 6 }} />
-          ))}
+
+        {/* Main Content Skeleton */}
+        <div className="px-6 py-8 space-y-8">
+          {/* Key Metrics Section Skeleton */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <Skeleton.Input 
+                active 
+                style={{ width: 150, height: 28 }} 
+              />
+              <Skeleton.Input 
+                active 
+                style={{ width: 200, height: 20 }} 
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((item) => (
+                <Card key={item} className="border-0 shadow-md">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 120, height: 16 }} 
+                    />
+                    <Skeleton.Avatar 
+                      active 
+                      size="default" 
+                      shape="square" 
+                      style={{ width: 40, height: 40 }} 
+                    />
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Skeleton.Input 
+                      active 
+                      size="large" 
+                      style={{ width: 100, height: 32 }} 
+                    />
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 140, height: 16 }} 
+                    />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Analytics Section Skeleton */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <Skeleton.Input 
+                active 
+                style={{ width: 200, height: 28 }} 
+              />
+              <Skeleton.Input 
+                active 
+                style={{ width: 250, height: 20 }} 
+              />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Expense Breakdown Card Skeleton */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader className="pb-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Skeleton.Input 
+                        active 
+                        style={{ width: 250, height: 24 }} 
+                      />
+                      <Skeleton.Input 
+                        active 
+                        style={{ width: 300, height: 16 }} 
+                      />
+                    </div>
+                    <div className="text-right bg-gray-50 px-4 py-3 rounded-lg">
+                      <Skeleton.Input 
+                        active 
+                        size="large" 
+                        style={{ width: 120, height: 32 }} 
+                      />
+                      <Skeleton.Input 
+                        active 
+                        style={{ width: 100, height: 12 }} 
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-6">
+                    {/* Summary Statistics Skeleton */}
+                    <div className="grid grid-cols-2 gap-6 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl">
+                      <div className="text-center space-y-2">
+                        <Skeleton.Input 
+                          active 
+                          size="large" 
+                          style={{ width: 40, height: 32 }} 
+                        />
+                        <Skeleton.Input 
+                          active 
+                          style={{ width: 80, height: 16 }} 
+                        />
+                      </div>
+                      <div className="text-center space-y-2">
+                        <Skeleton.Input 
+                          active 
+                          size="large" 
+                          style={{ width: 100, height: 32 }} 
+                        />
+                        <Skeleton.Input 
+                          active 
+                          style={{ width: 120, height: 16 }} 
+                        />
+                      </div>
+                    </div>
+
+                    {/* Pie Chart Skeleton */}
+                    <div className="h-80 bg-white rounded-xl p-4 border border-gray-100 flex items-center justify-center">
+                      <Skeleton.Avatar 
+                        active 
+                        size="large" 
+                        shape="circle" 
+                        style={{ width: 200, height: 200 }} 
+                      />
+                    </div>
+
+                    {/* Priority Details Skeleton */}
+                    <div className="space-y-4">
+                      <Skeleton.Input 
+                        active 
+                        style={{ width: 150, height: 24 }} 
+                      />
+                      <div className="space-y-3">
+                        {[1, 2, 3].map((item) => (
+                          <div
+                            key={item}
+                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl"
+                          >
+                            <div className="flex items-center space-x-4">
+                              <Skeleton.Avatar 
+                                active 
+                                size="small" 
+                                shape="circle" 
+                                style={{ width: 20, height: 20 }} 
+                              />
+                              <div className="space-y-1">
+                                <Skeleton.Input 
+                                  active 
+                                  style={{ width: 150, height: 16 }} 
+                                />
+                                <Skeleton.Input 
+                                  active 
+                                  style={{ width: 100, height: 12 }} 
+                                />
+                              </div>
+                            </div>
+                            <Skeleton.Input 
+                              active 
+                              style={{ width: 80, height: 16 }} 
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Priority Completion Card Skeleton */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader className="pb-6">
+                  <div className="space-y-1">
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 200, height: 24 }} 
+                    />
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 280, height: 16 }} 
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Radial Chart Skeleton */}
+                  <div className="h-80 bg-white rounded-xl p-4 border border-gray-100 flex items-center justify-center">
+                    <Skeleton.Avatar 
+                      active 
+                      size="large" 
+                      shape="circle" 
+                      style={{ width: 180, height: 180 }} 
+                    />
+                  </div>
+                  
+                  {/* Progress Overview Skeleton */}
+                  <div className="space-y-4">
+                    <Skeleton.Input 
+                      active 
+                      style={{ width: 180, height: 24 }} 
+                    />
+                    <div className="grid grid-cols-1 gap-3">
+                      {[1, 2, 3, 4].map((item) => (
+                        <div
+                          key={item}
+                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <Skeleton.Avatar 
+                              active 
+                              size="small" 
+                              shape="circle" 
+                              style={{ width: 20, height: 20 }} 
+                            />
+                            <div className="space-y-1">
+                              <Skeleton.Input 
+                                active 
+                                style={{ width: 120, height: 16 }} 
+                              />
+                              <Skeleton.Input 
+                                active 
+                                style={{ width: 100, height: 12 }} 
+                              />
+                            </div>
+                          </div>
+                          <div className="text-right space-y-1">
+                            <Skeleton.Input 
+                              active 
+                              style={{ width: 40, height: 16 }} 
+                            />
+                            <Skeleton.Input 
+                              active 
+                              style={{ width: 64, height: 8 }} 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 min-h-screen">
-      {/** Determine if we should show request/liquidation-related visuals */}
-      {/** Visible when there's a pending request or an active liquidation (not liquidated) */}
-      {/** Hidden only when there's no ongoing request/liquidation */}
-      {/** Safely compute here for re-use below */}
-      {/** Note: We keep header and metrics always visible */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            School Head Dashboard
-          </h1>
-          <p className="mt-1 text-gray-500">
-          </p>
-        </div>
-        <div className="flex gap-3">
-          {!data?.requestStatus?.hasPendingRequest &&
-            !data?.requestStatus?.hasActiveLiquidation && (
-              <Button
-                onClick={handleCreateMOOERequest}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New MOOE Request
-              </Button>
-            )}
-          {data?.requestStatus?.hasPendingRequest && (
-            <Button
-              onClick={handleViewRequestStatus}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              View Request Status
-            </Button>
-          )}
-          {data?.requestStatus?.hasActiveLiquidation && (
-            <Button
-              onClick={handleGoToLiquidation}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Go to Liquidation
-            </Button>
-          )}
-        </div>
-      </div>
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Liquidation Completion
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.liquidationProgress?.completionPercentage !== undefined
-                ? `${data.liquidationProgress.completionPercentage.toFixed(1)}%`
-                : "0%"}
+    <div className="min-h-screen bg-gray-50/30">
+      {/* Enhanced Header Section */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-6 py-8">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                School Head Dashboard
+              </h1>
+              <p className="text-gray-600 text-sm">
+                Monitor your MOOE requests and liquidation progress
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {data?.liquidationProgress
-                ? `${data.liquidationProgress.completedPriorities} of ${data.liquidationProgress.totalPriorities} list of priorities`
-                : "0 of 0 list of priorities"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Amount Liquidated
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.financialMetrics?.totalLiquidatedAmount !== undefined
-                ? `₱${data.financialMetrics.totalLiquidatedAmount.toLocaleString()}`
-                : "₱0"}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {data?.financialMetrics?.liquidationPercentage !== undefined
-                ? `${data.financialMetrics.liquidationPercentage.toFixed(
-                    1
-                  )}% of downloaded amount`
-                : "0% of downloaded amount"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Remaining Amount
-            </CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.financialMetrics?.remainingAmount !== undefined
-                ? `₱${data.financialMetrics.remainingAmount.toLocaleString()}`
-                : "₱0"}
-            </div>
-            <p className="text-xs text-muted-foreground">To be liquidated</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Downloaded
-            </CardTitle>
-            <Download className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.financialMetrics?.totalDownloadedAmount !== undefined
-                ? `₱${data.financialMetrics.totalDownloadedAmount.toLocaleString()}`
-                : "₱0"}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Initial cash advance
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      {/* Charts and Detailed Information - Always render cards; datasets may be empty */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
-        {/* Expense Breakdown (moved left) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {formatMonthTitle(
-                data?.requestStatus?.pendingRequest?.request_monthyear ||
-                  selectedMonth
+            <div className="flex gap-3">
+              {!shouldShowViewRequestStatus() && (
+                <Button
+                  onClick={handleCreateMOOERequest}
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  New MOOE Request
+                </Button>
               )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              {data?.priorityBreakdown && data.priorityBreakdown.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.priorityBreakdown.map((item) => ({
-                        ...item,
-                        name: item.priority,
-                      }))}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={70}
-                      fill="#8884d8"
-                      dataKey="amount"
-                      labelLine={false}
-                      label={({ name, percent }) =>
-                        `${truncateLabel(String(name))} (${(
-                          Number(percent) * 100
-                        ).toFixed(0)}%)`
-                      }
-                    >
-                      {data.priorityBreakdown.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={getPriorityColor(entry.priority, index)}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => [
-                        `₱${Number(value).toLocaleString()}`,
-                        "Amount",
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No expense breakdown data available.
-                </div>
+              {shouldShowViewRequestStatus() && (
+                <Button
+                  onClick={handleViewRequestStatus}
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
+                  size="lg"
+                >
+                  View Request Status
+                </Button>
+              )}
+              {data?.requestStatus?.hasActiveLiquidation && (
+                <Button
+                  onClick={handleGoToLiquidation}
+                  className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
+                  size="lg"
+                >
+                  <FileText className="h-5 w-5 mr-2" />
+                  Go to Liquidation
+                </Button>
               )}
             </div>
-          </CardContent>
-        </Card>
-        {/* List of Priority Completion Chart (moved right) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>List of Priority Completion Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              {data?.liquidationProgress?.priorities &&
-              data.liquidationProgress.priorities.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadialBarChart
-                    innerRadius="10%"
-                    outerRadius="100%"
-                    data={data.liquidationProgress.priorities.map(
-                      (p, index) => ({
-                        name: p.priorityName,
-                        value: p.completionPercentage,
-                        fill: COLORS[index % COLORS.length],
-                      })
-                    )}
-                  >
-                    <PolarAngleAxis
-                      type="number"
-                      domain={[0, 100]}
-                      tick={false}
-                    />
-                    <RadialBar background dataKey="value" />
-                    <Tooltip
-                      formatter={(value) => [`${value}%`, "Completion"]}
-                      contentStyle={{
-                        backgroundColor: "#111827",
-                        border: "none",
-                        borderRadius: 6,
-                        color: "#FFFFFF",
-                      }}
-                      labelStyle={{ color: "#FFFFFF" }}
-                      itemStyle={{ color: "#FFFFFF" }}
-                    />
-                  </RadialBarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No priority completion data available.
-                </div>
-              )}
-            </div>
-            {/* External Legend */}
-            <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-900">
-              {data?.liquidationProgress?.priorities &&
-              data.liquidationProgress.priorities.length > 0 ? (
-                data.liquidationProgress.priorities.map((p, index) => (
-                  <div key={p.priorityId} className="flex items-center gap-2">
-                    <span
-                      className="inline-block h-3 w-3 rounded-sm"
-                      style={{
-                        backgroundColor: getPriorityColor(
-                          p.priorityName,
-                          index
-                        ),
-                      }}
-                    />
-                    <span className="font-semibold">{p.priorityName}</span>
-                    <span className="text-slate-500">
-                      - {p.completionPercentage}%
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <span className="text-gray-500">No priorities to display.</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      {/* Priority Progress Details - Always render; dataset may be empty */}
-      <Card className={`mb-6`}>
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>List of Priority Document Progress</CardTitle>
-          <a href="/liquidation">
-            <Button className="mb-4" size="sm" variant="outline">
-              View Details
-            </Button>
-          </a>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="p-3 text-left font-medium">Priority</th>
-                  <th className="p-3 text-left font-medium">Status</th>
-                  <th className="p-3 text-left font-medium">Documents</th>
-                  <th className="p-3 text-left font-medium">Completion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data?.liquidationProgress?.priorities || []).map(
-                  (priority) => (
-                    <tr key={priority.priorityId} className="border-b">
-                      <td className="p-3 font-medium">
-                        {priority.priorityName}
-                      </td>
-                      <td className="p-3">{getStatusBadge(priority.status)}</td>
-                      <td className="p-3">
-                        {priority.documentsUploaded} of{" "}
-                        {priority.documentsRequired}
-                      </td>
-                      <td className="p-3">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div
-                            className="h-2.5 rounded-full"
-                            style={{
-                              width: `${priority.completionPercentage}%`,
-                              backgroundColor: getPriorityColor(
-                                priority.priorityName
-                              ),
-                            }}
-                          ></div>
-                        </div>
-                        <span className="text-xs text-muted-foreground mt-1">
-                          {priority.completionPercentage}%
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
           </div>
-        </CardContent>
-      </Card>
-      {/* Example button in the request status card */}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="px-6 py-8 space-y-8">
+        {/* Enhanced Key Metrics Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Key Metrics</h2>
+           
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-xs font-medium text-gray-600">
+                  Liquidation Completion
+                </CardTitle>
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold text-gray-900">
+                  {data?.liquidationProgress?.completionPercentage !== undefined
+                    ? `${data.liquidationProgress.completionPercentage.toFixed(1)}%`
+                    : "0%"}
+                </div>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  {data?.liquidationProgress
+                    ? `${data.liquidationProgress.completedPriorities} of ${data.liquidationProgress.totalPriorities} priorities completed`
+                    : "No priorities to track"}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-xs font-medium text-gray-600">
+                  Amount Liquidated
+                </CardTitle>
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <DollarSign className="h-5 w-5 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold text-gray-900">
+                  {data?.financialMetrics?.totalLiquidatedAmount !== undefined
+                    ? `₱${data.financialMetrics.totalLiquidatedAmount.toLocaleString()}`
+                    : "₱0"}
+                </div>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  {data?.financialMetrics?.liquidationPercentage !== undefined
+                    ? `Actual amount spent (${data.financialMetrics.liquidationPercentage.toFixed(1)}% of budget)`
+                    : "No liquidation data"}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-xs font-medium text-gray-600">
+                  Remaining Amount
+                </CardTitle>
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-orange-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold text-gray-900">
+                  {data?.financialMetrics?.remainingAmount !== undefined
+                    ? `₱${data.financialMetrics.remainingAmount.toLocaleString()}`
+                    : "₱0"}
+                </div>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Pending liquidation
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="hover:shadow-lg transition-shadow duration-200 border-0 shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-xs font-medium text-gray-600">
+                  Total Downloaded
+                </CardTitle>
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Download className="h-5 w-5 text-purple-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold text-gray-900">
+                  {data?.financialMetrics?.totalDownloadedAmount !== undefined
+                    ? `₱${data.financialMetrics.totalDownloadedAmount.toLocaleString()}`
+                    : "₱0"}
+                </div>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Initial cash advance
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        {/* Charts and Analytics Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Analytics & Insights</h2>
+           
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Enhanced Expense Breakdown */}
+            <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-200">
+              <CardHeader className="pb-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg font-semibold text-gray-900">
+                      {formatMonthTitle(getCurrentRequestMonthYear())}
+                    </CardTitle>
+                    <p className="text-sm text-gray-500">
+                      Distribution of allocated funds across priorities
+                    </p>
+                  </div>
+                  {data?.priorityBreakdown && data.priorityBreakdown.length > 0 && (
+                    <div className="text-right bg-gray-50 px-4 py-3 rounded-lg">
+                      <div className="text-xl font-bold text-gray-900">
+                        ₱{data.priorityBreakdown.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-500 font-medium">Total Allocated</div>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {data?.priorityBreakdown && data.priorityBreakdown.length > 0 ? (
+                  <div className="space-y-6">
+                    {/* Summary Statistics */}
+                    <div className="grid grid-cols-2 gap-6 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl">
+                      <div className="text-center space-y-2">
+                        <div className="text-xl font-bold text-gray-900">
+                          {data.priorityBreakdown.length}
+                        </div>
+                        <div className="text-sm text-gray-600 font-medium">Priorities</div>
+                      </div>
+                      <div className="text-center space-y-2">
+                        <div className="text-xl font-bold text-gray-900">
+                          ₱{Math.round(data.priorityBreakdown.reduce((sum, item) => sum + item.amount, 0) / data.priorityBreakdown.length).toLocaleString()}
+                        </div>
+                        <div className="text-sm text-gray-600 font-medium">Avg. per Priority</div>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Pie Chart */}
+                    <div className="h-80 bg-white rounded-xl p-4 border border-gray-100">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={data.priorityBreakdown.map((item) => ({
+                              ...item,
+                              name: item.priority,
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={90}
+                            innerRadius={40}
+                            fill="#8884d8"
+                            dataKey="amount"
+                            labelLine={false}
+                            label={(props: any) => `${(props.percent * 100).toFixed(0)}%`}
+                            stroke="#ffffff"
+                            strokeWidth={3}
+                          >
+                            {data.priorityBreakdown.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={getPriorityColor(entry.priority, index)}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => [
+                              `₱${Number(value).toLocaleString()}`,
+                              "Amount",
+                            ]}
+                            labelFormatter={(label) => `Priority: ${label}`}
+                            contentStyle={{
+                              backgroundColor: "#1f2937",
+                              border: "none",
+                              borderRadius: "12px",
+                              color: "#ffffff",
+                              fontSize: "14px",
+                              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+                              padding: "12px 16px",
+                            }}
+                            labelStyle={{ color: "#ffffff", fontWeight: "600" }}
+                            itemStyle={{ color: "#ffffff" }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Enhanced Legend with Details */}
+                    <div className="space-y-4">
+                      <h4 className="text-base font-semibold text-gray-800 mb-4">Priority Details</h4>
+                      <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
+                        {data.priorityBreakdown
+                          .sort((a, b) => b.amount - a.amount)
+                          .map((item, index) => (
+                            <div
+                              key={item.priority}
+                              className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md"
+                            >
+                              <div className="flex items-center space-x-4">
+                                <div
+                                  className="w-5 h-5 rounded-full flex-shrink-0 shadow-sm"
+                                  style={{
+                                    backgroundColor: getPriorityColor(item.priority, index),
+                                  }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-semibold text-gray-900 truncate">
+                                    {item.priority}
+                                  </div>
+                                  <div className="text-xs text-gray-500 font-medium">
+                                    {item.percentage.toFixed(1)}% of total
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-gray-900">
+                                  ₱{item.amount.toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-80 text-center space-y-6">
+                    <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                      <DollarSign className="w-10 h-10 text-gray-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        No Expense Data Available
+                      </h3>
+                      <p className="text-gray-500 max-w-sm leading-relaxed">
+                        Create a new MOOE request to see your expense breakdown and track your budget allocation.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleCreateMOOERequest}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                      size="lg"
+                    >
+                      <Plus className="h-5 w-5 mr-2" />
+                      Create Request
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            {/* Enhanced Priority Completion Chart */}
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-200">
+              <CardHeader className="pb-6">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg font-semibold text-gray-900">
+                    Priority Completion Status
+                  </CardTitle>
+                  <p className="text-sm text-gray-500">
+                    Track document submission progress for each priority
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="h-80 bg-white rounded-xl p-4 border border-gray-100">
+                  {data?.liquidationProgress?.priorities &&
+                  data.liquidationProgress.priorities.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart
+                        innerRadius="20%"
+                        outerRadius="90%"
+                        data={data.liquidationProgress.priorities.map(
+                          (p, index) => ({
+                            name: p.priorityName,
+                            value: p.completionPercentage,
+                            fill: COLORS[index % COLORS.length],
+                          })
+                        )}
+                      >
+                        <PolarAngleAxis
+                          type="number"
+                          domain={[0, 100]}
+                          tick={false}
+                        />
+                        <RadialBar 
+                          background 
+                          dataKey="value" 
+                          cornerRadius={8}
+                          fillOpacity={0.8}
+                        />
+                        <Tooltip
+                          formatter={(value) => [`${value}%`, "Completion"]}
+                          contentStyle={{
+                            backgroundColor: "#1f2937",
+                            border: "none",
+                            borderRadius: "12px",
+                            color: "#ffffff",
+                            fontSize: "14px",
+                            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+                            padding: "12px 16px",
+                          }}
+                          labelStyle={{ color: "#ffffff", fontWeight: "600" }}
+                          itemStyle={{ color: "#ffffff" }}
+                        />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-medium text-gray-900 mb-2">
+                          No Completion Data
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          Start liquidating to track your progress
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Enhanced Legend */}
+                <div className="space-y-4">
+                  <h4 className="text-base font-semibold text-gray-800">Progress Overview</h4>
+                  <div className="grid grid-cols-1 gap-3">
+                    {data?.liquidationProgress?.priorities &&
+                    data.liquidationProgress.priorities.length > 0 ? (
+                      data.liquidationProgress.priorities.map((p, index) => (
+                        <div
+                          key={p.priorityId}
+                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div
+                              className="w-5 h-5 rounded-full shadow-sm"
+                              style={{
+                                backgroundColor: getPriorityColor(p.priorityName, index),
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-gray-900 truncate">
+                                {p.priorityName}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {p.documentsUploaded} of {p.documentsRequired} documents
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-bold text-gray-900">
+                              {p.completionPercentage}%
+                            </div>
+                            <div className="w-16 bg-gray-200 rounded-full h-2 mt-1">
+                              <div
+                                className="h-2 rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${p.completionPercentage}%`,
+                                  backgroundColor: getPriorityColor(p.priorityName, index),
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        No priorities to display
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

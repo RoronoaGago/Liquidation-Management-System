@@ -14,7 +14,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  RefreshCw,
+  Calendar,
   AlertCircle,
   ArrowDownCircle,
 } from "lucide-react";
@@ -76,7 +76,7 @@ const MOOERequestTable: React.FC<
     downloaded: <ArrowDownCircle className="h-4 w-4" />,
     unliquidated: <AlertCircle className="h-4 w-4" />,
     liquidated: <CheckCircle className="h-4 w-4" />,
-    advanced: <RefreshCw className="h-4 w-4 animate-spin" />,
+    advanced: <Calendar className="h-4 w-4" />,
   };
 
   return (

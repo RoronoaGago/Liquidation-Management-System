@@ -16,6 +16,7 @@ from .otp_security import (
     get_user_agent
 )
 from .audit_utils import log_audit_event
+from .email_utils import get_deped_logo_base64
 import logging
 
 logger = logging.getLogger(__name__)
@@ -415,6 +416,7 @@ def send_password_reset_otp_email(user, otp):
         'otp_code': otp,  # Use 'otp_code' to match the template variable
         'now': timezone.now(),
         'expires_in_minutes': OTPSecurityManager.OTP_LIFETIME_MINUTES,
+        'deped_logo_base64': get_deped_logo_base64(),
     }
     
     html_message = render_to_string('emails/otp_passreset.html', context)

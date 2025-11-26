@@ -10,20 +10,16 @@ import Button from "./ui/button/Button";
 
 interface AutoLogoutModalProps {
   visible: boolean;
-  reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'new_user';
-  onClose: () => void;
+  reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'user_deleted';
   onLogin: () => void;
   userName?: string;
-  isNewUser?: boolean;
 }
 
 const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
   visible,
   reason,
-  onClose,
   onLogin,
   userName,
-  isNewUser,
 }) => {
   const getReasonConfig = () => {
     switch (reason) {
@@ -51,29 +47,41 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
           message: 'Your session has expired',
           description: 'Your authentication token has expired. Please log in again to continue.'
         };
+      case 'session_expired':
+        return {
+          title: 'Session Expired',
+          subtitle: 'Due to inactivity',
+          icon: Clock,
+          iconColor: 'text-amber-600 dark:text-amber-400',
+          iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+          headerBg: 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20',
+          borderColor: 'border-amber-200 dark:border-amber-800',
+          message: 'Your session has expired due to inactivity',
+          description: 'You\'ve been automatically logged out after 5 minutes of inactivity. Please log in again to continue.'
+        };
       case 'password_changed':
         return {
-          title: 'Password Changed Successfully!',
-          subtitle: 'Your password has been updated',
+          title: 'Password Updated Successfully',
+          subtitle: 'Your password has been changed',
           icon: Shield,
           iconColor: 'text-green-600 dark:text-green-400',
           iconBg: 'bg-green-100 dark:bg-green-900/30',
           headerBg: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
           borderColor: 'border-green-200 dark:border-green-800',
           message: 'Password Updated Successfully',
-          description: 'Your new password has been saved and is now active. You must log in again to continue.'
+          description: 'Your password has been updated. You must log in again to continue.'
         };
-      case 'new_user':
+      case 'user_deleted':
         return {
-          title: 'Password Changed Successfully!',
-          subtitle: 'Your password has been updated',
-          icon: Shield,
-          iconColor: 'text-green-600 dark:text-green-400',
-          iconBg: 'bg-green-100 dark:bg-green-900/30',
-          headerBg: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
-          borderColor: 'border-green-200 dark:border-green-800',
-          message: 'Welcome to the system!',
-          description: 'Your account setup is almost complete. You must log in again to continue.'
+          title: 'Account Removed',
+          subtitle: 'Your account has been deactivated',
+          icon: AlertTriangle,
+          iconColor: 'text-red-600 dark:text-red-400',
+          iconBg: 'bg-red-100 dark:bg-red-900/30',
+          headerBg: 'from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20',
+          borderColor: 'border-red-200 dark:border-red-800',
+          message: 'Your account has been removed from the system',
+          description: 'Your account is no longer active. Please contact your administrator for assistance.'
         };
       default:
         return {
@@ -94,10 +102,11 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
   const IconComponent = config.icon;
 
   return (
-    <Dialog open={visible} onOpenChange={onClose}>
+    <Dialog open={visible} onOpenChange={() => {}}>
       <DialogContent 
-        className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+        className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-0 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden [&>button]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Header with dynamic gradient background */}
         <div className={`bg-gradient-to-r ${config.headerBg} border-b ${config.borderColor}`}>
@@ -133,15 +142,19 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
             </p>
           </div>
 
-          {/* User greeting for password change scenarios */}
-          {(reason === 'password_changed' || reason === 'new_user') && userName && (
-            <div className="text-center py-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+          {/* User greeting for password change scenarios and session expired */}
+          {(reason === 'password_changed' || reason === 'session_expired') && userName && (
+            <div className={`text-center py-4 rounded-xl border ${
+              reason === 'session_expired' 
+                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+            }`}>
               <p className="text-lg font-medium text-gray-900 dark:text-white">
-                Thank you, {userName}!
+                {reason === 'session_expired' ? `Hello, ${userName}!` : `Thank you, ${userName}!`}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {isNewUser 
-                  ? "Welcome to the system! Your account setup is almost complete."
+                {reason === 'session_expired' 
+                  ? "Your session has expired due to inactivity. Please log in again to continue."
                   : "Your password has been successfully updated."
                 }
               </p>
@@ -169,10 +182,14 @@ const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
           <div className="flex justify-center pt-2">
             <Button
               onClick={onLogin}
-              className="px-10 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
+              className={`px-10 py-3 font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2 ${
+                reason === 'user_deleted' 
+                  ? 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white' 
+                  : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
+              }`}
             >
               <LogOut className="h-4 w-4" />
-              Login Again
+              {reason === 'user_deleted' ? 'Go to Login Page' : 'Login Again'}
             </Button>
           </div>
 

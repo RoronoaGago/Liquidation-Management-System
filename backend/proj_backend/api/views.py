@@ -1,7 +1,8 @@
 from api.models import (
     User, School, Requirement, ListOfPriority, RequestManagement,
     RequestPriority, LiquidationManagement, LiquidationDocument,
-    Notification, SchoolDistrict, Backup, AuditLog, BudgetAllocation
+    Notification, SchoolDistrict, Backup, AuditLog, BudgetAllocation,
+    DocumentVersion
 )
 from .models import RequestManagement
 import io
@@ -17,6 +18,7 @@ import random
 from django.db.models import Sum
 from django.utils.timezone import localtime
 from openpyxl.styles import Font, Alignment
+from django.views.decorators.csrf import csrf_exempt
 import openpyxl
 from .models import User
 from django.contrib.auth import authenticate
@@ -63,6 +65,8 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from django.db.models.functions import TruncMonth, ExtractDay
 import json
 from django.db.models import Count, Avg, Sum, Q, F, ExpressionWrapper, FloatField, Case, When, DurationField
+from django.db.models.functions import Concat
+from django.db.models import Value
 from .unliquidated_requests_report_utils import (
     AgingReportPagination,
     generate_aging_report_data,
@@ -155,6 +159,65 @@ def change_password(request):
     })
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def admin_reset_user_password(request):
+    """
+    Admin endpoint to reset a user's password and send them a temporary password via email
+    """
+    # Check if the current user is an admin
+    if request.user.role != 'admin':
+        return Response({
+            'error': 'Only administrators can reset user passwords'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    user_id = request.data.get('user_id')
+    if not user_id:
+        return Response({
+            'error': 'User ID is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Get the target user
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({
+            'error': 'User not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Generate a new temporary password
+    from .serializers import generate_random_password
+    temp_password = generate_random_password()
+    
+    # Set the new password and mark as requiring change
+    target_user.set_password(temp_password)
+    target_user.password_change_required = True
+    target_user.save(update_fields=['password', 'password_change_required'])
+    
+    # Send password reset email with the new temporary password
+    from .serializers import UserSerializer
+    serializer = UserSerializer()
+    serializer.send_password_reset_email(target_user, temp_password)
+    
+    # Log the admin action
+    from .audit_utils import log_audit_event
+    log_audit_event(
+        request=request,
+        action='admin_password_reset',
+        module='user_management',
+        description=f"Admin {request.user.get_full_name()} reset password for user {target_user.get_full_name()}",
+        object_id=target_user.pk,
+        object_type='User',
+        object_name=target_user.get_full_name()
+    )
+    
+    return Response({
+        'message': f'Password reset successfully. A new temporary password has been sent to {target_user.email}',
+        'user_name': target_user.get_full_name(),
+        'user_email': target_user.email
+    }, status=status.HTTP_200_OK)
+
+
 @api_view(['GET', 'POST'])
 def user_list(request):
     """
@@ -175,12 +238,27 @@ def user_list(request):
             'archived', 'false').lower() == 'true'
 
         queryset = User.objects.exclude(id=request.user.id)
+        
+        # Debug: Show all users before any filtering
+        print(f"DEBUG: All users before filtering:")
+        for user in queryset[:10]:
+            print(f"  - {user.first_name} {user.last_name}: {user.date_joined} (date: {user.date_joined.date()})")
+        
         # Archive filter
+        print(f"DEBUG: Archive filter - show_all: {show_all}, archived: {archived}")
         if not show_all:
             if not archived:
+                print("DEBUG: Filtering for active users only")
                 queryset = queryset.filter(is_active=True)
             else:
+                print("DEBUG: Filtering for archived users only")
                 queryset = queryset.filter(is_active=False)
+        else:
+            print("DEBUG: Showing all users (active and archived)")
+        
+        print(f"DEBUG: Users after archive filter:")
+        for user in queryset[:10]:
+            print(f"  - {user.first_name} {user.last_name}: {user.date_joined} (active: {user.is_active})")
 
         # Role filter
         if role_filter:
@@ -189,23 +267,50 @@ def user_list(request):
         # School filter
         if school_filter:
             queryset = queryset.filter(
-                school__schoolName__icontains=school_filter)
-            queryset = queryset.filter(
-                school__schoolId__icontains=school_filter)
+                Q(school__schoolName__icontains=school_filter) |
+                Q(school__schoolId__icontains=school_filter)
+            )
 
         # Search filter
         if search_term:
-            queryset = queryset.filter(
+            print(f"DEBUG: Searching for term: '{search_term}'")
+            queryset = queryset.annotate(
+                full_name=Concat('first_name', Value(' '), 'last_name')
+            ).filter(
                 Q(first_name__icontains=search_term) |
                 Q(last_name__icontains=search_term) |
+                Q(full_name__icontains=search_term) |
                 Q(email__icontains=search_term) |
-                Q(phone_number__icontains=search_term) |
                 Q(sex__icontains=search_term) |
+                Q(role__icontains=search_term) |
                 # <-- Fix: use related field
                 Q(school__schoolName__icontains=search_term) |
                 # <-- Optionally add this too
-                Q(school__schoolId__icontains=search_term)
+                Q(school__schoolId__icontains=search_term) |
+                # Search in school district name
+                Q(school_district__districtName__icontains=search_term)
             )
+            print(f"DEBUG: Users found after search: {queryset.count()}")
+
+        # Date range filters
+        date_joined_after = request.query_params.get('date_joined_after', None)
+        date_joined_before = request.query_params.get('date_joined_before', None)
+        
+        print(f"DEBUG: Date filter params - after: {date_joined_after}, before: {date_joined_before}")
+        
+        if date_joined_after:
+            print(f"DEBUG: Filtering users with date_joined >= {date_joined_after}")
+            queryset = queryset.filter(date_joined__date__gte=date_joined_after)
+        if date_joined_before:
+            print(f"DEBUG: Filtering users with date_joined <= {date_joined_before}")
+            queryset = queryset.filter(date_joined__date__lte=date_joined_before)
+        
+        # Debug: Show all users and their date_joined values after filtering
+        print(f"DEBUG: Users after date filtering:")
+        for user in queryset[:10]:
+            print(f"  - {user.first_name} {user.last_name}: {user.date_joined} (date: {user.date_joined.date()})")
+        
+        print(f"DEBUG: Queryset count after date filters: {queryset.count()}")
 
         # Add ordering support
         if ordering:
@@ -293,12 +398,35 @@ def school_head_dashboard(request):
             'remainingAmount': 0
         }
         
+        # Get recent requests (last 5 requests)
+        recent_requests = RequestManagement.objects.filter(
+            user=request.user
+        ).order_by('-created_at')[:5]
+        
+        recent_requests_data = []
+        for req in recent_requests:
+            priorities = RequestPriority.objects.filter(request=req)
+            total_amount = priorities.aggregate(total=Sum('amount'))['total'] or 0
+            
+            recent_requests_data.append({
+                'request_id': req.request_id,
+                'status': req.status,
+                'request_monthyear': req.request_monthyear,
+                'created_at': req.created_at.isoformat(),
+                'total_amount': float(total_amount),
+                'priorities': [{
+                    'expenseTitle': p.priority.expenseTitle,
+                    'amount': float(p.amount)
+                } for p in priorities]
+            })
+        
         # Build response
         response_data = {
             'liquidationProgress': liquidation_progress,
             'financialMetrics': financial_metrics,
             'recentLiquidations': [],
             'priorityBreakdown': priority_breakdown,
+            'recentRequests': recent_requests_data,
             'requestStatus': {
                 'hasPendingRequest': pending_request is not None,
                 'hasActiveLiquidation': active_liquidation is not None,
@@ -321,6 +449,7 @@ def get_random_color():
     colors = ["#465FFF", "#9CB9FF", "#FF8042", "#00C49F", "#FFBB28", "#8884D8"]
     return random.choice(colors)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
 def user_detail(request, pk):
     """
     Retrieve, update or delete a user instance with enhanced permissions
@@ -955,19 +1084,35 @@ def check_pending_requests(request):
     # Check for pending/rejected requests
     user_requests = RequestManagement.objects.filter(
         user=request.user,
-        status__in=['pending', 'approved']  # Include rejected
+        status__in=['pending', 'approved', 'rejected']  # Include rejected
     ).order_by('-created_at')
 
-    # Check for liquidations that aren't completed
+    # Check for liquidations that aren't completed (but include recently liquidated ones for completion modal)
     active_liquidations = LiquidationManagement.objects.filter(
         request__user=request.user
-    ).exclude(status='completed').order_by('-created_at')
+    ).exclude(status='liquidated').order_by('-created_at')
+    
+    # Also check for recently liquidated liquidations (within last 24 hours) to show completion modal
+    from datetime import timedelta
+    from django.utils import timezone
+    recent_liquidated = LiquidationManagement.objects.filter(
+        request__user=request.user,
+        status='liquidated',
+        date_liquidated__gte=timezone.now() - timedelta(hours=24)
+    ).order_by('-created_at').first()
+
+    # Determine which liquidation to return (prioritize active, then recent liquidated)
+    liquidation_to_return = None
+    if active_liquidations.exists():
+        liquidation_to_return = active_liquidations.first()
+    elif recent_liquidated:
+        liquidation_to_return = recent_liquidated
 
     response_data = {
         'has_pending_request': user_requests.exists(),
         'has_active_liquidation': active_liquidations.exists(),
         'pending_request': RequestManagementSerializer(user_requests.first()).data if user_requests.exists() else None,
-        'active_liquidation': LiquidationManagementSerializer(active_liquidations.first(), context={'request': request}).data if active_liquidations.exists() else None
+        'active_liquidation': LiquidationManagementSerializer(liquidation_to_return, context={'request': request}).data if liquidation_to_return else None
     }
 
     return Response(response_data)
@@ -1198,6 +1343,27 @@ class LiquidationManagementRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateD
                 instance.request._skip_auto_status = True
                 instance.request.status = 'liquidated'
                 instance.request.save(update_fields=['status'])
+                
+                # Update school's last liquidated month and year
+                if instance.request.request_monthyear:
+                    try:
+                        # Extract year and month from request_monthyear (format: YYYY-MM)
+                        year_str, month_str = instance.request.request_monthyear.split('-')
+                        liquidated_year = int(year_str)
+                        liquidated_month = int(month_str)
+                        
+                        # Get the school from the request user
+                        school = instance.request.user.school
+                        if school:
+                            # Update the school's last liquidated month and year
+                            school.last_liquidated_month = liquidated_month
+                            school.last_liquidated_year = liquidated_year
+                            school.save(update_fields=['last_liquidated_month', 'last_liquidated_year'])
+                    except (ValueError, AttributeError) as e:
+                        # Log error but don't fail the liquidation process
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Failed to update school liquidation dates: {e}")
 
         # If rejecting (resubmit), capture rejection_comment
         if new_status == "resubmit":
@@ -1655,6 +1821,62 @@ class UserLiquidationsAPIView(generics.ListAPIView):
             return LiquidationManagement.objects.none()
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_urgent_liquidations(request):
+    """
+    Get liquidations that are urgent (≤15 days remaining) for the authenticated user.
+    Only accessible by school heads.
+    """
+    if request.user.role != "school_head":
+        return Response(
+            {"error": "Access denied. Only school heads can view urgent liquidations."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        # Get liquidations with ≤15 days remaining and status in ['draft', 'resubmit']
+        urgent_liquidations = LiquidationManagement.objects.filter(
+            request__user=request.user,
+            status__in=['draft', 'resubmit'],
+            remaining_days__lte=15,
+            remaining_days__isnull=False
+        ).select_related(
+            'request',
+            'request__user',
+            'request__user__school'
+        ).order_by('remaining_days', '-created_at')
+        
+        # Serialize the data
+        serializer = LiquidationManagementSerializer(urgent_liquidations, many=True, context={'request': request})
+        
+        # Add summary statistics
+        total_count = urgent_liquidations.count()
+        overdue_count = urgent_liquidations.filter(remaining_days__lte=0).count()
+        critical_count = urgent_liquidations.filter(remaining_days__gt=0, remaining_days__lte=5).count()
+        warning_count = urgent_liquidations.filter(remaining_days__gt=5, remaining_days__lte=15).count()
+        
+        response_data = {
+            'liquidations': serializer.data,
+            'summary': {
+                'total_urgent': total_count,
+                'overdue': overdue_count,
+                'critical': critical_count,
+                'warning': warning_count
+            },
+            'last_checked': timezone.now().isoformat()
+        }
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error fetching urgent liquidations for user {request.user.id}: {str(e)}")
+        return Response(
+            {"error": "Failed to fetch urgent liquidations. Please try again later."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 class UserRequestListAPIView(generics.ListAPIView):
     serializer_class = RequestManagementSerializer
     permission_classes = [IsAuthenticated]
@@ -1717,9 +1939,42 @@ def generate_request_id():
 class NotificationListAPIView(generics.ListAPIView):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # We'll handle pagination manually for better control
 
     def get_queryset(self):
         return Notification.objects.filter(receiver=self.request.user).order_by('-notification_date')
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        # Calculate pagination
+        total_count = queryset.count()
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+        
+        # Get paginated results
+        paginated_queryset = queryset[start_index:end_index]
+        
+        # Serialize the data
+        serializer = self.get_serializer(paginated_queryset, many=True)
+        
+        # Calculate pagination info
+        has_next = end_index < total_count
+        has_previous = page > 1
+        
+        return Response({
+            'results': serializer.data,
+            'count': total_count,
+            'next': f"?page={page + 1}&page_size={page_size}" if has_next else None,
+            'previous': f"?page={page - 1}&page_size={page_size}" if has_previous else None,
+            'current_page': page,
+            'page_size': page_size,
+            'total_pages': (total_count + page_size - 1) // page_size
+        })
 
 
 class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
@@ -1735,6 +1990,46 @@ class MarkNotificationAsReadAPIView(generics.UpdateAPIView):
         notification.is_read = True
         notification.save()
         return Response({"status": "marked as read"})
+
+
+class MarkAllNotificationsAsReadAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        updated_count = Notification.objects.filter(
+            receiver=request.user,
+            is_read=False
+        ).update(is_read=True)
+        
+        return Response({
+            "detail": f"Marked {updated_count} notifications as read.",
+            "updated_count": updated_count
+        })
+
+
+class DeleteNotificationAPIView(generics.DestroyAPIView):
+    queryset = Notification.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        notification = self.get_object()
+        if notification.receiver != request.user:
+            return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
+        
+        notification.delete()
+        return Response({"detail": "Notification deleted."})
+
+
+class DeleteAllNotificationsAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        deleted_count, _ = Notification.objects.filter(receiver=request.user).delete()
+        
+        return Response({
+            "detail": f"Deleted {deleted_count} notifications.",
+            "deleted_count": deleted_count
+        })
 
 
 @api_view(['GET'])
@@ -1780,7 +2075,7 @@ def request_history(request, request_id):
                 "last_name": h.user.last_name if h.user else "",
                 "school": {
                     "schoolId": h.user.school.schoolId if h.user and h.user.school else "",
-                    "schoolName": h.user.school.schoolName if h_user and h.user.school else "", # type: ignore
+                    "schoolName": h.user.school.schoolName if h.user and h.user.school else "", # type: ignore
                 } if h.user and h.user.school else None,
             } if h.user else None,
             "request_id": h.request_id,
@@ -1957,537 +2252,523 @@ def schools_with_unliquidated_requests(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_dashboard(request):
-    # Check if user is admin
-    if request.user.role != 'admin':
-        return Response({"error": "Only administrators can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        # Check if user is admin
+        if request.user.role != 'admin':
+            return Response({"error": "Only administrators can access this endpoint"}, status=status.HTTP_403_FORBIDDEN)
 
-    # Get time range parameter
-    time_range = request.GET.get('time_range', 'last_month')
+        # Get time range parameter
+        time_range = request.GET.get('time_range', 'last_month')
 
-    # Calculate date range based on parameter
-    end_date = timezone.now()
-    if time_range == 'last_week':
-        start_date = end_date - timedelta(days=7)
-    elif time_range == 'last_month':
-        start_date = end_date - timedelta(days=30)
-    elif time_range == 'last_quarter':
-        start_date = end_date - timedelta(days=90)
-    elif time_range == 'last_year':
-        start_date = end_date - timedelta(days=365)
-    else:
-        # Default to last month
-        start_date = end_date - timedelta(days=30)
+        # Calculate date range based on parameter
+        end_date = timezone.now()
+        if time_range == 'last_week':
+            start_date = end_date - timedelta(days=7)
+        elif time_range == 'last_month':
+            start_date = end_date - timedelta(days=30)
+        elif time_range == 'last_quarter':
+            start_date = end_date - timedelta(days=90)
+        elif time_range == 'last_year':
+            start_date = end_date - timedelta(days=365)
+        else:
+            # Default to last month
+            start_date = end_date - timedelta(days=30)
 
-    budget_utilization = []
-    category_breakdown = []
-    months = []
-    current = start_date.replace(day=1)  # Start at beginning of month
+        # Initialize empty data structures
+        budget_utilization = []
+        category_breakdown = []
+        request_status_distribution = []
+        liquidation_timeline = []
+        school_performance = []
+        category_spending = []
+        document_compliance = []
+        top_priorities = []
+        active_requests = []
+        liquidation_metrics = {}
+        top_schools_by_speed = []
+        school_document_compliance = []
+        overall_compliance_rate = 0
+        overall_trend = 0
 
-    while current <= end_date:
-        month_str = current.strftime('%Y-%m')
-        months.append(month_str)
-        current = current + relativedelta(months=1)
+        # 1. Budget Utilization (simplified)
+        try:
+            months = []
+            current = start_date.replace(day=1)
+            while current <= end_date:
+                month_str = current.strftime('%Y-%m')
+                months.append(month_str)
+                current = current + relativedelta(months=1)
 
-    # Fixed budget utilization calculation
-    for month in months:
-        year, month_num = map(int, month.split('-'))
+            for month in months:
+                # Get basic budget data
+                total_allocated = BudgetAllocation.objects.filter(
+                    year=timezone.now().year,
+                    is_active=True
+                ).aggregate(total=Sum('yearly_budget'))['total'] or 0
+                
+                month_requests = RequestManagement.objects.filter(
+                    request_monthyear=month
+                )
+                total_planned = RequestPriority.objects.filter(
+                    request__in=month_requests
+                ).aggregate(total=Sum('amount'))['total'] or 0
 
-        # Get requests FOR this month (request_monthyear)
-        month_requests = RequestManagement.objects.filter(
-            request_monthyear=month
-        )
+                month_liquidations = LiquidationManagement.objects.filter(
+                    request__request_monthyear=month,
+                    status='liquidated'
+                )
+                total_actual = 0
+                for liquidation in month_liquidations:
+                    liquidation_amount = liquidation.liquidation_priorities.aggregate(
+                        total=Sum('amount'))['total'] or 0
+                    total_actual += liquidation_amount
 
-        # --- 1. Planned (Requested) Amounts ---
-        # Get total allocated from current year's budget allocations
-        from datetime import date
-        current_year = date.today().year
-        total_allocated = BudgetAllocation.objects.filter(
-            year=current_year,
-            is_active=True
-        ).aggregate(total=Sum('yearly_budget'))['total'] or 0
-        total_planned = RequestPriority.objects.filter(
-            request__in=month_requests
-        ).aggregate(total=Sum('amount'))['total'] or 0
+                planned_utilization_rate = (
+                    total_planned / total_allocated * 100) if total_allocated > 0 else 0
+                actual_utilization_rate = (
+                    total_actual / total_allocated * 100) if total_allocated > 0 else 0
 
-        # --- 2. Actual (Liquidated) Amounts ---
-        # Use liquidations for requests OF this month that are completed
-        month_liquidations = LiquidationManagement.objects.filter(
-            request__request_monthyear=month,
-            status='liquidated'
-        )
+                budget_utilization.append({
+                    'month': month,
+                    'allocated': float(total_allocated),
+                    'planned': float(total_planned),
+                    'actual': float(total_actual),
+                    'plannedUtilizationRate': float(planned_utilization_rate),
+                    'actualUtilizationRate': float(actual_utilization_rate)
+                })
+        except Exception as e:
+            logging.error(f"Error in budget utilization: {str(e)}")
+            budget_utilization = []
 
-        total_actual = 0
-        for liquidation in month_liquidations:
-            liquidation_amount = liquidation.liquidation_priorities.aggregate(
-                total=Sum('amount'))['total'] or 0
-            total_actual += liquidation_amount
+        # 2. Request Status Distribution
+        try:
+            status_counts = RequestManagement.objects.values('status').annotate(
+                count=Count('status')
+            ).order_by('-count')
 
-        # --- 3. Utilization Rates ---
-        planned_utilization_rate = (
-            total_planned / total_allocated * 100) if total_allocated > 0 else 0
-        actual_utilization_rate = (
-            total_actual / total_allocated * 100) if total_allocated > 0 else 0
+            total_requests = RequestManagement.objects.count()
+            for status in status_counts:
+                percentage = (status['count'] / total_requests *
+                              100) if total_requests > 0 else 0
+                request_status_distribution.append({
+                    'status': status['status'],
+                    'count': status['count'],
+                    'percentage': float(percentage)
+                })
+        except Exception as e:
+            logging.error(f"Error in request status distribution: {str(e)}")
+            request_status_distribution = []
 
-        budget_utilization.append({
-            'month': month,
-            'allocated': float(total_allocated),
-            'planned': float(total_planned),
-            'actual': float(total_actual),
-            'plannedUtilizationRate': float(planned_utilization_rate),
-            'actualUtilizationRate': float(actual_utilization_rate)
-        })
+        # 3. Liquidation Timeline (simplified)
+        try:
+            current = start_date.replace(day=1)
+            quarterly_periods = []
 
-        # --- 4. Category Breakdown for this month ---
-        category_data_for_month = {}
-        for category_key, category_name in ListOfPriority.CATEGORY_CHOICES:
-            # Get planned amount for this category
-            planned_for_category = RequestPriority.objects.filter(
-                request__in=month_requests,
-                priority__category=category_key
-            ).aggregate(total=Sum('amount'))['total'] or 0
+            while current <= end_date:
+                quarter = (current.month - 1) // 3 + 1
+                quarter_str = f"Q{quarter} {current.year}"
+                quarterly_periods.append(quarter_str)
+                current = current + relativedelta(months=3)
 
-            # Get actual liquidated amount for this category
-            actual_for_category = 0
-            liquidations_for_category = month_liquidations.filter(
-                liquidation_priorities__priority__category=category_key
-            ).distinct()
-            for liq in liquidations_for_category:
-                amount = liq.liquidation_priorities.filter(
+            for quarter in quarterly_periods:
+                quarter_num = int(quarter[1])
+                year = int(quarter.split(' ')[1])
+                start_month = (quarter_num - 1) * 3 + 1
+                end_month = start_month + 2
+
+                quarter_requests = RequestManagement.objects.filter(
+                    request_monthyear__regex=rf'^{year}-({"|".join([f"{m:02d}" for m in range(
+                        start_month, end_month+1)])})'
+                )
+
+                quarter_liquidations = LiquidationManagement.objects.filter(
+                    request__in=quarter_requests,
+                    status='liquidated'
+                )
+
+                total_seconds = 0
+                count = 0
+
+                for liquidation in quarter_liquidations:
+                    if liquidation.date_liquidated and liquidation.created_at:
+                        time_diff = liquidation.date_liquidated - liquidation.created_at
+                        if 0 < time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                            total_seconds += time_diff.total_seconds()
+                            count += 1
+
+                avg_days = (total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
+
+                liquidation_timeline.append({
+                    'quarter': quarter,
+                    'avgProcessingTime': float(avg_days),
+                    'approved': count,
+                    'rejected': 0
+                })
+        except Exception as e:
+            logging.error(f"Error in liquidation timeline: {str(e)}")
+            liquidation_timeline = []
+
+        # 4. School Performance (simplified)
+        try:
+            schools = School.objects.all()
+            for school in schools:
+                school_requests = RequestManagement.objects.filter(user__school=school)
+                total_requests = school_requests.count()
+
+                approved_requests = school_requests.filter(status='approved').count()
+                rejected_requests = school_requests.filter(status='rejected').count()
+
+                approval_rate = (approved_requests / total_requests * 100) if total_requests > 0 else 0
+                rejection_rate = (rejected_requests / total_requests * 100) if total_requests > 0 else 0
+
+                # Calculate average processing time
+                school_liquidations = LiquidationManagement.objects.filter(
+                    request__user__school=school,
+                    status='liquidated'
+                )
+
+                total_seconds = 0
+                count = 0
+                for liquidation in school_liquidations:
+                    if liquidation.date_liquidated and liquidation.created_at:
+                        time_diff = liquidation.date_liquidated - liquidation.created_at
+                        if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                            total_seconds += time_diff.total_seconds()
+                            count += 1
+
+                avg_processing_days = (total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
+
+                # Calculate budget utilization
+                school_utilized = RequestPriority.objects.filter(
+                    request__user__school=school
+                ).aggregate(total=Sum('amount'))['total'] or 0
+
+                try:
+                    school_monthly_budget = school.get_current_monthly_budget()
+                except:
+                    school_monthly_budget = 0
+                
+                budget_utilization_rate = (
+                    school_utilized / school_monthly_budget * 100) if school_monthly_budget > 0 else 0
+
+                school_performance.append({
+                    'schoolId': school.schoolId,
+                    'schoolName': school.schoolName,
+                    'totalRequests': total_requests,
+                    'approvedRequests': approved_requests,
+                    'rejectionRate': float(rejection_rate),
+                    'avgProcessingTime': float(avg_processing_days),
+                    'budgetUtilization': float(budget_utilization_rate)
+                })
+        except Exception as e:
+            logging.error(f"Error in school performance: {str(e)}")
+            school_performance = []
+
+        # 5. Category Spending (simplified)
+        try:
+            categories = ListOfPriority.CATEGORY_CHOICES
+            for category_key, category_name in categories:
+                category_total = RequestPriority.objects.filter(
                     priority__category=category_key
                 ).aggregate(total=Sum('amount'))['total'] or 0
-                actual_for_category += amount
 
-            category_data_for_month[category_name] = {
-                'planned': float(planned_for_category),
-                'actual': float(actual_for_category)
-            }
-
-        category_breakdown.append({
-            'month': month,
-            **category_data_for_month
-        })
-
-    # 2. Request Status Distribution
-    status_counts = RequestManagement.objects.values('status').annotate(
-        count=Count('status')
-    ).order_by('-count')
-
-    total_requests = RequestManagement.objects.count()
-    request_status_distribution = []
-
-    for status in status_counts:
-        percentage = (status['count'] / total_requests *
-                      100) if total_requests > 0 else 0
-        request_status_distribution.append({
-            'status': status['status'],
-            'count': status['count'],
-            'percentage': float(percentage)
-        })
-
-    # 3. FIXED Liquidation Timeline - QUARTERLY instead of monthly
-    liquidation_timeline = []
-
-    # Generate quarterly periods instead of monthly
-    current = start_date.replace(day=1)
-    quarterly_periods = []
-
-    while current <= end_date:
-        # Get quarter
-        quarter = (current.month - 1) // 3 + 1
-        quarter_str = f"Q{quarter} {current.year}"
-        quarterly_periods.append(quarter_str)
-        # Move to next quarter
-        current = current + relativedelta(months=3)
-
-    for quarter in quarterly_periods:
-        # Extract year and quarter from string like "Q3 2025"
-        quarter_num = int(quarter[1])
-        year = int(quarter.split(' ')[1])
-
-        # Calculate month range for this quarter
-        start_month = (quarter_num - 1) * 3 + 1
-        end_month = start_month + 2
-
-        # Get requests for this quarter
-        quarter_requests = RequestManagement.objects.filter(
-            request_monthyear__regex=rf'^{year}-({"|".join([f"{m:02d}" for m in range(
-                start_month, end_month+1)])})'
-        )
-
-        # Get liquidations for these requests
-        quarter_liquidations = LiquidationManagement.objects.filter(
-            request__in=quarter_requests,
-            status='liquidated'
-        )
-
-        total_seconds = 0
-        count = 0
-
-        for liquidation in quarter_liquidations:
-            if liquidation.date_liquidated and liquidation.created_at:
-                time_diff = liquidation.date_liquidated - liquidation.created_at
-                if 0 < time_diff.total_seconds() < (365 * 24 * 60 * 60):
-                    total_seconds += time_diff.total_seconds()
-                    count += 1
-
-        # Calculate average processing time in days for the quarter
-        avg_days = (total_seconds / (24 * 60 * 60)) / count if count > 0 else 0
-
-        liquidation_timeline.append({
-            'quarter': quarter,  # Changed from 'month' to 'quarter'
-            'avgProcessingTime': float(avg_days),
-            'approved': count,
-            'rejected': 0
-        })
-
-    # 4. FIXED School Performance - Correct approval rate calculation
-    school_performance = []
-    schools = School.objects.all()
-
-    for school in schools:
-        school_requests = RequestManagement.objects.filter(user__school=school)
-        total_requests = school_requests.count()
-
-        # CORRECTED: Calculate approved requests properly
-        # Get all request IDs that are either approved or have liquidations
-        approved_request_ids = set(school_requests.filter(
-            status='approved').values_list('request_id', flat=True))
-
-        liquidated_request_ids = set(LiquidationManagement.objects.filter(
-            request__user__school=school,
-            status='liquidated'
-        ).values_list('request_id', flat=True))
-
-        all_approved_request_ids = approved_request_ids.union(
-            liquidated_request_ids)
-        approved_requests = len(all_approved_request_ids)
-
-        rejected_requests = school_requests.filter(status='rejected').count()
-
-        # Calculate approval rate properly
-        approval_rate = (approved_requests / total_requests *
-                         100) if total_requests > 0 else 0
-        rejection_rate = (rejected_requests / total_requests *
-                          100) if total_requests > 0 else 0
-
-        # Calculate average processing time for this school
-        school_liquidations = LiquidationManagement.objects.filter(
-            request__user__school=school,
-            status='liquidated'
-        )
-
-        total_seconds = 0
-        count = 0
-
-        for liquidation in school_liquidations:
-            if liquidation.date_liquidated and liquidation.created_at:
-                time_diff = liquidation.date_liquidated - liquidation.created_at
-                # Filter out unrealistic times
-                if time_diff.total_seconds() < (365 * 24 * 60 * 60):
-                    total_seconds += time_diff.total_seconds()
-                    count += 1
-
-        avg_processing_days = (total_seconds / (24 * 60 * 60)
-                               ) / count if count > 0 else 0
-
-        # Calculate budget utilization for this school
-        school_utilized = RequestPriority.objects.filter(
-            request__user__school=school
-        ).aggregate(total=Sum('amount'))['total'] or 0
-
-        school_monthly_budget = school.get_current_monthly_budget()
-        budget_utilization_rate = (
-            school_utilized / school_monthly_budget * 100) if school_monthly_budget > 0 else 0
-
-        school_performance.append({
-            'schoolId': school.schoolId,
-            'schoolName': school.schoolName,
-            'totalRequests': total_requests,
-            'approvedRequests': approved_requests,  # Use the correctly calculated value
-            'rejectionRate': float(rejection_rate),
-            'avgProcessingTime': float(avg_processing_days),
-            'budgetUtilization': float(budget_utilization_rate)
-        })
-
-    # 5. Category Spending
-    category_spending = []
-    categories = ListOfPriority.CATEGORY_CHOICES
-
-    for category_key, category_name in categories:
-        category_total = RequestPriority.objects.filter(
-            priority__category=category_key
-        ).aggregate(total=Sum('amount'))['total'] or 0
-
-        total_all_categories = RequestPriority.objects.aggregate(total=Sum('amount'))[
-            'total'] or 0
-        percentage = (category_total / total_all_categories *
-                      100) if total_all_categories > 0 else 0
-
-        # Simple trend calculation
-        trend = 'stable'
-        if category_total > 0:
-            trend = 'up' if category_total > 10000 else 'down'
-
-        category_spending.append({
-            'category': category_name,
-            'totalAmount': float(category_total),
-            'percentage': float(percentage),
-            'trend': trend
-        })
-
-    # Sort by total amount descending
-    category_spending.sort(key=lambda x: x['totalAmount'], reverse=True)
-    category_spending = category_spending[:5]
-
-    # 6. Document Compliance
-    document_compliance = []
-    liquidations_in_period = LiquidationManagement.objects.filter(
-        created_at__range=(start_date, end_date)
-    )
-
-    total_compliance_rates = []
-    for liquidation in liquidations_in_period:
-        total_required_docs = 0
-        total_approved_docs = 0
-
-        for rp in liquidation.request.requestpriority_set.all():
-            required_docs = rp.priority.requirements.filter(
-                is_required=True).count()
-            total_required_docs += required_docs
-
-            approved_docs = LiquidationDocument.objects.filter(
-                liquidation=liquidation,
-                request_priority=rp,
-                requirement__is_required=True,
-                is_approved=True
-            ).count()
-            total_approved_docs += approved_docs
-
-        if total_required_docs > 0:
-            liquidation_compliance_rate = (
-                total_approved_docs / total_required_docs) * 100
-            total_compliance_rates.append(liquidation_compliance_rate)
-
-    overall_compliance_rate = sum(
-        total_compliance_rates) / len(total_compliance_rates) if total_compliance_rates else 0
-
-    requirements = Requirement.objects.all()
-    for requirement in requirements:
-        total_submitted = LiquidationDocument.objects.filter(
-            requirement=requirement,
-            uploaded_at__range=(start_date, end_date)
-        ).count()
-
-        compliant = LiquidationDocument.objects.filter(
-            requirement=requirement,
-            is_approved=True,
-            uploaded_at__range=(start_date, end_date)
-        ).count()
-
-        compliance_rate = (compliant / total_submitted *
-                           100) if total_submitted > 0 else 0
-
-        document_compliance.append({
-            'requirement': requirement.requirementTitle,
-            'totalSubmitted': total_submitted,
-            'compliant': compliant,
-            'complianceRate': float(compliance_rate),
-            'type': 'requirement_level'
-        })
-
-    overall_current_compliance = overall_compliance_rate
-    overall_previous_compliance = 0
-    overall_trend = overall_current_compliance - overall_previous_compliance
-
-    # 7. Top Priorities
-    top_priorities = []
-    priorities = RequestPriority.objects.values(
-        'priority__expenseTitle'
-    ).annotate(
-        frequency=Count('priority'),
-        total_amount=Sum('amount')
-    ).order_by('-total_amount')[:10]
-
-    for priority in priorities:
-        trend = 'stable'
-        if priority['total_amount']:
-            trend = 'up' if priority['total_amount'] > 5000 else 'down'
-
-        top_priorities.append({
-            'priority': priority['priority__expenseTitle'],
-            'frequency': priority['frequency'],
-            'totalAmount': float(priority['total_amount']),
-            'trend': trend
-        })
-
-    # 8. Active Requests
-    active_requests = []
-    active_request_states = ['pending',
-                             'approved', 'downloaded', 'unliquidated']
-    active_requests_data = RequestManagement.objects.filter(
-        status__in=active_request_states
-    )
-
-    for request in active_requests_data:
-        days_active = (timezone.now() - request.created_at).days
-
-        if request.status == 'pending':
-            priority = 'high' if days_active > 7 else 'medium' if days_active > 3 else 'low'
-        elif request.status == 'unliquidated':
-            priority = 'high' if days_active > 25 else 'medium' if days_active > 15 else 'low'
-        else:
-            priority = 'medium'
-
-        school_name = request.user.school.schoolName if request.user and request.user.school else "Unknown School"
-        user_name = request.user.get_full_name() if request.user else "Unknown User"
-
-        active_requests.append({
-            'id': request.request_id,
-            'type': 'request',
-            'title': f'Active Request: {request.request_id}',
-            'description': f'{user_name} from {school_name} - Status: {request.status.capitalize()}',
-            'status': request.status,
-            'priority': priority,
-            'timestamp': request.created_at.isoformat(),
-            'schoolName': school_name,
-            'userName': user_name
-        })
-
-    priority_order = {'high': 0, 'medium': 1, 'low': 2}
-    active_requests.sort(key=lambda x: (
-        priority_order[x['priority']], x['timestamp']))
-
-    # 9. Liquidation Metrics
-    liquidated_liquidations = LiquidationManagement.objects.filter(
-        status='liquidated',
-        date_liquidated__isnull=False,
-        created_at__isnull=False
-    )
-
-    realistic_liquidations = []
-    for liq in liquidated_liquidations:
-        if liq.date_liquidated and liq.created_at:
-            time_diff = liq.date_liquidated - liq.created_at
-            if time_diff.total_seconds() < (365 * 24 * 60 * 60):
-                realistic_liquidations.append(liq)
-
-    if realistic_liquidations:
-        total_seconds = sum((liq.date_liquidated - liq.created_at).total_seconds()
-                            for liq in realistic_liquidations)
-        avg_seconds = total_seconds / len(realistic_liquidations)
-        avg_liquidation_time_days = avg_seconds / (24 * 60 * 60)
-    else:
-        avg_liquidation_time_days = 0
-
-    liquidation_metrics = {
-        'total_liquidations': LiquidationManagement.objects.count(),
-        'completed_liquidations': LiquidationManagement.objects.filter(status='liquidated').count(),
-        'pending_liquidations': LiquidationManagement.objects.exclude(status='liquidated').count(),
-        'completion_rate': (LiquidationManagement.objects.filter(status='liquidated').count() /
-                            LiquidationManagement.objects.count() * 100) if LiquidationManagement.objects.count() > 0 else 0,
-        'avg_liquidation_time_days': float(avg_liquidation_time_days)
-    }
-
-    # 10. Top Schools by Speed
-    top_schools_by_speed = []
-    all_schools = School.objects.all()
-
-    for school in all_schools:
-        school_liquidations = LiquidationManagement.objects.filter(
-            request__user__school=school,
-            status='liquidated',
-            date_liquidated__isnull=False,
-            created_at__isnull=False
-        )
-
-        realistic_processing_times = []
-        for liq in school_liquidations:
-            if liq.date_liquidated and liq.created_at:
-                time_diff = liq.date_liquidated - liq.created_at
-                if time_diff.total_seconds() < (365 * 24 * 60 * 60):
-                    realistic_processing_times.append(
-                        time_diff.total_seconds())
-
-        if realistic_processing_times:
-            avg_seconds = sum(realistic_processing_times) / \
-                len(realistic_processing_times)
-            avg_days = avg_seconds / (24 * 60 * 60)
-
-            top_schools_by_speed.append({
-                'schoolId': school.schoolId,
-                'schoolName': school.schoolName,
-                'avgProcessingDays': float(avg_days)
-            })
-
-    top_schools_by_speed.sort(key=lambda x: x['avgProcessingDays'])
-    top_schools_by_speed = top_schools_by_speed[:5]
-
-    # 11. FIXED School Document Compliance - Only show schools with liquidations
-    school_document_compliance = []
-    # Only get schools that have liquidations
-    liquidation_school_ids = LiquidationManagement.objects.values_list(
-        'request__user__school_id', flat=True
-    ).distinct()
-    schools_with_liquidations = School.objects.filter(
-        schoolId__in=liquidation_school_ids)  # ← Use schoolId instead of id
-
-    for school in schools_with_liquidations:
-        school_liquidations = LiquidationManagement.objects.filter(
-            request__user__school=school
-        )
-
-        # Skip if no liquidations
-        if not school_liquidations.exists():
-            continue
-
-        total_required_docs = 0
-        total_uploaded_docs = 0
-
-        for liquidation in school_liquidations:
-            for rp in liquidation.request.requestpriority_set.all():
-                required_docs = rp.priority.requirements.filter(
-                    is_required=True).count()
-                uploaded_docs = LiquidationDocument.objects.filter(
-                    liquidation=liquidation,
-                    request_priority=rp
+                total_all_categories = RequestPriority.objects.aggregate(total=Sum('amount'))['total'] or 0
+                percentage = (category_total / total_all_categories * 100) if total_all_categories > 0 else 0
+
+                trend = 'stable'
+                if category_total > 0:
+                    trend = 'up' if category_total > 10000 else 'down'
+
+                category_spending.append({
+                    'category': category_name,
+                    'totalAmount': float(category_total),
+                    'percentage': float(percentage),
+                    'trend': trend
+                })
+
+            category_spending.sort(key=lambda x: x['totalAmount'], reverse=True)
+            category_spending = category_spending[:5]
+        except Exception as e:
+            logging.error(f"Error in category spending: {str(e)}")
+            category_spending = []
+
+        # 6. Document Compliance (simplified)
+        try:
+            liquidations_in_period = LiquidationManagement.objects.filter(
+                created_at__range=(start_date, end_date)
+            )
+
+            total_compliance_rates = []
+            for liquidation in liquidations_in_period:
+                total_required_docs = 0
+                total_approved_docs = 0
+
+                for rp in liquidation.request.requestpriority_set.all():
+                    required_docs = rp.priority.requirements.filter(
+                        is_required=True).count()
+                    total_required_docs += required_docs
+
+                    approved_docs = LiquidationDocument.objects.filter(
+                        liquidation=liquidation,
+                        request_priority=rp,
+                        requirement__is_required=True,
+                        is_approved=True
+                    ).count()
+                    total_approved_docs += approved_docs
+
+                if total_required_docs > 0:
+                    liquidation_compliance_rate = (
+                        total_approved_docs / total_required_docs) * 100
+                    total_compliance_rates.append(liquidation_compliance_rate)
+
+            overall_compliance_rate = sum(
+                total_compliance_rates) / len(total_compliance_rates) if total_compliance_rates else 0
+
+            requirements = Requirement.objects.all()
+            for requirement in requirements:
+                total_submitted = LiquidationDocument.objects.filter(
+                    requirement=requirement,
+                    uploaded_at__range=(start_date, end_date)
                 ).count()
 
-                total_required_docs += required_docs
-                total_uploaded_docs += min(uploaded_docs, required_docs)
+                compliant = LiquidationDocument.objects.filter(
+                    requirement=requirement,
+                    is_approved=True,
+                    uploaded_at__range=(start_date, end_date)
+                ).count()
 
-        compliance_rate = (total_uploaded_docs / total_required_docs *
-                           100) if total_required_docs > 0 else 0
+                compliance_rate = (compliant / total_submitted * 100) if total_submitted > 0 else 0
 
-        school_document_compliance.append({
-            'schoolId': school.schoolId,
-            'schoolName': school.schoolName,
-            'uploadedDocuments': total_uploaded_docs,
-            'requiredDocuments': total_required_docs,
-            'complianceRate': compliance_rate,
-            'pendingDocuments': max(0, total_required_docs - total_uploaded_docs)
-        })
+                document_compliance.append({
+                    'requirement': requirement.requirementTitle,
+                    'totalSubmitted': total_submitted,
+                    'compliant': compliant,
+                    'complianceRate': float(compliance_rate),
+                    'type': 'requirement_level'
+                })
 
-    school_document_compliance.sort(
-        key=lambda x: x['complianceRate'], reverse=True)
+            overall_current_compliance = overall_compliance_rate
+            overall_previous_compliance = 0
+            overall_trend = overall_current_compliance - overall_previous_compliance
+        except Exception as e:
+            logging.error(f"Error in document compliance: {str(e)}")
+            document_compliance = []
+            overall_compliance_rate = 0
+            overall_trend = 0
 
-    response_data = {
-        'budgetUtilization': budget_utilization,
-        'categoryBreakdown': category_breakdown,
-        'requestStatusDistribution': request_status_distribution,
-        'liquidationTimeline': liquidation_timeline,
-        'schoolPerformance': school_performance,
-        'categorySpending': category_spending,
-        'documentCompliance': document_compliance,
-        'overallCompliance': float(overall_compliance_rate),
-        'complianceTrend': float(overall_trend),
-        'topPriorities': top_priorities,
-        'activeRequests': active_requests,
-        'liquidationMetrics': liquidation_metrics,
-        'topSchoolsBySpeed': top_schools_by_speed,
-        'schoolDocumentCompliance': school_document_compliance,
-    }
+        # 7. Top Priorities (simplified)
+        try:
+            priorities = RequestPriority.objects.values(
+                'priority__expenseTitle'
+            ).annotate(
+                frequency=Count('priority'),
+                total_amount=Sum('amount')
+            ).order_by('-total_amount')[:10]
 
-    return Response(response_data)
+            for priority in priorities:
+                trend = 'stable'
+                if priority['total_amount']:
+                    trend = 'up' if priority['total_amount'] > 5000 else 'down'
+
+                top_priorities.append({
+                    'priority': priority['priority__expenseTitle'],
+                    'frequency': priority['frequency'],
+                    'totalAmount': float(priority['total_amount']),
+                    'trend': trend
+                })
+        except Exception as e:
+            logging.error(f"Error in top priorities: {str(e)}")
+            top_priorities = []
+
+        # 8. Active Requests (simplified)
+        try:
+            active_request_states = ['pending', 'approved', 'downloaded', 'unliquidated']
+            active_requests_data = RequestManagement.objects.filter(
+                status__in=active_request_states
+            )
+
+            for request in active_requests_data:
+                days_active = (timezone.now() - request.created_at).days
+
+                if request.status == 'pending':
+                    priority = 'high' if days_active > 7 else 'medium' if days_active > 3 else 'low'
+                elif request.status == 'unliquidated':
+                    priority = 'high' if days_active > 25 else 'medium' if days_active > 15 else 'low'
+                else:
+                    priority = 'medium'
+
+                school_name = request.user.school.schoolName if request.user and request.user.school else "Unknown School"
+                user_name = request.user.get_full_name() if request.user else "Unknown User"
+
+                active_requests.append({
+                    'id': request.request_id,
+                    'type': 'request',
+                    'title': f'Active Request: {request.request_id}',
+                    'description': f'{user_name} from {school_name} - Status: {request.status.capitalize()}',
+                    'status': request.status,
+                    'priority': priority,
+                    'timestamp': request.created_at.isoformat(),
+                    'schoolName': school_name,
+                    'userName': user_name
+                })
+
+            priority_order = {'high': 0, 'medium': 1, 'low': 2}
+            active_requests.sort(key=lambda x: (
+                priority_order[x['priority']], x['timestamp']))
+        except Exception as e:
+            logging.error(f"Error in active requests: {str(e)}")
+            active_requests = []
+
+        # 9. Liquidation Metrics (simplified)
+        try:
+            liquidated_liquidations = LiquidationManagement.objects.filter(
+                status='liquidated',
+                date_liquidated__isnull=False,
+                created_at__isnull=False
+            )
+
+            realistic_liquidations = []
+            for liq in liquidated_liquidations:
+                if liq.date_liquidated and liq.created_at:
+                    time_diff = liq.date_liquidated - liq.created_at
+                    if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                        realistic_liquidations.append(liq)
+
+            if realistic_liquidations:
+                total_seconds = sum((liq.date_liquidated - liq.created_at).total_seconds()
+                                    for liq in realistic_liquidations)
+                avg_seconds = total_seconds / len(realistic_liquidations)
+                avg_liquidation_time_days = avg_seconds / (24 * 60 * 60)
+            else:
+                avg_liquidation_time_days = 0
+
+            liquidation_metrics = {
+                'total_liquidations': LiquidationManagement.objects.count(),
+                'completed_liquidations': LiquidationManagement.objects.filter(status='liquidated').count(),
+                'pending_liquidations': LiquidationManagement.objects.exclude(status='liquidated').count(),
+                'completion_rate': (LiquidationManagement.objects.filter(status='liquidated').count() /
+                                    LiquidationManagement.objects.count() * 100) if LiquidationManagement.objects.count() > 0 else 0,
+                'avg_liquidation_time_days': float(avg_liquidation_time_days)
+            }
+        except Exception as e:
+            logging.error(f"Error in liquidation metrics: {str(e)}")
+            liquidation_metrics = {
+                'total_liquidations': 0,
+                'completed_liquidations': 0,
+                'pending_liquidations': 0,
+                'completion_rate': 0,
+                'avg_liquidation_time_days': 0
+            }
+
+        # 10. Top Schools by Speed (simplified)
+        try:
+            all_schools = School.objects.all()
+            for school in all_schools:
+                school_liquidations = LiquidationManagement.objects.filter(
+                    request__user__school=school,
+                    status='liquidated',
+                    date_liquidated__isnull=False,
+                    created_at__isnull=False
+                )
+
+                realistic_processing_times = []
+                for liq in school_liquidations:
+                    if liq.date_liquidated and liq.created_at:
+                        time_diff = liq.date_liquidated - liq.created_at
+                        if time_diff.total_seconds() < (365 * 24 * 60 * 60):
+                            realistic_processing_times.append(
+                                time_diff.total_seconds())
+
+                if realistic_processing_times:
+                    avg_seconds = sum(realistic_processing_times) / \
+                        len(realistic_processing_times)
+                    avg_days = avg_seconds / (24 * 60 * 60)
+
+                    top_schools_by_speed.append({
+                        'schoolId': school.schoolId,
+                        'schoolName': school.schoolName,
+                        'avgProcessingDays': float(avg_days)
+                    })
+
+            top_schools_by_speed.sort(key=lambda x: x['avgProcessingDays'])
+            top_schools_by_speed = top_schools_by_speed[:5]
+        except Exception as e:
+            logging.error(f"Error in top schools by speed: {str(e)}")
+            top_schools_by_speed = []
+
+        # 11. School Document Compliance (simplified)
+        try:
+            liquidation_school_ids = LiquidationManagement.objects.values_list(
+                'request__user__school_id', flat=True
+            ).distinct()
+            schools_with_liquidations = School.objects.filter(
+                schoolId__in=liquidation_school_ids)
+
+            for school in schools_with_liquidations:
+                school_liquidations = LiquidationManagement.objects.filter(
+                    request__user__school=school
+                )
+
+                if not school_liquidations.exists():
+                    continue
+
+                total_required_docs = 0
+                total_uploaded_docs = 0
+
+                for liquidation in school_liquidations:
+                    for rp in liquidation.request.requestpriority_set.all():
+                        required_docs = rp.priority.requirements.filter(
+                            is_required=True).count()
+                        uploaded_docs = LiquidationDocument.objects.filter(
+                            liquidation=liquidation,
+                            request_priority=rp
+                        ).count()
+
+                        total_required_docs += required_docs
+                        total_uploaded_docs += min(uploaded_docs, required_docs)
+
+                compliance_rate = (total_uploaded_docs / total_required_docs * 100) if total_required_docs > 0 else 0
+
+                school_document_compliance.append({
+                    'schoolId': school.schoolId,
+                    'schoolName': school.schoolName,
+                    'uploadedDocuments': total_uploaded_docs,
+                    'requiredDocuments': total_required_docs,
+                    'complianceRate': compliance_rate,
+                    'pendingDocuments': max(0, total_required_docs - total_uploaded_docs)
+                })
+
+            school_document_compliance.sort(
+                key=lambda x: x['complianceRate'], reverse=True)
+        except Exception as e:
+            logging.error(f"Error in school document compliance: {str(e)}")
+            school_document_compliance = []
+
+        response_data = {
+            'budgetUtilization': budget_utilization,
+            'categoryBreakdown': category_breakdown,
+            'requestStatusDistribution': request_status_distribution,
+            'liquidationTimeline': liquidation_timeline,
+            'schoolPerformance': school_performance,
+            'categorySpending': category_spending,
+            'documentCompliance': document_compliance,
+            'overallCompliance': float(overall_compliance_rate),
+            'complianceTrend': float(overall_trend),
+            'topPriorities': top_priorities,
+            'activeRequests': active_requests,
+            'liquidationMetrics': liquidation_metrics,
+            'topSchoolsBySpeed': top_schools_by_speed,
+            'schoolDocumentCompliance': school_document_compliance,
+        }
+
+        return Response(response_data)
+    
+    except Exception as e:
+        logging.error(f"Error in admin_dashboard: {str(e)}")
+        return Response(
+            {"error": "Internal server error. Please try again later.", "details": str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 # ------------------- Backup & Restore -------------------
 
 
@@ -3142,9 +3423,19 @@ def list_backups(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def update_e_signature(request):
+    print("🔍 DEBUG: update_e_signature view called")
+    print(f"- Request method: {request.method}")
+    print(f"- Request path: {request.path}")
+    print(f"- Request user: {request.user}")
+    print(f"- Request FILES: {request.FILES}")
+    print(f"- Request headers: {dict(request.headers)}")
+    
     user = request.user
     e_signature = request.FILES.get('e_signature')
+    print(f"- E-signature file: {e_signature}")
+    
     if not e_signature:
+        print("❌ No e-signature file provided")
         return Response({"error": "No e-signature file provided."}, status=400)
     user.e_signature = e_signature
     user.save(update_fields=['e_signature'])
@@ -3191,6 +3482,10 @@ def update_e_signature(request):
 
     # Add e-signature URL (now available)
     access_token['e_signature'] = user.e_signature.url
+
+    print("✅ E-signature updated successfully")
+    print(f"- User: {user.get_full_name()}")
+    print(f"- E-signature URL: {user.e_signature.url}")
 
     return Response({
         "message": "E-signature updated successfully.",
@@ -3393,9 +3688,20 @@ def generate_liquidation_report(request, LiquidationID):
         ws[f'B{cert_row}'].font = base_font
         ws[f'B{cert_row}'].alignment = Alignment(horizontal='center')
 
-        # Head, Accounting Division Unit (could be division accountant)
-        # For now, we'll leave it blank as it's not directly in the model
-        ws[f'C{cert_row}'] = "________________________"
+        # Head, Accounting Division Unit (division accountant)
+        from .models import User
+        active_accountant = User.objects.filter(
+            role='accountant', 
+            is_active=True
+        ).first()
+        
+        if active_accountant:
+            accountant_name = f"{active_accountant.first_name} {active_accountant.last_name}".strip()
+            if not accountant_name:
+                accountant_name = active_accountant.email
+            ws[f'C{cert_row}'] = accountant_name
+        else:
+            ws[f'C{cert_row}'] = "________________________"
         ws[f'C{cert_row}'].font = base_font
         ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
 
@@ -3426,6 +3732,50 @@ def generate_liquidation_report(request, LiquidationID):
         ws[f'C{cert_row}'] = "Head, Accounting Division Unit"
         ws[f'C{cert_row}'].font = base_font
         ws[f'C{cert_row}'].alignment = Alignment(horizontal='center')
+
+        # Add accountant's e-signature if available
+        if active_accountant and active_accountant.e_signature:
+            try:
+                from django.conf import settings
+                import os
+                from openpyxl.drawing.image import Image
+                signature_path = os.path.join(
+                    settings.MEDIA_ROOT, str(active_accountant.e_signature))
+                if os.path.exists(signature_path):
+                    signature_img = Image(signature_path)
+                    signature_img.width = 100
+                    signature_img.height = 50
+                    # Position the signature above the "Head, Accounting Division Unit" text
+                    ws.add_image(signature_img, f'C{cert_row - 2}')
+            except Exception as e:
+                logger.error(f"Could not add accountant signature to individual report: {e}")
+
+        # Add "Prepared by:" section
+        cert_row += 2
+        ws[f'A{cert_row}'] = "Prepared by:"
+        ws[f'A{cert_row}'].font = Font(name='Times New Roman', size=10, bold=True)
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        ws.merge_cells(f'A{cert_row}:C{cert_row}')
+
+        # Add accountant's name for prepared by section
+        cert_row += 1
+        if active_accountant:
+            accountant_name = f"{active_accountant.first_name} {active_accountant.last_name}".strip()
+            if not accountant_name:
+                accountant_name = active_accountant.email
+            ws[f'A{cert_row}'] = accountant_name.upper()
+        else:
+            ws[f'A{cert_row}'] = "DIVISION ACCOUNTANT"
+        ws[f'A{cert_row}'].font = Font(name='Times New Roman', size=10, bold=True)
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        ws.merge_cells(f'A{cert_row}:C{cert_row}')
+
+        # Add position title
+        cert_row += 1
+        ws[f'A{cert_row}'] = "Division Accountant"
+        ws[f'A{cert_row}'].font = Font(name='Times New Roman', size=10)
+        ws[f'A{cert_row}'].alignment = Alignment(horizontal='center')
+        ws.merge_cells(f'A{cert_row}:C{cert_row}')
 
         # Add JEV number - we don't have this in the model, so leave blank
         cert_row += 2
@@ -3643,46 +3993,41 @@ def generate_approved_request_pdf(request, request_id):
                 status=403
             )
 
-        # Check if request is approved
-        # if req.status != 'approved':
-        #     return HttpResponse(
-        #         '{"error": "Request must be approved first to generate PDF"}',
-        #         content_type='application/json',
-        #         status=400
-        #     )
+        # Allow PDF generation for all request statuses
+        # Note: The PDF will show different signature states based on request status
 
         # Generate PDF with actual signatures
         pdf_content = generate_request_pdf_with_signatures(req)
 
-        # Store PDF for audit trail (optional - can be enabled for compliance)
-        from .models import GeneratedPDF
-        from django.core.files.base import ContentFile
+        # Store PDF for audit trail (temporarily disabled to debug 500 error)
+        # from .models import GeneratedPDF
+        # from django.core.files.base import ContentFile
 
-        try:
-            # Create a record of PDF generation
-            pdf_record = GeneratedPDF.objects.create(
-                request=req,
-                generated_by=user,
-                generation_method='server_side',
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT', '')[
-                    :500]  # Limit length
-            )
+        # try:
+        #     # Create a record of PDF generation
+        #     pdf_record = GeneratedPDF.objects.create(
+        #         request=req,
+        #         generated_by=user,
+        #         generation_method='server_side',
+        #         ip_address=request.META.get('REMOTE_ADDR'),
+        #         user_agent=request.META.get('HTTP_USER_AGENT', '')[
+        #             :500]  # Limit length
+        #     )
 
-            # Optionally store the PDF file (uncomment if you want to store PDFs)
-            # pdf_filename = f"approved_request_{request_id}_{pdf_record.id}.pdf"
-            # pdf_record.pdf_file.save(
-            #     pdf_filename,
-            #     ContentFile(pdf_content),
-            #     save=True
-            # )
+        #     # Optionally store the PDF file (uncomment if you want to store PDFs)
+        #     # pdf_filename = f"approved_request_{request_id}_{pdf_record.id}.pdf"
+        #     # pdf_record.pdf_file.save(
+        #     #     pdf_filename,
+        #     #     ContentFile(pdf_content),
+        #     #     save=True
+        #     # )
 
-            logger.info(
-                f"PDF generated for approved request {request_id} by user {user.id} (PDF record ID: {pdf_record.id})")
+        #     logger.info(
+        #         f"PDF generated for approved request {request_id} by user {user.id} (PDF record ID: {pdf_record.id})")
 
-        except Exception as e:
-            logger.error(f"Error creating PDF record: {e}")
-            # Continue with PDF generation even if record creation fails
+        # except Exception as e:
+        #     logger.error(f"Error creating PDF record: {e}")
+        #     # Continue with PDF generation even if record creation fails
 
         # Create HTTP response
         response = HttpResponse(pdf_content, content_type='application/pdf')
@@ -3754,121 +4099,124 @@ def generate_demand_letter(request, request_id):
             'error': 'Failed to generate demand letter'
         }, status=500)
 
-def liquidation_report(request):
+class LiquidationReportView(APIView):
     """
     Generate liquidation report with filtering and export capabilities
     """
-    from .liquidation_report_utils import (
-        generate_liquidation_report_data,
-        generate_liquidation_csv_report,
-        generate_liquidation_excel_report,
-        LiquidationReportPagination,
-        get_liquidation_summary_stats
-    )
-    from datetime import datetime
+    permission_classes = [IsAuthenticated]
 
-    # Get filter parameters
-    status_filter = request.GET.get('status', 'all')
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
-    legislative_district = request.GET.get('legislative_district')
-    municipality = request.GET.get('municipality')
-    school_district = request.GET.get('school_district')
-    school_ids = request.GET.get('school_ids')
-    export_format = request.GET.get('export')
-    page_size = request.GET.get('page_size', 50)
+    def get(self, request):
+        from .liquidation_report_utils import (
+            generate_liquidation_report_data,
+            generate_liquidation_csv_report,
+            generate_liquidation_excel_report,
+            LiquidationReportPagination,
+            get_liquidation_summary_stats
+        )
+        from datetime import datetime
 
-    # Convert string dates to date objects
-    start_date = None
-    end_date = None
+        # Get filter parameters
+        status_filter = request.query_params.get('status', 'all')
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        legislative_district = request.query_params.get('legislative_district')
+        municipality = request.query_params.get('municipality')
+        school_district = request.query_params.get('school_district')
+        school_ids = request.query_params.get('school_ids')
+        export_format = request.query_params.get('export')
+        page_size = request.query_params.get('page_size', 50)
 
-    if start_date_str:
-        try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return Response({"error": "Invalid start_date format. Use YYYY-MM-DD"}, status=400)
+        # Convert string dates to date objects
+        start_date = None
+        end_date = None
 
-    if end_date_str:
-        try:
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return Response({"error": "Invalid end_date format. Use YYYY-MM-DD"}, status=400)
+        if start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response({"error": "Invalid start_date format. Use YYYY-MM-DD"}, status=400)
 
-    # Generate report data
-    report_data = generate_liquidation_report_data(
-        status_filter=status_filter,
-        start_date=start_date,
-        end_date=end_date,
-        legislative_district=legislative_district,
-        municipality=municipality,
-        school_district=school_district,
-        school_ids=school_ids
-    )
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response({"error": "Invalid end_date format. Use YYYY-MM-DD"}, status=400)
 
-    # Get summary statistics - FIXED: Use the same function with proper parameters
-    summary_stats = get_liquidation_summary_stats(
-        start_date=start_date,
-        end_date=end_date,
-        legislative_district=legislative_district,
-        municipality=municipality,
-        school_district=school_district,
-        school_ids=school_ids
-    )
+        # Generate report data
+        report_data = generate_liquidation_report_data(
+            status_filter=status_filter,
+            start_date=start_date,
+            end_date=end_date,
+            legislative_district=legislative_district,
+            municipality=municipality,
+            school_district=school_district,
+            school_ids=school_ids
+        )
 
-    # Handle export formats
-    if export_format == 'csv':
-        return generate_liquidation_csv_report(report_data, {
-            'status': status_filter,
-            'start_date': start_date_str,
-            'end_date': end_date_str,
-            'legislative_district': legislative_district,
-            'municipality': municipality,
-            'school_district': school_district,
-            'school_ids': school_ids
-        })
-    elif export_format == 'excel':
-        return generate_liquidation_excel_report(report_data, {
-            'status': status_filter,
-            'start_date': start_date_str,
-            'end_date': end_date_str,
-            'legislative_district': legislative_district,
-            'municipality': municipality,
-            'school_district': school_district,
-            'school_ids': school_ids
-        }, request.user)  # Pass the request user
+        # Get summary statistics - FIXED: Use the same function with proper parameters
+        summary_stats = get_liquidation_summary_stats(
+            start_date=start_date,
+            end_date=end_date,
+            legislative_district=legislative_district,
+            municipality=municipality,
+            school_district=school_district,
+            school_ids=school_ids
+        )
 
-    # Apply pagination for regular API response
-    paginator = LiquidationReportPagination()
-    paginator.page_size = int(page_size)
-    paginated_data = paginator.paginate_queryset(report_data, request)
+        # Handle export formats
+        if export_format == 'csv':
+            return generate_liquidation_csv_report(report_data, {
+                'status': status_filter,
+                'start_date': start_date_str,
+                'end_date': end_date_str,
+                'legislative_district': legislative_district,
+                'municipality': municipality,
+                'school_district': school_district,
+                'school_ids': school_ids
+            })
+        elif export_format == 'excel':
+            return generate_liquidation_excel_report(report_data, {
+                'status': status_filter,
+                'start_date': start_date_str,
+                'end_date': end_date_str,
+                'legislative_district': legislative_district,
+                'municipality': municipality,
+                'school_district': school_district,
+                'school_ids': school_ids
+            }, request.user)  # Pass the request user
 
-    # Calculate status counts for filters
-    status_counts = {}
-    for item in report_data:
-        status = item['status']
-        status_counts[status] = status_counts.get(status, 0) + 1
+        # Apply pagination for regular API response
+        paginator = LiquidationReportPagination()
+        paginator.page_size = int(page_size)
+        paginated_data = paginator.paginate_queryset(report_data, request)
 
-    # FIXED: Return summary at the root level as expected by frontend
-    response_data = {
-        'count': len(report_data),
-        'next': None,  # You'll need to implement pagination properly
-        'previous': None,
-        'results': paginated_data,
-        'total_count': len(report_data),
-        'filters': {
-            'status_filter': status_filter,
-            'start_date': start_date_str,
-            'end_date': end_date_str,
-            'legislative_district': legislative_district,
-            'municipality': municipality,
-            'school_district': school_district,
-            'school_ids': school_ids,
-            'status_counts': status_counts
-        },
-        'summary': summary_stats  # This is what your frontend expects
-    }
+        # Calculate status counts for filters
+        status_counts = {}
+        for item in report_data:
+            status = item['status']
+            status_counts[status] = status_counts.get(status, 0) + 1
 
-    return Response(response_data)
+        # FIXED: Return summary at the root level as expected by frontend
+        response_data = {
+            'count': len(report_data),
+            'next': None,  # You'll need to implement pagination properly
+            'previous': None,
+            'results': paginated_data,
+            'total_count': len(report_data),
+            'filters': {
+                'status_filter': status_filter,
+                'start_date': start_date_str,
+                'end_date': end_date_str,
+                'legislative_district': legislative_district,
+                'municipality': municipality,
+                'school_district': school_district,
+                'school_ids': school_ids,
+                'status_counts': status_counts
+            },
+            'summary': summary_stats  # This is what your frontend expects
+        }
+
+        return Response(response_data)
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

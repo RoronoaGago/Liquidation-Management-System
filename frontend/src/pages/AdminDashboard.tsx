@@ -1,53 +1,28 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
 } from "recharts";
 import {
   Download,
-  Filter,
-  Calendar,
   BarChart3,
   PieChart as PieChartIcon,
-  LineChart as LineChartIcon,
-  Settings,
   RefreshCw,
-  Users,
-  School,
   FileText,
   Clock,
   AlertCircle,
   CheckCircle,
-  XCircle,
   TrendingUp,
   TrendingDown,
   Grid,
   Save,
-  Edit,
   GripVertical,
   RotateCcw,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -66,12 +41,110 @@ import { MoreDotIcon } from "@/icons";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+// Custom Loading Components
+const MetricCardSkeleton = () => (
+  <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 animate-pulse">
+    <div className="flex items-center justify-center w-12 h-12 bg-gray-200 rounded-xl dark:bg-gray-700 mb-5 animate-pulse">
+      <div className="w-6 h-6 bg-gray-300 rounded dark:bg-gray-600 animate-pulse"></div>
+    </div>
+    <div className="space-y-3">
+      <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-3/4 animate-pulse"></div>
+      <div className="h-6 bg-gray-200 rounded dark:bg-gray-700 w-1/2 animate-pulse"></div>
+      <div className="h-3 bg-gray-200 rounded dark:bg-gray-700 w-full animate-pulse"></div>
+    </div>
+  </div>
+);
+
+const ChartSkeleton = ({ height = "300px" }: { height?: string }) => (
+  <div className="animate-pulse">
+    <div className="flex items-center justify-center" style={{ height }}>
+      <div className="relative">
+        {/* Circular loading animation */}
+        <div className="w-32 h-32 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin dark:border-gray-700 dark:border-t-blue-400"></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-16 h-16 border-2 border-gray-200 border-b-blue-500 rounded-full animate-spin dark:border-gray-700 dark:border-b-blue-400" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+        </div>
+      </div>
+    </div>
+    <div className="mt-4 space-y-2">
+      <div className="flex justify-center space-x-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+            <div className="h-3 bg-gray-200 rounded dark:bg-gray-700 w-16"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+const TableSkeleton = () => (
+  <div className="animate-pulse">
+    <div className="overflow-auto max-h-[400px] rounded-md border border-gray-200 dark:border-gray-800">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <th key={i} className="p-3">
+                <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-20"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[1, 2, 3, 4, 5].map((row) => (
+            <tr key={row} className={row % 2 === 0 ? "bg-muted/30" : ""}>
+              {[1, 2, 3, 4, 5].map((cell) => (
+                <td key={cell} className="p-3">
+                  <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-16"></div>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const ListSkeleton = () => (
+  <div className="space-y-3 animate-pulse">
+    {[1, 2, 3, 4, 5].map((i) => (
+      <div key={i} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800">
+        <div className="flex items-center min-w-0">
+          <div className="w-8 h-8 bg-gray-200 rounded-full mr-3 dark:bg-gray-700"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-32"></div>
+            <div className="h-3 bg-gray-200 rounded dark:bg-gray-700 w-24"></div>
+          </div>
+        </div>
+        <div className="text-right space-y-2">
+          <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-16"></div>
+          <div className="h-3 bg-gray-200 rounded dark:bg-gray-700 w-12"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const WidgetSkeleton = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full overflow-hidden">
+    <div className="flex justify-between items-start mb-5">
+      <div className="min-w-0">
+        <div className="h-6 bg-gray-200 rounded dark:bg-gray-700 w-40 mb-2 animate-pulse"></div>
+        <div className="h-4 bg-gray-200 rounded dark:bg-gray-700 w-60 animate-pulse"></div>
+      </div>
+    </div>
+    <div className="h-full">{children}</div>
+  </div>
+);
+
 // Types for our data
 interface DashboardData {
   budgetUtilization: BudgetUtilizationData[];
   categoryBreakdown: CategoryBreakdownData[];
   requestStatusDistribution: StatusData[];
-  liquidationTimeline: TimelineData[];
   schoolPerformance: SchoolPerformanceData[];
   categorySpending: CategoryData[];
   documentCompliance: ComplianceData[];
@@ -120,14 +193,9 @@ interface StatusData {
   status: string;
   count: number;
   percentage: number;
+  [key: string]: any;
 }
 
-interface TimelineData {
-  quarter: string; // Changed from month to quarter
-  avgProcessingTime: number;
-  approved: number;
-  rejected: number;
-}
 interface SchoolPerformanceData {
   schoolId: string;
   schoolName: string;
@@ -170,14 +238,6 @@ interface PriorityData {
   trend: "up" | "down" | "stable";
 }
 
-interface ActionItem {
-  id: string;
-  type: "request" | "liquidation" | "user";
-  title: string;
-  description: string;
-  priority: "high" | "medium" | "low";
-  timestamp: string;
-}
 
 interface DashboardLayout {
   lg: Layout[];
@@ -200,47 +260,42 @@ const COLORS = [
 const defaultLayouts: DashboardLayout = {
   lg: [
     { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
-    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 5 },
-    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
-    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
-    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "actions", x: 0, y: 4, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 4, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 10, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 18, w: 6, h: 6, minW: 6, minH: 4 },
     // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   md: [
     { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
-    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
-    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
-    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
-    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "actions", x: 0, y: 4, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 4, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 10, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 18, w: 6, h: 6, minW: 6, minH: 4 },
     // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   sm: [
     { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
-    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
-    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
-    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
-    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "actions", x: 0, y: 4, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 4, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 10, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 18, w: 6, h: 6, minW: 6, minH: 4 },
     // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   xs: [
     { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
-    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
-    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
-    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
-    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "actions", x: 0, y: 4, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 4, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 10, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 18, w: 6, h: 6, minW: 6, minH: 4 },
     // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
   xxs: [
     { i: "metrics", x: 0, y: 0, w: 12, h: 3, minW: 4, minH: 2 },
-    { i: "timeline", x: 0, y: 4, w: 12, h: 5, minW: 6, minH: 8 },
-    { i: "actions", x: 0, y: 9, w: 6, h: 6, minW: 6, minH: 4 },
-    { i: "status", x: 7, y: 9, w: 6, h: 6, minW: 4, minH: 4 },
-    { i: "performance", x: 0, y: 27, w: 12, h: 8, minW: 6, minH: 6 },
-    { i: "categories", x: 0, y: 41, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "actions", x: 0, y: 4, w: 6, h: 6, minW: 6, minH: 4 },
+    { i: "status", x: 7, y: 4, w: 6, h: 6, minW: 4, minH: 4 },
+    { i: "performance", x: 0, y: 10, w: 12, h: 8, minW: 6, minH: 6 },
+    { i: "categories", x: 0, y: 18, w: 6, h: 6, minW: 6, minH: 4 },
     // { i: "actions", x: 6, y: 41, w: 6, h: 6, minW: 4, minH: 4 }, // Same x:0 and h:6 as categories
   ],
 };
@@ -285,61 +340,6 @@ const WidgetContainer = ({
   );
 };
 
-const TopSchoolsWidget = ({
-  data,
-  editMode,
-}: {
-  data: DashboardData | null;
-  editMode: boolean;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  const closeDropdown = () => setIsOpen(false);
-
-  const items = data?.topSchoolsBySpeed ?? [];
-
-  return (
-    <WidgetContainer
-      title="🚀 Fastest Liquidating Schools"
-      subtitle="Top 5 schools by average liquidation time"
-      editMode={editMode}
-    >
-      <div className="space-y-3 overflow-auto max-h-[360px] pr-1">
-        {items.slice(0, 5).map((school, index) => (
-          <div
-            key={school.schoolId}
-            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800"
-          >
-            <div className="flex items-center min-w-0">
-              <div className="w-8 h-8 flex items-center justify-center bg-blue-100 rounded-full mr-3 dark:bg-blue-900/20 shrink-0">
-                <span className="font-semibold text-blue-600 dark:text-blue-400">
-                  #{index + 1}
-                </span>
-              </div>
-              <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90 truncate">
-                {school.schoolName}
-              </span>
-            </div>
-            <div className="text-right shrink-0">
-              <div className="font-semibold text-green-600 text-theme-sm dark:text-green-400">
-                {school.avgProcessingDays.toFixed(1)} days
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                avg. processing
-              </div>
-            </div>
-          </div>
-        ))}
-        {items.length === 0 && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            No data available.
-          </div>
-        )}
-      </div>
-    </WidgetContainer>
-  );
-};
 
 // Widget components with updated styling
 const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
@@ -413,90 +413,6 @@ const MetricsWidget = ({ data }: { data: DashboardData | null }) => (
   </div>
 );
 
-const BudgetWidget = ({
-  data,
-  editMode,
-}: {
-  data: DashboardData | null;
-  editMode: boolean;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  // Remove the viewMode state since we only need utilization view now
-
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  const closeDropdown = () => setIsOpen(false);
-
-  // Remove the getCategoryChartData function since it's no longer needed
-
-  return (
-    <WidgetContainer
-      title="Budget Analysis"
-      subtitle="Planned vs. actual spending"
-      editMode={editMode}
-    >
-      {/* Keep only the utilization view (Line Chart) */}
-      <div className="h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data?.budgetUtilization || []}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
-            <XAxis
-              dataKey="month"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-              tickFormatter={(value) => `₱${value / 1000}k`}
-            />
-            <Tooltip
-              formatter={(value, name) => {
-                const formattedValue = `₱${Number(value).toLocaleString()}`;
-                if (
-                  name === "plannedUtilizationRate" ||
-                  name === "actualUtilizationRate"
-                ) {
-                  return [
-                    `${Number(value).toFixed(1)}%`,
-                    name.includes("planned") ? "Planned %" : "Actual %",
-                  ];
-                }
-                return [formattedValue, name];
-              }}
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #E4E7EC",
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              }}
-            />
-            <Legend />
-            {/* Planned Amount */}
-            <Line
-              type="monotone"
-              dataKey="planned"
-              stroke="#465FFF"
-              strokeWidth={2}
-              name="Planned Amount"
-              dot={{ r: 4 }}
-            />
-            {/* Actual Amount */}
-            <Line
-              type="monotone"
-              dataKey="actual"
-              stroke="#00C49F"
-              strokeWidth={2}
-              name="Actual Amount"
-              dot={{ r: 4 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </WidgetContainer>
-  );
-};
 
 const StatusWidget = ({
   data,
@@ -505,10 +421,6 @@ const StatusWidget = ({
   data: DashboardData | null;
   editMode: boolean;
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  const closeDropdown = () => setIsOpen(false);
 
   const distribution = data?.requestStatusDistribution ?? [];
 
@@ -550,7 +462,6 @@ const StatusWidget = ({
     innerRadius,
     outerRadius,
     percent,
-    index,
   }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -607,7 +518,7 @@ const StatusWidget = ({
                     label={renderCustomizedLabel}
                     labelLine={false}
                   >
-                    {distribution.map((entry, index) => (
+                    {distribution.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={PIE_COLORS[index % PIE_COLORS.length]}
@@ -647,81 +558,6 @@ const StatusWidget = ({
   );
 };
 
-const TimelineWidget = ({
-  data,
-  editMode,
-}: {
-  data: DashboardData | null;
-  editMode: boolean;
-}) => {
-  return (
-    <WidgetContainer
-      title="Liquidation Processing Timeline (Quarterly)"
-      subtitle="Average processing time by quarter"
-      editMode={editMode}
-    >
-      <div className="h-[260px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data?.liquidationTimeline || []}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E4E7EC" />
-            <XAxis
-              dataKey="quarter" // Changed from 'month' to 'quarter'
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-            />
-            <YAxis
-              yAxisId="left"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-              domain={[0, "auto"]}
-            />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
-            />
-            <Tooltip
-              formatter={(value, name) => {
-                if (name === "Avg. Processing Time (days)") {
-                  return [`${Number(value).toFixed(1)} days`, name];
-                }
-                return [value, name];
-              }}
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #E4E7EC",
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              }}
-            />
-            <Legend />
-            <Line
-              yAxisId="left"
-              type="monotone"
-              dataKey="avgProcessingTime"
-              stroke="#465FFF"
-              strokeWidth={2}
-              activeDot={{ r: 6, fill: "#465FFF" }}
-              name="Avg. Processing Time (days)"
-            />
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="approved"
-              stroke="#00C49F"
-              strokeWidth={2}
-              name="Completed Liquidations"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </WidgetContainer>
-  );
-};
 
 const SchoolPerformanceWidget = ({
   data,
@@ -730,7 +566,6 @@ const SchoolPerformanceWidget = ({
   data: DashboardData | null;
   editMode: boolean;
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"overview" | "speed" | "compliance">(
     "speed"
   );
@@ -740,9 +575,6 @@ const SchoolPerformanceWidget = ({
     "totalRequests" | "approvalRate" | "avgProcessingTime" | "budgetUtilization"
   >("avgProcessingTime");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  const closeDropdown = () => setIsOpen(false);
 
   const performanceRows = data?.schoolPerformance ?? [];
   const fastestSchools = data?.topSchoolsBySpeed ?? [];
@@ -1058,7 +890,7 @@ const SchoolPerformanceWidget = ({
           <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
             Top 5 schools by average liquidation time
           </div>
-          {topFastestSchools.map((school, index) => (
+          {topFastestSchools.map((school) => (
             <div
               key={school.schoolId}
               className="flex items-center justify-between p-3 border border-gray-200 rounded-lg dark:border-gray-800"
@@ -1257,12 +1089,12 @@ const CategoriesWidget = ({
                 fill="#8884d8"
                 dataKey="totalAmount"
                 label={
-                  ({ category, percentage }) =>
-                    `${category} (${percentage.toFixed(2)}%)` // Changed this line
+                  ({ category, percentage }: any) =>
+                    `${category} (${(percentage as number).toFixed(2)}%)` // Changed this line
                 }
                 labelLine={false}
               >
-                {topCategories.map((entry, index) => (
+                {topCategories.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
@@ -1286,7 +1118,7 @@ const CategoriesWidget = ({
                 height={36}
                 iconType="circle"
                 iconSize={10}
-                formatter={(value, entry, index) => (
+                formatter={(_value: any, _entry: any, index: number) => (
                   <span className="text-xs">
                     {topCategories[index]?.category}
                   </span>
@@ -1468,8 +1300,7 @@ const ActiveRequestsWidget = ({
 const AdminDashboard = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<string>("last_month");
-  const [activeView, setActiveView] = useState<string>("overview");
+  const [timeRange] = useState<string>("last_month");
   const [refreshing, setRefreshing] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [layouts, setLayouts] = useState<DashboardLayout>(defaultLayouts);
@@ -1533,7 +1364,7 @@ const AdminDashboard = () => {
     fetchDashboardData();
   };
 
-  const handleLayoutChange = (currentLayout: Layout[], allLayouts: any) => {
+  const handleLayoutChange = (_currentLayout: Layout[], allLayouts: any) => {
     setLayouts((prev) => ({
       ...prev,
       ...allLayouts,
@@ -1571,8 +1402,6 @@ const AdminDashboard = () => {
       //   return <BudgetWidget data={data} editMode={editMode} />;
       case "status":
         return <StatusWidget data={data} editMode={editMode} />;
-      case "timeline":
-        return <TimelineWidget data={data} editMode={editMode} />;
       case "performance": // This now includes both performance and fastest schools
         return <SchoolPerformanceWidget data={data} editMode={editMode} />;
       case "categories":
@@ -1600,22 +1429,43 @@ const AdminDashboard = () => {
             </p>
           </div>
         </div>
+        
+        
+        {/* Metrics Cards Loading */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
           {[1, 2, 3, 4].map((item) => (
-            <Skeleton key={item} active paragraph={{ rows: 3 }} />
+            <MetricCardSkeleton key={item} />
           ))}
         </div>
+        
+        {/* Widgets Loading */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((item) => (
-            <Skeleton key={item} active paragraph={{ rows: 6 }} />
-          ))}
+          {/* Status Widget */}
+          <WidgetSkeleton title="Request Status Distribution">
+            <ChartSkeleton height="300px" />
+          </WidgetSkeleton>
+          
+          {/* Active Requests Widget */}
+          <WidgetSkeleton title="Active Requests">
+            <ListSkeleton />
+          </WidgetSkeleton>
+          
+          {/* School Performance Widget */}
+          <WidgetSkeleton title="School Performance">
+            <TableSkeleton />
+          </WidgetSkeleton>
+          
+          {/* Categories Widget */}
+          <WidgetSkeleton title="Top Spending Categories">
+            <ChartSkeleton height="300px" />
+          </WidgetSkeleton>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`p-4 md:p-6 ${editMode ? "select-none" : ""}`}>
+    <div className={`p-4 md:p-6 ${editMode ? "select-none" : ""} animate-in fade-in duration-500`}>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">
@@ -1721,7 +1571,7 @@ const AdminDashboard = () => {
       )}
 
       <ResponsiveGridLayout
-        className="layout"
+        className="layout animate-in slide-in-from-bottom-4 duration-700"
         layouts={layouts}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 8, sm: 4, xs: 4, xxs: 4 }}
@@ -1751,9 +1601,6 @@ const AdminDashboard = () => {
         <div key="status" className="rounded-2xl">
           {renderWidget("status")}
         </div>
-        <div key="timeline" className="rounded-2xl">
-          {renderWidget("timeline")}
-        </div>
         <div key="performance" className="rounded-2xl">
           {renderWidget("performance")}
         </div>
@@ -1766,9 +1613,6 @@ const AdminDashboard = () => {
         {/* <div key="compliance" className="rounded-2xl">
           {renderWidget("compliance")}
         </div> */}
-        <div key="topSchools" className="rounded-2xl">
-          {renderWidget("topSchools")}
-        </div>
       </ResponsiveGridLayout>
 
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>

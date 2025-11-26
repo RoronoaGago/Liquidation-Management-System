@@ -97,7 +97,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <img src="DepEd_logo-W.png" alt="DepEd Logo">
+            {% if deped_logo_base64 %}
+            <img src="{{ deped_logo_base64 }}" alt="DepEd Logo">
+            {% else %}
+            <div style="height: 70px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 8px; margin-bottom: 15px;">
+                <span style="color: #fff; font-size: 1.2em; font-weight: 600;">DepEd Logo</span>
+            </div>
+            {% endif %}
             <div class="company-name">MOOE Liquidation Management System</div>
             <div class="company-subtitle">Department of Education, La Union Schools Division</div>
         </div>
@@ -110,7 +116,6 @@
             <div class="login-details">
                 <div class="detail-title">Login Details:</div>
                 <p><strong>Date & Time:</strong>  {{ now|date:"F j, Y H:i" }} </p>
-                <p><strong>Your OTP code:</strong> {{ otp }}</p>
                 <p><strong>IP Address:</strong> {{ ip }}</p>
                 {% if location %}
                 <p><strong>Approximate Location:</strong> {{ location }}</p>

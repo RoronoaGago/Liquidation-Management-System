@@ -17,6 +17,7 @@ import string
 import logging
 import secrets
 from simple_history.utils import update_change_reason
+from .email_utils import get_deped_logo_base64
 logger = logging.getLogger(__name__)
 
 def generate_random_password(length=12):
@@ -185,6 +186,24 @@ class SchoolSerializer(serializers.ModelSerializer):
 
     def get_current_yearly_budget(self, obj):
         return obj.get_yearly_budget()
+
+    def to_representation(self, instance):
+        """Override to include district information in the response"""
+        data = super().to_representation(instance)
+        
+        # If district exists, include district details
+        if instance.district:
+            data['district'] = {
+                'districtId': instance.district.districtId,
+                'districtName': instance.district.districtName,
+                'municipality': instance.district.municipality,
+                'legislativeDistrict': instance.district.legislativeDistrict,
+                'is_active': instance.district.is_active
+            }
+        else:
+            data['district'] = None
+            
+        return data
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -437,6 +456,32 @@ class UserSerializer(serializers.ModelSerializer):
             'temp_password': temp_password,
             'login_url': login_url,
             'now': timezone.now(),
+            'deped_logo_base64': get_deped_logo_base64(),
+        })
+
+        send_mail(
+            subject=subject,
+            message="",  # Empty message since we're using html_message
+            from_email=None,  # Uses DEFAULT_FROM_EMAIL
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=True,
+        )
+
+    def send_password_reset_email(self, user, temp_password):
+        """Send password reset email with temporary password"""
+        subject = "Password Reset - MOOE Liquidation Management System"
+        
+        # Get the frontend login URL from settings
+        login_url = getattr(settings, 'FRONTEND_LOGIN_URL', 'http://localhost:3000/login')
+        
+        # Render the password reset email template
+        html_message = render_to_string('emails/password_reset.html', {
+            'user': user,
+            'temporary_password': temp_password,
+            'login_url': login_url,
+            'now': timezone.now(),
+            'deped_logo_base64': get_deped_logo_base64(),
         })
 
         send_mail(
@@ -538,6 +583,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'user': user,
             'ip': ip,
             'now': timezone.now(),
+            'deped_logo_base64': get_deped_logo_base64(),
         }
 
         # Send login notification email

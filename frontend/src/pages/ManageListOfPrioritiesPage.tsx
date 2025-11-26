@@ -322,12 +322,9 @@ const ManageListOfPrioritiesPage = () => {
                     placeholder="Enter list of priority"
                     value={formData.expenseTitle}
                     onChange={handleChange}
+                    error={!!errors.expenseTitle}
+                    hint={errors.expenseTitle}
                   />
-                  {errors.expenseTitle && (
-                    <p className="text-red-500 text-sm">
-                      {errors.expenseTitle}
-                    </p>
-                  )}
                 </div>
                 {/* Category Dropdown */}
                 <div className="space-y-2">
@@ -367,7 +364,7 @@ const ManageListOfPrioritiesPage = () => {
                     value={requirementSearch}
                     onChange={(e) => setRequirementSearch(e.target.value)}
                   />
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                  <div className={`space-y-1 max-h-40 overflow-y-auto border rounded-lg p-2 ${errors.requirement_ids ? 'border-error-500' : 'border-gray-200'}`}>
                     {filteredRequirements.length === 0 && (
                       <div className="text-gray-400 px-2 py-1">
                         No requirements found.
@@ -411,7 +408,7 @@ const ManageListOfPrioritiesPage = () => {
                     })}
                   </div>
                   {errors.requirement_ids && (
-                    <p className="text-red-500 text-sm">
+                    <p className="text-error-500 text-sm mt-1">
                       {errors.requirement_ids}
                     </p>
                   )}

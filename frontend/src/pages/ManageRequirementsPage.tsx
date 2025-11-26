@@ -179,12 +179,9 @@ const ManageRequirementsPage = () => {
                     placeholder="Enter requirement title"
                     value={formData.requirementTitle}
                     onChange={handleChange}
+                    error={!!errors.requirementTitle}
+                    hint={errors.requirementTitle}
                   />
-                  {errors.requirementTitle && (
-                    <p className="text-red-500 text-sm">
-                      {errors.requirementTitle}
-                    </p>
-                  )}
                 </div>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 w-full">

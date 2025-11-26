@@ -53,8 +53,15 @@ export const extractLockoutTime = (message: string): number => {
 
 /**
  * Check if OTP is expired based on timestamp
+ * Uses strict 5-minute validation
  */
 export const isOTPExpired = (generatedAt: Date, lifetimeMinutes: number = 5): boolean => {
+  // Security validation: ensure exactly 5 minutes
+  if (lifetimeMinutes !== 5) {
+    console.warn(`SECURITY WARNING: OTP lifetime is ${lifetimeMinutes} minutes, expected 5 minutes. Using 5 minutes for security.`);
+    lifetimeMinutes = 5;
+  }
+  
   const now = new Date();
   const expiryTime = new Date(generatedAt.getTime() + lifetimeMinutes * 60 * 1000);
   return now > expiryTime;
@@ -62,10 +69,28 @@ export const isOTPExpired = (generatedAt: Date, lifetimeMinutes: number = 5): bo
 
 /**
  * Get remaining time for OTP
+ * Uses strict 5-minute validation
  */
 export const getOTPRemainingTime = (generatedAt: Date, lifetimeMinutes: number = 5): number => {
+  // Security validation: ensure exactly 5 minutes
+  if (lifetimeMinutes !== 5) {
+    console.warn(`SECURITY WARNING: OTP lifetime is ${lifetimeMinutes} minutes, expected 5 minutes. Using 5 minutes for security.`);
+    lifetimeMinutes = 5;
+  }
+  
   const now = new Date();
   const expiryTime = new Date(generatedAt.getTime() + lifetimeMinutes * 60 * 1000);
   const remainingMs = expiryTime.getTime() - now.getTime();
   return Math.max(0, Math.floor(remainingMs / 1000));
+};
+
+/**
+ * Validate OTP lifetime configuration
+ */
+export const validateOTPLifetime = (lifetimeMinutes: number): boolean => {
+  if (lifetimeMinutes !== 5) {
+    console.error(`SECURITY VIOLATION: OTP lifetime must be exactly 5 minutes, got ${lifetimeMinutes}`);
+    return false;
+  }
+  return true;
 };

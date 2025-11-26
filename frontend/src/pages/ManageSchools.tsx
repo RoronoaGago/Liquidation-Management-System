@@ -131,7 +131,7 @@ const ManageSchools = () => {
       // Fetch schools and districts in parallel
       const [schoolsResponse, districtsResponse] = await Promise.all([
         api.get("schools/", { params }),
-        api.get("school-districts?show_all=true"),
+        api.get("school-districts/?show_all=true"),
       ]);
 
       const schoolsData = schoolsResponse.data.results || schoolsResponse.data;
@@ -141,35 +141,8 @@ const ManageSchools = () => {
         districtsResponse.data.results || districtsResponse.data;
       console.log(districtsData);
 
-      // Create a mapping of district IDs to names with proper typing
-      const districtMap: Record<
-        string,
-        { districtName: string; is_active: boolean }
-      > = districtsData.reduce(
-        (
-          acc: Record<string, { districtName: string; is_active: boolean }>,
-          district: District
-        ) => {
-          acc[district.districtId] = {
-            districtName: district.districtName,
-            is_active: district.is_active ?? true, // Default to true if undefined
-          };
-          return acc;
-        },
-        {} as Record<string, { districtName: string; is_active: boolean }>
-      );
-
-      // Enhance schools data with district names
-      const enhancedSchools = schoolsData.map((school: any) => ({
-        ...school,
-        district: school.district
-          ? {
-              districtId: school.district,
-              districtName: districtMap[school.district]?.districtName || "",
-              is_active: districtMap[school.district]?.is_active ?? true,
-            }
-          : { districtId: "", districtName: "", is_active: true },
-      }));
+      // Schools data now comes with district information from the backend
+      const enhancedSchools = schoolsData;
 
       setSchools(enhancedSchools);
       setTotalSchools(schoolsResponse.data.count ?? schoolsData.length);
@@ -291,7 +264,7 @@ const ManageSchools = () => {
         delete newErrors[name];
       }
       setErrors(newErrors);
-    }, 300);
+    }, 150); // Reduced from 300ms to 150ms for better responsiveness
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -475,10 +448,9 @@ const ManageSchools = () => {
                     onChange={handleChange}
                     pattern="[0-9]*"
                     inputMode="numeric"
+                    error={!!errors.schoolId}
+                    hint={errors.schoolId}
                   />
-                  {errors.schoolId && (
-                    <p className="text-red-500 text-sm">{errors.schoolId}</p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="schoolName" className="text-base">
@@ -492,10 +464,9 @@ const ManageSchools = () => {
                     placeholder="School Name"
                     value={formData.schoolName}
                     onChange={handleChange}
+                    error={!!errors.schoolName}
+                    hint={errors.schoolName}
                   />
-                  {errors.schoolName && (
-                    <p className="text-red-500 text-sm">{errors.schoolName}</p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="legislativeDistrict" className="text-base">

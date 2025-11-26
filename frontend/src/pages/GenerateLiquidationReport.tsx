@@ -1,6 +1,6 @@
 // GenerateLiquidationReport.tsx
-import React, { useState, useEffect } from "react";
-import { DatePicker, ConfigProvider } from "antd";
+import { useState, useEffect } from "react";
+import { DatePicker, ConfigProvider, Modal } from "antd";
 import type { ThemeConfig } from "antd";
 import dayjs from "dayjs";
 import Button from "@/components/ui/button/Button";
@@ -14,17 +14,13 @@ import {
   DownloadIcon,
   FileText,
   Filter,
-  UploadIcon,
-  ChevronDown,
-  ChevronUp,
   CheckCircle,
   AlertCircle,
-  Paperclip,
-  MessageCircleIcon,
-  Info,
   Clock,
-  XCircle,
-  RefreshCw,
+  FileSpreadsheet,
+  Calendar,
+  MapPin,
+  Building,
 } from "lucide-react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 
@@ -92,18 +88,6 @@ const lightTheme: ThemeConfig = {
     },
   },
 };
-const statusIcons: Record<string, React.ReactNode> = {
-  draft: <FileText className="h-4 w-4" />,
-  submitted: <Clock className="h-4 w-4" />,
-  under_review_district: <RefreshCw className="h-4 w-4 animate-spin" />,
-  under_review_division: <RefreshCw className="h-4 w-4 animate-spin" />,
-  under_review_liquidator: <RefreshCw className="h-4 w-4 animate-spin" />,
-  resubmit: <AlertCircle className="h-4 w-4" />,
-  approved_district: <CheckCircle className="h-4 w-4" />,
-  rejected: <XCircle className="h-4 w-4" />,
-  liquidated: <CheckCircle className="h-4 w-4" />,
-  cancelled: <XCircle className="h-4 w-4" />,
-};
 
 export default function GenerateLiquidationReport() {
   const [activeTab, setActiveTab] = useState<string>("Monthly");
@@ -139,6 +123,9 @@ export default function GenerateLiquidationReport() {
   const [filterDistrictOptions, setFilterDistrictOptions] = useState<string[]>(
     []
   );
+  const [showExportConfirm, setShowExportConfirm] = useState(false);
+  const [previewData, setPreviewData] = useState<LiquidationReportItem[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const fetchReport = async (page: number = 1, size: number = pageSize) => {
     setLoading(true);
@@ -333,6 +320,51 @@ export default function GenerateLiquidationReport() {
     }
   };
 
+  // Function to get export preview information
+  const getExportPreview = () => {
+    const preview: any = {
+      period: "",
+      filters: [],
+      recordCount: reportData?.total_count || 0,
+      filename: "liquidation_report"
+    };
+
+    // Determine period
+    if (activeTab === "Monthly") {
+      const currentMonth = dayjs().format("YYYY-MM");
+      preview.period = `Current Month (${currentMonth})`;
+      preview.filename += `_${currentMonth}`;
+    } else if (activeTab === "Quarterly") {
+      const currentQuarter = Math.floor((dayjs().month() + 3) / 3);
+      preview.period = `Current Quarter (Q${currentQuarter} ${dayjs().year()})`;
+      preview.filename += `_Q${currentQuarter}_${dayjs().year()}`;
+    } else if (activeTab === "Custom" && dateRange) {
+      preview.period = `Custom Range (${dateRange[0]} to ${dateRange[1]})`;
+      preview.filename += `_${dateRange[0]}_to_${dateRange[1]}`;
+    } else {
+      preview.period = "All Time";
+    }
+
+    // Add filters
+    if (statusFilter !== "all") {
+      preview.filters.push(`Status: ${STATUS_LABELS[statusFilter] || statusFilter}`);
+      preview.filename += `_${statusFilter}`;
+    }
+    if (filterLegislativeDistrict) {
+      preview.filters.push(`Legislative District: ${filterLegislativeDistrict}`);
+    }
+    if (filterMunicipality) {
+      preview.filters.push(`Municipality: ${filterMunicipality}`);
+    }
+    if (filterDistrict) {
+      const districtName = districts.find(d => d.districtId === filterDistrict)?.districtName || filterDistrict;
+      preview.filters.push(`School District: ${districtName}`);
+    }
+
+    preview.filename += ".xlsx";
+    return preview;
+  };
+
   const handleExportExcel = async () => {
     setExportLoading(true);
     try {
@@ -388,21 +420,8 @@ export default function GenerateLiquidationReport() {
       const link = document.createElement("a");
       link.href = url;
 
-      let filename = "liquidation_report";
-      if (activeTab === "Monthly") {
-        filename += `_${dayjs().format("YYYY-MM")}`;
-      } else if (activeTab === "Quarterly") {
-        const currentQuarter = Math.floor((dayjs().month() + 3) / 3);
-        filename += `_Q${currentQuarter}_${dayjs().year()}`;
-      } else if (activeTab === "Custom" && dateRange) {
-        filename += `_${dateRange[0]}_to_${dateRange[1]}`;
-      }
-
-      if (statusFilter !== "all") {
-        filename += `_${statusFilter}`;
-      }
-
-      link.setAttribute("download", `${filename}.xlsx`);
+      const preview = getExportPreview();
+      link.setAttribute("download", preview.filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -412,8 +431,75 @@ export default function GenerateLiquidationReport() {
       toast.error("Failed to export Excel");
     } finally {
       setExportLoading(false);
+      setShowExportConfirm(false);
     }
   };
+
+  const handleExportClick = () => {
+    setShowExportConfirm(true);
+    // Auto-fetch preview data when modal opens
+    fetchPreviewData();
+  };
+
+  const fetchPreviewData = async () => {
+    setPreviewLoading(true);
+    try {
+      const params: any = {
+        page: 1,
+        page_size: 10, // Show only first 10 records for preview
+      };
+
+      // Add status filter if not "all"
+      if (statusFilter !== "all") {
+        params.status = statusFilter;
+      }
+
+      // Add date range based on active tab
+      if (activeTab === "Monthly") {
+        const currentMonth = dayjs().format("YYYY-MM");
+        params.start_date = dayjs(currentMonth)
+          .startOf("month")
+          .format("YYYY-MM-DD");
+        params.end_date = dayjs(currentMonth)
+          .endOf("month")
+          .format("YYYY-MM-DD");
+      } else if (activeTab === "Quarterly") {
+        const currentQuarter = Math.floor((dayjs().month() + 3) / 3);
+        const quarterStartMonth = (currentQuarter - 1) * 3;
+        params.start_date = dayjs()
+          .month(quarterStartMonth)
+          .startOf("month")
+          .format("YYYY-MM-DD");
+        params.end_date = dayjs()
+          .month(quarterStartMonth + 2)
+          .endOf("month")
+          .format("YYYY-MM-DD");
+      } else if (activeTab === "Custom" && dateRange) {
+        params.start_date = dateRange[0];
+        params.end_date = dateRange[1];
+      }
+
+      // Add filter parameters
+      if (filterLegislativeDistrict) {
+        params.legislative_district = filterLegislativeDistrict;
+      }
+      if (filterMunicipality) {
+        params.municipality = filterMunicipality;
+      }
+      if (filterDistrict) {
+        params.school_district = filterDistrict;
+      }
+
+      const res = await api.get("reports/liquidation/", { params });
+      setPreviewData(res.data.results || []);
+    } catch (err) {
+      console.error("Failed to fetch preview data:", err);
+      setPreviewData([]);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
 
   const goToPage = (page: number) => {
     fetchReport(page);
@@ -541,7 +627,7 @@ export default function GenerateLiquidationReport() {
 
               <Button
                 variant="primary"
-                onClick={handleExportExcel}
+                onClick={handleExportClick}
                 disabled={loading || report.length === 0 || exportLoading}
                 loading={exportLoading}
                 startIcon={<DownloadIcon />}
@@ -878,6 +964,263 @@ export default function GenerateLiquidationReport() {
           )}
         </div>
       </div>
+
+      {/* Export Confirmation Modal */}
+      <Modal
+        title={null}
+        open={showExportConfirm}
+        onCancel={() => {
+          setShowExportConfirm(false);
+        }}
+        footer={null}
+        width="90vw"
+        centered
+        className="export-confirm-modal"
+        styles={{
+          body: { padding: 0, maxHeight: '90vh', overflow: 'hidden' }
+        }}
+      >
+        <div className="bg-white">
+          {/* Enhanced Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <FileSpreadsheet className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Export Liquidation Report</h3>
+                  <p className="text-blue-100 text-sm">Review and download your data export</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-1 bg-white/20 rounded-full backdrop-blur-sm">
+                  <span className="text-white text-sm font-medium">Excel Format</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-4 space-y-4">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full">
+                <CheckCircle className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">Ready to Export</span>
+              </div>
+            </div>
+          
+            {/* Enhanced Export Summary */}
+            {(() => {
+              const preview = getExportPreview();
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {/* Period Card */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-3 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500 rounded-lg flex-shrink-0">
+                        <Calendar className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-blue-900 mb-1">Time Period</div>
+                        <div className="text-sm font-medium text-blue-800 truncate">{preview.period}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Record Count Card */}
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-3 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-500 rounded-lg flex-shrink-0">
+                        <FileText className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-green-900 mb-1">Records to Export</div>
+                        <div className="text-sm font-medium text-green-800">
+                          {preview.recordCount.toLocaleString()} liquidation{preview.recordCount !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filters Card */}
+                  {preview.filters.length > 0 && (
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 lg:col-span-2">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-purple-500 rounded-lg">
+                          <Filter className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold text-purple-900 mb-2">Applied Filters</div>
+                          <div className="flex flex-wrap gap-2">
+                            {preview.filters.map((filter: string, index: number) => (
+                              <div key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-white/60 rounded-full text-sm font-medium text-purple-800">
+                                {filter.includes('Legislative District') && <MapPin className="h-3 w-3" />}
+                                {filter.includes('Municipality') && <MapPin className="h-3 w-3" />}
+                                {filter.includes('School District') && <Building className="h-3 w-3" />}
+                                {filter.includes('Status') && <CheckCircle className="h-3 w-3" />}
+                                <span>{filter}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Filename Card */}
+                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 lg:col-span-2">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-amber-500 rounded-lg">
+                        <DownloadIcon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-amber-900 mb-1">Export File Name</div>
+                        <div className="text-base font-mono font-medium text-amber-800 bg-white/50 px-3 py-2 rounded-lg border">
+                          {preview.filename}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Enhanced Data Preview Section */}
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500 rounded-lg">
+                    <FileText className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">Data Preview</h4>
+                    <p className="text-sm text-gray-600">First 10 records of your export</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-white rounded-full border">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-medium text-gray-600">Live Preview</span>
+                </div>
+              </div>
+                
+              {previewLoading ? (
+                <div className="bg-white rounded-lg border-2 border-dashed border-gray-200 p-12">
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-3"></div>
+                    <p className="text-sm font-medium text-gray-600">Loading preview data...</p>
+                    <p className="text-xs text-gray-500 mt-1">This may take a few seconds</p>
+                  </div>
+                </div>
+              ) : previewData.length === 0 ? (
+                <div className="bg-white rounded-lg border-2 border-dashed border-gray-200 p-12">
+                  <div className="flex flex-col items-center justify-center">
+                    <AlertCircle className="h-12 w-12 text-gray-400 mb-3" />
+                    <p className="text-sm font-medium text-gray-600">No data found</p>
+                    <p className="text-xs text-gray-500 mt-1">No records match your selected criteria</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto max-h-80">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            ID
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            School
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            District
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Month
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Created
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {previewData.map((row, index) => (
+                          <tr key={row.liquidation_id} className={`hover:bg-blue-50/50 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {row.liquidation_id}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-800 max-w-48 truncate" title={row.school_name}>
+                              {row.school_name}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-800 max-w-48 truncate" title={row.district_name}>
+                              {row.district_name}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-800">
+                              {row.request_month}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusBadgeStyle(
+                                  row.status
+                                )}`}
+                              >
+                                {STATUS_LABELS[row.status] ||
+                                  row.status.replace(/_/g, " ")}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-800">
+                              {new Date(row.created_at).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="bg-gray-50 px-3 py-2 border-t border-gray-200">
+                    <p className="text-xs text-gray-500 text-center">
+                      Showing {previewData.length} of {reportData?.total_count || 0} total records
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Enhanced Action Buttons */}
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 rounded-b-lg border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span>Export ready • Excel format • {reportData?.total_count || 0} records</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowExportConfirm(false);
+                    }}
+                    disabled={exportLoading}
+                    className="px-6 py-2.5 font-medium border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleExportExcel}
+                    loading={exportLoading}
+                    startIcon={<DownloadIcon />}
+                    className="px-8 py-2.5 font-semibold bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  >
+                    {exportLoading ? "Preparing Download..." : "Download Excel"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

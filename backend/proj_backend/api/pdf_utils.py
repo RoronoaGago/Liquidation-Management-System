@@ -29,6 +29,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def format_currency_safe(amount, use_peso_symbol=True):
+    """
+    Format currency amount with safe peso symbol display.
+    Falls back to 'Php' if peso symbol is not supported.
+    """
+    try:
+        if use_peso_symbol:
+            return f"₱{float(amount):,.2f}"
+        else:
+            return f"Php {float(amount):,.2f}"
+    except (ValueError, TypeError):
+        return "Php 0.00"
+
+
 class PDFGenerator:
     """Handles PDF generation with actual e-signatures matching original format"""
 
@@ -1148,6 +1162,18 @@ class DemandLetterGenerator(PDFGenerator):
             self.font_names['times_bold'] = 'Times-Bold'
             self.font_names['times_italic'] = 'Times-Italic'
             
+            # Register a font that supports peso symbol (₱)
+            # Try to register DejaVu Sans which has better Unicode support
+            dejavu_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'DejaVuSans.ttf')
+            if os.path.exists(dejavu_path):
+                pdfmetrics.registerFont(TTFont('DejaVuSans', dejavu_path))
+                self.font_names['unicode_safe'] = 'DejaVuSans'
+                logger.info("DejaVu Sans font registered for Unicode support")
+            else:
+                # Fallback to system font or use 'Php' instead of ₱
+                self.font_names['unicode_safe'] = 'Helvetica'
+                logger.warning("DejaVu Sans not found, using Helvetica fallback")
+            
             # Log final font mapping
             logger.info(f"Final font mapping: {self.font_names}")
             
@@ -1351,9 +1377,9 @@ class DemandLetterGenerator(PDFGenerator):
             # Official, centered header with static images
             story.extend(self._create_official_header())
 
-            # Add date (empty field as in template) - reduced spacing
+            # Add date (dynamic current date) - reduced spacing
             current_date = datetime.now().strftime("%B %d, %Y")
-            story.append(Paragraph(f"DATE: _________________________", self.styles['DemandBodyLeft']))
+            story.append(Paragraph(f"DATE: {current_date}", self.styles['DemandBodyLeft']))
             story.append(Spacer(1, 15))  # Reduced from 12 to 8
 
             # Add demand letter title
@@ -1367,13 +1393,28 @@ class DemandLetterGenerator(PDFGenerator):
             if school:
                 district = getattr(school, 'district', None)
                 if district:
-                    story.append(Paragraph("_________________________", self.styles['DemandBodyLeft']))
-                    story.append(Paragraph("Public Schools District Supervisor", self.styles['DemandBodyItalic']))
+                    # Get district admin name
+                    from .models import User
+                    district_admin = User.objects.filter(
+                        role='district_admin', 
+                        school__district=district, 
+                        is_active=True
+                    ).first()
+                    
+                    if district_admin:
+                        district_admin_name = f"{district_admin.first_name.upper()} {district_admin.last_name.upper()}"
+                        story.append(Paragraph(district_admin_name, self.styles['DemandBodyLeft']))
+                    else:
+                        story.append(Paragraph("DISTRICT ADMINISTRATIVE ASSISTANT", self.styles['DemandBodyLeft']))
+                    
+                    story.append(Paragraph("Public Schools District Administrative Assistant", self.styles['DemandBodyItalic']))
                     story.append(Paragraph(f"{district.districtName} District", self.styles['DemandBodyItalic']))
                     story.append(Spacer(1, 30))  # Reduced from 6 to 3
             
             # 0.5 inch indent for ATTENTION (36 points = 0.5 inch)
-            story.append(Paragraph("ATTENTION: ________________________", self.styles['DemandBodyIndentHalf']))
+            school_head = request_obj.user
+            school_head_name = f"{school_head.first_name.upper()} {school_head.last_name.upper()}"
+            story.append(Paragraph(f"ATTENTION: {school_head_name}", self.styles['DemandBodyIndentHalf']))
             story.append(Spacer(1, 3))  # Reduced from 6 to 3
             
             if school:
@@ -1387,7 +1428,7 @@ class DemandLetterGenerator(PDFGenerator):
 
             # Add main content
             content_text = (
-                f"This is to inform you that as of _________________________, records of "
+                f"This is to inform you that as of {current_date}, records of "
                 f"the Accounting Office show that the following downloaded cash advances "
                 f"remain unliquidated and have already been overdue despite the issuance "
                 f"of the previous demand letter."
@@ -1474,25 +1515,25 @@ class DemandLetterGenerator(PDFGenerator):
 
             story.append(Spacer(1, 24))
 
-            # Add receipt section
-            story.append(Paragraph("Original Copy Received:", self.styles['DemandBodyLeft']))
-            story.append(Spacer(1, 18))
-            story.append(Paragraph("Signature Over Printed Name of", self.styles['DemandBodyLeft']))
-            story.append(Paragraph("Accountable Officer", self.styles['DemandBodyLeft']))
-            story.append(Spacer(1, 12))
+            # Add receipt section - COMMENTED OUT FOR NOW
+            # story.append(Paragraph("Original Copy Received:", self.styles['DemandBodyLeft']))
+            # story.append(Spacer(1, 18))
+            # story.append(Paragraph("Signature Over Printed Name of", self.styles['DemandBodyLeft']))
+            # story.append(Paragraph("Accountable Officer", self.styles['DemandBodyLeft']))
+            # story.append(Spacer(1, 12))
 
-            # Add carbon copy
-            story.append(Paragraph("cc: ATTY. PAMELA DE GUZMAN", self.styles['DemandBodySmallBold']))
-            story.append(Paragraph("Legal Office", self.styles['DemandBodySmallItalic']))
-            story.append(Paragraph("La Union Schools Division Office", self.styles['DemandBodySmallItalic']))
-            story.append(Spacer(1, 3))  # Reduced spacing
-            story.append(Paragraph("JONALYN D. MANONGDO", self.styles['DemandBodySmallBold']))
-            story.append(Paragraph("State Auditor IV / Audit Team Leader", self.styles['DemandBodySmallItalicIndent']))
-            story.append(Paragraph("Commission on Audit", self.styles['DemandBodySmallItalicIndent']))
-            story.append(Paragraph("NGS Cluster 5-Audit Group A", self.styles['DemandBodySmallItalicIndent']))
-            story.append(Paragraph("Regional Office I, Government Center", self.styles['DemandBodySmallItalicIndent']))
-            story.append(Paragraph("Sevilla, San Fernando City", self.styles['DemandBodySmallItalicIndent']))
-            story.append(Paragraph("2500, La Union", self.styles['DemandBodySmallItalicIndent']))
+            # Add carbon copy - COMMENTED OUT FOR NOW
+            # story.append(Paragraph("cc: ATTY. PAMELA DE GUZMAN", self.styles['DemandBodySmallBold']))
+            # story.append(Paragraph("Legal Office", self.styles['DemandBodySmallItalic']))
+            # story.append(Paragraph("La Union Schools Division Office", self.styles['DemandBodySmallItalic']))
+            # story.append(Spacer(1, 3))  # Reduced spacing
+            # story.append(Paragraph("JONALYN D. MANONGDO", self.styles['DemandBodySmallBold']))
+            # story.append(Paragraph("State Auditor IV / Audit Team Leader", self.styles['DemandBodySmallItalicIndent']))
+            # story.append(Paragraph("Commission on Audit", self.styles['DemandBodySmallItalicIndent']))
+            # story.append(Paragraph("NGS Cluster 5-Audit Group A", self.styles['DemandBodySmallItalicIndent']))
+            # story.append(Paragraph("Regional Office I, Government Center", self.styles['DemandBodySmallItalicIndent']))
+            # story.append(Paragraph("Sevilla, San Fernando City", self.styles['DemandBodySmallItalicIndent']))
+            # story.append(Paragraph("2500, La Union", self.styles['DemandBodySmallItalicIndent']))
 
             # Add official footer (kept on the same page; if you prefer at bottom of page, integrate via PageTemplate)
             story.append(Spacer(1, 12))
@@ -1515,72 +1556,72 @@ class DemandLetterGenerator(PDFGenerator):
             raise
 
     def _create_professional_unliquidated_table(self, unliquidated_data):
-        """Create professional table for unliquidated items"""
+        """Create professional table for unliquidated items - copied structure from PDFGenerator"""
         story = []
         
-        # Table data
-        table_data = [
-            [
-                Paragraph('Check/ADA No/s.', self.styles['DemandTableHeader']),
-                Paragraph('Issue Date', self.styles['DemandTableHeader']),
-                Paragraph('Particulars', self.styles['DemandTableHeader']),
-                Paragraph('Balance', self.styles['DemandTableHeader'])
-            ]
-        ]
-        
-        # Add data rows
-        total_balance = 0
-        for item in unliquidated_data:
-            table_data.append([
-                Paragraph(item.get('check_ada_no', ''), self.styles['DemandTableCell']),
-                Paragraph(item.get('issue_date', ''), self.styles['DemandTableCell']),
-                Paragraph(item.get('particulars', ''), self.styles['DemandTableCell']),
-                Paragraph(f"₱{float(item.get('balance', 0)):,.2f}", self.styles['DemandTableCellRight'])
+        try:
+            # Table data - using same structure as PDFGenerator
+            data = []
+            
+            # Header row - changed to Particulars and Balance
+            data.append(['Particulars', 'Balance'])
+            
+            # Add data rows
+            total_balance = 0
+            for item in unliquidated_data:
+                particulars_text = item.get('particulars', '')
+                balance_text = format_currency_safe(item.get('balance', 0))
+                data.append([particulars_text, balance_text])
+                total_balance += float(item.get('balance', 0))
+            
+            # Total row - changed to TOTAL UNLIQUIDATED BALANCES
+            data.append(['TOTAL UNLIQUIDATED BALANCES', format_currency_safe(total_balance)])
+            
+            # Create table with fixed column widths - same as PDFGenerator
+            table = Table(data, colWidths=[4*inch, 2*inch])
+            
+            # Table styling - copied from PDFGenerator with same colors and structure
+            table_style = TableStyle([
+                # Header row styling
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 11),
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+                
+                # Data rows styling
+                ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -2), 11),
+                ('ALIGN', (0, 1), (0, -2), 'LEFT'),
+                ('ALIGN', (1, 1), (1, -2), 'CENTER'),
+                
+                # Total row styling
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, -1), (-1, -1), 11),
+                ('ALIGN', (0, -1), (0, -1), 'LEFT'),
+                ('ALIGN', (1, -1), (1, -1), 'CENTER'),
+                
+                # Grid and borders
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                
+                # Padding
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
             ])
-            total_balance += float(item.get('balance', 0))
-        
-        # Add total row
-        table_data.append([
-            Paragraph('TOTAL UNLIQUIDATED BALANCES', self.styles['DemandTableHeader']),
-            '',
-            '',
-            Paragraph(f"₱{total_balance:,.2f}", self.styles['DemandTableHeader'])
-        ])
-        
-        # Create table with appropriate column widths
-        col_widths = [1.5*inch, 1.0*inch, 3.0*inch, 1.2*inch]
-        table = Table(table_data, colWidths=col_widths)
-        
-        # Professional table styling
-        table.setStyle(TableStyle([
-            # Header row
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F4C81')),  # DepEd blue
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
             
-            # Data rows
-            ('ALIGN', (0, 1), (2, -2), 'LEFT'),
-            ('ALIGN', (3, 1), (3, -2), 'RIGHT'),
-            ('FONTNAME', (0, 1), (-1, -2), 'Times-Roman'),
+            table.setStyle(table_style)
+            story.append(table)
             
-            # Total row
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#D32F2F')),  # DepEd red
-            ('FONTNAME', (0, -1), (-1, -1), 'Times-Bold'),
-            ('ALIGN', (0, -1), (2, -1), 'LEFT'),
-            ('ALIGN', (3, -1), (3, -1), 'RIGHT'),
-            
-            # Grid lines
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            
-            # Padding
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
+        except Exception as e:
+            logger.error(f"Error creating unliquidated table: {e}")
+            # Fallback simple table - same structure as PDFGenerator
+            fallback_data = [['Particulars', 'Balance'],
+                           ['Error loading data', format_currency_safe(0)]]
+            fallback_table = Table(fallback_data, colWidths=[4*inch, 2*inch])
+            story.append(fallback_table)
         
-        story.append(table)
         return story
 
     def _create_professional_signature_section(self):
@@ -1595,6 +1636,12 @@ class DemandLetterGenerator(PDFGenerator):
             superintendent_name = f"{superintendent.first_name.upper()} {superintendent.last_name.upper()}"
             title = "Schools Division Superintendent"
             position = "La Union Schools Division Office"
+            
+            # Add superintendent e-signature if available
+            superintendent_signature = self._get_user_signature(superintendent)
+            if superintendent_signature:
+                story.append(superintendent_signature)
+                story.append(Spacer(1, 6))  # Small space between signature and name
         else:
             superintendent_name = "JORGE M. REINANTE, CSEE, CEO VI, CESO V"
             title = "Schools Division Superintendent"

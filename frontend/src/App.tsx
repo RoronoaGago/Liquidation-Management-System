@@ -4,6 +4,7 @@ import { useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import AppLayout from "./layout/AppLayout";
 import SignIn from "./pages/AuthPages/SignIn";
+import "./utils/authUtils"; // Import auth utilities for debugging
 
 import Home from "./pages/Dashboard/Home";
 import ManageUsers from "./pages/ManageUsers";
@@ -22,7 +23,9 @@ import MOOERequestPage from "./pages/MOOERequestPage";
 import MOOERequestHistory from "./pages/MOOERequestHistory";
 import LiquidationReportPage from "./pages/LiquidationReportPage";
 import ResourceAllocation from "./pages/ResourceAllocation";
+import LastLiquidationDatesPage from "./pages/LastLiquidationDatesPage";
 import LiquidationDetailsPage from "./pages/LiquidationDetailsPage";
+import SchoolHeadLiquidationDetailsPage from "./pages/SchoolHeadLiquidationDetailsPage";
 import LiquidationReminder from "./components/LiquidationReminder";
 import SetupModal from "./components/common/SetupModal";
 import SchoolHeadDashboard from "./pages/SchoolHeadDashboard";
@@ -43,31 +46,7 @@ import HelpArticlePage from "./pages/HelpArticlePage";
 import ContextualHelpButton from "./components/help/ContextualHelpButton";
 import DynamicContextualHelp from "./components/help/DynamicContextualHelpComponent";
 import { HelpProvider } from "./context/HelpContext";
-import YearlyBudgetModal from "./components/common/YearlyBudgetModal";
-import { useYearlyBudgetModal } from "./hooks/useYearlyBudgetModal";
 
-// Component to handle yearly budget modal logic within AuthProvider scope
-const YearlyBudgetModalWrapper = () => {
-  const { user } = useAuth();
-  const yearlyBudgetModal = useYearlyBudgetModal();
-  
-  // Only show for admin and accountant roles
-  if (!user || !["admin", "accountant"].includes(user.role)) {
-    return null;
-  }
-  
-  return (
-    <YearlyBudgetModal
-      isOpen={yearlyBudgetModal.isModalOpen}
-      onClose={yearlyBudgetModal.handleClose}
-      onProceed={yearlyBudgetModal.handleProceed}
-      onDoLater={yearlyBudgetModal.handleDoLater}
-      currentYear={yearlyBudgetModal.budgetStatus?.current_year || new Date().getFullYear()}
-      schoolsWithoutBudget={yearlyBudgetModal.budgetStatus?.schools_without_budget || 0}
-      totalSchools={yearlyBudgetModal.budgetStatus?.total_schools || 0}
-    />
-  );
-};
 
 const App = () => {
   const { setupFlowActive, user } = useAuth();
@@ -208,6 +187,16 @@ const App = () => {
               />
             </Route>
 
+            {/* School head liquidation details - read-only view */}
+            <Route
+              element={<RequireAuth allowedRoles={["school_head"]} />}
+            >
+              <Route
+                path="/my-liquidations/:liquidationId"
+                element={<SchoolHeadLiquidationDetailsPage />}
+              />
+            </Route>
+
             {/* Shared routes for multiple roles */}
             <Route
               element={<RequireAuth allowedRoles={["admin", "school_head"]} />}
@@ -236,6 +225,10 @@ const App = () => {
                 path="/resource-allocation"
                 element={<ResourceAllocation />}
               />
+              <Route
+                path="/school-liquidation-dates"
+                element={<LastLiquidationDatesPage />}
+              />
             </Route>
           </Route>
           {/* Catch-all route */}
@@ -246,8 +239,6 @@ const App = () => {
         {/* Enhanced contextual help - replaces the old ContextualHelpButton */}
         <DynamicContextualHelp variant="floating" showQuickTips={true} />
         
-        {/* Yearly Budget Modal - Moved inside HelpProvider to ensure proper AuthProvider scope */}
-        <YearlyBudgetModalWrapper />
       </HelpProvider>
     </>
   );

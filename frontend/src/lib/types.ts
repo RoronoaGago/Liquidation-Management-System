@@ -51,6 +51,7 @@ export type User = {
   school_district_id?: string;
   school: School | null;
   profile_picture_base64?: string;
+  e_signature?: string;
 };
 export type SortDirection = "asc" | "desc" | null;
 export type SortableField = keyof Pick<
@@ -83,7 +84,6 @@ export interface Assignment {
 }
 export interface FilterOptions {
   role: string;
-  dateRange: { start: string; end: string };
   searchTerm: string;
 }
 
@@ -217,6 +217,7 @@ export interface ListOfPriority {
 
 export type Submission = {
   request_id: string;
+  request_monthyear?: string; // Format: YYYY-MM
   user: {
     role: string;
     id: string;

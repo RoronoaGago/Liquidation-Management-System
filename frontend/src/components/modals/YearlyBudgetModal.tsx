@@ -62,7 +62,7 @@ const YearlyBudgetModal: React.FC<YearlyBudgetModalProps> = ({
                 style={{ width: `${completionPercentage}%` }}
               />
             </div>
-            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex justify-end text-sm text-gray-600 dark:text-gray-400">
               <span>{schoolsWithoutBudget} remaining</span>
             </div>
           </div>

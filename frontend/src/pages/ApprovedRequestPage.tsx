@@ -38,7 +38,7 @@ import { toast } from "react-toastify";
 import { format } from "date-fns";
 import { DatePicker } from "antd";
 import dayjs from "@/lib/dayjs";
-import { formatDateTime } from "@/lib/helpers";
+import { formatDateTime, formatRequestMonthYear } from "@/lib/helpers";
 
 // Helper function to map role keys to display names
 function getRoleDisplayName(roleKey: string): string {
@@ -817,14 +817,22 @@ const ApprovedRequestPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Left section: Request ID, Submitted by, Approved by */}
                   <div className="space-y-3 col-span-2">
-                    <div className="flex items-start">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
-                        Request ID:
-                      </span>
-                      <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
-                        {viewedSubmission.request_id}
-                      </span>
-                    </div>
+                     <div className="flex items-start">
+                       <span className="font-medium text-gray-700 dark:text-gray-300 w-36 flex-shrink-0">
+                         Request ID:
+                       </span>
+                       <span className="font-mono text-gray-900 dark:text-white break-all min-w-0">
+                         {viewedSubmission.request_id}
+                       </span>
+                     </div>
+                     <div className="flex items-start">
+                       <span className="font-medium text-gray-700 dark:text-gray-300 w-36 flex-shrink-0">
+                         Requesting Month:
+                       </span>
+                       <span className="text-gray-900 dark:text-white break-all min-w-0">
+                         {formatRequestMonthYear(viewedSubmission.request_monthyear)}
+                       </span>
+                     </div>
                     {/* Submitted by with role */}
                     <div className="flex items-center">
                       <span className="font-medium text-gray-700 dark:text-gray-300 w-32 flex-shrink-0">
@@ -909,10 +917,10 @@ const ApprovedRequestPage = () => {
                   </span>
                   {/* Approved at under Submitted at */}
                   {viewedSubmission.status === "approved" &&
-                    viewedSubmission.date_approved && (
+                    viewedSubmission.reviewed_at && (
                       <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Approved at:{" "}
-                        {formatDateTime(viewedSubmission.date_approved)}
+                        {formatDateTime(viewedSubmission.reviewed_at)}
                       </span>
                     )}
                 </div>
@@ -1048,14 +1056,6 @@ const ApprovedRequestPage = () => {
             <DialogTitle>Select Download Date</DialogTitle>
             <DialogDescription>
               Please select the date when the funds were downloaded.
-              <br />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Valid dates: From 1 year before approval date up to tomorrow (accounts for timezone differences)
-              </span>
-              <br />
-              <span className="text-xs text-blue-600 dark:text-blue-400">
-                System date: {dayjs().format('YYYY-MM-DD')} | Selected: {selectedDownloadDate?.format('YYYY-MM-DD') || 'None'}
-              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 mb-6">

@@ -39,6 +39,21 @@ const getApiConfig = () => {
 
 export const API_CONFIG = getApiConfig();
 
+// JWT Token Configuration
+export const JWT_CONFIG = {
+  // Access token lifetime in minutes (should match backend SIMPLE_JWT.ACCESS_TOKEN_LIFETIME)
+  ACCESS_TOKEN_LIFETIME_MINUTES: 900, // 15 hours
+  
+  // Refresh token lifetime in days (should match backend SIMPLE_JWT.REFRESH_TOKEN_LIFETIME)
+  REFRESH_TOKEN_LIFETIME_DAYS: 7,
+  
+  // Buffer time in minutes to account for clock skew and network delays
+  CLOCK_SKEW_BUFFER_MINUTES: 5,
+  
+  // Inactivity timeout in minutes (frontend-only setting)
+  INACTIVITY_TIMEOUT_MINUTES: 5, // 5 minutes
+} as const;
+
 // API Endpoints
 export const API_ENDPOINTS = {
   // Authentication

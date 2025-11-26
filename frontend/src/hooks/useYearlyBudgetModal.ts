@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/api/axios";
-import { useAuth } from "@/context/AuthContext";
 
 interface YearlyBudgetStatus {
   current_year: number;
@@ -30,7 +29,6 @@ export const useYearlyBudgetModal = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
   // Check if user has dismissed the modal today
   const getDismissedToday = useCallback(() => {
@@ -47,12 +45,6 @@ export const useYearlyBudgetModal = () => {
 
   // Fetch budget status and first Monday info
   const fetchBudgetInfo = useCallback(async () => {
-    // Only fetch if user is authenticated and has the right role
-    if (!isAuthenticated || !user || !["admin", "accountant"].includes(user.role)) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -70,7 +62,7 @@ export const useYearlyBudgetModal = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, []);
 
   // Check if modal should be shown
   const shouldShowModal = useCallback(() => {
@@ -107,15 +99,12 @@ export const useYearlyBudgetModal = () => {
 
   // Initialize and check modal status
   useEffect(() => {
-    // Only initialize after authentication is complete
-    if (authLoading) return;
-    
     const initializeModal = async () => {
       await fetchBudgetInfo();
     };
 
     initializeModal();
-  }, [fetchBudgetInfo, authLoading]);
+  }, [fetchBudgetInfo]);
 
   // Update modal visibility when data changes
   useEffect(() => {
@@ -128,17 +117,12 @@ export const useYearlyBudgetModal = () => {
 
   // Refresh data periodically (every 5 minutes)
   useEffect(() => {
-    // Only set up interval if user is authenticated and has the right role
-    if (!isAuthenticated || !user || !["admin", "accountant"].includes(user.role)) {
-      return;
-    }
-
     const interval = setInterval(() => {
       fetchBudgetInfo();
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [fetchBudgetInfo, isAuthenticated, user]);
+  }, [fetchBudgetInfo]);
 
   return {
     isModalOpen,

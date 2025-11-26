@@ -13,32 +13,19 @@ class SecureStorage {
   private static readonly ACCESS_TOKEN_KEY = 'access_token';
   private static readonly REFRESH_TOKEN_KEY = 'refresh_token';
   private static readonly EXPIRES_AT_KEY = 'expires_at';
+  private static readonly LOGOUT_MODAL_KEY = 'logout_modal_state';
 
   /**
-   * Store tokens securely
-   * Uses sessionStorage for better security (cleared on tab close)
-   * Falls back to localStorage if sessionStorage is not available
+   * Store tokens securely in localStorage only
    */
   static setTokens(accessToken: string, refreshToken: string, expiresIn: number): void {
     const expiresAt = Date.now() + (expiresIn * 1000);
     
     try {
-      // Try sessionStorage first (more secure)
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken);
-        sessionStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken);
-        sessionStorage.setItem(this.EXPIRES_AT_KEY, expiresAt.toString());
-        return;
-      }
-    } catch (error) {
-      console.warn('SessionStorage not available, falling back to localStorage');
-    }
-
-    // Fallback to localStorage
-    try {
       localStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken);
       localStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken);
       localStorage.setItem(this.EXPIRES_AT_KEY, expiresAt.toString());
+      console.log('✅ Tokens stored in localStorage');
     } catch (error) {
       console.error('Failed to store tokens:', error);
       throw new Error('Unable to store authentication tokens');
@@ -46,27 +33,13 @@ class SecureStorage {
   }
 
   /**
-   * Retrieve tokens
+   * Retrieve tokens from localStorage only
    */
   static getTokens(): TokenData | null {
     try {
-      // Try sessionStorage first
-      let accessToken: string | null = null;
-      let refreshToken: string | null = null;
-      let expiresAt: string | null = null;
-
-      if (typeof sessionStorage !== 'undefined') {
-        accessToken = sessionStorage.getItem(this.ACCESS_TOKEN_KEY);
-        refreshToken = sessionStorage.getItem(this.REFRESH_TOKEN_KEY);
-        expiresAt = sessionStorage.getItem(this.EXPIRES_AT_KEY);
-      }
-
-      // Fallback to localStorage if sessionStorage is empty
-      if (!accessToken && typeof localStorage !== 'undefined') {
-        accessToken = localStorage.getItem(this.ACCESS_TOKEN_KEY);
-        refreshToken = localStorage.getItem(this.REFRESH_TOKEN_KEY);
-        expiresAt = localStorage.getItem(this.EXPIRES_AT_KEY);
-      }
+      const accessToken = localStorage.getItem(this.ACCESS_TOKEN_KEY);
+      const refreshToken = localStorage.getItem(this.REFRESH_TOKEN_KEY);
+      const expiresAt = localStorage.getItem(this.EXPIRES_AT_KEY);
 
       if (!accessToken || !refreshToken || !expiresAt) {
         return null;
@@ -90,8 +63,8 @@ class SecureStorage {
     const tokens = this.getTokens();
     if (!tokens) return true;
     
-    // Add 5 minute buffer to account for clock skew
-    return Date.now() >= (tokens.expiresAt - 5 * 60 * 1000);
+    // Add 1 minute buffer to account for clock skew (reduced from 5 minutes)
+    return Date.now() >= (tokens.expiresAt - 1 * 60 * 1000);
   }
 
   /**
@@ -114,54 +87,87 @@ class SecureStorage {
   }
 
   /**
-   * Clear all tokens
+   * Clear all tokens from localStorage only
    */
   static clearTokens(): void {
     try {
-      // Clear from sessionStorage
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.removeItem(this.ACCESS_TOKEN_KEY);
-        sessionStorage.removeItem(this.REFRESH_TOKEN_KEY);
-        sessionStorage.removeItem(this.EXPIRES_AT_KEY);
-      }
-
-      // Clear from localStorage
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(this.ACCESS_TOKEN_KEY);
-        localStorage.removeItem(this.REFRESH_TOKEN_KEY);
-        localStorage.removeItem(this.EXPIRES_AT_KEY);
-      }
+      localStorage.removeItem(this.ACCESS_TOKEN_KEY);
+      localStorage.removeItem(this.REFRESH_TOKEN_KEY);
+      localStorage.removeItem(this.EXPIRES_AT_KEY);
+      console.log('✅ Tokens cleared from localStorage');
     } catch (error) {
       console.error('Failed to clear tokens:', error);
     }
   }
 
   /**
-   * Update only the access token (after refresh)
+   * Update only the access token (after refresh) in localStorage only
    */
   static updateAccessToken(accessToken: string, expiresIn: number): void {
     const expiresAt = Date.now() + (expiresIn * 1000);
     
     try {
-      // Try sessionStorage first
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken);
-        sessionStorage.setItem(this.EXPIRES_AT_KEY, expiresAt.toString());
-        return;
-      }
-    } catch (error) {
-      console.warn('SessionStorage not available, falling back to localStorage');
-    }
-
-    // Fallback to localStorage
-    try {
       localStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken);
       localStorage.setItem(this.EXPIRES_AT_KEY, expiresAt.toString());
+      console.log('✅ Access token updated in localStorage');
     } catch (error) {
       console.error('Failed to update access token:', error);
       throw new Error('Unable to update access token');
     }
   }
+
+  /**
+   * Store logout modal state in localStorage
+   */
+  static setLogoutModalState(visible: boolean, reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'user_deleted'): void {
+    try {
+      const modalState = { visible, reason, timestamp: Date.now() };
+      localStorage.setItem(this.LOGOUT_MODAL_KEY, JSON.stringify(modalState));
+      console.log('✅ Logout modal state stored in localStorage');
+    } catch (error) {
+      console.error('Failed to store logout modal state:', error);
+    }
+  }
+
+  /**
+   * Get logout modal state from localStorage
+   */
+  static getLogoutModalState(): { visible: boolean; reason: 'inactivity' | 'token_expired' | 'session_expired' | 'password_changed' | 'user_deleted' } | null {
+    try {
+      const stored = localStorage.getItem(this.LOGOUT_MODAL_KEY);
+      if (!stored) return null;
+      
+      const modalState = JSON.parse(stored);
+      
+      // Check if the modal state is not too old (e.g., within 1 hour)
+      const oneHour = 60 * 60 * 1000;
+      if (Date.now() - modalState.timestamp > oneHour) {
+        this.clearLogoutModalState();
+        return null;
+      }
+      
+      return {
+        visible: modalState.visible,
+        reason: modalState.reason
+      };
+    } catch (error) {
+      console.error('Failed to retrieve logout modal state:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear logout modal state from localStorage
+   */
+  static clearLogoutModalState(): void {
+    try {
+      localStorage.removeItem(this.LOGOUT_MODAL_KEY);
+      console.log('✅ Logout modal state cleared from localStorage');
+    } catch (error) {
+      console.error('Failed to clear logout modal state:', error);
+    }
+  }
+
 }
 
 export default SecureStorage;

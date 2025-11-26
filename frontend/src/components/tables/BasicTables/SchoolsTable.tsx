@@ -79,8 +79,8 @@ export default function SchoolsTable({
   totalSchools,
   ITEMS_PER_PAGE_OPTIONS,
 }: SchoolsTableProps) {
-  const [searchTerm] = useState("");
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [localSearchTerm, setLocalSearchTerm] = useState("");
   const [selectedSchools, setSelectedSchools] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -160,19 +160,20 @@ export default function SchoolsTable({
     setSelectedSchools([]);
     setSelectAll(false);
   }, [showArchived]);
-  // Debounce searchTerm -> filterOptions.searchTerm
+
+  // Sync local search term with filter options on mount
   useEffect(() => {
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      setFilterOptions((prev: any) => ({
-        ...prev,
-        searchTerm,
-      }));
-    }, 400); // 400ms debounce
+    setLocalSearchTerm(filterOptions.searchTerm || "");
+  }, []);
+
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
     return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
     };
-  }, [searchTerm, setFilterOptions]);
+  }, []);
 
   // Remove local pagination and sorting logic
   // Remove currentItems, totalPages, etc. (use backend values)
@@ -285,7 +286,7 @@ export default function SchoolsTable({
         delete newErrors[name];
       }
       setFormErrors(newErrors);
-    }, 300);
+    }, 150); // Reduced from 300ms to 150ms for better responsiveness
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -504,13 +505,26 @@ export default function SchoolsTable({
             <Input
               type="text"
               placeholder="Search schools..."
-              value={filterOptions.searchTerm}
+              value={localSearchTerm}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setFilterOptions((prev: any) => ({
-                  ...prev,
-                  searchTerm: e.target.value,
-                }));
-                setCurrentPage(1);
+                const value = e.target.value;
+                
+                // Update local state immediately for responsive UI
+                setLocalSearchTerm(value);
+                
+                // Clear existing timeout
+                if (searchDebounceRef.current) {
+                  clearTimeout(searchDebounceRef.current);
+                }
+                
+                // Set new timeout for debounced search
+                searchDebounceRef.current = setTimeout(() => {
+                  setFilterOptions((prev: any) => ({
+                    ...prev,
+                    searchTerm: value,
+                  }));
+                  setCurrentPage(1);
+                }, 300); // 300ms debounce
               }}
               className="pl-10"
             />
@@ -661,11 +675,13 @@ export default function SchoolsTable({
                   setFilterLegislativeDistrict("");
                   setFilterMunicipality("");
                   setFilterDistrict("");
+                  setLocalSearchTerm("");
                   setFilterOptions((prev: any) => ({
                     ...prev,
                     district: "",
                     legislative_district: "",
                     municipality: "",
+                    searchTerm: "",
                   }));
                 }}
                 startIcon={<X className="size-4" />}
@@ -1077,10 +1093,9 @@ export default function SchoolsTable({
                   value={selectedSchool.schoolId}
                   onChange={handleChange}
                   disabled
+                  error={!!formErrors.schoolId}
+                  hint={formErrors.schoolId}
                 />
-                {formErrors.schoolId && (
-                  <p className="text-red-500 text-sm">{formErrors.schoolId}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="schoolName" className="text-base">
@@ -1094,12 +1109,9 @@ export default function SchoolsTable({
                   placeholder="School Name"
                   value={selectedSchool.schoolName}
                   onChange={handleChange}
+                  error={!!formErrors.schoolName}
+                  hint={formErrors.schoolName}
                 />
-                {formErrors.schoolName && (
-                  <p className="text-red-500 text-sm">
-                    {formErrors.schoolName}
-                  </p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="legislativeDistrict" className="text-base">

@@ -73,12 +73,35 @@
             margin: 20px 0;
             border-left: 4px solid #FBAF3D;
         }
+        .deadline-alert.final {
+            background: #fff0f0;
+            color: #DD1F2F;
+            border-left: 4px solid #DD1F2F;
+        }
+        .deadline-alert.warning {
+            background: #fff5e6;
+            color: #b35900;
+            border-left: 4px solid #ff9900;
+        }
+        .deadline-alert.reminder {
+            background: #f0f7ff;
+            color: #094684;
+            border-left: 4px solid #094684;
+        }
         .action-items {
             background: #f0f7ff;
             padding: 16px;
             border-radius: 6px;
             margin: 20px 0;
             border-left: 4px solid #094684;
+        }
+        .action-items.final {
+            background: #fff0f0;
+            border-left: 4px solid #DD1F2F;
+        }
+        .action-items.warning {
+            background: #fff5e6;
+            border-left: 4px solid #ff9900;
         }
         .consequences {
             background: #fff0f0;
@@ -97,6 +120,10 @@
             color: #DD1F2F;
             font-weight: bold;
         }
+        .warning-text {
+            color: #b35900;
+            font-weight: bold;
+        }
         .recipient-info {
             background: #f0f7ff;
             padding: 12px 16px;
@@ -112,18 +139,80 @@
             font-size: 0.85em;
             border-top: 1px solid #e0e4e8;
         }
+        .emoji {
+            font-size: 1.2em;
+            margin-right: 5px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-reminder {
+            background: #e6f2ff;
+            color: #094684;
+        }
+        .status-warning {
+            background: #fff5e6;
+            color: #b35900;
+        }
+        .status-urgent {
+            background: #ffe6e6;
+            color: #DD1F2F;
+        }
+        .status-final {
+            background: #DD1F2F;
+            color: white;
+        }
+        .countdown {
+            font-size: 1.1em;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .countdown.final {
+            background: #ffe6e6;
+            color: #DD1F2F;
+            border: 1px dashed #DD1F2F;
+        }
+        .countdown.warning {
+            background: #fff5e6;
+            color: #b35900;
+            border: 1px dashed #ff9900;
+        }
+        .countdown.reminder {
+            background: #e6f2ff;
+            color: #094684;
+            border: 1px dashed #094684;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <img src="DepEd_logo-W.png" alt="DepEd Logo">
+            <img src="{{ deped_logo_base64 }}" alt="DepEd Logo">
             <div class="company-name">MOOE Liquidation Management System</div>
             <div class="company-subtitle">Department of Education, La Union Schools Division</div>
         </div>
 
         <div class="content">
-            <div class="notice-title">FORMAL NOTICE OF PENDING LIQUIDATION</div>
+            <div class="notice-title">
+                FORMAL NOTICE OF PENDING LIQUIDATION
+                {% if days_left == 15 %}
+                <span class="status-badge status-reminder">REMINDER</span>
+                {% elif days_left == 5 %}
+                <span class="status-badge status-warning">WARNING</span>
+                {% elif days_left == 1 %}
+                <span class="status-badge status-final">FINAL NOTICE</span>
+                {% else %}
+                <span class="status-badge status-urgent">URGENT</span>
+                {% endif %}
+            </div>
             <div class="date" style="text-align: right; margin-bottom: 20px;">{{ now|date:"F j, Y" }}</div>
 
             <div class="recipient-info">
@@ -131,37 +220,134 @@
                 <strong>From:</strong> Finance Compliance Office
             </div>
 
-            <p><strong>Subject:</strong> Urgent: Pending Liquidation for Request {{ request_id }}</p>
+            <p><strong>Subject:</strong> 
+                {% if days_left == 15 %}
+                    <span class="emoji">⏰</span> Reminder: Pending Liquidation for Request {{ request_id }}
+                {% elif days_left == 5 %}
+                    <span class="emoji">⚠️</span> Warning: Pending Liquidation for Request {{ request_id }}
+                {% elif days_left == 1 %}
+                    <span class="emoji">🚨</span> FINAL NOTICE: Pending Liquidation for Request {{ request_id }}
+                {% else %}
+                    <span class="emoji">📋</span> Urgent: Pending Liquidation for Request {{ request_id }}
+                {% endif %}
+            </p>
 
             <p>Dear {{ recipient_name }},</p>
 
-            <div class="deadline-alert">
-                This is a formal notice that your liquidation for <strong>Request {{ request_id }}</strong> remains unresolved. As of today, <span class="urgent">{{ days_left }} days remain</span> to comply with the mandatory 30-day liquidation period (deadline: <strong>{{ deadline|date:"F j, Y" }}</strong>).
+            <!-- Countdown Section -->
+            {% if days_left == 1 %}
+            <div class="countdown final">
+                <span class="emoji">⏰</span> FINAL DAY: Liquidation due TODAY <span class="emoji">⏰</span>
             </div>
+            {% elif days_left == 5 %}
+            <div class="countdown warning">
+                <span class="emoji">⚠️</span> ONLY {{ days_left }} DAYS REMAINING <span class="emoji">⚠️</span>
+            </div>
+            {% elif days_left == 15 %}
+            <div class="countdown reminder">
+                <span class="emoji">📅</span> {{ days_left }} DAYS UNTIL DEADLINE <span class="emoji">📅</span>
+            </div>
+            {% else %}
+            <div class="countdown">
+                <span class="emoji">⏳</span> {{ days_left }} DAYS REMAINING <span class="emoji">⏳</span>
+            </div>
+            {% endif %}
 
+            <!-- Main Alert Section -->
+            {% if days_left == 15 %}
+            <div class="deadline-alert reminder">
+                <span class="emoji">📋</span> This is a reminder that your liquidation for <strong>Request {{ request_id }}</strong> is due in <strong>{{ days_left }} days</strong> (deadline: <strong>{{ deadline|date:"F j, Y" }}</strong>).
+            </div>
+            {% elif days_left == 5 %}
+            <div class="deadline-alert warning">
+                <span class="emoji">⚠️</span> This is an important warning regarding the liquidation for <strong>Request {{ request_id }}</strong>. Only <span class="warning-text">{{ days_left }} days remain</span> to comply with the mandatory 30-day liquidation period (deadline: <strong>{{ deadline|date:"F j, Y" }}</strong>).
+            </div>
+            {% elif days_left == 1 %}
+            <div class="deadline-alert final">
+                <span class="emoji">🚨</span> This is your <strong>FINAL NOTICE</strong> regarding the liquidation for <strong>Request {{ request_id }}</strong>. The deadline is <span class="urgent">TODAY</span> ({{ deadline|date:"F j, Y" }}).
+            </div>
+            {% else %}
+            <div class="deadline-alert">
+                <span class="emoji">⏳</span> This is a formal notice that your liquidation for <strong>Request {{ request_id }}</strong> remains unresolved. As of today, <span class="urgent">{{ days_left }} days remain</span> to comply with the mandatory 30-day liquidation period (deadline: <strong>{{ deadline|date:"F j, Y" }}</strong>).
+            </div>
+            {% endif %}
+
+            <!-- Action Items Section -->
+            {% if days_left == 15 %}
             <div class="action-items">
-                <p><strong>Required Actions</strong><br>
+                <p><strong><span class="emoji">📝</span> Required Actions</strong><br>
+                To ensure compliance, please:</p>
+                <ol>
+                    <li>Submit all liquidation documents via the system portal.</li>
+                    <li>Confirm receipt of this notice by replying to this email.</li>
+                </ol>
+            </div>
+            {% elif days_left == 5 %}
+            <div class="action-items warning">
+                <p><strong><span class="emoji">⚠️</span> URGENT ACTION REQUIRED</strong><br>
+                To avoid escalation, you must:</p>
+                <ol>
+                    <li>Submit all liquidation documents immediately via the system portal.</li>
+                    <li>Contact the Finance Team within <span class="warning-text">48 hours</span> to confirm your compliance plan.</li>
+                </ol>
+            </div>
+            {% elif days_left == 1 %}
+            <div class="action-items final">
+                <p><strong><span class="emoji">🚨</span> IMMEDIATE ACTION REQUIRED</strong><br>
+                To avoid immediate consequences, you must:</p>
+                <ol>
+                    <li>Submit all liquidation documents <span class="urgent">TODAY</span> via the system portal.</li>
+                    <li>Contact the Finance Team <span class="urgent">IMMEDIATELY</span> to confirm submission.</li>
+                    <li>Prepare for potential salary deductions if not compliant by end of day.</li>
+                </ol>
+            </div>
+            {% else %}
+            <div class="action-items">
+                <p><strong><span class="emoji">📋</span> Required Actions</strong><br>
                 To avoid escalation, you must:</p>
                 <ol>
                     <li>Submit all liquidation documents immediately via the system portal.</li>
                     <li>Confirm receipt of this notice by replying to this email.</li>
                 </ol>
             </div>
+            {% endif %}
 
+            <!-- Consequences Section -->
             <div class="consequences">
-                <p><strong>Consequences of Non-Compliance</strong><br>
+                <p><strong><span class="emoji">🔔</span> Consequences of Non-Compliance</strong><br>
                 If liquidation is not completed by the deadline, the following actions will be taken:</p>
                 <ul>
                     <li>A formal demand letter will be issued.</li>
                     <li>Salary deductions for unrecovered amounts.</li>
                     <li>Temporary suspension of future fund requests.</li>
+                    {% if days_left == 1 %}
+                    <li class="urgent">Immediate processing of salary deductions.</li>
+                    {% endif %}
                 </ul>
             </div>
 
-            <p><strong>Assistance</strong><br>
-            If you encounter issues, contact the Finance Team at <a href="mailto:{{ contact_email }}" style="color: #094684;">{{ contact_email }}</a> within <span class="urgent">24 hours</span> to discuss alternatives.</p>
+            <!-- Assistance Section -->
+            <p><strong><span class="emoji">💁</span> Assistance</strong><br>
+            If you encounter issues, contact the Finance Team at <a href="mailto:{{ contact_email }}" style="color: #094684;">{{ contact_email }}</a> 
+            {% if days_left == 1 %}
+            <span class="urgent">IMMEDIATELY</span> 
+            {% elif days_left == 5 %}
+            <span class="warning-text">within 48 hours</span> 
+            {% else %}
+            as soon as possible
+            {% endif %}
+            to discuss alternatives.</p>
 
-            <p class="urgent">This is your final reminder.</p>
+            <!-- Final Message -->
+            {% if days_left == 1 %}
+            <p class="urgent"><span class="emoji">🚨</span> This is your FINAL NOTICE before immediate consequences are applied.</p>
+            {% elif days_left == 5 %}
+            <p class="warning-text"><span class="emoji">⚠️</span> This is a serious warning. Please address this matter immediately to avoid escalation.</p>
+            {% elif days_left == 15 %}
+            <p>Please address this matter promptly to avoid escalation.</p>
+            {% else %}
+            <p class="urgent"><span class="emoji">⏰</span> This is an important reminder.</p>
+            {% endif %}
 
             <div class="signature">
                 <p>Sincerely,</p>
@@ -172,7 +358,7 @@
         </div>
 
         <div class="footer">
-            <p>This is an official communication. Please do not reply to this email.</p>
+            <p><span class="emoji">📧</span> This is an official communication. Please do not reply to this email.</p>
         </div>
     </div>
 </body>

@@ -1,0 +1,458 @@
+{% load status_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Liquidation Review Required - MOOE Liquidation Management System</title>
+    <style>
+        /* Base Styles - Same as OTP template */
+        body {
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #334155;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Header Section */
+        .header {
+            background: linear-gradient(
+                135deg,
+                #094684 0%,
+                #dd1f2f 50%,
+                #fbaf3d 100%
+            );
+            color: #fff;
+            text-align: center;
+            padding: 40px 0 30px 0;
+            position: relative;
+        }
+        .header:after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .header img {
+            max-height: 70px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        }
+        .company-name {
+            font-size: 1.75em;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        .company-subtitle {
+            font-size: 1em;
+            opacity: 0.9;
+            font-weight: 400;
+            margin-top: 5px;
+        }
+
+        /* Content Section */
+        .content {
+            padding: 40px;
+        }
+        .greeting {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #1e293b;
+        }
+        .intro-text {
+            margin-bottom: 30px;
+            color: #475569;
+            font-size: 1.05em;
+        }
+
+        /* Liquidation Section */
+        .liquidation-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+            border-left: 5px solid #094684;
+            box-shadow: 0 4px 12px rgba(9, 70, 132, 0.1);
+        }
+        .liquidation-title {
+            font-size: 1.25em;
+            font-weight: 700;
+            color: #094684;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .liquidation-title:before {
+            content: "📄";
+            margin-right: 10px;
+            font-size: 1.3em;
+        }
+        .liquidation-details {
+            background: #fff;
+            border: 2px solid #094684;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #475569;
+        }
+        .detail-value {
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        /* Approval Tracking Section */
+        .approval-tracking {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            border-left: 5px solid #fbaf3d;
+        }
+        .approval-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: #b45309;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .approval-title:before {
+            content: "👥";
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        .approval-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .approval-step {
+            text-align: center;
+            flex: 1;
+            position: relative;
+        }
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: 600;
+            border: 3px solid #cbd5e1;
+        }
+        .step-circle.completed {
+            background: #16a34a;
+            color: white;
+            border-color: #15803d;
+        }
+        .step-circle.current {
+            background: #fbaf3d;
+            color: white;
+            border-color: #f59e0b;
+        }
+        .step-label {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #475569;
+        }
+        .step-completed .step-label {
+            color: #16a34a;
+        }
+        .step-current .step-label {
+            color: #d97706;
+        }
+        .approval-details {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        .approval-card {
+            margin: 10px 0; 
+            padding: 12px; 
+            background: #fff; 
+            border-radius: 6px; 
+            border-left: 4px solid #28a745;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .district-card { border-left-color: #28a745; }
+        .liquidator-card { border-left-color: #17a2b8; }
+        .accountant-card { border-left-color: #6f42c1; }
+
+        /* Action Section */
+        .action-section {
+            background: linear-gradient(135deg, #f0fff4 0%, #dcfce7 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 30px 0;
+            border-left: 5px solid #16a34a;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.1);
+        }
+        .action-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: #166534;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .action-title:before {
+            content: "👥";
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        .action-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #094684 0%, #1e60a5 100%);
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        /* Signature */
+        .signature {
+            margin-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 25px;
+        }
+        .signature p {
+            margin: 8px 0;
+        }
+        .signature-name {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 1.1em;
+        }
+
+        /* Footer */
+        .footer {
+            background: #f1f5f9;
+            color: #64748b;
+            text-align: center;
+            padding: 30px 25px;
+            font-size: 0.85em;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer p {
+            margin: 8px 0;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 10px;
+            }
+            .content {
+                padding: 25px;
+            }
+            .greeting {
+                font-size: 1.3em;
+            }
+            .liquidation-details {
+                padding: 15px;
+            }
+            .detail-row {
+                flex-direction: column;
+            }
+            .approval-steps {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-container">
+                <img src="{{ deped_logo_base64 }}" alt="DepEd Logo" />
+            </div>
+            <div class="company-name">MOOE Liquidation Management System</div>
+            <div class="company-subtitle">
+                Department of Education, La Union Schools Division
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="greeting">
+                Dear {{ user.first_name|default:user.username }},
+            </div>
+
+            <p class="intro-text">
+                A liquidation requires your review and approval. Please find the details below:
+            </p>
+
+            <!-- Liquidation Section -->
+            <div class="liquidation-section">
+                <div class="liquidation-title">Liquidation Details</div>
+                <div class="liquidation-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Liquidation ID:</span>
+                        <span class="detail-value">{{ object.LiquidationID }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Request ID:</span>
+                        <span class="detail-value">{{ object.request.request_id }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Submitted By:</span>
+                        <span class="detail-value">{{ object.request.user.get_full_name }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">School:</span>
+                        <span class="detail-value">{{ object.request.user.school.name }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Submission Date:</span>
+                        <span class="detail-value">{{ object.created_at|date:"F d, Y" }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Current Status:</span>
+                        <span class="detail-value">{{ object.status|format_status }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approval Tracking Section -->
+            <div class="approval-tracking">
+                <div class="approval-title">Approval Progress</div>
+                
+                <div class="approval-steps">
+                    <div class="approval-step {% if object.reviewed_by_district %}step-completed{% elif object.status == 'under_review_district' or object.status == 'submitted' %}step-current{% endif %}">
+                        <div class="step-circle {% if object.reviewed_by_district %}completed{% elif object.status == 'under_review_district' or object.status == 'submitted' %}current{% endif %}">
+                            {% if object.reviewed_by_district %}✓{% else %}1{% endif %}
+                        </div>
+                        <div class="step-label">District</div>
+                    </div>
+                    <div class="approval-step {% if object.reviewed_by_liquidator %}step-completed{% elif object.status == 'under_review_liquidator' or object.status == 'approved_district' %}step-current{% endif %}">
+                        <div class="step-circle {% if object.reviewed_by_liquidator %}completed{% elif object.status == 'under_review_liquidator' or object.status == 'approved_district' %}current{% endif %}">
+                            {% if object.reviewed_by_liquidator %}✓{% else %}2{% endif %}
+                        </div>
+                        <div class="step-label">Liquidator</div>
+                    </div>
+                    <div class="approval-step {% if object.reviewed_by_accountant %}step-completed{% elif object.status == 'under_review_division' or object.status == 'approved_liquidator' %}step-current{% endif %}">
+                        <div class="step-circle {% if object.reviewed_by_accountant %}completed{% elif object.status == 'under_review_division' or object.status == 'approved_liquidator' %}current{% endif %}">
+                            {% if object.reviewed_by_accountant %}✓{% else %}3{% endif %}
+                        </div>
+                        <div class="step-label">Accountant</div>
+                    </div>
+                </div>
+
+                <div class="approval-details">
+                    {% if object.reviewed_by_district %}
+                    <div class="approval-card district-card">
+                        <p><strong>District Approval:</strong></p>
+                        <p><strong>Approved by:</strong> {{ object.reviewed_by_district.first_name }} {{ object.reviewed_by_district.last_name }}</p>
+                        <p><strong>Position:</strong> {{ object.reviewed_by_district.position|default:"District Administrator" }}</p>
+                        {% if object.reviewed_at_district %}
+                        <p><strong>Date Approved:</strong> {{ object.reviewed_at_district|date:"F j, Y H:i" }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if object.reviewed_by_liquidator %}
+                    <div class="approval-card liquidator-card">
+                        <p><strong>Liquidator Approval:</strong></p>
+                        <p><strong>Approved by:</strong> {{ object.reviewed_by_liquidator.first_name }} {{ object.reviewed_by_liquidator.last_name }}</p>
+                        <p><strong>Position:</strong> {{ object.reviewed_by_liquidator.position|default:"Liquidator" }}</p>
+                        {% if object.reviewed_at_liquidator %}
+                        <p><strong>Date Approved:</strong> {{ object.reviewed_at_liquidator|date:"F j, Y H:i" }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if object.reviewed_by_accountant %}
+                    <div class="approval-card accountant-card">
+                        <p><strong>Accountant Approval:</strong></p>
+                        <p><strong>Approved by:</strong> {{ object.reviewed_by_accountant.first_name }} {{ object.reviewed_by_accountant.last_name }}</p>
+                        <p><strong>Position:</strong> {{ object.reviewed_by_accountant.position|default:"Accountant" }}</p>
+                        {% if object.reviewed_at_accountant %}
+                        <p><strong>Date Approved:</strong> {{ object.reviewed_at_accountant|date:"F j, Y H:i" }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Action Section -->
+            <div class="action-section">
+                <div class="action-title">Action Required</div>
+                <p style="color: #166534; margin-bottom: 15px;">
+                    ✅ Your review and approval are required for this liquidation.
+                </p>
+                <div style="text-align: center;">
+                    <a href="{{ login_url }}" class="action-button">
+                        Review Liquidation
+                    </a>
+                </div>
+            </div>
+
+            <div class="signature">
+                <p>Best regards,</p>
+                <p class="signature-name">System Administration Team</p>
+                <p>
+                    Liquidation Management System<br />
+                    Department of Education - La Union Schools Division
+                </p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>
+                &copy; {{ now|date:"Y" }} La Union Schools Division Office. All rights
+                reserved.
+            </p>
+            <p>This is an automated system message. Please do not reply to this email.</p>
+            <p>If you need assistance, contact your system administrator immediately.</p>
+        </div>
+    </div>
+</body>
+</html>

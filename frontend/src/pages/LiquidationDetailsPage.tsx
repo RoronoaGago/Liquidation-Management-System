@@ -29,7 +29,7 @@ import { formatDateTime } from "@/lib/helpers";
 // --- Type Safety Improvements ---
 interface Document {
   id: number;
-  document_url: string;
+  document_url: string | null; // Make optional for auto-approved documents
   requirement_obj: {
     requirementTitle: string;
   };
@@ -142,6 +142,7 @@ const LiquidationDetailsPage = () => {
     return savedPreference ? JSON.parse(savedPreference) : true;
   });
   const [showOnlyWithVersions, setShowOnlyWithVersions] = useState(false);
+  const [showRejectedOnly, setShowRejectedOnly] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [currentAction, setCurrentAction] = useState<
@@ -193,6 +194,20 @@ const LiquidationDetailsPage = () => {
       );
     }
 
+    // Show only expenses with rejected documents
+    if (showRejectedOnly) {
+      return expenseList.filter((expense) =>
+        expense.requirements.some((req) => {
+          const doc = documents.find(
+            (d) =>
+              d.request_priority_id === expense.id &&
+              d.requirement_id === req.requirementID
+          );
+          return doc && doc.is_approved === false;
+        })
+      );
+    }
+
     // Division admin assistant logic (already present)
     if (!hideApproved) {
       // For liquidators and accountants, when showOnlyWithVersions is true, only show expenses with documents that have versions
@@ -235,7 +250,7 @@ const LiquidationDetailsPage = () => {
       });
     }
 
-    // When hiding approved, only show expenses with pending documents
+    // When hiding reviewed, only show expenses with pending documents
     return expenseList.filter((expense) =>
       expense.requirements.some((req) => {
         const doc = documents.find(
@@ -243,10 +258,15 @@ const LiquidationDetailsPage = () => {
             d.request_priority_id === expense.id &&
             d.requirement_id === req.requirementID
         );
-        return !doc?.is_approved;
+        // For optional requirements, only count as pending if there's an uploaded document that's not reviewed
+        if (!req.is_required) {
+          return doc && doc.is_approved === null;
+        }
+        // For required requirements, count as pending if no document or not reviewed
+        return !doc || doc.is_approved === null;
       })
     );
-  }, [expenseList, documents, hideApproved, showOnlyWithVersions, user?.role, liquidation?.status]);
+  }, [expenseList, documents, hideApproved, showOnlyWithVersions, showRejectedOnly, user?.role, liquidation?.status]);
 
   useEffect(() => {
     const fetchLiquidationDetails = async () => {
@@ -352,23 +372,26 @@ const LiquidationDetailsPage = () => {
 
   // Document completion calculation
   const getCompletion = () => {
-    // Only count documents that correspond to required requirements
-    const requiredDocs = documents.filter((doc) => {
-      const expense = expenseList.find(
-        (exp) => exp.id === doc.request_priority_id
-      );
-      if (!expense) return false;
+    // Count all required requirements (whether they have documents or not)
+    let totalRequired = 0;
+    let approved = 0;
 
-      const requirement = expense.requirements.find(
-        (req) => req.requirementID === doc.requirement_id
-      );
-      return requirement?.is_required === true;
+    expenseList.forEach((expense) => {
+      expense.requirements.forEach((req) => {
+        if (req.is_required) {
+          totalRequired++;
+          const doc = documents.find(
+            (d) =>
+              d.request_priority_id === expense.id &&
+              d.requirement_id === req.requirementID
+          );
+          if (doc && doc.is_approved === true) {
+            approved++;
+          }
+        }
+      });
     });
 
-    const totalRequired = requiredDocs.length;
-    const approved = requiredDocs.filter(
-      (doc) => doc.is_approved === true
-    ).length;
     return { approved, totalRequired };
   };
 
@@ -377,9 +400,13 @@ const LiquidationDetailsPage = () => {
     (doc) => doc.reviewer_comment && doc.reviewer_comment.trim() !== ""
   );
 
-  // At the bottom of the dialog, after all required documents are reviewed:
-  const requiredDocs = documents.filter((doc) => {
-    // Find the corresponding requirement to check if it's required
+  // Create filtered list of reviewable documents for modal navigation
+  const reviewableDocuments = documents.filter((doc) => {
+    // Exclude auto-approved documents - they don't need review
+    if (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+      return false;
+    }
+    
     const expense = expenseList.find(
       (exp) => exp.id === doc.request_priority_id
     );
@@ -388,12 +415,74 @@ const LiquidationDetailsPage = () => {
     const requirement = expense.requirements.find(
       (req) => req.requirementID === doc.requirement_id
     );
-    return requirement?.is_required === true;
+    
+    return requirement !== undefined;
   });
 
-  const allReviewed =
-    requiredDocs.length > 0 &&
-    requiredDocs.every((doc) => doc.is_approved !== null);
+  // Count rejected documents for each expense
+  const getRejectedCount = (expense: Expense) => {
+    return expense.requirements.filter((req) => {
+      const doc = documents.find(
+        (d) =>
+          d.request_priority_id === expense.id &&
+          d.requirement_id === req.requirementID
+      );
+      return doc && doc.is_approved === false;
+    }).length;
+  };
+
+  // Check if expense has any rejected documents
+  const hasRejectedDocuments = () => {
+    return expenseList.some((expense) => getRejectedCount(expense) > 0);
+  };
+
+  // Auto-close toggles when all documents are reviewed
+  useEffect(() => {
+    const allReviewedExpenses = expenseList.filter((expense) => {
+      return expense.requirements.every((req) => {
+        const doc = documents.find(
+          (d) =>
+            d.request_priority_id === expense.id &&
+            d.requirement_id === req.requirementID
+        );
+        // For optional requirements, only check if there's a document
+        if (!req.is_required) {
+          return !doc || doc.is_approved !== null;
+        }
+        // For required requirements, must have a document and be reviewed
+        return doc && doc.is_approved !== null;
+      });
+    });
+
+    // Close toggles for fully reviewed expenses
+    setExpandedExpense((prev) =>
+      prev.filter((expenseId) => {
+        const expense = expenseList.find((e) => String(e.id) === expenseId);
+        return !expense || !allReviewedExpenses.includes(expense);
+      })
+    );
+  }, [documents, expenseList]);
+
+  // Check if all required documents are reviewed
+  const allReviewed = (() => {
+    // Check if all required requirements have been reviewed
+    for (const expense of expenseList) {
+      for (const req of expense.requirements) {
+        if (req.is_required) {
+          const doc = documents.find(
+            (d) =>
+              d.request_priority_id === expense.id &&
+              d.requirement_id === req.requirementID
+          );
+          // If there's a document for a required requirement, it must be reviewed
+          if (doc && doc.is_approved === null) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  })();
 
   // Approve enabled only if all required docs are approved
   const canApprove = totalRequired > 0 && approved === totalRequired;
@@ -519,10 +608,16 @@ const LiquidationDetailsPage = () => {
 
   // Always show all expenses
   const handleOpenDoc = async (doc: Document) => {
+    // Don't open auto-approved documents in modal - nothing to review
+    if (doc.is_approved === true && doc.reviewer_comment?.includes("Auto-approved")) {
+      return;
+    }
+    
     setIsLoadingDoc(true);
     setError(null);
     setViewDoc(doc);
-    const docIndex = documents.findIndex((d) => d.id === doc.id);
+    // Use the filtered list for navigation index
+    const docIndex = reviewableDocuments.findIndex((d) => d.id === doc.id);
     setCurrentDocIndex(docIndex);
     setZoomLevel(1); // Reset zoom when opening new document
   };
@@ -796,10 +891,10 @@ const LiquidationDetailsPage = () => {
                 Review the document and take action.
               </DialogDescription>
             </DialogHeader>
-            {viewDoc && (
+            {viewDoc && !(viewDoc.is_approved === true && viewDoc.reviewer_comment?.includes("Auto-approved")) && (
               <div className="space-y-4">
                 {/* File preview */}
-                <div className="relative h-[70vh] bg-gray-50 rounded-lg border custom-scrollbar">
+                <div className="relative h-[60vh] bg-gray-50 rounded-lg border custom-scrollbar">
                   {isLoadingDoc && (
                     <div className="absolute inset-0 flex items-center justify-center z-10">
                       <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -813,6 +908,12 @@ const LiquidationDetailsPage = () => {
                     <div className="h-full flex flex-col custom-scrollbar">
                       <div className="p-2 bg-gray-100 border-b flex justify-between items-center">
                         <div className="flex gap-2">
+                          {/* Resubmission indicator */}
+                          {viewDoc?.is_resubmission && (
+                            <span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded border">
+                              Resubmission #{viewDoc.resubmission_count}
+                            </span>
+                          )}
                           {/* Version comparison button */}
                           {viewDoc?.versions && viewDoc.versions.length > 0 && (
                             <button
@@ -821,21 +922,6 @@ const LiquidationDetailsPage = () => {
                             >
                               {showVersionComparison ? "Hide Versions" : "Show Versions"}
                             </button>
-                          )}
-                          {/* Comparison mode toggle */}
-                          {showVersionComparison && selectedVersion && (
-                            <button
-                              onClick={() => setComparisonMode(comparisonMode === 'single' ? 'side-by-side' : 'single')}
-                              className="px-2 py-1 text-xs bg-green-50 text-green-600 rounded border"
-                            >
-                              {comparisonMode === 'single' ? 'Side-by-Side' : 'Single View'}
-                            </button>
-                          )}
-                          {/* Resubmission indicator */}
-                          {viewDoc?.is_resubmission && (
-                            <span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded border">
-                              Resubmission #{viewDoc.resubmission_count}
-                            </span>
                           )}
                         </div>
                         <div className="flex gap-2">
@@ -863,21 +949,38 @@ const LiquidationDetailsPage = () => {
                           >
                             Reset (100%)
                           </button>
-                          <a
-                            href={viewDoc?.document_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border"
-                          >
-                            Open in New Tab
-                          </a>
+                          {viewDoc?.document_url ? (
+                            <a
+                              href={viewDoc.document_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border"
+                            >
+                              Open in New Tab
+                            </a>
+                          ) : (
+                            <span className="px-2 py-1 text-xs bg-green-50 text-green-600 rounded border">
+                              Auto-approved
+                            </span>
+                          )}
                         </div>
                       </div>
                       
-                      {/* Version comparison panel */}
+                      {/* Version comparison panel - moved to top */}
                       {showVersionComparison && viewDoc?.versions && viewDoc.versions.length > 0 && (
                         <div className="p-3 bg-gray-50 border-b">
-                          <h4 className="text-sm font-medium mb-2">Document Versions</h4>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium">Document Versions</h4>
+                            {/* Comparison mode toggle */}
+                            {selectedVersion && (
+                              <button
+                                onClick={() => setComparisonMode(comparisonMode === 'single' ? 'side-by-side' : 'single')}
+                                className="px-2 py-1 text-xs bg-green-50 text-green-600 rounded border"
+                              >
+                                {comparisonMode === 'single' ? 'Side-by-Side' : 'Single View'}
+                              </button>
+                            )}
+                          </div>
                           <div className="flex gap-2 flex-wrap">
                             <button
                               onClick={() => setSelectedVersion(null)}
@@ -911,6 +1014,7 @@ const LiquidationDetailsPage = () => {
                               </button>
                             ))}
                           </div>
+                          
                         </div>
                       )}
                       
@@ -925,7 +1029,7 @@ const LiquidationDetailsPage = () => {
                                 </div>
                                 <div className="flex-1 flex items-center justify-center">
                                   <iframe
-                                    src={`${viewDoc?.document_url}#view=fitH`}
+                                    src={`${viewDoc?.document_url}#view=fitH&toolbar=0&navpanes=0&scrollbar=1`}
                                     title="Current PDF Preview"
                                     className="border-0 bg-white"
                                     style={{
@@ -953,7 +1057,7 @@ const LiquidationDetailsPage = () => {
                                 </div>
                                 <div className="flex-1 flex items-center justify-center">
                                   <iframe
-                                    src={`${selectedVersion.document_url}#view=fitH`}
+                                    src={`${selectedVersion.document_url}#view=fitH&toolbar=0&navpanes=0&scrollbar=1`}
                                     title="Version PDF Preview"
                                     className="border-0 bg-white"
                                     style={{
@@ -976,7 +1080,7 @@ const LiquidationDetailsPage = () => {
                         ) : (
                           <div className="flex items-center justify-center h-full w-full custom-scrollbar">
                             <iframe
-                              src={`${selectedVersion?.document_url || viewDoc?.document_url}#view=fitH`}
+                              src={`${selectedVersion?.document_url || viewDoc?.document_url}#view=fitH&toolbar=0&navpanes=0&scrollbar=1`}
                               title="PDF Preview"
                               className="border-0 bg-white"
                               style={{
@@ -1024,6 +1128,34 @@ const LiquidationDetailsPage = () => {
                       </span>
                     )}
                   </div>
+
+                  {/* Version Information Section - positioned above action buttons */}
+                  {selectedVersion && (
+                    <div className="mt-4 p-3 bg-red-50 rounded border">
+                      <h5 className="text-sm font-medium mb-2">Version {selectedVersion.version_number} Details</h5>
+                      <div className="text-sm space-y-1">
+                        <div>
+                          <span className="font-medium">Status:</span> Rejected
+                        </div>
+                        {selectedVersion.reviewed_by && (
+                          <div>
+                            <span className="font-medium">Reviewed by:</span> {selectedVersion.reviewed_by.first_name} {selectedVersion.reviewed_by.last_name}
+                          </div>
+                        )}
+                        {selectedVersion.reviewed_at && (
+                          <div>
+                            <span className="font-medium">Reviewed at:</span> {new Date(selectedVersion.reviewed_at).toLocaleString()}
+                          </div>
+                        )}
+                        {selectedVersion.reviewer_comment && (
+                          <div>
+                            <span className="font-medium">Comment:</span> {selectedVersion.reviewer_comment}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 mt-4 justify-between">
                     <div className="flex gap-2">
                       {/* Only show approve/reject for district admin, hide for liquidator and accountant */}
@@ -1138,7 +1270,7 @@ const LiquidationDetailsPage = () => {
                         variant="outline"
                         disabled={currentDocIndex === 0}
                         onClick={() => {
-                          const prevDoc = documents[currentDocIndex - 1];
+                          const prevDoc = reviewableDocuments[currentDocIndex - 1];
                           setCurrentDocIndex(currentDocIndex - 1);
                           setViewDoc(prevDoc);
                           setIsLoadingDoc(true);
@@ -1147,13 +1279,13 @@ const LiquidationDetailsPage = () => {
                         Previous
                       </Button>
                       <div className="text-sm text-gray-500">
-                        {currentDocIndex + 1} of {documents.length}
+                        {currentDocIndex + 1} of {reviewableDocuments.length}
                       </div>
                       <Button
                         variant="outline"
-                        disabled={currentDocIndex === documents.length - 1}
+                        disabled={currentDocIndex === reviewableDocuments.length - 1}
                         onClick={() => {
-                          const nextDoc = documents[currentDocIndex + 1];
+                          const nextDoc = reviewableDocuments[currentDocIndex + 1];
                           setCurrentDocIndex(currentDocIndex + 1);
                           setViewDoc(nextDoc);
                           setIsLoadingDoc(true);
@@ -1250,35 +1382,6 @@ const LiquidationDetailsPage = () => {
                   </div>
                 )}
 
-                {/* Version Information Section */}
-                {selectedVersion && (
-                  <div className="mt-4 space-y-2">
-                    <h4 className="text-sm font-medium">Version {selectedVersion.version_number} Details</h4>
-                    <div className="bg-red-50 p-3 rounded text-sm space-y-2">
-                      <div>
-                        <span className="font-medium">Status:</span> Rejected
-                      </div>
-                      <div>
-                        <span className="font-medium">Uploaded:</span> {new Date(selectedVersion.uploaded_at).toLocaleString()}
-                      </div>
-                      {selectedVersion.reviewed_by && (
-                        <div>
-                          <span className="font-medium">Reviewed by:</span> {selectedVersion.reviewed_by.first_name} {selectedVersion.reviewed_by.last_name}
-                        </div>
-                      )}
-                      {selectedVersion.reviewed_at && (
-                        <div>
-                          <span className="font-medium">Reviewed at:</span> {new Date(selectedVersion.reviewed_at).toLocaleString()}
-                        </div>
-                      )}
-                      {selectedVersion.reviewer_comment && (
-                        <div>
-                          <span className="font-medium">Comment:</span> {selectedVersion.reviewer_comment}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </DialogContent>
@@ -1290,44 +1393,142 @@ const LiquidationDetailsPage = () => {
             <h3 className="text-sm font-medium text-gray-700">
               Document Completion
             </h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (user?.role === "liquidator" || user?.role === "accountant") {
-                  // For liquidators/accountants, toggle between showing only versions and showing all
-                  if (showOnlyWithVersions) {
-                    setShowOnlyWithVersions(false);
-                    setHideApproved(false);
-                  } else {
-                    setShowOnlyWithVersions(true);
-                    setHideApproved(false);
+            <div className="flex gap-2">
+              {/* Show rejected files button - only show when there are rejected documents */}
+              {hasRejectedDocuments() && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newShowRejectedOnly = !showRejectedOnly;
+                    setShowRejectedOnly(newShowRejectedOnly);
+                    
+                    if (newShowRejectedOnly) {
+                      // Reset other filters and expand toggles for expenses with rejected documents
+                      setHideApproved(false);
+                      setShowOnlyWithVersions(false);
+                      
+                      // Find and expand expenses with rejected documents
+                      const expensesWithRejected = expenseList.filter((expense) =>
+                        expense.requirements.some((req) => {
+                          const doc = documents.find(
+                            (d) =>
+                              d.request_priority_id === expense.id &&
+                              d.requirement_id === req.requirementID
+                          );
+                          return doc && doc.is_approved === false;
+                        })
+                      );
+                      
+                      setExpandedExpense(expensesWithRejected.map(expense => String(expense.id)));
+                    } else {
+                      // Reset other filters when turning off rejected filter
+                      setHideApproved(false);
+                      setShowOnlyWithVersions(false);
+                      // Close all toggles when turning off rejected filter
+                      setExpandedExpense([]);
+                    }
+                  }}
+                  className={showRejectedOnly ? "bg-red-50 text-red-700 border-red-200" : ""}
+                >
+                  {showRejectedOnly ? "Hide Rejected Files" : "Show Rejected Files"}
+                </Button>
+              )}
+              
+              {/* Main filter button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (showRejectedOnly) {
+                    setShowRejectedOnly(false);
                   }
-                } else {
-                  // For other users, use the original logic
-                  setHideApproved(!hideApproved);
+                  
+                  if (user?.role === "liquidator" || user?.role === "accountant") {
+                    // For liquidators/accountants, toggle between showing only versions and showing all
+                    const newShowOnlyWithVersions = !showOnlyWithVersions;
+                    setShowOnlyWithVersions(newShowOnlyWithVersions);
+                    setHideApproved(false);
+                    
+                    if (newShowOnlyWithVersions) {
+                      // Expand toggles for expenses with versions
+                      const expensesWithVersions = expenseList.filter((expense) =>
+                        expense.requirements.some((req) => {
+                          const doc = documents.find(
+                            (d) =>
+                              d.request_priority_id === expense.id &&
+                              d.requirement_id === req.requirementID
+                          );
+                          return doc?.versions && doc.versions.length > 0;
+                        })
+                      );
+                      setExpandedExpense(expensesWithVersions.map(expense => String(expense.id)));
+                    } else {
+                      // Show all documents - expand all toggles
+                      setExpandedExpense(expenseList.map(expense => String(expense.id)));
+                    }
+                  } else {
+                    // For other users, use the original logic
+                    const newHideApproved = !hideApproved;
+                    setHideApproved(newHideApproved);
+                    
+                    if (newHideApproved) {
+                      // Hide reviewed - expand toggles for expenses with pending documents
+                      const expensesWithPending = expenseList.filter((expense) =>
+                        expense.requirements.some((req) => {
+                          const doc = documents.find(
+                            (d) =>
+                              d.request_priority_id === expense.id &&
+                              d.requirement_id === req.requirementID
+                          );
+                          // For optional requirements, only count as pending if there's an uploaded document that's not reviewed
+                          if (!req.is_required) {
+                            return doc && doc.is_approved === null;
+                          }
+                          // For required requirements, count as pending if no document or not reviewed
+                          return !doc || doc.is_approved === null;
+                        })
+                      );
+                      setExpandedExpense(expensesWithPending.map(expense => String(expense.id)));
+                    } else {
+                      // Show all documents - expand all toggles
+                      setExpandedExpense(expenseList.map(expense => String(expense.id)));
+                    }
+                  }
+                }}
+              >
+                {(user?.role === "liquidator" || user?.role === "accountant") 
+                  ? (showOnlyWithVersions ? "Show All Documents" : "Show Only With Versions")
+                  : (hideApproved ? "Show All Documents" : "Hide Reviewed Documents")
                 }
-              }}
-            >
-              {(user?.role === "liquidator" || user?.role === "accountant") 
-                ? (showOnlyWithVersions ? "Show All Documents" : "Show Only With Versions")
-                : (hideApproved ? "Show All Documents" : "Hide Approved Documents")
-              }
-            </Button>
+              </Button>
+            </div>
           </div>
           {filteredExpenses.length === 0 ? (
             <div className="text-gray-500">
-              All documents have been approved.
+              {showRejectedOnly 
+                ? "No rejected documents found." 
+                : (user?.role === "liquidator" || user?.role === "accountant") && showOnlyWithVersions
+                ? "No documents with versions found."
+                : hideApproved
+                ? "No pending documents found."
+                : "All documents have been reviewed."
+              }
             </div>
           ) : (
             filteredExpenses.map((expense) => {
-              const hasUnapprovedDocs = expense.requirements.some((req) => {
+              const hasUnreviewedDocs = expense.requirements.some((req) => {
                 const doc = documents.find(
                   (d) =>
                     d.request_priority_id === expense.id &&
                     d.requirement_id === req.requirementID
                 );
-                return !doc || !doc.is_approved;
+                // For optional requirements, only count as pending if there's an uploaded document that's not reviewed
+                if (!req.is_required) {
+                  return doc && doc.is_approved === null;
+                }
+                // For required requirements, count as pending if no document or not reviewed
+                return !doc || doc.is_approved === null;
               });
 
               return (
@@ -1352,10 +1553,23 @@ const LiquidationDetailsPage = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {hasUnapprovedDocs && (
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                          Pending
-                        </span>
+                      {hasUnreviewedDocs && (
+                        (() => {
+                          const rejectedCount = getRejectedCount(expense);
+                          if (rejectedCount > 0) {
+                            return (
+                              <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                                {rejectedCount} Rejected
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                                Pending
+                              </span>
+                            );
+                          }
+                        })()
                       )}
                       {expandedExpense.includes(String(expense.id)) ? (
                         <ChevronUp className="w-5 h-5" />
@@ -1389,12 +1603,16 @@ const LiquidationDetailsPage = () => {
                         })
                         // Filter documents based on hideApproved setting and version preference
                         .filter(({ doc }) => {
+                          // Show only rejected documents when showRejectedOnly is true
+                          if (showRejectedOnly) {
+                            return doc && doc.is_approved === false;
+                          }
                           // For liquidators and accountants, when showOnlyWithVersions is true, only show documents with versions
                           if ((user?.role === "liquidator" || user?.role === "accountant") && showOnlyWithVersions && !hideApproved) {
                             return doc?.versions && doc.versions.length > 0;
                           }
-                          // Default filtering logic
-                          return !hideApproved || !doc?.is_approved;
+                          // Default filtering logic - hide reviewed documents (both approved and rejected)
+                          return !hideApproved || doc?.is_approved === null;
                         })
                         .map(({ req, doc }) => (
                           <div
@@ -1421,7 +1639,7 @@ const LiquidationDetailsPage = () => {
                                     Status:{" "}
                                     {doc?.is_approved === true ? (
                                       <span className="text-green-600">
-                                        Approved
+                                        {doc?.reviewer_comment?.includes("Auto-approved") ? "Auto-approved" : "Approved"}
                                       </span>
                                     ) : doc?.is_approved === false ? (
                                       <span className="text-red-600">
@@ -1432,16 +1650,17 @@ const LiquidationDetailsPage = () => {
                                         Pending
                                       </span>
                                     )}
+                                    {/* Auto-approved indicator */}
+                                    {doc?.reviewer_comment?.includes("Auto-approved") && (
+                                      <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                        Auto-approved
+                                      </span>
+                                    )}
                                     {/* Version indicator for liquidators and accountants */}
                                     {(user?.role === "liquidator" || user?.role === "accountant") && 
                                      doc?.versions && doc.versions.length > 0 && (
                                       <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
                                         {doc.versions.length} Version{doc.versions.length > 1 ? 's' : ''}
-                                      </span>
-                                    )}
-                                    {doc?.reviewer_comment && (
-                                      <span className="ml-2 text-red-500">
-                                        {doc.reviewer_comment}
                                       </span>
                                     )}
                                   </div>
@@ -1458,7 +1677,7 @@ const LiquidationDetailsPage = () => {
                                     className="flex items-center gap-2"
                                   >
                                     <Eye className="w-4 h-4" />
-                                    View Current
+                                    {doc.versions && doc.versions.length > 0 ? "View Current" : "Preview"}
                                   </Button>
                                   {doc.versions && doc.versions.length > 0 && (
                                     <span className="text-xs text-gray-500 text-center">
@@ -1484,125 +1703,161 @@ const LiquidationDetailsPage = () => {
 
         {/* Approve/Reject Report Buttons (District Admin) */}
         {showDistrictAdminActions && (
-          <div className="flex gap-4 justify-end mt-8">
-            <Button
-              onClick={handleRejectReport}
-              disabled={
-                (actionLoading && currentReportAction === "reject") ||
-                !hasAnyComment
-              }
-              variant="destructive"
-              startIcon={
-                actionLoading && currentReportAction === "reject" ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <AlertCircle className="h-5 w-5" />
-                )
-              }
-            >
-              {actionLoading && currentReportAction === "reject"
-                ? "Rejecting..."
-                : "Reject Liquidation Report"}
-            </Button>
-            <Button
-              onClick={handleApproveReport}
-              disabled={
-                !canApprove ||
-                (actionLoading && currentReportAction === "approve")
-              }
-              color="success"
-              startIcon={
-                actionLoading && currentReportAction === "approve" ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-5 w-5" />
-                )
-              }
-            >
-              {actionLoading && currentReportAction === "approve"
-                ? "Approving..."
-                : "Approve Liquidation Report"}
-            </Button>
+          <div className="flex flex-col items-end gap-3 mt-8">
+            <div className="flex gap-4">
+              <Button
+                onClick={handleRejectReport}
+                disabled={
+                  (actionLoading && currentReportAction === "reject") ||
+                  !hasAnyComment
+                }
+                variant="destructive"
+                startIcon={
+                  actionLoading && currentReportAction === "reject" ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5" />
+                  )
+                }
+              >
+                {actionLoading && currentReportAction === "reject"
+                  ? "Rejecting..."
+                  : "Reject Liquidation Report"}
+              </Button>
+              <Button
+                onClick={handleApproveReport}
+                disabled={
+                  !canApprove ||
+                  (actionLoading && currentReportAction === "approve")
+                }
+                color="success"
+                startIcon={
+                  actionLoading && currentReportAction === "approve" ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5" />
+                  )
+                }
+              >
+                {actionLoading && currentReportAction === "approve"
+                  ? "Approving..."
+                  : "Approve Liquidation Report"}
+              </Button>
+            </div>
+            
+            {/* Helper text for disabled approve button */}
+            {!canApprove && (
+              <div className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                <span>
+                  Please review and approve all required documents before approving the liquidation report
+                </span>
+              </div>
+            )}
           </div>
         )}
         {/* Approve/Reject Buttons (Liquidator) */}
         {showLiquidatorActions && (
-          <div className="flex gap-4 justify-end mt-8">
-            <Button
-              onClick={handleRejectReport}
-              disabled={actionLoading && currentReportAction === "reject"}
-              variant="destructive"
-              startIcon={
-                actionLoading && currentReportAction === "reject" ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <AlertCircle className="h-5 w-5" />
-                )
-              }
-            >
-              {actionLoading && currentReportAction === "reject"
-                ? "Rejecting..."
-                : "Reject Liquidation Report"}
-            </Button>
-            <Button
-              onClick={handleApproveReport}
-              disabled={
-                !canApprove ||
-                (actionLoading && currentReportAction === "approve")
-              }
-              color="success"
-              startIcon={
-                actionLoading && currentReportAction === "approve" ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-5 w-5" />
-                )
-              }
-            >
-              {actionLoading && currentReportAction === "approve"
-                ? "Approving..."
-                : "Approve Liquidation Report"}
-            </Button>
+          <div className="flex flex-col items-end gap-3 mt-8">
+            <div className="flex gap-4">
+              <Button
+                onClick={handleRejectReport}
+                disabled={actionLoading && currentReportAction === "reject"}
+                variant="destructive"
+                startIcon={
+                  actionLoading && currentReportAction === "reject" ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5" />
+                  )
+                }
+              >
+                {actionLoading && currentReportAction === "reject"
+                  ? "Rejecting..."
+                  : "Reject Liquidation Report"}
+              </Button>
+              <Button
+                onClick={handleApproveReport}
+                disabled={
+                  !canApprove ||
+                  (actionLoading && currentReportAction === "approve")
+                }
+                color="success"
+                startIcon={
+                  actionLoading && currentReportAction === "approve" ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5" />
+                  )
+                }
+              >
+                {actionLoading && currentReportAction === "approve"
+                  ? "Approving..."
+                  : "Approve Liquidation Report"}
+              </Button>
+            </div>
+            
+            {/* Helper text for disabled approve button */}
+            {!canApprove && (
+              <div className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                <span>
+                  Please review and approve all required documents before approving the liquidation report
+                </span>
+              </div>
+            )}
           </div>
         )}
         {/* Finalize/Reject Buttons (Division Accountant) */}
         {showAccountantActions && (
-          <div className="flex gap-4 justify-end mt-8">
-            <Button
-              onClick={handleRejectReport}
-              disabled={actionLoading && currentReportAction === "reject"}
-              variant="destructive"
-              startIcon={
-                actionLoading && currentReportAction === "reject" ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <AlertCircle className="h-5 w-5" />
-                )
-              }
-            >
-              {actionLoading && currentReportAction === "reject"
-                ? "Rejecting..."
-                : "Reject Liquidation Report"}
-            </Button>
-            <Button
-              onClick={handleApproveReport}
-              disabled={
-                !canApprove ||
-                (actionLoading && currentReportAction === "approve")
-              }
-              color="success"
-              startIcon={
-                actionLoading && currentReportAction === "approve" ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-5 w-5" />
-                )
-              }
-            >
-              {actionLoading && currentReportAction === "approve"
-                ? "Finalizing..."
-                : "Finalize Liquidation Report"}
-            </Button>
+          <div className="flex flex-col items-end gap-3 mt-8">
+            <div className="flex gap-4">
+              <Button
+                onClick={handleRejectReport}
+                disabled={actionLoading && currentReportAction === "reject"}
+                variant="destructive"
+                startIcon={
+                  actionLoading && currentReportAction === "reject" ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5" />
+                  )
+                }
+              >
+                {actionLoading && currentReportAction === "reject"
+                  ? "Rejecting..."
+                  : "Reject Liquidation Report"}
+              </Button>
+              <Button
+                onClick={handleApproveReport}
+                disabled={
+                  !canApprove ||
+                  (actionLoading && currentReportAction === "approve")
+                }
+                color="success"
+                startIcon={
+                  actionLoading && currentReportAction === "approve" ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5" />
+                  )
+                }
+              >
+                {actionLoading && currentReportAction === "approve"
+                  ? "Finalizing..."
+                  : "Finalize Liquidation Report"}
+              </Button>
+            </div>
+            
+            {/* Helper text for disabled approve button */}
+            {!canApprove && (
+              <div className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                <span>
+                  Please review and approve all required documents before finalizing the liquidation report
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
