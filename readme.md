@@ -92,7 +92,7 @@ Develop a comprehensive MOOE Liquidation Report System that addresses the docume
 
 ### ⏰ Smart Notifications & Alerts
 ![Notifications](./frontend/public/images/help/reminder-notification.png)
-*Automated reminder system*
+*Automated e-mail and in-app reminder system*
 
 - **Configurable deadline alerts** (15-day, 5-day, and overdue notifications)
 - **System notifications** and email reminders
