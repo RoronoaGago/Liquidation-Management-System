@@ -1,5 +1,3 @@
-Perfect! Let me integrate this crucial information to create a more comprehensive and accurate README that properly showcases the problem-solution approach.
-
 # MOOE Liquidation Management System
 
 A comprehensive web-based platform designed to streamline and automate the Maintenance and Other Operating Expenses (MOOE) liquidation process for the Department of Education - La Union Schools Division.
@@ -93,7 +91,7 @@ Develop a comprehensive MOOE Liquidation Report System that addresses the docume
 - **Progress tracking** with visual indicators
 
 ### ⏰ Smart Notifications & Alerts
-![Notifications](./frontend/public/images/help/notifications.png)
+![Notifications](./frontend/public/images/help/reminder-notification.png)
 *Automated reminder system*
 
 - **Configurable deadline alerts** (15-day, 5-day, and overdue notifications)
